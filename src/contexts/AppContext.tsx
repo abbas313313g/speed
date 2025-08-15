@@ -100,14 +100,15 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [discount, setDiscount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [allUsers, setAllUsers] = useLocalStorage<User[]>('speedShopAllUsers', mockUsers);
-  const [products, setProducts] = useLocalStorage<Product[]>('speedShopProducts', mockProducts);
-  const [allOrders, setAllOrders] = useLocalStorage<Order[]>('speedShopAllOrders', []);
-  const [storedCategories, setStoredCategories] = useLocalStorage<StoredCategory[]>('speedShopCategories', mockCategories);
-  const [restaurants, setRestaurants] = useLocalStorage<Restaurant[]>('speedShopRestaurants', mockRestaurants);
-  const [banners, setBanners] = useLocalStorage<Banner[]>('speedShopBanners', []);
+  // Use state for data that needs to be modified, initialized from mock data
+  const [allUsers, setAllUsers] = useState<User[]>(mockUsers);
+  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [storedCategories, setStoredCategories] = useState<StoredCategory[]>(mockCategories);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>(mockRestaurants);
+  const [banners, setBanners] = useState<Banner[]>([]);
   
-  const categories: Category[] = storedCategories.map(c => ({...c, icon: iconMap[c.iconName]}));
+  const categories: Category[] = storedCategories.map(c => ({...c, icon: iconMap[c.iconName] || ShoppingBasket}));
 
 
   const router = useRouter();
@@ -237,7 +238,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     );
     setOrders(prevOrders => update(prevOrders));
     setAllOrders(prevAllOrders => update(prevAllOrders));
-  }, [setOrders, setAllOrders]);
+  }, [setOrders]);
 
   const placeOrder = () => {
     if (!user || cart.length === 0) return;
@@ -270,17 +271,17 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         bestSeller: Math.random() < 0.2,
         ...productData
     };
-    setProducts([...products, newProduct]);
+    setProducts(prev => [...prev, newProduct]);
     toast({ title: "تمت إضافة المنتج بنجاح" });
   }
 
   const updateProduct = (updatedProduct: Product) => {
-    setProducts(products.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
     toast({ title: "تم تحديث المنتج بنجاح" });
   }
 
   const deleteProduct = (productId: string) => {
-    setProducts(products.filter(p => p.id !== productId));
+    setProducts(prev => prev.filter(p => p.id !== productId));
     toast({ title: "تم حذف المنتج بنجاح", variant: "destructive" });
   }
 
@@ -290,17 +291,17 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         name: categoryData.name,
         iconName: categoryData.iconName,
     };
-    setStoredCategories([...storedCategories, newCategory]);
+    setStoredCategories(prev => [...prev, newCategory]);
     toast({ title: "تمت إضافة القسم بنجاح" });
   }
 
   const updateCategory = (updatedCategory: Omit<Category, 'icon'>) => {
-    setStoredCategories(storedCategories.map(c => c.id === updatedCategory.id ? { id: c.id, name: updatedCategory.name, iconName: updatedCategory.iconName } : c));
+    setStoredCategories(prev => prev.map(c => c.id === updatedCategory.id ? { id: c.id, name: updatedCategory.name, iconName: updatedCategory.iconName } : c));
     toast({ title: "تم تحديث القسم بنجاح" });
   }
 
   const deleteCategory = (categoryId: string) => {
-    setStoredCategories(storedCategories.filter(c => c.id !== categoryId));
+    setStoredCategories(prev => prev.filter(c => c.id !== categoryId));
     toast({ title: "تم حذف القسم بنجاح", variant: "destructive" });
   }
   
@@ -309,17 +310,17 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         id: `res-${Date.now()}`,
         ...restaurantData
     };
-    setRestaurants([...restaurants, newRestaurant]);
+    setRestaurants(prev => [...prev, newRestaurant]);
     toast({ title: "تمت إضافة المتجر بنجاح" });
   }
 
   const updateRestaurant = (updatedRestaurant: Restaurant) => {
-    setRestaurants(restaurants.map(r => r.id === updatedRestaurant.id ? updatedRestaurant : r));
+    setRestaurants(prev => prev.map(r => r.id === updatedRestaurant.id ? updatedRestaurant : r));
     toast({ title: "تم تحديث المتجر بنجاح" });
   }
 
   const deleteRestaurant = (restaurantId: string) => {
-    setRestaurants(restaurants.filter(r => r.id !== restaurantId));
+    setRestaurants(prev => prev.filter(r => r.id !== restaurantId));
     toast({ title: "تم حذف المتجر بنجاح", variant: "destructive" });
   }
   
@@ -328,7 +329,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         id: `banner-${Date.now()}`,
         ...bannerData
     };
-    setBanners([...banners, newBanner]);
+    setBanners(prev => [...prev, newBanner]);
     toast({ title: "تمت إضافة البنر بنجاح" });
   }
 
