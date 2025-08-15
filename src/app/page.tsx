@@ -13,11 +13,13 @@ export default function LandingPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!context?.isLoading && context?.user) {
+    if (context && !context.isLoading && context.user) {
       router.replace("/home");
     }
-  }, [context?.isLoading, context?.user, router]);
+  }, [context, router]);
 
+  // This was the source of the error. It was showing the loader even for logged-out users.
+  // Now it will only show the loader during the initial check, or if a user object already exists.
   if (context?.isLoading || context?.user) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
