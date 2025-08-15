@@ -2,7 +2,7 @@
 "use client";
 
 import { useContext, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { AppContext } from '@/contexts/AppContext';
 import { BottomNav } from '@/components/BottomNav';
 import { Loader2, ShoppingCart } from 'lucide-react';
@@ -14,20 +14,26 @@ export default function MainAppLayout({
 }) {
   const context = useContext(AppContext);
   const router = useRouter();
+  const pathname = usePathname();
   
   useEffect(() => {
     if (!context) return;
     
-    // If loading is finished and there's still no user, redirect to login
-    if (!context.isLoading && !context.user) {
-      router.replace('/login');
+    if (!context.isLoading) {
+      if (!context.user) {
+        // If no user, redirect to login
+        router.replace('/login');
+      } else if (!context.user.isProfileComplete && pathname !== '/complete-profile') {
+        // If user exists but profile is incomplete, redirect to complete-profile
+        router.replace('/complete-profile');
+      }
     }
 
-  }, [context?.isLoading, context?.user, router]);
+  }, [context?.isLoading, context?.user, router, pathname]);
 
-  // Show a loading screen while the context is loading OR if there is no user yet.
-  // This prevents a flash of the main layout before the redirect can happen.
-  if (context?.isLoading || !context?.user) {
+  // Show a loading screen while the context is loading OR if there is no user yet
+  // OR if the profile is not complete. This prevents a flash of content before redirect.
+  if (context?.isLoading || !context?.user || (!context?.user.isProfileComplete && pathname !== '/complete-profile')) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />

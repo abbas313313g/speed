@@ -6,24 +6,15 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import type { User, CartItem, Product, Order, OrderStatus, Category, Restaurant, Banner, Address } from '@/lib/types';
 import { 
-    products as initialProductsData, 
     categories as initialCategoriesData, 
-    restaurants as initialRestaurantsData,
-    deliveryZones
 } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
 import { ShoppingBasket } from 'lucide-react';
 import { 
-    getAuth, 
     onAuthStateChanged, 
-    createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword, 
     signOut,
-    User as FirebaseUser
 } from 'firebase/auth';
 import { 
-    getFirestore, 
-    collection, 
     doc, 
     getDoc, 
     setDoc, 
@@ -32,6 +23,7 @@ import {
     updateDoc,
     deleteDoc,
     query,
+    collection,
     where,
     getDocs
 } from 'firebase/firestore';
@@ -55,9 +47,8 @@ interface AppContextType {
   restaurants: Restaurant[];
   banners: Banner[];
   isLoading: boolean;
-  login: (phone: string, password?: string) => Promise<boolean>;
   logout: () => void;
-  signup: (userData: Omit<User, 'id' | 'email' | 'isAdmin'>) => Promise<void>;
+  completeUserProfile: (userData: Pick<User, 'name' | 'deliveryZone' | 'addresses'>) => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
@@ -142,7 +133,23 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 if (userDocSnap.exists()) {
                     setUser({ id: userDocSnap.id, ...userDocSnap.data() } as User);
                 } else {
-                    setUser(null); // Should not happen if signup is correct
+                    // This is a new user, create a partial user object
+                    const q = query(collection(db, 'users'));
+                    const querySnapshot = await getDocs(q);
+                    const isFirstUser = querySnapshot.empty;
+
+                    const newUser: User = {
+                        id: firebaseUser.uid,
+                        phone: firebaseUser.phoneNumber!,
+                        isProfileComplete: false,
+                        isAdmin: isFirstUser,
+                        usedCoupons: [],
+                        addresses: [],
+                        name: '',
+                        deliveryZone: { name: '', fee: 0 },
+                    };
+                    await setDoc(userDocRef, newUser);
+                    setUser(newUser);
                 }
             } else {
                 setUser(null);
@@ -186,69 +193,27 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }, [categories]);
 
     // --- Auth & User ---
-    const login = async (phone: string, password?: string): Promise<boolean> => {
-        setIsLoading(true);
-        try {
-            const q = query(collection(db, "users"), where("phone", "==", phone));
-            const querySnapshot = await getDocs(q);
-            
-            if(querySnapshot.empty){
-                toast({ title: "المستخدم غير موجود", description: "رقم الهاتف الذي أدخلته غير مسجل.", variant: "destructive" });
-                setIsLoading(false);
-                return false;
-            }
-            
-            const userDoc = querySnapshot.docs[0];
-            const userData = userDoc.data() as User;
-            
-            await signInWithEmailAndPassword(auth, userData.email, password!);
-            // onAuthStateChanged will handle setting the user and loading state
-            return true;
-        } catch (error: any) {
-            console.error("Login Error:", error);
-            let description = "الرجاء التأكد من معلوماتك والمحاولة مرة أخرى.";
-            if(error.code === 'auth/wrong-password') {
-                description = "كلمة المرور التي أدخلتها غير صحيحة.";
-            }
-            toast({ title: "خطأ في تسجيل الدخول", description, variant: "destructive" });
-            setIsLoading(false);
-            return false;
-        }
-    };
-
     const logout = async () => {
         await signOut(auth);
+        // Clear all local storage for the user
+        localStorage.removeItem(`cart_${user?.id}`);
+        localStorage.removeItem(`discount_${user?.id}`);
         router.push('/login');
     };
-
-    const signup = async (userData: Omit<User, 'id'|'isAdmin'|'email'>) => {
-        const phoneQuery = query(collection(db, "users"), where("phone", "==", userData.phone));
-        const phoneQuerySnapshot = await getDocs(phoneQuery);
-        if (!phoneQuerySnapshot.empty) {
-            toast({ title: "رقم الهاتف مستخدم بالفعل", variant: 'destructive' });
-            throw new Error("Phone number already exists");
-        }
-
-        const email = `${userData.phone}@speedshop.app`;
-        
-        const q = query(collection(db, 'users'));
-        const querySnapshot = await getDocs(q);
-        const isFirstUser = querySnapshot.empty;
-
-        const firebaseUser = await createUserWithEmailAndPassword(auth, email, userData.password!);
-        
-        const newUser: User = {
-            id: firebaseUser.user.uid,
+    
+    const completeUserProfile = async (userData: Pick<User, 'name' | 'deliveryZone' | 'addresses'>) => {
+        if (!user) return;
+        const userDocRef = doc(db, "users", user.id);
+        const updatedData = {
             name: userData.name,
-            phone: userData.phone,
-            email: email,
             deliveryZone: userData.deliveryZone,
             addresses: userData.addresses,
-            isAdmin: isFirstUser,
-            usedCoupons: [],
+            isProfileComplete: true,
         };
-        await setDoc(doc(db, "users", firebaseUser.user.uid), newUser);
-    };
+        await updateDoc(userDocRef, updatedData);
+        setUser({ ...user, ...updatedData });
+        router.push('/home');
+    }
     
     const addAddress = async (address: Omit<Address, 'id'>) => {
         if (!user) return;
@@ -521,9 +486,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         restaurants,
         banners,
         isLoading,
-        login,
         logout,
-        signup,
+        completeUserProfile,
         addAddress,
         addToCart,
         removeFromCart,
@@ -553,5 +517,3 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
-
-    

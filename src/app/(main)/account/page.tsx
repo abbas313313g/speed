@@ -31,14 +31,6 @@ export default function AccountPage() {
   const { user, logout, addAddress } = context;
   const userInitial = user.name ? user.name.charAt(0).toUpperCase() : '?';
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-        title: "تم النسخ!",
-        description: "تم نسخ الرمز السريع إلى الحافظة.",
-    });
-  };
-
   const handleGetLocation = () => {
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
@@ -98,17 +90,6 @@ export default function AccountPage() {
                 <MapPin className="h-6 w-6 text-primary" />
                 <span>{user.deliveryZone.name}</span>
            </div>
-           {user.loginCode && (
-            <div className="flex items-center gap-4">
-                  <KeyRound className="h-6 w-6 text-primary" />
-                  <span 
-                    className="font-bold text-lg cursor-pointer" 
-                    onClick={() => copyToClipboard(user.loginCode!)}
-                  >
-                    {user.loginCode}
-                  </span>
-            </div>
-           )}
         </CardContent>
       </Card>
       

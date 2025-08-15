@@ -3,13 +3,11 @@ export interface User {
   id: string;
   name: string;
   phone: string;
-  password?: string; // Only used for local mock auth
   deliveryZone: DeliveryZone;
-  addresses?: Address[];
-  isAdmin?: boolean;
-  usedCoupons?: string[];
-  loginCode?: string;
-  email: string;
+  addresses: Address[];
+  isAdmin: boolean;
+  usedCoupons: string[];
+  isProfileComplete: boolean;
 }
 
 export interface Address {

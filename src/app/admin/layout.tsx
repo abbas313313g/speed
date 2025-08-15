@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { AppContext } from '@/contexts/AppContext';
+import { useRouter } from 'next/navigation';
 
 
 export default function AdminLayout({
@@ -17,6 +18,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const context = useContext(AppContext);
+  const router = useRouter();
 
   // If AppContext is loading, show a full-screen loader
   if (context?.isLoading) {
@@ -38,7 +40,7 @@ export default function AdminLayout({
                 <CardDescription>أنت لا تملك الصلاحيات اللازمة للوصول لهذه الصفحة.</CardDescription>
             </CardHeader>
             <CardContent>
-                 <Button onClick={() => window.location.href = '/home'} className="w-full">
+                 <Button onClick={() => router.push('/home')} className="w-full">
                     العودة للتطبيق
                 </Button>
             </CardContent>
