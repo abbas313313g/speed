@@ -11,7 +11,6 @@ const firebaseConfig = {
   storageBucket: "speed-shop-8tchr.firebasestorage.app",
   apiKey: "AIzaSyB7DzyOPNgIopY84WufXVr_HE_cXS8EGMg",
   authDomain: "speed-shop-8tchr.firebaseapp.com",
-  messagingSenderId: "631051036670",
 };
 
 // Initialize Firebase
