@@ -4,6 +4,7 @@ export interface User {
   name: string;
   phone: string;
   deliveryZone: DeliveryZone;
+  isAdmin?: boolean;
 }
 
 export interface Product {
@@ -40,7 +41,7 @@ export interface DeliveryZone {
   fee: number;
 }
 
-export type OrderStatus = 'confirmed' | 'preparing' | 'on_the_way' | 'delivered';
+export type OrderStatus = 'confirmed' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled';
 
 export interface Order {
     id: string;
@@ -49,4 +50,6 @@ export interface Order {
     date: string;
     status: OrderStatus;
     estimatedDelivery: string;
+    user?: Pick<User, 'id' | 'name' | 'phone'>;
+    revenue?: number;
 }

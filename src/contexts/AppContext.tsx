@@ -6,11 +6,14 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import type { User, CartItem, Product, Order, OrderStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { users as mockUsers } from '@/lib/mock-data';
 
 interface AppContextType {
   user: User | null;
+  allUsers: User[];
   cart: CartItem[];
   orders: Order[];
+  allOrders: Order[];
   isLoading: boolean;
   login: (phone: string) => boolean;
   logout: () => void;
@@ -20,6 +23,8 @@ interface AppContextType {
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   placeOrder: () => void;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
+  addProduct: (product: Omit<Product, 'id' | 'restaurantId'>) => void;
   totalCartPrice: number;
   deliveryFee: number;
 }
@@ -28,81 +33,89 @@ export const AppContext = createContext<AppContextType | null>(null);
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
 
-  useEffect(() => {
+  const loadFromLocalStorage = () => {
     try {
       const storedUser = localStorage.getItem('speedShopUser');
-      const storedCart = localStorage.getItem('speedShopCart');
-      const storedOrders = localStorage.getItem('speedShopOrders');
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
-      }
-      if (storedCart) {
-        setCart(JSON.parse(storedCart));
-      }
-      if (storedOrders) {
-        setOrders(JSON.parse(storedOrders));
-      }
+      const storedCart = localStorage.getItem(`speedShopCart_${storedUser ? JSON.parse(storedUser).id : ''}`);
+      const storedOrders = localStorage.getItem(`speedShopOrders_${storedUser ? JSON.parse(storedUser).id : ''}`);
+      const storedAllOrders = localStorage.getItem('speedShopAllOrders');
+      const storedAllUsers = localStorage.getItem('speedShopAllUsers');
+
+      if (storedUser) setUser(JSON.parse(storedUser));
+      if (storedCart) setCart(JSON.parse(storedCart));
+      if (storedOrders) setOrders(JSON.parse(storedOrders));
+      
+      setAllOrders(storedAllOrders ? JSON.parse(storedAllOrders) : []);
+      setAllUsers(storedAllUsers ? JSON.parse(storedAllUsers) : mockUsers);
+      
     } catch (error) {
       console.error("Failed to parse from localStorage", error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  useEffect(() => {
+    loadFromLocalStorage();
   }, []);
 
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem('speedShopUser', JSON.stringify(user));
+  const saveToLocalStorage = useCallback(() => {
+    if (isLoading) return;
+    localStorage.setItem('speedShopUser', JSON.stringify(user));
+    if (user) {
+        localStorage.setItem(`speedShopCart_${user.id}`, JSON.stringify(cart));
+        localStorage.setItem(`speedShopOrders_${user.id}`, JSON.stringify(orders));
     }
-  }, [user, isLoading]);
+    localStorage.setItem('speedShopAllOrders', JSON.stringify(allOrders));
+    localStorage.setItem('speedShopAllUsers', JSON.stringify(allUsers));
+  }, [user, cart, orders, allOrders, allUsers, isLoading]);
 
   useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem('speedShopCart', JSON.stringify(cart));
-    }
-  }, [cart, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem('speedShopOrders', JSON.stringify(orders));
-    }
-  }, [orders, isLoading]);
+    saveToLocalStorage();
+  }, [saveToLocalStorage]);
 
   const login = (phone: string): boolean => {
-    // In a real app, you'd fetch the user. Here we just check localStorage.
-    const storedUser = localStorage.getItem('speedShopUser');
-    if (storedUser) {
-      const parsedUser: User = JSON.parse(storedUser);
-      if (parsedUser.phone === phone) {
-        setUser(parsedUser);
-        router.push('/home');
+    const foundUser = allUsers.find(u => u.phone === phone);
+    if (foundUser) {
+        setUser(foundUser);
+        loadUserSpecificData(foundUser.id);
+        router.push(foundUser.isAdmin ? '/admin' : '/home');
         return true;
-      }
     }
     return false;
   };
 
+  const loadUserSpecificData = (userId: string) => {
+    const storedCart = localStorage.getItem(`speedShopCart_${userId}`);
+    const storedOrders = localStorage.getItem(`speedShopOrders_${userId}`);
+    setCart(storedCart ? JSON.parse(storedCart) : []);
+    setOrders(storedOrders ? JSON.parse(storedOrders) : []);
+  }
+
   const logout = () => {
+    const isAdmin = user?.isAdmin;
     setUser(null);
     setCart([]);
-    setOrders([]); // Also clear orders on logout
+    setOrders([]);
     localStorage.removeItem('speedShopUser');
-    localStorage.removeItem('speedShopCart');
-    localStorage.removeItem('speedShopOrders');
-    router.push('/');
+    router.push(isAdmin ? '/admin' : '/');
   };
 
   const signup = (userData: Omit<User, 'id'>) => {
-    const newUser: User = { ...userData, id: `user-${Date.now()}` };
+    const newUser: User = { ...userData, id: `user-${Date.now()}`, isAdmin: false };
+    setAllUsers(prev => [...prev, newUser]);
     setUser(newUser);
     router.push('/home');
   };
-
+  
   const clearCartAndAdd = (product: Product, quantity: number = 1) => {
     const newItem = { product, quantity };
     setCart([newItem]);
@@ -166,12 +179,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const totalCartPrice = cart.reduce((total, item) => total + item.product.price * item.quantity, 0);
   const deliveryFee = user?.deliveryZone?.fee ?? 0;
 
-  const updateOrderStatus = useCallback((orderId: string, newStatus: OrderStatus) => {
-      setOrders(prevOrders =>
-        prevOrders.map(order =>
-          order.id === orderId ? { ...order, status: newStatus } : order
-        )
-      );
+  const updateOrderStatus = useCallback((orderId: string, status: OrderStatus) => {
+    const update = (orderList: Order[]) => orderList.map(order => 
+        order.id === orderId ? { ...order, status } : order
+    );
+    setOrders(update);
+    setAllOrders(update);
   }, []);
 
   const placeOrder = () => {
@@ -184,23 +197,39 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
       date: new Date().toISOString(),
       status: 'confirmed',
       estimatedDelivery: '30-40 دقيقة',
+      user: { id: user.id, name: user.name, phone: user.phone },
+      revenue: totalCartPrice,
     };
 
     setOrders(prevOrders => [newOrder, ...prevOrders]);
+    setAllOrders(prevAllOrders => [newOrder, ...prevAllOrders]);
     clearCart();
 
-    // Simulate order status progression
-    setTimeout(() => updateOrderStatus(newOrder.id, 'preparing'), 30 * 1000); // 30 seconds
-    setTimeout(() => updateOrderStatus(newOrder.id, 'on_the_way'), 60 * 1000); // 1 minute
-    setTimeout(() => updateOrderStatus(newOrder.id, 'delivered'), 120 * 1000); // 2 minutes
+    // Simulate order status progression for demo
+    if (newOrder.status === 'confirmed') {
+        setTimeout(() => updateOrderStatus(newOrder.id, 'preparing'), 30 * 1000);
+        setTimeout(() => updateOrderStatus(newOrder.id, 'on_the_way'), 60 * 1000);
+        setTimeout(() => updateOrderStatus(newOrder.id, 'delivered'), 120 * 1000);
+    }
   };
+  
+  const addProduct = (productData: Omit<Product, 'id' | 'restaurantId'>) => {
+    // In a real app, this would be an API call
+    console.log("Adding product:", productData);
+    toast({
+        title: "تمت إضافة المنتج بنجاح",
+        description: `تمت إضافة ${productData.name} إلى قائمة المنتجات.`,
+    })
+  }
 
   return (
     <AppContext.Provider
       value={{
         user,
+        allUsers,
         cart,
         orders,
+        allOrders,
         isLoading,
         login,
         logout,
@@ -210,6 +239,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         updateQuantity,
         clearCart,
         placeOrder,
+        updateOrderStatus,
+        addProduct,
         totalCartPrice,
         deliveryFee,
       }}

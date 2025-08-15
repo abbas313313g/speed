@@ -1,5 +1,5 @@
 
-import type { Category, Restaurant, Product, DeliveryZone } from './types';
+import type { Category, Restaurant, Product, DeliveryZone, User } from './types';
 import { Beef, Pizza, Sandwich, Soup, Salad, ChefHat } from 'lucide-react';
 
 export const categories: Category[] = [
@@ -103,3 +103,8 @@ export const deliveryZones: DeliveryZone[] = [
     { name: 'زيونة', fee: 2000 },
     { name: 'الأعظمية', fee: 3500 },
 ];
+
+export const users: User[] = [
+    { id: 'user-admin', name: 'المدير العام', phone: '07700000000', deliveryZone: deliveryZones[0], isAdmin: true },
+    { id: 'user-1', name: 'أحمد علي', phone: '07801111111', deliveryZone: deliveryZones[1] },
+]

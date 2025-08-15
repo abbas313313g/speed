@@ -1,8 +1,9 @@
 
 "use client";
 
-import { useState, useContext, FormEvent } from "react";
+import { useState, useContext, FormEvent, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +24,15 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const context = useContext(AppContext);
   const { toast } = useToast();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Redirect if user is already logged in
+    if (context?.user) {
+      router.replace(context.user.isAdmin ? '/admin' : '/home');
+    }
+  }, [context?.user, router]);
+
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -39,6 +49,7 @@ export default function LoginPage() {
           variant: "destructive",
         });
       }
+      // Redirection is handled by the login function via context state change
       setLoading(false);
     }, 1000);
   };

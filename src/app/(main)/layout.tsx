@@ -16,12 +16,12 @@ export default function MainAppLayout({
   const router = useRouter();
 
   useEffect(() => {
-    if (!context?.isLoading && !context?.user) {
+    if (!context?.isLoading && (!context?.user || context?.user.isAdmin)) {
       router.replace('/');
     }
   }, [context?.isLoading, context?.user, router]);
 
-  if (context?.isLoading || !context?.user) {
+  if (context?.isLoading || !context?.user || context?.user.isAdmin) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
