@@ -24,7 +24,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const context = useContext(AppContext);
-  const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
@@ -32,7 +31,7 @@ export default function LoginPage() {
     if (context && !context.isLoading && context.user) {
       router.replace('/home');
     }
-  }, [context, router]);
+  }, [context?.isLoading, context?.user, router]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -44,16 +43,12 @@ export default function LoginPage() {
 
     if (success) {
       router.push('/home');
-    } else {
-      toast({
-        title: "فشل تسجيل الدخول",
-        description: "المعلومات التي أدخلتها غير صحيحة.",
-        variant: "destructive",
-      });
     }
   };
   
-  if (context?.isLoading) {
+  // This screen should not be accessible if the user is already logged in,
+  // but we show a loader while the context is loading to prevent flicker.
+  if (context?.isLoading || context?.user) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
