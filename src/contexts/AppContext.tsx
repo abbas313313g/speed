@@ -67,7 +67,6 @@ export const AppContext = createContext<AppContextType | null>(null);
 
 const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
     const [storedValue, setStoredValue] = useState<T>(() => {
-        // This function now runs only on the client, once.
         if (typeof window === 'undefined') {
             return initialValue;
         }
@@ -85,7 +84,6 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<R
     });
 
     useEffect(() => {
-        // This effect syncs state changes to localStorage.
         try {
             if (typeof window !== 'undefined') {
                 window.localStorage.setItem(key, JSON.stringify(storedValue));
@@ -101,21 +99,18 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<R
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
-  // Global Data States are now managed by useState, initialized from mock data
+  // Data is now primarily managed in-memory using useState, initialized from mock-data.
   const [allUsers, setAllUsers] = useState<User[]>(initialUsers);
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [storedCategories, setStoredCategories] = useState<StoredCategory[]>(initialCategoriesData);
   const [restaurants, setRestaurants] = useState<Restaurant[]>(initialRestaurants);
-  const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
   
-  // User-specific states will still use localStorage to remember the logged-in user
+  // User session and their personal data (cart, orders) are still kept in localStorage.
   const [user, setUser] = useLocalStorage<User | null>('speedShopUser', null);
-  
-  // Cart and orders can also use localStorage, but keyed by user ID
   const cartKey = user ? `speedShopCart_${user.id}` : 'speedShopCart_guest';
   const ordersKey = user ? `speedShopOrders_${user.id}` : 'speedShopOrders_guest';
-
   const [cart, setCart] = useLocalStorage<CartItem[]>(cartKey, []);
   const [orders, setOrders] = useLocalStorage<Order[]>(ordersKey, []);
   
