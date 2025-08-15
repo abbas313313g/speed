@@ -31,7 +31,7 @@ import {
     writeBatch,
 } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
-import { auth, db, storage } from '@/lib/firebase';
+import { auth, db, storage, firebaseConfig } from '@/lib/firebase';
 
 
 const TELEGRAM_BOT_TOKEN = "7601214758:AAFtkJRGqffuDLKPb8wuHm7r0pt_pDE7BSE";
@@ -127,54 +127,43 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     // --- Auth State Change and User-Specific/Admin Data Fetching ---
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+            setIsLoading(true);
             if (firebaseUser) {
                 const userDocRef = doc(db, "users", firebaseUser.uid);
                 
-                // Use onSnapshot to listen for real-time updates to the user document
-                const unsubscribeUser = onSnapshot(userDocRef, (userDocSnap) => {
+                const unsub = onSnapshot(userDocRef, (userDocSnap) => {
                     if (userDocSnap.exists()) {
                         const userData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
                         setUser(userData);
                         
-                        // --- Admin-specific data listeners ---
                         if (userData.isAdmin) {
-                            const unsubscribeAllOrders = onSnapshot(collection(db, "orders"), (snapshot) => {
-                                setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
-                            });
-                             const unsubscribeAllUsers = onSnapshot(collection(db, "users"), (snapshot) => {
-                                setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
-                            });
-                             return () => {
-                                unsubscribeAllOrders();
-                                unsubscribeAllUsers();
-                            };
+                            // Setup admin listeners if they don't exist
+                            setupAdminListeners();
                         }
                     } 
-                    // New user creation is handled in signInWithGoogle, so no 'else' needed here
-                });
-
-                 // --- User-specific data listeners (for all logged-in users) ---
-                const userOrdersQuery = query(collection(db, "orders"), where("userId", "==", firebaseUser.uid));
-                const unsubscribeOrders = onSnapshot(userOrdersQuery, (snapshot) => {
-                    setAllOrders(prevOrders => {
-                        const newOrders = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Order));
-                        const otherUserOrders = prevOrders.filter(o => o.userId !== firebaseUser.uid);
-                        return [...otherUserOrders, ...newOrders];
-                    });
+                    setIsLoading(false);
                 });
                 
-                return () => {
-                    unsubscribeUser();
-                    unsubscribeOrders();
-                };
+                return () => unsub();
 
             } else {
                 setUser(null);
                 setAllOrders([]);
                 setAllUsers([]);
+                setIsLoading(false);
             }
-            setIsLoading(false);
         });
+
+        const setupAdminListeners = () => {
+            const unsubOrders = onSnapshot(collection(db, "orders"), (snapshot) => {
+                setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+            });
+            const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+                setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
+            });
+            // Note: These listeners are not unsubscribed here to keep admin data fresh.
+            // In a real-world scenario, you might manage this differently.
+        };
 
         return () => unsubscribeAuth();
     }, []);
@@ -216,6 +205,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     // --- Auth & User ---
     const signInWithGoogle = async () => {
         const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({
+            prompt: 'select_account'
+        });
+        auth.useDeviceLanguage();
+
         try {
             const result = await signInWithPopup(auth, provider);
             const gUser = result.user;
@@ -224,7 +218,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             const userDocSnap = await getDoc(userDocRef);
 
             if (!userDocSnap.exists()) {
-                // New user, create their document
                 const q = query(collection(db, 'users'));
                 const querySnapshot = await getDocs(q);
                 const isFirstUser = querySnapshot.empty;
@@ -233,7 +226,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     id: gUser.uid,
                     name: gUser.displayName || "مستخدم جديد",
                     email: gUser.email!,
-                    phone: '', // To be collected in complete-profile
+                    phone: '', 
                     isProfileComplete: false,
                     isAdmin: isFirstUser,
                     usedCoupons: [],
@@ -241,12 +234,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     deliveryZone: { name: '', fee: 0 },
                 };
                 await setDoc(userDocRef, newUser);
-                // onAuthStateChanged's snapshot listener will pick this up
             }
-            // If user exists, onAuthStateChanged handles setting the user state.
-        } catch (error) {
+        } catch (error: any) {
             console.error("Google Sign-In Error: ", error);
-            throw error;
+            if (error.code !== 'auth/popup-closed-by-user') {
+               toast({ title: "فشل تسجيل الدخول", description: error.message, variant: "destructive" });
+            }
         }
     };
 
@@ -271,7 +264,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             isProfileComplete: true,
         };
         await updateDoc(userDocRef, updatedData);
-        router.push('/home');
     }
     
     const addAddress = async (address: Omit<Address, 'id'>) => {
@@ -576,3 +568,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
+
+    

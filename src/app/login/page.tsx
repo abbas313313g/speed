@@ -27,11 +27,10 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 
 export default function LoginPage() {
-  const [loading, setLoading] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const context = useContext(AppContext);
   const router = useRouter();
-  const { toast } = useToast();
-
+  
   useEffect(() => {
     if (context && !context.isLoading && context.user) {
         if(context.user.isProfileComplete) {
@@ -43,15 +42,10 @@ export default function LoginPage() {
   }, [context?.isLoading, context?.user, router]);
   
   const handleGoogleSignIn = async () => {
-    if (loading || !context) return;
-    setLoading(true);
-    try {
-        await context.signInWithGoogle();
-        // onAuthStateChanged in AppContext will handle redirection
-    } catch(error: any) {
-        toast({ title: "فشل تسجيل الدخول", description: error.message, variant: "destructive" });
-        setLoading(false);
-    }
+    if (isSigningIn || !context) return;
+    setIsSigningIn(true);
+    await context.signInWithGoogle();
+    setIsSigningIn(false);
   }
 
 
@@ -81,8 +75,8 @@ export default function LoginPage() {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <Button variant="outline" className="w-full h-12 text-lg" onClick={handleGoogleSignIn} disabled={loading}>
-                    {loading ? (
+                <Button variant="outline" className="w-full h-12 text-lg" onClick={handleGoogleSignIn} disabled={isSigningIn}>
+                    {isSigningIn ? (
                         <Loader2 className="ml-2 h-6 w-6 animate-spin" />
                     ) : (
                        <>
@@ -97,3 +91,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    

@@ -5,7 +5,7 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 
-const firebaseConfig = {
+export const firebaseConfig = {
   projectId: "speed-shop-8tchr",
   appId: "1:631051036670:web:65982c072092bbcc79c2af",
   storageBucket: "speed-shop-8tchr.firebasestorage.app",
@@ -19,3 +19,5 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
+
+    
