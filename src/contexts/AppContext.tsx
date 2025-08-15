@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import type { User, CartItem, Product, Order, OrderStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { users as mockUsers } from '@/lib/mock-data';
+import { users as mockUsers, products as mockProducts } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
 
 interface AppContextType {
@@ -58,13 +58,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
       if (storedUser) {
         const parsedUser: User = JSON.parse(storedUser);
-        const userExists = activeUsers.some((u: User) => u.id === parsedUser.id);
+        const userExists = activeUsers.find((u: User) => u.id === parsedUser.id);
         
         if (userExists) {
-            setUser(parsedUser);
-            loadUserSpecificData(parsedUser.id);
+            setUser(userExists); // Use user data from the main list to ensure it's up to date
+            loadUserSpecificData(userExists.id);
         } else {
-            // User from localStorage doesn't exist in our user list anymore, so log out.
             localStorage.removeItem('speedShopUser');
             setUser(null);
         }
@@ -254,7 +253,14 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   };
   
   const addProduct = (productData: Omit<Product, 'id' | 'restaurantId'>) => {
-    console.log("Adding product:", productData);
+    const newProduct: Product = {
+        id: `prod-${Date.now()}`,
+        restaurantId: 'res1', // Default restaurant for now
+        ...productData
+    };
+    // This is a mock implementation. In a real app, you'd update a database.
+    mockProducts.push(newProduct);
+    
     toast({
         title: "تمت إضافة المنتج بنجاح",
         description: `تمت إضافة ${productData.name} إلى قائمة المنتجات.`,

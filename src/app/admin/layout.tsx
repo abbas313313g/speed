@@ -17,8 +17,10 @@ export default function AdminLayout({
 
   useEffect(() => {
     if (context && !context.isLoading) {
-      if (!context.user || !context.user.isAdmin) {
+      if (!context.user) {
         router.replace('/login');
+      } else if (!context.user.isAdmin) {
+         router.replace('/home'); // Redirect to home if not admin
       }
     }
   }, [context, context?.isLoading, context?.user, router]);
@@ -36,7 +38,8 @@ export default function AdminLayout({
   if (!context.user.isAdmin) {
      return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
-        <p className="mt-2">غير مصرح لك بالدخول.</p>
+        <p className="mt-2 text-xl text-destructive">غير مصرح لك بالدخول.</p>
+        <p className="text-muted-foreground">سيتم تحويلك للصفحة الرئيسية.</p>
       </div>
     );
   }
