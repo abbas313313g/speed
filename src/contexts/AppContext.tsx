@@ -16,9 +16,9 @@ interface AppContextType {
   orders: Order[];
   allOrders: Order[];
   isLoading: boolean;
-  login: (accessCode: string) => boolean;
+  login: (phone: string, password?: string) => boolean;
   logout: () => void;
-  signup: (userData: Omit<User, 'id' | 'accessCode'>) => void;
+  signup: (userData: Omit<User, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -104,8 +104,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     saveToLocalStorage();
   }, [saveToLocalStorage]);
 
-  const login = (accessCode: string): boolean => {
-    const foundUser = allUsers.find(u => u.accessCode === accessCode);
+  const login = (phone: string, password?: string): boolean => {
+    const foundUser = allUsers.find(u => u.phone === phone && u.password === password);
     if (foundUser) {
         setUser(foundUser);
         loadUserSpecificData(foundUser.id);
@@ -136,7 +136,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     router.push('/login');
   };
 
-  const signup = (userData: Omit<User, 'id' | 'accessCode'>) => {
+  const signup = (userData: Omit<User, 'id'>) => {
     const existingUser = allUsers.find(u => u.phone === userData.phone);
     if(existingUser) {
         throw new Error("هذا الرقم مسجل بالفعل.");
@@ -145,18 +145,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const newUser: User = {
         id: `user-${Date.now()}`,
         ...userData,
-        accessCode: userData.phone.slice(-4) // Use last 4 digits of phone as access code
     };
 
     setAllUsers(prevUsers => [...prevUsers, newUser]);
-    setUser(newUser);
-    loadUserSpecificData(newUser.id);
-    
-    toast({
-        title: "تم إنشاء الحساب بنجاح",
-        description: `رمز الدخول الخاص بك هو: ${newUser.accessCode}`,
-        duration: 9000
-    });
   };
   
   const clearCartAndAdd = (product: Product, quantity: number = 1) => {

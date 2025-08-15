@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, User, Phone, MapPin } from "lucide-react";
+import { Loader2, User, Phone, MapPin, KeyRound } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -29,6 +29,7 @@ import { deliveryZones } from "@/lib/mock-data";
 export default function SignupPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [deliveryZoneName, setDeliveryZoneName] = useState("");
   const [loading, setLoading] = useState(false);
   const context = useContext(AppContext);
@@ -62,15 +63,16 @@ export default function SignupPage() {
         context.signup({
           name,
           phone,
+          password,
           deliveryZone: selectedZone,
           isAdmin: false,
           usedCoupons: []
         });
         toast({
           title: "تم إنشاء الحساب بنجاح!",
-          description: `تم إرسال رمز الدخول إلى رقمك ${phone}.`,
+          description: `يمكنك الآن تسجيل الدخول باستخدام رقم هاتفك وكلمة المرور.`,
         });
-        router.push('/home');
+        router.push('/login');
       } catch (error: any) {
         toast({
           title: "فشل إنشاء الحساب",
@@ -91,7 +93,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">إنشاء حساب جديد</CardTitle>
@@ -132,6 +134,21 @@ export default function SignupPage() {
                   />
                </div>
             </div>
+             <div className="space-y-2">
+                <Label htmlFor="password">كلمة المرور</Label>
+                <div className="relative">
+                  <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    dir="ltr"
+                    className="text-left pr-10"
+                  />
+                </div>
+              </div>
             <div className="space-y-2">
               <Label htmlFor="deliveryZone">منطقة التوصيل</Label>
               <div className="relative">
@@ -162,3 +179,4 @@ export default function SignupPage() {
     </div>
   );
 }
+

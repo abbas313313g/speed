@@ -3,7 +3,7 @@ export interface User {
   id: string;
   name: string;
   phone: string;
-  accessCode?: string; 
+  password?: string;
   deliveryZone: DeliveryZone;
   isAdmin?: boolean;
   usedCoupons?: string[];
