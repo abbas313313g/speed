@@ -57,12 +57,14 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
       if (storedUser) {
         const parsedUser: User = JSON.parse(storedUser);
-        if (activeUsers.some((u: User) => u.id === parsedUser.id)) {
+        const userExists = activeUsers.some((u: User) => u.id === parsedUser.id);
+        
+        if (userExists) {
             setUser(parsedUser);
             loadUserSpecificData(parsedUser.id);
         } else {
-            setUser(null);
-            localStorage.removeItem('speedShopUser');
+            // User from localStorage doesn't exist in our user list anymore
+            logout();
         }
       }
     } catch (error) {
@@ -82,10 +84,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const saveToLocalStorage = useCallback(() => {
     if (isLoading) return;
     try {
-        localStorage.setItem('speedShopUser', JSON.stringify(user));
-        if (user) {
+        if(user) {
+            localStorage.setItem('speedShopUser', JSON.stringify(user));
             localStorage.setItem(`speedShopCart_${user.id}`, JSON.stringify(cart));
             localStorage.setItem(`speedShopOrders_${user.id}`, JSON.stringify(orders));
+        } else {
+             localStorage.removeItem('speedShopUser');
         }
         localStorage.setItem('speedShopAllOrders', JSON.stringify(allOrders));
         localStorage.setItem('speedShopAllUsers', JSON.stringify(allUsers));
@@ -101,15 +105,13 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const login = (accessCode: string): boolean => {
     const foundUser = allUsers.find(u => u.accessCode === accessCode);
     if (foundUser) {
-        setIsLoading(true);
         setUser(foundUser);
         loadUserSpecificData(foundUser.id);
         if (foundUser.isAdmin) {
-          router.push('/admin');
+          router.push('/home'); // Go to home, admin button is on account page
         } else {
           router.push('/home');
         }
-        setIsLoading(false);
         return true;
     }
     return false;
@@ -130,6 +132,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setOrders([]);
     setDiscount(0);
     localStorage.removeItem('speedShopUser');
+    // Also clear user-specific data
+    if (user) {
+        localStorage.removeItem(`speedShopCart_${user.id}`);
+        localStorage.removeItem(`speedShopOrders_${user.id}`);
+    }
     router.push(wasAdmin ? '/login' : '/');
   };
 

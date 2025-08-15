@@ -25,10 +25,11 @@ export default function MainAppLayout({
     }
     
     // If loading is finished, perform the check
-    if (!context.user || context.user.isAdmin) {
+    if (!context.user) {
       router.replace('/');
+    } else {
+      setIsChecking(false);
     }
-    setIsChecking(false);
 
   }, [context, router]);
 
@@ -42,7 +43,7 @@ export default function MainAppLayout({
   }
 
   // Final check after loading is complete
-  if (!context?.user || context.user.isAdmin) {
+  if (!context?.user) {
     // This will show the loader while redirecting
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-background">

@@ -2,11 +2,12 @@
 "use client";
 
 import { useContext } from "react";
+import Link from "next/link";
 import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Phone, MapPin, LogOut } from "lucide-react";
+import { User, Phone, MapPin, LogOut, Shield } from "lucide-react";
 
 export default function AccountPage() {
   const context = useContext(AppContext);
@@ -46,6 +47,15 @@ export default function AccountPage() {
            </div>
         </CardContent>
       </Card>
+
+      {user.isAdmin && (
+        <Button asChild size="lg" className="w-full text-lg bg-accent hover:bg-accent/90">
+            <Link href="/admin">
+                <Shield className="ml-2 h-5 w-5" />
+                الذهاب إلى لوحة التحكم
+            </Link>
+        </Button>
+      )}
       
       <Button variant="destructive" size="lg" className="w-full text-lg" onClick={logout}>
         <LogOut className="ml-2 h-5 w-5" />
