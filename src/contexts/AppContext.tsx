@@ -14,35 +14,49 @@ import {
 } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
 import { ShoppingBasket } from 'lucide-react';
-import { Timestamp } from 'firebase/firestore';
 
-
-// Custom hook for managing state with localStorage
+// Custom hook for managing state with localStorage, designed to be robust.
 function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
     const [storedValue, setStoredValue] = useState<T>(() => {
+        // This function is only executed on the first render, so window is available.
         if (typeof window === 'undefined') {
             return initialValue;
         }
         try {
             const item = window.localStorage.getItem(key);
+            // Parse stored json or if none return initialValue
             return item ? JSON.parse(item) : initialValue;
         } catch (error) {
-            console.error(error);
+            console.log(error);
             return initialValue;
         }
     });
 
     const setValue = (value: T | ((val: T) => T)) => {
         try {
+            // Allow value to be a function so we have same API as useState
             const valueToStore = value instanceof Function ? value(storedValue) : value;
             setStoredValue(valueToStore);
             if (typeof window !== 'undefined') {
                 window.localStorage.setItem(key, JSON.stringify(valueToStore));
             }
         } catch (error) {
-            console.error(error);
+            console.log(error);
         }
     };
+
+    // This effect runs once on mount to seed localStorage if it's empty.
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const item = window.localStorage.getItem(key);
+            if (item === null) {
+                 window.localStorage.setItem(key, JSON.stringify(initialValue));
+                 setStoredValue(initialValue);
+            }
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [key, initialValue]);
+
 
     return [storedValue, setValue];
 }
@@ -91,23 +105,37 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [user, setUser] = useLocalStorage<User | null>('speed-shop-user', null);
   const [users, setUsers] = useLocalStorage<User[]>('speed-shop-users', initialUsers);
   const [products, setProducts] = useLocalStorage<Product[]>('speed-shop-products', initialProductsData);
   const [rawCategories, setRawCategories] = useLocalStorage<Omit<Category, 'icon'>[]>('speed-shop-categories', initialCategoriesData.map(({icon, ...rest}) => rest));
   const [restaurants, setRestaurants] = useLocalStorage<Restaurant[]>('speed-shop-restaurants', initialRestaurantsData);
   const [banners, setBanners] = useLocalStorage<Banner[]>('speed-shop-banners', []);
-  const [orders, setOrders] = useLocalStorage<Order[]>('speed-shop-orders', []);
   const [allOrders, setAllOrders] = useLocalStorage<Order[]>('speed-shop-all-orders', []);
-  
-  const [cart, setCart] = useLocalStorage<CartItem[]>(`speed-shop-cart-${user?.id || ''}`, []);
-  const [discount, setDiscount] = useState(0);
 
+  // User-specific data
+  const [user, setUser] = useLocalStorage<User | null>('speed-shop-user', null);
+  const [cart, setCart] = useLocalStorage<CartItem[]>(`speed-shop-cart-${user?.id || 'guest'}`, []);
+  const [orders, setOrders] = useLocalStorage<Order[]>(`speed-shop-orders-${user?.id || 'guest'}`, []);
+  
+  const [discount, setDiscount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Effect to handle cart and orders when user logs in or out
   useEffect(() => {
-    // Simulate loading for 500ms to allow local storage to hydrate
-    const timer = setTimeout(() => setIsLoading(false), 500);
+    if (user) {
+      setCart(JSON.parse(localStorage.getItem(`speed-shop-cart-${user.id}`) || '[]'));
+      setOrders(JSON.parse(localStorage.getItem(`speed-shop-orders-${user.id}`) || '[]'));
+    } else {
+      setCart([]);
+      setOrders([]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+
+  useEffect(() => {
+    // Simulate loading for a very short time to allow state hydration
+    const timer = setTimeout(() => setIsLoading(false), 100);
     return () => clearTimeout(timer);
   }, []);
 
@@ -247,9 +275,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateOrderStatus = (orderId: string, status: OrderStatus) => {
-    const update = (prev: Order[]) => prev.map(o => o.id === orderId ? {...o, status} : o);
-    setOrders(update);
-    setAllOrders(update);
+    const updateUserOrders = (prev: Order[]) => prev.map(o => o.id === orderId ? {...o, status} : o);
+    const updateAllOrders = (prev: Order[]) => prev.map(o => o.id === orderId ? {...o, status} : o);
+    setOrders(updateUserOrders);
+    setAllOrders(updateAllOrders);
   };
   
   const addProduct = (productData: Omit<Product, 'id' | 'bestSeller'>) => {

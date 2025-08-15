@@ -39,6 +39,7 @@ export default function LoginPage() {
     setLoading(true);
 
     const success = await context.login(phone, password);
+    setLoading(false);
 
     if (success) {
       router.push('/home');
@@ -48,7 +49,6 @@ export default function LoginPage() {
         description: "المعلومات التي أدخلتها غير صحيحة.",
         variant: "destructive",
       });
-      setLoading(false);
     }
   };
   

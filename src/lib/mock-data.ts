@@ -119,5 +119,3 @@ export const users: User[] = [
     { id: 'user-admin-special', name: 'المدير الخاص', phone: '07858366369', password: 'admin', deliveryZone: deliveryZones[0], isAdmin: true, loginCode: 'BOSS313', usedCoupons: [] },
     { id: 'user-1', name: 'علي احمد', phone: '07712345678', password: '1234', deliveryZone: deliveryZones[1], isAdmin: false, loginCode: 'ALI123', usedCoupons: [] }
 ]
-
-    
