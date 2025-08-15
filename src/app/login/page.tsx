@@ -49,27 +49,22 @@ export default function LoginPage() {
     }
   }, [context?.isLoading, context?.user, router]);
   
-  const setupRecaptcha = () => {
+  useEffect(() => {
     if (!recaptchaContainerRef.current) return;
     
     // Ensure it's only created once
-    if (window.recaptchaVerifier) {
-       window.recaptchaVerifier.clear();
+    if (!window.recaptchaVerifier) {
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
+          'size': 'invisible',
+          'callback': (response: any) => {
+            // reCAPTCHA solved, allow signInWithPhoneNumber.
+          },
+          'expired-callback': () => {
+            toast({ title: "انتهت صلاحية التحقق، الرجاء المحاولة مرة أخرى", variant: "destructive" });
+          }
+        });
     }
-
-    window.recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
-      'size': 'invisible',
-      'callback': (response: any) => {
-        // reCAPTCHA solved, allow signInWithPhoneNumber.
-        // This callback is for invisible reCAPTCHA
-      },
-      'expired-callback': () => {
-        // Response expired. Ask user to solve reCAPTCHA again.
-        toast({ title: "انتهت صلاحية التحقق، الرجاء المحاولة مرة أخرى", variant: "destructive" });
-        setLoading(false);
-      }
-    });
-  }
+  }, []);
   
   const onSendOtp = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -77,7 +72,6 @@ export default function LoginPage() {
       setLoading(true);
       
       try {
-          setupRecaptcha();
           const appVerifier = window.recaptchaVerifier!;
           // Clean the phone number by removing all non-digit characters
           const cleanedPhone = phone.replace(/\D/g, '');
