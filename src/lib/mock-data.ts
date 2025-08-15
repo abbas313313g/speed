@@ -1,6 +1,5 @@
 
 import type { Category, Restaurant, Product, DeliveryZone, User } from './types';
-import { ShoppingBasket, Stethoscope, SwatchBook, Soup, Salad, ChefHat } from 'lucide-react';
 
 // This is a simplified version for mock data. 
 // In a real app, you would not map components directly.
