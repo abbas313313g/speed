@@ -79,7 +79,10 @@ export default function LoginPage() {
       try {
           setupRecaptcha();
           const appVerifier = window.recaptchaVerifier!;
-          const fullPhoneNumber = `+964${phone.replace(/^0/, '')}`;
+          // Clean the phone number by removing all non-digit characters
+          const cleanedPhone = phone.replace(/\D/g, '');
+          const fullPhoneNumber = `+964${cleanedPhone.replace(/^0/, '')}`;
+          
           const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, appVerifier);
           window.confirmationResult = confirmationResult;
           setStep('otp');
