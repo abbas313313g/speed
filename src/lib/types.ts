@@ -3,9 +3,10 @@ export interface User {
   id: string;
   name: string;
   phone: string;
-  password?: string; // Add password field
+  accessCode?: string; 
   deliveryZone: DeliveryZone;
   isAdmin?: boolean;
+  usedCoupons?: string[];
 }
 
 export interface Product {

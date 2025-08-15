@@ -17,11 +17,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ShoppingCart } from "lucide-react";
+import { Loader2, ShoppingCart, KeyRound } from "lucide-react";
 
 export default function LoginPage() {
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
+  const [accessCode, setAccessCode] = useState("");
   const [loading, setLoading] = useState(false);
   const context = useContext(AppContext);
   const { toast } = useToast();
@@ -42,11 +41,11 @@ export default function LoginPage() {
 
     // Simulate API call
     setTimeout(() => {
-      const success = context.login(phone, password);
+      const success = context.login(accessCode);
       if (!success) {
         toast({
           title: "فشل تسجيل الدخول",
-          description: "رقم الهاتف أو كلمة المرور غير صحيحة.",
+          description: "الرمز الذي أدخلته غير صحيح.",
           variant: "destructive",
         });
       }
@@ -68,48 +67,33 @@ export default function LoginPage() {
           <CardHeader>
             <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>
             <CardDescription>
-              أدخل رقم هاتفك وكلمة المرور للمتابعة
+              أدخل رمز الدخول للمتابعة
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="phone">رقم الهاتف</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="07..."
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  dir="ltr"
-                  className="text-left"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">كلمة المرور</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  dir="ltr"
-                  className="text-left"
-                />
+                <Label htmlFor="access-code">رمز الدخول</Label>
+                <div className="relative">
+                  <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    id="access-code"
+                    type="password"
+                    placeholder="ادخل الرمز السري"
+                    required
+                    value={accessCode}
+                    onChange={(e) => setAccessCode(e.target.value)}
+                    dir="ltr"
+                    className="text-left pr-10"
+                  />
+                </div>
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-4">
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                تسجيل الدخول
+                دخول
               </Button>
-              <p className="text-sm text-muted-foreground">
-                ليس لديك حساب؟{" "}
-                <Link href="/signup" className="font-semibold text-primary hover:underline">
-                  إنشاء حساب
-                </Link>
-              </p>
             </CardFooter>
           </form>
         </Card>

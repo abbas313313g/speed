@@ -104,6 +104,5 @@ export const deliveryZones: DeliveryZone[] = [
 ];
 
 export const users: User[] = [
-    { id: 'user-admin', name: 'المدير العام', phone: '07700000000', password: 'admin', deliveryZone: deliveryZones[0], isAdmin: true },
-    { id: 'user-1', name: 'أحمد علي', phone: '07801111111', password: 'password123', deliveryZone: deliveryZones[1] },
+    { id: 'user-admin', name: 'المدير العام', phone: '07700000000', accessCode: '313عبس', deliveryZone: deliveryZones[0], isAdmin: true, usedCoupons: [] },
 ]

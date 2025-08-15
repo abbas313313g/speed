@@ -41,9 +41,6 @@ export default function LandingPage() {
         <Button asChild size="lg" className="text-lg">
           <Link href="/login">تسجيل الدخول</Link>
         </Button>
-        <Button asChild variant="outline" size="lg" className="text-lg border-primary text-primary hover:bg-primary/10 hover:text-primary">
-          <Link href="/signup">إنشاء حساب جديد</Link>
-        </Button>
       </div>
     </div>
   );

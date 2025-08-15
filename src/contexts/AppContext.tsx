@@ -16,7 +16,7 @@ interface AppContextType {
   orders: Order[];
   allOrders: Order[];
   isLoading: boolean;
-  login: (phone: string, password?: string) => boolean;
+  login: (accessCode: string) => boolean;
   logout: () => void;
   signup: (userData: Omit<User, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
@@ -57,19 +57,16 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
       if (storedUser) {
         const parsedUser: User = JSON.parse(storedUser);
-        // Verify user exists in our list of users
         if (activeUsers.some((u: User) => u.id === parsedUser.id)) {
             setUser(parsedUser);
             loadUserSpecificData(parsedUser.id);
         } else {
-            // If user in localStorage doesn't exist, clear it
             setUser(null);
             localStorage.removeItem('speedShopUser');
         }
       }
     } catch (error) {
       console.error("Failed to parse from localStorage", error);
-       // On error, reset to a clean state
       setUser(null);
       setCart([]);
       setOrders([]);
@@ -83,7 +80,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   }, [loadFromLocalStorage]);
 
   const saveToLocalStorage = useCallback(() => {
-    if (isLoading) return; // Prevent writing initial empty/stale state
+    if (isLoading) return;
     try {
         localStorage.setItem('speedShopUser', JSON.stringify(user));
         if (user) {
@@ -98,12 +95,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   }, [user, cart, orders, allOrders, allUsers, isLoading]);
 
   useEffect(() => {
-    // This effect now correctly depends on `saveToLocalStorage` which has all the state dependencies.
     saveToLocalStorage();
   }, [saveToLocalStorage]);
 
-  const login = (phone: string, password?: string): boolean => {
-    const foundUser = allUsers.find(u => u.phone === phone && u.password === password);
+  const login = (accessCode: string): boolean => {
+    const foundUser = allUsers.find(u => u.accessCode === accessCode);
     if (foundUser) {
         setIsLoading(true);
         setUser(foundUser);
@@ -124,7 +120,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const storedOrders = localStorage.getItem(`speedShopOrders_${userId}`);
     setCart(storedCart ? JSON.parse(storedCart) : []);
     setOrders(storedOrders ? JSON.parse(storedOrders) : []);
-    setDiscount(0); // Reset discount on user change
+    setDiscount(0);
   }
 
   const logout = () => {
@@ -138,19 +134,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signup = (userData: Omit<User, 'id'>) => {
-    if (allUsers.some(u => u.phone === userData.phone)) {
-        toast({
+     toast({
             title: "فشل التسجيل",
-            description: "رقم الهاتف مسجل بالفعل.",
+            description: "خيار إنشاء حساب جديد غير متاح حاليا.",
             variant: "destructive",
         });
         return;
-    }
-
-    const newUser: User = { ...userData, id: `user-${Date.now()}`, isAdmin: false };
-    setAllUsers(prev => [...prev, newUser]);
-    setUser(newUser);
-    router.push('/home');
   };
   
   const clearCartAndAdd = (product: Product, quantity: number = 1) => {
@@ -164,7 +153,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const addToCart = (product: Product, quantity: number = 1) => {
-    // Enforce ordering from a single restaurant
     if (cart.length > 0 && cart[0].product.restaurantId !== product.restaurantId) {
         toast({
             title: "لا يمكن الطلب من متاجر مختلفة",
@@ -199,7 +187,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const removeFromCart = (productId: string) => {
     setCart(prevCart => {
         const newCart = prevCart.filter(item => item.product.id !== productId);
-        if(newCart.length === 0) setDiscount(0); // Reset discount if cart becomes empty
+        if(newCart.length === 0) setDiscount(0);
         return newCart;
     });
   };
@@ -228,7 +216,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const update = (orderList: Order[]) => orderList.map(order => 
         order.id === orderId ? { ...order, status } : order
     );
-    // This needs to update both the user's personal orders and the global allOrders list
     setOrders(prevOrders => update(prevOrders));
     setAllOrders(prevAllOrders => update(prevAllOrders));
   }, []);
@@ -267,9 +254,27 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const applyCoupon = (coupon: string) => {
-    if (coupon.toUpperCase() === 'SALE10') {
+    const couponCode = coupon.toUpperCase();
+
+    if (user?.usedCoupons?.includes(couponCode)) {
+        toast({
+            title: "الكود مستخدم بالفعل",
+            description: "لقد استخدمت هذا الكود من قبل.",
+            variant: "destructive",
+        });
+        return;
+    }
+
+    if (couponCode === 'SALE10') {
         const discountAmount = totalCartPrice * 0.10;
         setDiscount(discountAmount);
+        
+        if (user) {
+            const updatedUser = { ...user, usedCoupons: [...(user.usedCoupons || []), couponCode] };
+            setUser(updatedUser);
+            setAllUsers(prevUsers => prevUsers.map(u => u.id === user.id ? updatedUser : u));
+        }
+
         toast({
             title: "تم تطبيق الخصم!",
             description: `لقد حصلت على خصم بقيمة ${formatCurrency(discountAmount)}.`,
