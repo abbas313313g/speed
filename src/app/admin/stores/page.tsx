@@ -69,7 +69,7 @@ export default function AdminStoresPage() {
         setCurrentStore(store);
     } else {
         setIsEditing(false);
-        setCurrentStore({ ...EMPTY_STORE });
+        setCurrentStore({ ...EMPTY_STORE, id: '' });
     }
     setOpen(true);
   };
