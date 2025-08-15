@@ -17,11 +17,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ShoppingCart, KeyRound, Phone } from "lucide-react";
+import { Loader2, ShoppingCart, KeyRound } from "lucide-react";
+
+const ACCESS_CODE = "31344313";
 
 export default function LoginPage() {
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const context = useContext(AppContext);
   const { toast } = useToast();
@@ -41,13 +42,12 @@ export default function LoginPage() {
     setLoading(true);
 
     setTimeout(() => {
-      const success = context.login(phone, password);
-      if (success) {
+      if (context.login(code)) {
         router.push('/home');
       } else {
         toast({
           title: "فشل تسجيل الدخول",
-          description: "رقم الهاتف أو كلمة المرور غير صحيحة.",
+          description: "رمز الدخول غير صحيح.",
           variant: "destructive",
         });
         setLoading(false);
@@ -77,45 +77,26 @@ export default function LoginPage() {
           <CardHeader>
             <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>
             <CardDescription>
-              أدخل بياناتك للمتابعة. ليس لديك حساب؟{" "}
-              <Link href="/signup" className="text-primary hover:underline">
-                أنشئ حساباً جديداً
-              </Link>
+              أدخل رمز الدخول للمتابعة.
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
                <div className="space-y-2">
-                <Label htmlFor="phone">رقم الهاتف</Label>
+                <Label htmlFor="access-code">رمز الدخول</Label>
                  <div className="relative">
-                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="ادخل رقم هاتفك"
+                      id="access-code"
+                      type="password"
+                      placeholder="ادخل الرمز"
                       required
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      value={code}
+                      onChange={(e) => setCode(e.target.value)}
                       dir="ltr"
                       className="text-left pr-10"
                     />
                  </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">كلمة المرور</Label>
-                <div className="relative">
-                  <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="ادخل كلمة المرور"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    dir="ltr"
-                    className="text-left pr-10"
-                  />
-                </div>
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-4">

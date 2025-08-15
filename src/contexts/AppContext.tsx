@@ -6,8 +6,12 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import type { User, CartItem, Product, Order, OrderStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { users as mockUsers, products as mockProducts } from '@/lib/mock-data';
+import { users as mockUsers, products as mockProducts, deliveryZones } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
+
+const ADMIN_ACCESS_CODE = "31344313";
+const ADMIN_USER_ID = 'user-admin-special';
+
 
 interface AppContextType {
   user: User | null;
@@ -16,7 +20,7 @@ interface AppContextType {
   orders: Order[];
   allOrders: Order[];
   isLoading: boolean;
-  login: (phone: string, password?: string) => boolean;
+  login: (code: string) => boolean;
   logout: () => void;
   signup: (userData: Omit<User, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
@@ -36,7 +40,7 @@ export const AppContext = createContext<AppContextType | null>(null);
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>(mockUsers);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
@@ -50,18 +54,15 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     try {
       const storedUser = localStorage.getItem('speedShopUser');
       const storedAllOrders = localStorage.getItem('speedShopAllOrders');
-      const storedAllUsers = localStorage.getItem('speedShopAllUsers');
-
-      const activeUsers = storedAllUsers ? JSON.parse(storedAllUsers) : mockUsers;
-      setAllUsers(activeUsers);
+      
       setAllOrders(storedAllOrders ? JSON.parse(storedAllOrders) : []);
 
       if (storedUser) {
         const parsedUser: User = JSON.parse(storedUser);
-        const userExists = activeUsers.find((u: User) => u.id === parsedUser.id);
+        const userExists = allUsers.find((u: User) => u.id === parsedUser.id);
         
         if (userExists) {
-            setUser(userExists); // Use user data from the main list to ensure it's up to date
+            setUser(userExists);
             loadUserSpecificData(userExists.id);
         } else {
             localStorage.removeItem('speedShopUser');
@@ -76,7 +77,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [allUsers]);
 
   useEffect(() => {
     loadFromLocalStorage();
@@ -93,23 +94,32 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
              localStorage.removeItem('speedShopUser');
         }
         localStorage.setItem('speedShopAllOrders', JSON.stringify(allOrders));
-        localStorage.setItem('speedShopAllUsers', JSON.stringify(allUsers));
     } catch (error) {
         console.error("Failed to save to localStorage", error);
     }
-  }, [user, cart, orders, allOrders, allUsers, isLoading]);
+  }, [user, cart, orders, allOrders, isLoading]);
 
   useEffect(() => {
     saveToLocalStorage();
   }, [saveToLocalStorage]);
-
-  const login = (phone: string, password?: string): boolean => {
-    const foundUser = allUsers.find(u => u.phone === phone && u.password === password);
+  
+  const login = (code: string): boolean => {
+    if (code === ADMIN_ACCESS_CODE) {
+        const adminUser = allUsers.find(u => u.id === ADMIN_USER_ID);
+        if (adminUser) {
+            setUser(adminUser);
+            loadUserSpecificData(adminUser.id);
+            return true;
+        }
+    }
+    
+    const foundUser = allUsers.find(u => u.password === code);
     if (foundUser) {
         setUser(foundUser);
         loadUserSpecificData(foundUser.id);
         return true;
     }
+
     return false;
   };
 
@@ -143,6 +153,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     
     const newUser: User = {
         id: `user-${Date.now()}`,
+        password: `CP-${Date.now()}`, // Generate a unique code
         ...userData,
     };
 
@@ -258,7 +269,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         restaurantId: 'res1', // Default restaurant for now
         ...productData
     };
-    // This is a mock implementation. In a real app, you'd update a database.
     mockProducts.push(newProduct);
     
     toast({
