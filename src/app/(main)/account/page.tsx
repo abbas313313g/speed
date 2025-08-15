@@ -48,7 +48,7 @@ export default function AccountPage() {
         </CardContent>
       </Card>
 
-      {user.isAdmin && (
+      {user.isAdmin && user.phone === '07858366369' && (
         <Button asChild size="lg" className="w-full text-lg bg-accent hover:bg-accent/90">
             <Link href="/admin">
                 <Shield className="ml-2 h-5 w-5" />

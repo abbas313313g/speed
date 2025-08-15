@@ -46,6 +46,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
 
   const loadFromLocalStorage = useCallback(() => {
+    setIsLoading(true);
     try {
       const storedUser = localStorage.getItem('speedShopUser');
       const storedAllOrders = localStorage.getItem('speedShopAllOrders');
@@ -63,8 +64,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             setUser(parsedUser);
             loadUserSpecificData(parsedUser.id);
         } else {
-            // User from localStorage doesn't exist in our user list anymore
-            logout();
+            // User from localStorage doesn't exist in our user list anymore, so log out.
+            localStorage.removeItem('speedShopUser');
+            setUser(null);
         }
       }
     } catch (error) {
@@ -107,11 +109,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     if (foundUser) {
         setUser(foundUser);
         loadUserSpecificData(foundUser.id);
-        if (foundUser.isAdmin) {
-          router.push('/home'); // Go to home, admin button is on account page
-        } else {
-          router.push('/home');
-        }
+        router.push('/home');
         return true;
     }
     return false;
@@ -127,15 +125,15 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     const wasAdmin = user?.isAdmin;
+    const userId = user?.id;
     setUser(null);
     setCart([]);
     setOrders([]);
     setDiscount(0);
     localStorage.removeItem('speedShopUser');
-    // Also clear user-specific data
-    if (user) {
-        localStorage.removeItem(`speedShopCart_${user.id}`);
-        localStorage.removeItem(`speedShopOrders_${user.id}`);
+    if (userId) {
+        localStorage.removeItem(`speedShopCart_${userId}`);
+        localStorage.removeItem(`speedShopOrders_${userId}`);
     }
     router.push(wasAdmin ? '/login' : '/');
   };

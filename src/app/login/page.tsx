@@ -29,7 +29,7 @@ export default function LoginPage() {
   useEffect(() => {
     // Redirect if user is already logged in
     if (context && !context.isLoading && context.user) {
-      router.replace(context.user.isAdmin ? '/admin' : '/home');
+      router.replace('/home');
     }
   }, [context, router]);
 
@@ -54,7 +54,7 @@ export default function LoginPage() {
     }, 500);
   };
   
-  if (context?.isLoading) {
+  if (context?.isLoading || (context && context.user)) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />

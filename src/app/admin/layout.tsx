@@ -19,11 +19,12 @@ export default function AdminLayout({
   useEffect(() => {
     if (!context) return;
 
-    // Wait until loading is complete before checking user status
     if (context.isLoading) {
+      // Still loading user data, so we wait.
       return;
     }
     
+    // Once loading is complete, we can check the user status.
     if (!context.user || !context.user.isAdmin) {
       router.replace('/login');
     } else {
