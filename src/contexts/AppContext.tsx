@@ -91,9 +91,13 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const [cart, setCart] = useState<CartItem[]>([]);
     const [discount, setDiscount] = useState<number>(0);
 
-    const orders = useMemo(() => (user ? allOrders.filter(o => o.userId === user.id) : []), [user, allOrders]);
+    const orders = useMemo(() => {
+        if (!user) return [];
+        return allOrders.filter(o => o.userId === user.id)
+                        .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [user, allOrders]);
 
-    // --- Data Fetching from Firestore ---
+    // --- General Data Fetching (Public) ---
     useEffect(() => {
         const unsubProducts = onSnapshot(collection(db, "products"), (snapshot) => {
             setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
@@ -107,57 +111,95 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const unsubBanners = onSnapshot(collection(db, "banners"), (snapshot) => {
             setBanners(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
         });
-        const unsubOrders = onSnapshot(collection(db, "orders"), (snapshot) => {
-            setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-        });
-         const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
-            setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
-        });
 
         return () => {
             unsubProducts();
             unsubCategories();
             unsubRestaurants();
             unsubBanners();
-            unsubOrders();
-            unsubUsers();
         };
     }, []);
 
-    // --- Auth State Change ---
+    // --- Auth State Change and User-Specific/Admin Data Fetching ---
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
                 const userDocRef = doc(db, "users", firebaseUser.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                if (userDocSnap.exists()) {
-                    setUser({ id: userDocSnap.id, ...userDocSnap.data() } as User);
-                } else {
-                    // This is a new user, create a partial user object
-                    const q = query(collection(db, 'users'));
-                    const querySnapshot = await getDocs(q);
-                    const isFirstUser = querySnapshot.empty;
+                
+                // Use onSnapshot to listen for real-time updates to the user document
+                const unsubscribeUser = onSnapshot(userDocRef, async (userDocSnap) => {
+                    if (userDocSnap.exists()) {
+                        const userData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
+                        setUser(userData);
 
-                    const newUser: User = {
-                        id: firebaseUser.uid,
-                        phone: firebaseUser.phoneNumber!,
-                        isProfileComplete: false,
-                        isAdmin: isFirstUser,
-                        usedCoupons: [],
-                        addresses: [],
-                        name: '',
-                        deliveryZone: { name: '', fee: 0 },
-                    };
-                    await setDoc(userDocRef, newUser);
-                    setUser(newUser);
-                }
+                        // --- User-specific data listeners ---
+                        const userOrdersQuery = query(collection(db, "orders"), where("userId", "==", userData.id));
+                        const unsubscribeOrders = onSnapshot(userOrdersQuery, (snapshot) => {
+                           setAllOrders(prevOrders => {
+                                const newOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+                                // Avoid duplicates and merge
+                                const userOrderIds = new Set(newOrders.map(o => o.id));
+                                const otherOrders = prevOrders.filter(o => o.userId !== userData.id);
+                                return [...otherOrders, ...newOrders];
+                           });
+                        });
+                        
+                        // --- Admin-specific data listeners ---
+                        if (userData.isAdmin) {
+                            const unsubscribeAllOrders = onSnapshot(collection(db, "orders"), (snapshot) => {
+                                setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+                            });
+                             const unsubscribeAllUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+                                setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
+                            });
+                             // Return a function to cleanup admin listeners when user is no longer admin or logs out
+                            return () => {
+                                unsubscribeAllOrders();
+                                unsubscribeAllUsers();
+                                unsubscribeOrders(); 
+                            };
+                        }
+
+                        // Return a function to cleanup user listeners on logout
+                        return () => {
+                            unsubscribeOrders();
+                        };
+
+                    } else {
+                        // This is a new user, create a partial user object
+                        const q = query(collection(db, 'users'));
+                        const querySnapshot = await getDocs(q);
+                        const isFirstUser = querySnapshot.empty;
+
+                        const newUser: User = {
+                            id: firebaseUser.uid,
+                            phone: firebaseUser.phoneNumber!,
+                            isProfileComplete: false,
+                            isAdmin: isFirstUser,
+                            usedCoupons: [],
+                            addresses: [],
+                            name: '',
+                            deliveryZone: { name: '', fee: 0 },
+                        };
+                        await setDoc(userDocRef, newUser);
+                        // The onSnapshot listener will then pick up the newly created user doc
+                    }
+                });
+                
+                // Return a function to cleanup user snapshot listener on logout
+                return () => unsubscribeUser();
+
             } else {
                 setUser(null);
+                setAllOrders([]);
+                setAllUsers([]);
             }
             setIsLoading(false);
         });
-        return () => unsubscribe();
+
+        return () => unsubscribeAuth();
     }, []);
+
 
     // --- Cart Persistence (Local Storage) ---
      useEffect(() => {
@@ -211,7 +253,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             isProfileComplete: true,
         };
         await updateDoc(userDocRef, updatedData);
-        setUser({ ...user, ...updatedData });
+        // No need to setUser here, onSnapshot will handle it.
         router.push('/home');
     }
     
@@ -221,7 +263,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const updatedAddresses = [...(user.addresses || []), newAddress];
         const userDocRef = doc(db, "users", user.id);
         await updateDoc(userDocRef, { addresses: updatedAddresses });
-        setUser({ ...user, addresses: updatedAddresses }); // Update local state
+        // No need to setUser here, onSnapshot will handle it.
         toast({ title: "تم إضافة العنوان بنجاح" });
     }
 
@@ -517,3 +559,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
+
+    
