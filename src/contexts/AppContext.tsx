@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import type { User, CartItem, Product, Order, OrderStatus, Category, Restaurant, Banner, DeliveryZone } from '@/lib/types';
 import { 
-    users as initialUsers, 
-    products as initialProducts, 
-    categories as initialCategories, 
-    restaurants as initialRestaurants,
+    users as initialUsersData, 
+    products as initialProductsData, 
+    categories as initialCategoriesData, 
+    restaurants as initialRestaurantsData,
     deliveryZones
 } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
@@ -45,23 +45,24 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val
             console.error(`Error setting localStorage key "${key}":`, error);
         }
     };
-    
-    const memoizedInitialValue = useMemo(() => initialValue, []);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
             try {
                 const item = window.localStorage.getItem(key);
-                if (item === null || (Array.isArray(JSON.parse(item)) && JSON.parse(item).length === 0 && Array.isArray(memoizedInitialValue) && memoizedInitialValue.length > 0)) {
-                    setValue(memoizedInitialValue);
+                // If item is null, or if it's an empty array when it shouldn't be, reset it.
+                if (item === null || (Array.isArray(JSON.parse(item)) && JSON.parse(item).length === 0 && Array.isArray(initialValue) && initialValue.length > 0)) {
+                     // Check if initialValue itself is not just an empty array from a re-render
+                    if(JSON.stringify(storedValue) !== JSON.stringify(initialValue)) {
+                        setValue(initialValue);
+                    }
                 }
             } catch (error) {
-                 // If parsing fails, it might be corrupted data. Reset to initial.
                  console.error(`Error processing localStorage key "${key}", resetting to initial value:`, error);
-                 setValue(memoizedInitialValue);
+                 setValue(initialValue);
             }
         }
-    }, [key, memoizedInitialValue]);
+    }, [key, initialValue, storedValue]);
 
 
     return [storedValue, setValue];
@@ -112,6 +113,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const router = useRouter();
     const { toast } = useToast();
     
+    // Memoize initial data to prevent re-renders
+    const initialUsers = useMemo(() => initialUsersData, []);
+    const initialProducts = useMemo(() => initialProductsData, []);
+    const initialCategories = useMemo(() => initialCategoriesData, []);
+    const initialRestaurants = useMemo(() => initialRestaurantsData, []);
+
     // --- State Management ---
     const [isLoading, setIsLoading] = useState(true);
     const [users, setUsers] = useLocalStorage<User[]>('users', initialUsers);
@@ -123,10 +130,13 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const [banners, setBanners] = useLocalStorage<Banner[]>('banners', []);
     const [allOrders, setAllOrders] = useLocalStorage<Order[]>('allOrders', []);
 
-    const [cart, setCart] = useLocalStorage<CartItem[]>(user ? `cart_${user.id}` : 'cart_guest', []);
-    const [discount, setDiscount] = useLocalStorage<number>(user ? `discount_${user.id}` : 'discount_guest', 0);
+    const userCartKey = useMemo(() => user ? `cart_${user.id}` : 'cart_guest', [user]);
+    const userDiscountKey = useMemo(() => user ? `discount_${user.id}` : 'discount_guest', [user]);
+    
+    const [cart, setCart] = useLocalStorage<CartItem[]>(userCartKey, []);
+    const [discount, setDiscount] = useLocalStorage<number>(userDiscountKey, 0);
 
-    const orders = user ? allOrders.filter(o => o.userId === user.id) : [];
+    const orders = useMemo(() => (user ? allOrders.filter(o => o.userId === user.id) : []), [user, allOrders]);
 
     // --- Effects ---
     useEffect(() => {
@@ -134,18 +144,18 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         setTimeout(() => setIsLoading(false), 500);
     }, []);
 
-    // When user changes, switch cart
-    useEffect(() => {
-        if(user) {
-            const userCart = localStorage.getItem(`cart_${user.id}`);
-            setCart(userCart ? JSON.parse(userCart) : []);
-            const userDiscount = localStorage.getItem(`discount_${user.id}`);
-            setDiscount(userDiscount ? JSON.parse(userDiscount) : 0);
-        } else {
-            setCart([]);
-            setDiscount(0);
-        }
-    }, [user, setCart, setDiscount]);
+    // This effect is no longer needed as useLocalStorage handles the user-specific keys now
+    // useEffect(() => {
+    //     if(user) {
+    //         const userCart = localStorage.getItem(`cart_${user.id}`);
+    //         setCart(userCart ? JSON.parse(userCart) : []);
+    //         const userDiscount = localStorage.getItem(`discount_${user.id}`);
+    //         setDiscount(userDiscount ? JSON.parse(userDiscount) : 0);
+    //     } else {
+    //         setCart([]);
+    //         setDiscount(0);
+    //     }
+    // }, [user, setCart, setDiscount]);
 
 
     const dynamicCategories = React.useMemo(() => {
@@ -158,7 +168,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             ...cat,
             icon: iconMap[cat.iconName] || ShoppingBasket
         }));
-    }, [categories]);
+    }, [categories, initialCategories]);
 
     // --- Auth ---
     const login = async (phone: string, password?: string): Promise<boolean> => {
@@ -172,6 +182,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     const logout = () => {
         setUser(null);
+        setCart([]);
+        setDiscount(0);
         router.push('/login');
     };
 
@@ -259,8 +271,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         setDiscount(0);
     };
     
-    const totalCartPrice = cart.reduce((total, item) => total + item.product.price * item.quantity, 0);
-    const deliveryFee = cart.length > 0 ? (user?.deliveryZone?.fee ?? 3000) : 0;
+    const totalCartPrice = useMemo(() => cart.reduce((total, item) => total + item.product.price * item.quantity, 0), [cart]);
+    const deliveryFee = useMemo(() => (cart.length > 0 ? (user?.deliveryZone?.fee ?? 3000) : 0), [cart, user]);
     
     // --- Orders ---
     const placeOrder = () => {
@@ -417,5 +429,3 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
-
-    
