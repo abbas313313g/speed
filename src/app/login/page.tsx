@@ -28,10 +28,10 @@ export default function LoginPage() {
 
   useEffect(() => {
     // Redirect if user is already logged in
-    if (context?.user) {
+    if (context && !context.isLoading && context.user) {
       router.replace(context.user.isAdmin ? '/admin' : '/home');
     }
-  }, [context?.user, router]);
+  }, [context, router]);
 
 
   const handleSubmit = (e: FormEvent) => {
@@ -39,7 +39,7 @@ export default function LoginPage() {
     if (!context) return;
     setLoading(true);
 
-    // Simulate API call
+    // Simulate API call to give context time to update
     setTimeout(() => {
       const success = context.login(accessCode);
       if (!success) {
@@ -48,11 +48,20 @@ export default function LoginPage() {
           description: "الرمز الذي أدخلته غير صحيح.",
           variant: "destructive",
         });
+        setLoading(false);
       }
-      // Redirection is handled by the login function via context state change
-      setLoading(false);
-    }, 1000);
+      // Redirection is handled by the useEffect above
+    }, 500);
   };
+  
+  if (context?.isLoading) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+        <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
+        <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">

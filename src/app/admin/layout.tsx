@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useContext, useEffect } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppContext } from '@/contexts/AppContext';
 import { AdminNav } from '@/components/AdminNav';
@@ -14,16 +14,24 @@ export default function AdminLayout({
 }) {
   const context = useContext(AppContext);
   const router = useRouter();
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    // Only check and redirect if context is loaded and user is not an admin
-    if (context && !context.isLoading && (!context.user || !context.user.isAdmin)) {
-      router.replace('/login');
+    if (!context) return;
+
+    // Wait until loading is complete before checking user status
+    if (context.isLoading) {
+      return;
     }
-  }, [context, router]);
+    
+    if (!context.user || !context.user.isAdmin) {
+      router.replace('/login');
+    } else {
+      setIsChecking(false);
+    }
+  }, [context, context?.isLoading, context?.user, router]);
   
-  // While loading, or if context is not yet available, show a spinner.
-  if (!context || context.isLoading) {
+  if (isChecking) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <Shield className="h-16 w-16 animate-pulse text-primary" />
@@ -31,12 +39,6 @@ export default function AdminLayout({
         <p className="mt-2">جاري التحقق من صلاحيات المدير...</p>
       </div>
     );
-  }
-
-  // If after loading, the user is still not an admin, they will be redirected. 
-  // We can render null or a loader while the redirection is in progress.
-  if (!context.user || !context.user.isAdmin) {
-    return null; // or the loader component, returning null avoids a flash of content
   }
   
   // If we reach here, user is loaded and is an admin.
