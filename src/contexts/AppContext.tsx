@@ -66,41 +66,41 @@ interface AppContextType {
 export const AppContext = createContext<AppContextType | null>(null);
 
 const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
-    const [storedValue, setStoredValue] = useState<T>(() => {
-        if (typeof window === 'undefined') {
-            return initialValue;
-        }
-        try {
-            const item = window.localStorage.getItem(key);
-            if (item && item !== 'undefined' && item !== 'null') {
-                return JSON.parse(item);
-            }
-            window.localStorage.setItem(key, JSON.stringify(initialValue));
-            return initialValue;
-        } catch (error) {
-            console.error(`Error parsing JSON from localStorage key "${key}":`, error);
-            return initialValue;
-        }
-    });
+    const [storedValue, setStoredValue] = useState<T>(initialValue);
 
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            try {
-                const serializedValue = JSON.stringify(storedValue);
-                if (serializedValue !== 'undefined') {
-                    window.localStorage.setItem(key, serializedValue);
+        // This effect runs once on mount to load data from localStorage.
+        let item;
+        try {
+            if (typeof window !== 'undefined') {
+                item = window.localStorage.getItem(key);
+                // Check for "undefined" string as well
+                if (item && item !== 'undefined' && item !== 'null') {
+                    setStoredValue(JSON.parse(item));
                 } else {
-                    window.localStorage.removeItem(key);
+                     window.localStorage.setItem(key, JSON.stringify(initialValue));
+                     setStoredValue(initialValue);
                 }
-            } catch (error) {
-                console.error(`Error setting localStorage key "${key}":`, error);
             }
+        } catch (error) {
+            console.error(`Error reading or parsing localStorage key “${key}”:`, error);
+            setStoredValue(initialValue);
         }
-    }, [key, storedValue]);
+    }, []); // Empty dependency array ensures this runs only once on mount.
 
-    return [storedValue, setStoredValue];
+    const setValue = (value: T | ((val: T) => T)) => {
+        try {
+            const valueToStore = value instanceof Function ? value(storedValue) : value;
+            setStoredValue(valueToStore);
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem(key, JSON.stringify(valueToStore));
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    };
+    return [storedValue, setValue];
 };
-
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -115,8 +115,13 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   
   // User-specific states
   const [user, setUser] = useLocalStorage<User | null>('speedShopUser', null);
-  const [cart, setCart] = useLocalStorage<CartItem[]>(`speedShopCart_${user?.id ?? 'guest'}`, []);
-  const [orders, setOrders] = useLocalStorage<Order[]>(`speedShopOrders_${user?.id ?? 'guest'}`, []);
+  
+  // The key for cart and orders now depends on the user's ID to ensure they are user-specific.
+  const cartKey = user ? `speedShopCart_${user.id}` : 'speedShopCart_guest';
+  const ordersKey = user ? `speedShopOrders_${user.id}` : 'speedShopOrders_guest';
+
+  const [cart, setCart] = useLocalStorage<CartItem[]>(cartKey, []);
+  const [orders, setOrders] = useLocalStorage<Order[]>(ordersKey, []);
   
   const [discount, setDiscount] = useState(0);
 
@@ -126,23 +131,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
   
   useEffect(() => {
+    // We set loading to false only after the initial data has been loaded from localStorage.
     setIsLoading(false);
-  }, []);
+  }, [allUsers, products, storedCategories, restaurants, allOrders, banners, user]);
 
-  // Sync user-specific data when user changes
-  useEffect(() => {
-    if (!user) {
-        setCart(JSON.parse(localStorage.getItem('speedShopCart_guest') || '[]'));
-        setOrders(JSON.parse(localStorage.getItem('speedShopOrders_guest') || '[]'));
-    } else {
-        setCart(JSON.parse(localStorage.getItem(`speedShopCart_${user.id}`) || '[]'));
-        setOrders(JSON.parse(localStorage.getItem(`speedShopOrders_${user.id}`) || '[]'));
-    }
-  }, [user?.id]);
-  
   const login = (phoneOrCode: string, password?: string): boolean => {
     let foundUser: User | undefined;
-
     if (password) {
         foundUser = allUsers.find(u => u.phone === phoneOrCode && u.password === password);
     } else {
