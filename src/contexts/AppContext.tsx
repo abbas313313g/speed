@@ -14,7 +14,8 @@ import {
     onAuthStateChanged, 
     signOut,
     GoogleAuthProvider,
-    signInWithPopup
+    signInWithPopup,
+    User as FirebaseUser
 } from 'firebase/auth';
 import { 
     doc, 
@@ -31,7 +32,7 @@ import {
     collectionGroup,
 } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
-import { auth, db, storage, firebaseConfig } from '@/lib/firebase';
+import { auth, db, storage } from '@/lib/firebase';
 
 
 const TELEGRAM_BOT_TOKEN = "7601214758:AAFtkJRGqffuDLKPb8wuHm7r0pt_pDE7BSE";
@@ -126,20 +127,18 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         };
     }, []);
 
-    // --- Auth State Change Handler ---
+    // Refactored Auth State Change Handler
     useEffect(() => {
-        const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-            setIsLoading(true);
+        const handleUser = async (firebaseUser: FirebaseUser | null) => {
             if (firebaseUser) {
-                const userDocRef = doc(db, "users", firebaseUser.uid);
+                const userDocRef = doc(db, 'users', firebaseUser.uid);
                 const userDocSnap = await getDoc(userDocRef);
 
-                let userData: User;
                 if (userDocSnap.exists()) {
                     // Existing user
-                    userData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
+                    setUser({ id: userDocSnap.id, ...userDocSnap.data() } as User);
                 } else {
-                    // New user
+                    // New user -> Create their profile document
                     const usersQuery = query(collection(db, 'users'));
                     const usersSnapshot = await getDocs(usersQuery);
                     const isFirstUser = usersSnapshot.empty;
@@ -148,7 +147,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                         id: firebaseUser.uid,
                         name: firebaseUser.displayName || "مستخدم جديد",
                         email: firebaseUser.email!,
-                        phone: '', 
+                        phone: '',
                         isProfileComplete: false,
                         isAdmin: isFirstUser, // First user becomes admin
                         usedCoupons: [],
@@ -156,11 +155,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                         deliveryZone: { name: '', fee: 0 },
                     };
                     await setDoc(userDocRef, newUser);
-                    userData = newUser;
+                    setUser(newUser);
                 }
-                
-                setUser(userData);
-
             } else {
                 // User is signed out
                 setUser(null);
@@ -170,10 +166,13 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 setAllUsers([]);
             }
             setIsLoading(false);
-        });
+        };
+
+        const unsubscribeAuth = onAuthStateChanged(auth, handleUser);
 
         return () => unsubscribeAuth();
     }, []);
+
 
     // Effect to setup admin listeners when user becomes admin
     useEffect(() => {
@@ -239,18 +238,15 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     // --- Auth & User ---
     const signInWithGoogle = async () => {
         const provider = new GoogleAuthProvider();
-        provider.setCustomParameters({
-            prompt: 'select_account',
-            authDomain: firebaseConfig.authDomain,
-        });
+        provider.setCustomParameters({ prompt: 'select_account' });
         
         try {
+            // onAuthStateChanged will handle the user creation/retrieval
             await signInWithPopup(auth, provider);
-            // onAuthStateChanged will handle the rest
         } catch (error: any) {
             console.error("Google Sign-In Error: ", error);
             if (error.code !== 'auth/popup-closed-by-user') {
-               toast({ title: "فشل تسجيل الدخول", description: error.message, variant: "destructive" });
+               toast({ title: "فشل تسجيل الدخول", description: "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.", variant: "destructive" });
             }
         }
     };

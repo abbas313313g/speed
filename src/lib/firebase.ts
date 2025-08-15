@@ -4,13 +4,14 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-
+// Your web app's Firebase configuration
 export const firebaseConfig = {
-  projectId: "speed-shop-8tchr",
-  appId: "1:631051036670:web:65982c072092bbcc79c2af",
-  storageBucket: "speed-shop-8tchr.firebasestorage.app",
   apiKey: "AIzaSyB7DzyOPNgIopY84WufXVr_HE_cXS8EGMg",
   authDomain: "speed-shop-8tchr.firebaseapp.com",
+  projectId: "speed-shop-8tchr",
+  storageBucket: "speed-shop-8tchr.appspot.com",
+  messagingSenderId: "631051036670",
+  appId: "1:631051036670:web:65982c072092bbcc79c2af"
 };
 
 // Initialize Firebase
