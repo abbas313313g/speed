@@ -19,6 +19,7 @@ const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = 
   ChefHat,
 };
 
+type StoredCategory = Omit<Category, 'icon'>;
 
 interface AppContextType {
   user: User | null;
@@ -102,9 +103,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [allUsers, setAllUsers] = useLocalStorage<User[]>('speedShopAllUsers', mockUsers);
   const [products, setProducts] = useLocalStorage<Product[]>('speedShopProducts', mockProducts);
   const [allOrders, setAllOrders] = useLocalStorage<Order[]>('speedShopAllOrders', []);
-  const [categories, setCategories] = useLocalStorage<Category[]>('speedShopCategories', mockCategories.map(c => ({...c, icon: iconMap[c.iconName]})));
+  const [storedCategories, setStoredCategories] = useLocalStorage<StoredCategory[]>('speedShopCategories', mockCategories);
   const [restaurants, setRestaurants] = useLocalStorage<Restaurant[]>('speedShopRestaurants', mockRestaurants);
   const [banners, setBanners] = useLocalStorage<Banner[]>('speedShopBanners', []);
+  
+  const categories: Category[] = storedCategories.map(c => ({...c, icon: iconMap[c.iconName]}));
+
 
   const router = useRouter();
   const { toast } = useToast();
@@ -299,24 +303,23 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     toast({ title: "تم حذف المنتج بنجاح", variant: "destructive" });
   }
 
-  const addCategory = (categoryData: Omit<Category, 'id' | 'icon'> & { iconName: string }) => {
-    const newCategory: Category = {
+  const addCategory = (categoryData: Omit<Category, 'id' | 'icon'>) => {
+    const newCategory: StoredCategory = {
         id: `cat-${Date.now()}`,
         name: categoryData.name,
         iconName: categoryData.iconName,
-        icon: iconMap[categoryData.iconName] || ShoppingBasket,
     };
-    setCategories([...categories, newCategory]);
+    setStoredCategories([...storedCategories, newCategory]);
     toast({ title: "تمت إضافة القسم بنجاح" });
   }
 
-  const updateCategory = (updatedCategory: Omit<Category, 'icon'> & { iconName: string }) => {
-    setCategories(categories.map(c => c.id === updatedCategory.id ? { ...updatedCategory, icon: iconMap[updatedCategory.iconName] || ShoppingBasket } : c));
+  const updateCategory = (updatedCategory: Omit<Category, 'icon'>) => {
+    setStoredCategories(storedCategories.map(c => c.id === updatedCategory.id ? { id: c.id, name: updatedCategory.name, iconName: updatedCategory.iconName } : c));
     toast({ title: "تم تحديث القسم بنجاح" });
   }
 
   const deleteCategory = (categoryId: string) => {
-    setCategories(categories.filter(c => c.id !== categoryId));
+    setStoredCategories(storedCategories.filter(c => c.id !== categoryId));
     toast({ title: "تم حذف القسم بنجاح", variant: "destructive" });
   }
   
@@ -411,3 +414,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     </AppContext.Provider>
   );
 };
+
+    
