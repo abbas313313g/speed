@@ -16,21 +16,26 @@ import { formatCurrency } from '@/lib/utils';
 import { ShoppingBasket } from 'lucide-react';
 
 // --- Local Storage Hook ---
-function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => void] {
+function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
     const [storedValue, setStoredValue] = useState<T>(() => {
         if (typeof window === 'undefined') {
             return initialValue;
         }
         try {
             const item = window.localStorage.getItem(key);
-            return item ? JSON.parse(item) : initialValue;
+            // If the item doesn't exist, we use the initial value and set it in localStorage.
+            if (item === null) {
+                window.localStorage.setItem(key, JSON.stringify(initialValue));
+                return initialValue;
+            }
+            return JSON.parse(item);
         } catch (error) {
             console.error(`Error reading localStorage key "${key}":`, error);
             return initialValue;
         }
     });
 
-    const setValue = (value: T) => {
+    const setValue = (value: T | ((val: T) => T)) => {
         try {
             const valueToStore = value instanceof Function ? value(storedValue) : value;
             setStoredValue(valueToStore);
@@ -41,6 +46,19 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => voi
             console.error(`Error setting localStorage key "${key}":`, error);
         }
     };
+
+    // This effect runs once on mount to initialize the data if it's empty,
+    // especially for data that comes from mock-data.ts
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const item = window.localStorage.getItem(key);
+            if (item === null || (Array.isArray(JSON.parse(item)) && JSON.parse(item).length === 0 && Array.isArray(initialValue) && initialValue.length > 0)) {
+                window.localStorage.setItem(key, JSON.stringify(initialValue));
+                setStoredValue(initialValue);
+            }
+        }
+    }, [key, initialValue]);
+
 
     return [storedValue, setValue];
 }
@@ -101,8 +119,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const [banners, setBanners] = useLocalStorage<Banner[]>('banners', []);
     const [allOrders, setAllOrders] = useLocalStorage<Order[]>('allOrders', []);
 
-    const [cart, setCart] = useLocalStorage<CartItem[]>('cart', []);
-    const [discount, setDiscount] = useState(0);
+    const [cart, setCart] = useLocalStorage<CartItem[]>(user ? `cart_${user.id}` : 'cart_guest', []);
+    const [discount, setDiscount] = useLocalStorage<number>(user ? `discount_${user.id}` : 'discount_guest', 0);
 
     const orders = user ? allOrders.filter(o => o.userId === user.id) : [];
 
@@ -111,6 +129,20 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         // Simulate loading
         setTimeout(() => setIsLoading(false), 500);
     }, []);
+
+    // When user changes, switch cart
+    useEffect(() => {
+        if(user) {
+            const userCart = localStorage.getItem(`cart_${user.id}`);
+            setCart(userCart ? JSON.parse(userCart) : []);
+            const userDiscount = localStorage.getItem(`discount_${user.id}`);
+            setDiscount(userDiscount ? JSON.parse(userDiscount) : 0);
+        } else {
+            setCart([]);
+            setDiscount(0);
+        }
+    }, [user, setCart, setDiscount]);
+
 
     const dynamicCategories = React.useMemo(() => {
         const iconMap = initialCategories.reduce((acc, cat) => {
@@ -129,8 +161,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const foundUser = users.find(u => u.phone === phone && u.password === password);
         if (foundUser) {
             setUser(foundUser);
-            setCart([]); // Clear cart on login
-            setDiscount(0);
             return true;
         }
         return false;
@@ -138,8 +168,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     const logout = () => {
         setUser(null);
-        setCart([]);
-        setDiscount(0);
         router.push('/login');
     };
 
@@ -148,13 +176,17 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             toast({ title: "رقم الهاتف مستخدم بالفعل", variant: 'destructive' });
             throw new Error("Phone number already exists");
         }
+        
+        const isFirstUser = users.length === 0;
+
         const newUser: User = {
             ...userData,
             id: `user-${Date.now()}`,
             email: `${userData.phone}@speedshop.app`,
-            isAdmin: users.length === 0, // First user is admin
+            isAdmin: isFirstUser, // First user is admin
         };
-        setUsers([...users, newUser]);
+
+        setUsers(prevUsers => [...prevUsers, newUser]);
     };
 
     // --- Cart ---
@@ -201,9 +233,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const removeFromCart = (productId: string) => {
-        const newCart = cart.filter(item => item.product.id !== productId);
-        if(newCart.length === 0) setDiscount(0);
-        setCart(newCart);
+        setCart(prevCart => {
+            const newCart = prevCart.filter(item => item.product.id !== productId);
+            if(newCart.length === 0) setDiscount(0);
+            return newCart;
+        });
     };
 
     const updateQuantity = (productId: string, quantity: number) => {
@@ -211,10 +245,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             removeFromCart(productId);
             return;
         }
-        const newCart = cart.map(item =>
+        setCart(prevCart => prevCart.map(item =>
             item.product.id === productId ? { ...item, quantity } : item
-        );
-        setCart(newCart);
+        ));
     };
 
     const clearCart = () => {
@@ -325,13 +358,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             const discountAmount = totalCartPrice * 0.10;
             setDiscount(discountAmount);
             
-            const updatedUsers = users.map(u => 
+            setUsers(prevUsers => prevUsers.map(u => 
                 u.id === user.id 
                 ? { ...u, usedCoupons: [...(u.usedCoupons || []), couponCode] }
                 : u
-            );
-            setUsers(updatedUsers);
-            setUser(updatedUsers.find(u => u.id === user.id) || null);
+            ));
 
             toast({ title: "تم تطبيق الخصم!", description: `لقد حصلت على خصم بقيمة ${formatCurrency(discountAmount)}.` });
         } else {
