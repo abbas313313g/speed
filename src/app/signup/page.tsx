@@ -65,13 +65,9 @@ export default function SignupPage() {
           phone,
           password,
           deliveryZone: selectedZone,
-          isAdmin: false,
-          usedCoupons: []
+          isAdmin: false
         });
-        toast({
-          title: "تم إنشاء الحساب بنجاح!",
-          description: `يمكنك الآن تسجيل الدخول باستخدام رقم هاتفك وكلمة المرور.`,
-        });
+        
         router.push('/login');
       } catch (error: any) {
         toast({
@@ -179,4 +175,3 @@ export default function SignupPage() {
     </div>
   );
 }
-

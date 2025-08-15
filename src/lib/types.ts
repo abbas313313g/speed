@@ -7,6 +7,7 @@ export interface User {
   deliveryZone: DeliveryZone;
   isAdmin?: boolean;
   usedCoupons?: string[];
+  loginCode?: string;
 }
 
 export interface Product {

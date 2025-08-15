@@ -19,7 +19,7 @@ interface AppContextType {
   restaurants: Restaurant[];
   banners: Banner[];
   isLoading: boolean;
-  login: (phone: string, password?: string) => boolean;
+  login: (phoneOrCode: string, password?: string) => boolean;
   logout: () => void;
   signup: (userData: Omit<User, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
@@ -42,7 +42,7 @@ export const AppContext = createContext<AppContextType | null>(null);
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [allUsers, setAllUsers] = useState<User[]>(mockUsers);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
@@ -57,6 +57,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const loadFromLocalStorage = useCallback(() => {
     setIsLoading(true);
     try {
+      const storedAllUsers = localStorage.getItem('speedShopAllUsers');
+      const currentAllUsers = storedAllUsers ? JSON.parse(storedAllUsers) : mockUsers;
+      setAllUsers(currentAllUsers);
+      
       const storedUser = localStorage.getItem('speedShopUser');
       const storedAllOrders = localStorage.getItem('speedShopAllOrders');
       
@@ -64,7 +68,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
       if (storedUser) {
         const parsedUser: User = JSON.parse(storedUser);
-        const userExists = allUsers.find((u: User) => u.id === parsedUser.id);
+        const userExists = currentAllUsers.find((u: User) => u.id === parsedUser.id);
         
         if (userExists) {
             setUser(userExists);
@@ -82,7 +86,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [allUsers]);
+  }, []);
 
   useEffect(() => {
     loadFromLocalStorage();
@@ -91,6 +95,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const saveToLocalStorage = useCallback(() => {
     if (isLoading) return;
     try {
+        localStorage.setItem('speedShopAllUsers', JSON.stringify(allUsers));
         if(user) {
             localStorage.setItem('speedShopUser', JSON.stringify(user));
             localStorage.setItem(`speedShopCart_${user.id}`, JSON.stringify(cart));
@@ -102,14 +107,23 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
         console.error("Failed to save to localStorage", error);
     }
-  }, [user, cart, orders, allOrders, isLoading]);
+  }, [user, cart, orders, allOrders, allUsers, isLoading]);
 
   useEffect(() => {
     saveToLocalStorage();
   }, [saveToLocalStorage]);
   
-  const login = (phone: string, password?: string): boolean => {
-    const foundUser = allUsers.find(u => u.phone === phone && u.password === password);
+  const login = (phoneOrCode: string, password?: string): boolean => {
+    let foundUser: User | undefined;
+
+    if (password) {
+        // Login with phone and password
+        foundUser = allUsers.find(u => u.phone === phoneOrCode && u.password === password);
+    } else {
+        // Login with code
+        foundUser = allUsers.find(u => u.loginCode === phoneOrCode);
+    }
+
     if (foundUser) {
         setUser(foundUser);
         loadUserSpecificData(foundUser.id);
@@ -146,14 +160,22 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         throw new Error("هذا الرقم مسجل بالفعل.");
     }
     
+    const loginCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
     const newUser: User = {
         id: `user-${Date.now()}`,
         ...userData,
+        loginCode: loginCode,
+        usedCoupons: []
     };
     
     const updatedUsers = [...allUsers, newUser];
     setAllUsers(updatedUsers);
-    localStorage.setItem('speedShopAllUsers', JSON.stringify(updatedUsers));
+    toast({
+        title: "تم إنشاء الحساب بنجاح!",
+        description: `رمز الدخول السريع الخاص بك هو: ${loginCode}. يمكنك استخدامه لتسجيل الدخول لاحقًا.`,
+        duration: 10000,
+    });
   };
   
   const clearCartAndAdd = (product: Product, quantity: number = 1) => {

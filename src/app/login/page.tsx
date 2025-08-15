@@ -17,11 +17,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ShoppingCart, KeyRound, Phone } from "lucide-react";
+import { Loader2, ShoppingCart, KeyRound, Phone, Hash } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function LoginPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [loginCode, setLoginCode] = useState("");
   const [loading, setLoading] = useState(false);
   const context = useContext(AppContext);
   const { toast } = useToast();
@@ -40,12 +42,19 @@ export default function LoginPage() {
     setLoading(true);
 
     setTimeout(() => {
-      if (context.login(phone, password)) {
+        let success = false;
+        if(loginCode) {
+            success = context.login(loginCode);
+        } else {
+            success = context.login(phone, password);
+        }
+
+      if (success) {
         router.push('/home');
       } else {
         toast({
           title: "فشل تسجيل الدخول",
-          description: "رقم الهاتف أو كلمة المرور غير صحيحة.",
+          description: "المعلومات التي أدخلتها غير صحيحة.",
           variant: "destructive",
         });
         setLoading(false);
@@ -75,52 +84,80 @@ export default function LoginPage() {
           <CardHeader>
             <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>
             <CardDescription>
-              ليس لديك حساب؟{" "}
-              <Link href="/signup" className="text-primary hover:underline">
-                إنشاء حساب جديد
-              </Link>
+              ادخل معلومات حسابك للمتابعة
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
-               <div className="space-y-2">
-                <Label htmlFor="phone">رقم الهاتف</Label>
-                 <div className="relative">
-                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="ادخل رقم هاتفك"
-                      required
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      dir="ltr"
-                      className="text-left pr-10"
-                    />
-                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">كلمة المرور</Label>
-                 <div className="relative">
-                    <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      id="password"
-                      type="password"
-                      placeholder="ادخل كلمة المرور"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      dir="ltr"
-                      className="text-left pr-10"
-                    />
-                 </div>
-              </div>
+                <Tabs defaultValue="password">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="password">كلمة المرور</TabsTrigger>
+                        <TabsTrigger value="code">الرمز السريع</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="password" className="space-y-4 pt-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="phone">رقم الهاتف</Label>
+                            <div className="relative">
+                                <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                <Input
+                                id="phone"
+                                type="tel"
+                                placeholder="ادخل رقم هاتفك"
+                                required
+                                value={phone}
+                                onChange={(e) => { setPhone(e.target.value); setLoginCode(""); }}
+                                dir="ltr"
+                                className="text-left pr-10"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="password">كلمة المرور</Label>
+                            <div className="relative">
+                                <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                <Input
+                                id="password"
+                                type="password"
+                                placeholder="ادخل كلمة المرور"
+                                required
+                                value={password}
+                                onChange={(e) => { setPassword(e.target.value); setLoginCode(""); }}
+                                dir="ltr"
+                                className="text-left pr-10"
+                                />
+                            </div>
+                        </div>
+                    </TabsContent>
+                     <TabsContent value="code" className="space-y-4 pt-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="loginCode">الرمز السريع</Label>
+                            <div className="relative">
+                                <Hash className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                <Input
+                                id="loginCode"
+                                type="text"
+                                placeholder="أدخل رمز الدخول السريع"
+                                required
+                                value={loginCode}
+                                onChange={(e) => { setLoginCode(e.target.value); setPhone(""); setPassword(""); }}
+                                dir="ltr"
+                                className="text-left pr-10"
+                                />
+                            </div>
+                        </div>
+                    </TabsContent>
+                </Tabs>
             </CardContent>
             <CardFooter className="flex flex-col gap-4">
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                دخول
-              </Button>
+                <div className="flex gap-2 w-full">
+                    <Button type="submit" className="flex-1" disabled={loading}>
+                        {loading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                        دخول
+                    </Button>
+                     <Button asChild variant="outline" className="flex-1">
+                        <Link href="/signup">إنشاء حساب جديد</Link>
+                    </Button>
+                </div>
             </CardFooter>
           </form>
         </Card>
