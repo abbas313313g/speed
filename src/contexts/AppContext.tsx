@@ -187,20 +187,31 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     // --- Auth & User ---
     const login = async (phone: string, password?: string): Promise<boolean> => {
+        setIsLoading(true);
         try {
             const q = query(collection(db, "users"), where("phone", "==", phone));
             const querySnapshot = await getDocs(q);
+            
             if(querySnapshot.empty){
-                toast({ title: "المستخدم غير موجود", variant: "destructive" });
+                toast({ title: "المستخدم غير موجود", description: "رقم الهاتف الذي أدخلته غير مسجل.", variant: "destructive" });
+                setIsLoading(false);
                 return false;
             }
+            
             const userDoc = querySnapshot.docs[0];
             const userData = userDoc.data() as User;
+            
             await signInWithEmailAndPassword(auth, userData.email, password!);
+            // onAuthStateChanged will handle setting the user and loading state
             return true;
-        } catch (error) {
-            console.error(error);
-            toast({ title: "خطأ في تسجيل الدخول", description: "البريد الإلكتروني أو كلمة المرور غير صحيحة", variant: "destructive" });
+        } catch (error: any) {
+            console.error("Login Error:", error);
+            let description = "الرجاء التأكد من معلوماتك والمحاولة مرة أخرى.";
+            if(error.code === 'auth/wrong-password') {
+                description = "كلمة المرور التي أدخلتها غير صحيحة.";
+            }
+            toast({ title: "خطأ في تسجيل الدخول", description, variant: "destructive" });
+            setIsLoading(false);
             return false;
         }
     };
@@ -234,6 +245,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             deliveryZone: userData.deliveryZone,
             addresses: userData.addresses,
             isAdmin: isFirstUser,
+            usedCoupons: [],
         };
         await setDoc(doc(db, "users", firebaseUser.user.uid), newUser);
     };
@@ -541,3 +553,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
+
+    
