@@ -78,7 +78,7 @@ export default function SignupPage() {
     }
   };
 
-  if (context?.isLoading) {
+  if (context?.isLoading && !context?.user) {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
             <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
