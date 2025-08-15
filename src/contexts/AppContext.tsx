@@ -86,7 +86,12 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<R
     useEffect(() => {
         if (typeof window !== 'undefined') {
             try {
-                window.localStorage.setItem(key, JSON.stringify(storedValue));
+                const serializedValue = JSON.stringify(storedValue);
+                if (serializedValue !== 'undefined') {
+                    window.localStorage.setItem(key, serializedValue);
+                } else {
+                    window.localStorage.removeItem(key);
+                }
             } catch (error) {
                 console.error(`Error setting localStorage key "${key}":`, error);
             }
@@ -126,15 +131,14 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
   // Sync user-specific data when user changes
   useEffect(() => {
-    const guestCart = JSON.parse(localStorage.getItem('speedShopCart_guest') || '[]');
-    const userCart = user ? JSON.parse(localStorage.getItem(`speedShopCart_${user.id}`) || '[]') : [];
-    setCart(user ? userCart : guestCart);
-
-    const guestOrders = JSON.parse(localStorage.getItem('speedShopOrders_guest') || '[]');
-    const userOrders = user ? JSON.parse(localStorage.getItem(`speedShopOrders_${user.id}`) || '[]') : [];
-    setOrders(user ? userOrders : guestOrders);
-  }, [user, setCart, setOrders]);
-
+    if (!user) {
+        setCart(JSON.parse(localStorage.getItem('speedShopCart_guest') || '[]'));
+        setOrders(JSON.parse(localStorage.getItem('speedShopOrders_guest') || '[]'));
+    } else {
+        setCart(JSON.parse(localStorage.getItem(`speedShopCart_${user.id}`) || '[]'));
+        setOrders(JSON.parse(localStorage.getItem(`speedShopOrders_${user.id}`) || '[]'));
+    }
+  }, [user?.id]);
   
   const login = (phoneOrCode: string, password?: string): boolean => {
     let foundUser: User | undefined;
@@ -410,7 +414,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AppContext.Provider value={value}>
-      {!isLoading && children}
+      {children}
     </AppContext.Provider>
   );
 };
