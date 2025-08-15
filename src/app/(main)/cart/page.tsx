@@ -38,7 +38,7 @@ export default function CartPage() {
         <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] text-center p-4">
             <ShoppingBag className="h-24 w-24 text-muted-foreground/50 mb-4" />
             <h2 className="text-2xl font-bold">سلّتك فارغة!</h2>
-            <p className="text-muted-foreground mt-2">أضف بعض المنتجات اللذيذة لتبدأ الطلب.</p>
+            <p className="text-muted-foreground mt-2">أضف بعض المنتجات لتبدأ الطلب.</p>
             <Button asChild className="mt-6">
                 <Link href="/home">تصفح المنتجات</Link>
             </Button>

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useContext, useEffect } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppContext } from '@/contexts/AppContext';
 import { AdminNav } from '@/components/AdminNav';
@@ -14,15 +14,38 @@ export default function AdminLayout({
 }) {
   const context = useContext(AppContext);
   const router = useRouter();
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    if (!context?.isLoading && (!context?.user || !context.user.isAdmin)) {
+    if (!context) return;
+    
+    // Give context a moment to load user data from localStorage
+    if (context.isLoading) {
+      return;
+    }
+
+    // If loading is finished, perform the check
+    if (!context.user || !context.user.isAdmin) {
       router.replace('/login');
     }
-  }, [context?.isLoading, context?.user, router]);
+    setIsChecking(false);
 
-  if (context?.isLoading || !context?.user || !context.user.isAdmin) {
+  }, [context, router]);
+
+  if (isChecking || context?.isLoading) {
     return (
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+        <Shield className="h-16 w-16 animate-pulse text-primary" />
+        <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />
+        <p className="mt-2">جاري التحقق من صلاحيات المدير...</p>
+      </div>
+    );
+  }
+
+  // Final check after loading is complete
+  if (!context?.user || !context.user.isAdmin) {
+    // This will show the loader while redirecting
+     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <Shield className="h-16 w-16 animate-pulse text-primary" />
         <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />

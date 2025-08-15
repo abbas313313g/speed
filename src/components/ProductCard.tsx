@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import type { Product } from "@/lib/types";
 import { AppContext } from "@/contexts/AppContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProductCardProps {
   product: Product;
@@ -17,6 +18,7 @@ interface ProductCardProps {
 
 function ProductCardComponent({ product }: ProductCardProps) {
   const context = useContext(AppContext);
+  const { toast } = useToast();
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -33,7 +35,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
               alt={product.name}
               fill
               className="object-cover"
-              data-ai-hint="food item"
+              data-ai-hint="product item"
             />
           </div>
           <div className="p-4">

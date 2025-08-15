@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { products, categories, restaurants } from '@/lib/mock-data';
+import { products, categories } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
 import Image from 'next/image';
 
@@ -119,7 +119,7 @@ export default function AdminProductsPage() {
             <TableHead>صورة</TableHead>
             <TableHead>اسم المنتج</TableHead>
             <TableHead>السعر</TableHead>
-            <TableHead>المطعم</TableHead>
+            <TableHead>القسم</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -130,7 +130,7 @@ export default function AdminProductsPage() {
               </TableCell>
               <TableCell className="font-medium">{product.name}</TableCell>
               <TableCell>{formatCurrency(product.price)}</TableCell>
-              <TableCell>{restaurants.find(r => r.id === product.restaurantId)?.name}</TableCell>
+              <TableCell>{categories.find(c => c.id === product.categoryId)?.name || 'غير معروف'}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -138,4 +138,3 @@ export default function AdminProductsPage() {
     </div>
   );
 }
-

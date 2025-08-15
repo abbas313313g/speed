@@ -37,7 +37,7 @@ export default function HomePage() {
               <CarouselItem key={index}>
                 <Card>
                   <CardContent className="relative flex aspect-video items-center justify-center p-0">
-                    <Image src={`https://placehold.co/600x300.png`} fill alt={`Promotion ${index + 1}`} className="rounded-lg object-cover" data-ai-hint="food promotion" />
+                    <Image src={`https://placehold.co/600x300.png`} fill alt={`Promotion ${index + 1}`} className="rounded-lg object-cover" data-ai-hint="shopping promotion" />
                   </CardContent>
                 </Card>
               </CarouselItem>
@@ -49,11 +49,16 @@ export default function HomePage() {
       </section>
 
       <section>
-        <h2 className="text-xl font-bold mb-4">الأقسام</h2>
+        <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">الأقسام</h2>
+            <Link href="/products" className="text-sm font-semibold text-primary">
+                عرض الكل
+            </Link>
+        </div>
         <ScrollArea className="w-full whitespace-nowrap rounded-md">
             <div className="flex w-max space-x-4 pb-4">
                 {categories.map((category) => (
-                    <Link href="/products" key={category.id} className="flex-shrink-0">
+                    <Link href={`/products?category=${category.id}`} key={category.id} className="flex-shrink-0">
                         <div className="w-24 text-center group">
                             <div className="p-4 bg-secondary rounded-lg flex items-center justify-center aspect-square transition-colors group-hover:bg-primary">
                                 <category.icon className="h-10 w-10 text-primary transition-colors group-hover:text-primary-foreground" />
@@ -82,7 +87,7 @@ export default function HomePage() {
       </section>
 
       <section>
-        <h2 className="text-xl font-bold mb-4">أفضل المطاعم</h2>
+        <h2 className="text-xl font-bold mb-4">أشهر المتاجر</h2>
         <div className="space-y-4">
           {restaurants.map((restaurant) => (
             <RestaurantCard key={restaurant.id} restaurant={restaurant} />

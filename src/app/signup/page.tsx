@@ -31,6 +31,7 @@ import { Loader2, ShoppingCart } from "lucide-react";
 export default function SignupPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [zone, setZone] = useState<DeliveryZone | null>(null);
   const [loading, setLoading] = useState(false);
   const context = useContext(AppContext);
@@ -43,10 +44,10 @@ export default function SignupPage() {
   
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!context || !zone) {
+    if (!context || !zone || !password) {
         toast({
             title: "خطأ في الإدخال",
-            description: "الرجاء تعبئة جميع الحقول واختيار منطقة.",
+            description: "الرجاء تعبئة جميع الحقول بشكل صحيح.",
             variant: "destructive",
         });
         return;
@@ -55,7 +56,7 @@ export default function SignupPage() {
     
     // Simulate API call
     setTimeout(() => {
-        context.signup({ name, phone, deliveryZone: zone });
+        context.signup({ name, phone, password, deliveryZone: zone });
         setLoading(false);
     }, 1000);
   };
@@ -98,6 +99,18 @@ export default function SignupPage() {
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  dir="ltr"
+                  className="text-left"
+                />
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="password">كلمة المرور</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   dir="ltr"
                   className="text-left"
                 />

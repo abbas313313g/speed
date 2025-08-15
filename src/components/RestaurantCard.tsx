@@ -22,7 +22,7 @@ function RestaurantCardComponent({ restaurant }: RestaurantCardProps) {
             alt={restaurant.name}
             fill
             className="object-cover rounded-md"
-            data-ai-hint="restaurant logo"
+            data-ai-hint="store logo"
           />
         </div>
         <div className="flex-grow">

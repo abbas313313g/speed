@@ -1,29 +1,28 @@
 
 import type { Category, Restaurant, Product, DeliveryZone, User } from './types';
-import { Beef, Pizza, Sandwich, Soup, Salad, ChefHat } from 'lucide-react';
+import { ShoppingBasket, Stethoscope, SwatchBook, Soup, Salad, ChefHat } from 'lucide-react';
 
 export const categories: Category[] = [
-  { id: 'cat1', name: 'برجر', icon: Beef },
-  { id: 'cat2', name: 'بيتزا', icon: Pizza },
-  { id: 'cat3', name: 'سندويتش', icon: Sandwich },
+  { id: 'cat1', name: 'ماركت', icon: ShoppingBasket },
+  { id: 'cat2', name: 'عناية', icon: Stethoscope },
+  { id: 'cat3', name: 'تسوق', icon: SwatchBook },
   { id: 'cat4', name: 'شوربات', icon: Soup },
   { id: 'cat5', name: 'سلطات', icon: Salad },
   { id: 'cat6', name: 'مأكولات شرقية', icon: ChefHat },
 ];
 
 export const restaurants: Restaurant[] = [
-  { id: 'res1', name: 'مطعم الكابتن', image: 'https://placehold.co/400x300.png', rating: 4.5 },
-  { id: 'res2', name: 'بيتزا هت', image: 'https://placehold.co/400x300.png', rating: 4.8 },
-  { id: 'res3', name: 'شاورما الريم', image: 'https://placehold.co/400x300.png', rating: 4.2 },
-  { id: 'res4', name: 'برجر كينج', image: 'https://placehold.co/400x300.png', rating: 4.0 },
+  { id: 'res1', name: 'ماركت المنصور', image: 'https://placehold.co/400x300.png', rating: 4.5 },
+  { id: 'res2', name: 'صيدلية الفرح', image: 'https://placehold.co/400x300.png', rating: 4.8 },
+  { id: 'res3', name: 'متجر الهدايا', image: 'https://placehold.co/400x300.png', rating: 4.2 },
 ];
 
 export const products: Product[] = [
   {
     id: 'prod1',
-    name: 'برجر لحم كلاسيك',
-    description: 'قطعة لحم مشوي مع جبنة، خس، طماطم، وبصل.',
-    price: 8000,
+    name: 'مياه معدنية',
+    description: 'صندوق مياه معدنية طبيعية (12 عبوة).',
+    price: 5000,
     image: 'https://placehold.co/600x400.png',
     categoryId: 'cat1',
     restaurantId: 'res1',
@@ -31,18 +30,8 @@ export const products: Product[] = [
   },
   {
     id: 'prod2',
-    name: 'برجر دجاج كرسبي',
-    description: 'صدر دجاج مقرمش مع مايونيز وخس.',
-    price: 7500,
-    image: 'https://placehold.co/600x400.png',
-    categoryId: 'cat1',
-    restaurantId: 'res4',
-    bestSeller: true,
-  },
-  {
-    id: 'prod3',
-    name: 'بيتزا مارجريتا',
-    description: 'عجينة رقيقة مع صلصة طماطم وجبنة موزاريلا.',
+    name: 'كريم مرطب للبشرة',
+    description: 'كريم غني بالفيتامينات لترطيب عميق.',
     price: 12000,
     image: 'https://placehold.co/600x400.png',
     categoryId: 'cat2',
@@ -50,32 +39,42 @@ export const products: Product[] = [
     bestSeller: true,
   },
   {
-    id: 'prod4',
-    name: 'بيتزا بيبروني',
-    description: 'بيتزا كلاسيكية مع شرائح البيبروني.',
-    price: 15000,
-    image: 'https://placehold.co/600x400.png',
-    categoryId: 'cat2',
-    restaurantId: 'res2',
-  },
-  {
-    id: 'prod5',
-    name: 'سندويتش فلافل',
-    description: 'خبز صاج مع فلافل، طرشي، وعمبة.',
-    price: 2500,
+    id: 'prod3',
+    name: 'عطر رجالي',
+    description: 'عطر جذاب برائحة تدوم طويلاً.',
+    price: 25000,
     image: 'https://placehold.co/600x400.png',
     categoryId: 'cat3',
     restaurantId: 'res3',
     bestSeller: true,
   },
   {
-    id: 'prod6',
-    name: 'شاورما لحم',
-    description: 'شاورما لحم بخبز الصاج مع الطحينة.',
-    price: 4000,
+    id: 'prod4',
+    name: 'شامبو للشعر',
+    description: 'شامبو ضد القشرة لجميع أنواع الشعر.',
+    price: 7000,
     image: 'https://placehold.co/600x400.png',
-    categoryId: 'cat6',
-    restaurantId: 'res3',
+    categoryId: 'cat2',
+    restaurantId: 'res2',
+  },
+  {
+    id: 'prod5',
+    name: 'معجون أسنان',
+    description: 'معجون أسنان بالفلورايد لحماية متكاملة.',
+    price: 2500,
+    image: 'https://placehold.co/600x400.png',
+    categoryId: 'cat2',
+    restaurantId: 'res2',
+    bestSeller: true,
+  },
+  {
+    id: 'prod6',
+    name: 'أرز بسمتي',
+    description: 'كيس أرز بسمتي هندي فاخر، 5 كغم.',
+    price: 15000,
+    image: 'https://placehold.co/600x400.png',
+    categoryId: 'cat1',
+    restaurantId: 'res1',
   },
    {
     id: 'prod7',
@@ -105,6 +104,6 @@ export const deliveryZones: DeliveryZone[] = [
 ];
 
 export const users: User[] = [
-    { id: 'user-admin', name: 'المدير العام', phone: '07700000000', deliveryZone: deliveryZones[0], isAdmin: true },
-    { id: 'user-1', name: 'أحمد علي', phone: '07801111111', deliveryZone: deliveryZones[1] },
+    { id: 'user-admin', name: 'المدير العام', phone: '07700000000', password: 'admin', deliveryZone: deliveryZones[0], isAdmin: true },
+    { id: 'user-1', name: 'أحمد علي', phone: '07801111111', password: 'password123', deliveryZone: deliveryZones[1] },
 ]

@@ -15,7 +15,7 @@ interface AppContextType {
   orders: Order[];
   allOrders: Order[];
   isLoading: boolean;
-  login: (phone: string) => boolean;
+  login: (phone: string, password?: string) => boolean;
   logout: () => void;
   signup: (userData: Omit<User, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
@@ -41,7 +41,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const { toast } = useToast();
 
-  const loadFromLocalStorage = () => {
+  const loadFromLocalStorage = useCallback(() => {
     try {
       const storedUser = localStorage.getItem('speedShopUser');
       const storedCart = localStorage.getItem(`speedShopCart_${storedUser ? JSON.parse(storedUser).id : ''}`);
@@ -49,7 +49,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
       const storedAllOrders = localStorage.getItem('speedShopAllOrders');
       const storedAllUsers = localStorage.getItem('speedShopAllUsers');
 
-      if (storedUser) setUser(JSON.parse(storedUser));
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+      }
       if (storedCart) setCart(JSON.parse(storedCart));
       if (storedOrders) setOrders(JSON.parse(storedOrders));
       
@@ -61,11 +64,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadFromLocalStorage();
-  }, []);
+  }, [loadFromLocalStorage]);
 
   const saveToLocalStorage = useCallback(() => {
     if (isLoading) return;
@@ -82,12 +85,16 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     saveToLocalStorage();
   }, [saveToLocalStorage]);
 
-  const login = (phone: string): boolean => {
-    const foundUser = allUsers.find(u => u.phone === phone);
+  const login = (phone: string, password?: string): boolean => {
+    const foundUser = allUsers.find(u => u.phone === phone && u.password === password);
     if (foundUser) {
         setUser(foundUser);
         loadUserSpecificData(foundUser.id);
-        router.push(foundUser.isAdmin ? '/admin' : '/home');
+        if (foundUser.isAdmin) {
+          router.push('/admin');
+        } else {
+          router.push('/home');
+        }
         return true;
     }
     return false;
@@ -101,15 +108,37 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const logout = () => {
-    const isAdmin = user?.isAdmin;
+    const wasAdmin = user?.isAdmin;
     setUser(null);
     setCart([]);
     setOrders([]);
     localStorage.removeItem('speedShopUser');
-    router.push(isAdmin ? '/admin' : '/');
+    // We need to clear all user-specific data from localStorage
+    // A simple approach is to clear everything, but this might affect other things.
+    // A better way is to iterate and remove keys, but for this app, clear() is fine.
+    // Let's be more specific
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('speedShopCart_') || key.startsWith('speedShopOrders_'))) {
+            keysToRemove.push(key);
+        }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    router.push(wasAdmin ? '/login' : '/');
   };
 
   const signup = (userData: Omit<User, 'id'>) => {
+    // Check if phone number already exists
+    if (allUsers.some(u => u.phone === userData.phone)) {
+        toast({
+            title: "فشل التسجيل",
+            description: "رقم الهاتف مسجل بالفعل.",
+            variant: "destructive",
+        });
+        return;
+    }
+
     const newUser: User = { ...userData, id: `user-${Date.now()}`, isAdmin: false };
     setAllUsers(prev => [...prev, newUser]);
     setUser(newUser);
@@ -126,19 +155,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const addToCart = (product: Product, quantity: number = 1) => {
-    if (cart.length > 0 && cart[0].product.restaurantId !== product.restaurantId) {
-       toast({
-        title: "هل تريد بدء طلب جديد؟",
-        description: "لا يمكنك الطلب من مطعمين مختلفين في نفس الوقت. هل تريد مسح سلتك الحالية والبدء من جديد؟",
-        action: (
-          <>
-            <Button variant="destructive" onClick={() => clearCartAndAdd(product, quantity)}>نعم، إبدأ من جديد</Button>
-          </>
-        ),
-      });
-      return;
-    }
-
+    // We remove the restaurant restriction
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.product.id === product.id);
       if (existingItem) {

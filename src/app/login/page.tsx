@@ -21,6 +21,7 @@ import { Loader2, ShoppingCart } from "lucide-react";
 
 export default function LoginPage() {
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const context = useContext(AppContext);
   const { toast } = useToast();
@@ -41,11 +42,11 @@ export default function LoginPage() {
 
     // Simulate API call
     setTimeout(() => {
-      const success = context.login(phone);
+      const success = context.login(phone, password);
       if (!success) {
         toast({
           title: "فشل تسجيل الدخول",
-          description: "رقم الهاتف غير مسجل. الرجاء إنشاء حساب جديد.",
+          description: "رقم الهاتف أو كلمة المرور غير صحيحة.",
           variant: "destructive",
         });
       }
@@ -67,7 +68,7 @@ export default function LoginPage() {
           <CardHeader>
             <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>
             <CardDescription>
-              أدخل رقم هاتفك للمتابعة
+              أدخل رقم هاتفك وكلمة المرور للمتابعة
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
@@ -81,6 +82,18 @@ export default function LoginPage() {
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  dir="ltr"
+                  className="text-left"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">كلمة المرور</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   dir="ltr"
                   className="text-left"
                 />

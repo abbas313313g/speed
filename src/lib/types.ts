@@ -3,6 +3,7 @@ export interface User {
   id: string;
   name: string;
   phone: string;
+  password?: string; // Add password field
   deliveryZone: DeliveryZone;
   isAdmin?: boolean;
 }
@@ -14,7 +15,7 @@ export interface Product {
   price: number;
   image: string;
   categoryId: string;
-  restaurantId: string;
+  restaurantId?: string; // Made optional as we are moving away from restaurants
   bestSeller?: boolean;
 }
 
