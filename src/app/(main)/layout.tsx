@@ -18,12 +18,15 @@ export default function MainAppLayout({
   useEffect(() => {
     if (!context) return;
     
+    // If loading is finished and there's still no user, redirect to login
     if (!context.isLoading && !context.user) {
       router.replace('/');
     }
 
-  }, [context, router]);
+  }, [context?.isLoading, context?.user, router]);
 
+  // Show a loading screen while the context is loading OR if there is no user yet.
+  // This prevents a flash of the main layout before the redirect can happen.
   if (context?.isLoading || !context?.user) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">

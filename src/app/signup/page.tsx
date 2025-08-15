@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, User, Phone, MapPin, KeyRound } from "lucide-react";
+import { Loader2, User, Phone, MapPin, KeyRound, ShoppingCart } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -80,6 +80,7 @@ export default function SignupPage() {
   if (context?.isLoading || context?.user) {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+            <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
             <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />
         </div>
     );

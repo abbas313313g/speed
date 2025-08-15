@@ -3,12 +3,12 @@ export interface User {
   id: string;
   name: string;
   phone: string;
-  // password is not stored in Firestore, it's handled by Firebase Auth
+  password?: string; // Only used for local mock auth
   deliveryZone: DeliveryZone;
   isAdmin?: boolean;
   usedCoupons?: string[];
   loginCode?: string;
-  email: string; // Firebase Auth uses email
+  email: string;
 }
 
 export interface Product {
@@ -25,7 +25,6 @@ export interface Product {
 export interface Category {
   id: string;
   name: string;
-  // icon component cannot be stored in Firestore. We will render it dynamically using iconName
   iconName: string;
   icon?: React.ComponentType<{ className?: string }>;
 }
