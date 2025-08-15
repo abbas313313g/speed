@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { 
     users as initialUsers, 
     products as initialProducts, 
-    categories as initialCategories, 
+    categories as initialCategoriesData, 
     restaurants as initialRestaurants,
     deliveryZones
 } from '@/lib/mock-data';
@@ -50,8 +50,8 @@ interface AppContextType {
   addProduct: (product: Omit<Product, 'id' | 'bestSeller'>) => void;
   updateProduct: (product: Product) => void;
   deleteProduct: (productId: string) => void;
-  addCategory: (category: Omit<Category, 'id' | 'icon'> & { iconName: string }) => void;
-  updateCategory: (category: Omit<Category, 'icon'> & { iconName: string }) => void;
+  addCategory: (category: Omit<Category, 'id' | 'icon'>) => void;
+  updateCategory: (category: Omit<Category, 'icon'>) => void;
   deleteCategory: (categoryId: string) => void;
   addRestaurant: (restaurant: Omit<Restaurant, 'id'>) => void;
   updateRestaurant: (restaurant: Restaurant) => void;
@@ -85,7 +85,11 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<R
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            window.localStorage.setItem(key, JSON.stringify(storedValue));
+            try {
+                window.localStorage.setItem(key, JSON.stringify(storedValue));
+            } catch (error) {
+                console.error(`Error setting localStorage key "${key}":`, error);
+            }
         }
     }, [key, storedValue]);
 
@@ -94,22 +98,24 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<R
 
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Global Data States
+  const [allUsers, setAllUsers] = useLocalStorage<User[]>('speedShopAllUsers', initialUsers);
+  const [products, setProducts] = useLocalStorage<Product[]>('speedShopProducts', initialProducts);
+  const [storedCategories, setStoredCategories] = useLocalStorage<StoredCategory[]>('speedShopCategories', initialCategoriesData);
+  const [restaurants, setRestaurants] = useLocalStorage<Restaurant[]>('speedShopRestaurants', initialRestaurants);
+  const [allOrders, setAllOrders] = useLocalStorage<Order[]>('speedShopAllOrders', []);
+  const [banners, setBanners] = useLocalStorage<Banner[]>('speedShopBanners', []);
+  
+  // User-specific states
   const [user, setUser] = useLocalStorage<User | null>('speedShopUser', null);
   const [cart, setCart] = useLocalStorage<CartItem[]>(`speedShopCart_${user?.id ?? 'guest'}`, []);
   const [orders, setOrders] = useLocalStorage<Order[]>(`speedShopOrders_${user?.id ?? 'guest'}`, []);
   
-  const [allUsers, setAllUsers] = useLocalStorage<User[]>('speedShopAllUsers', initialUsers);
-  const [products, setProducts] = useLocalStorage<Product[]>('speedShopProducts', initialProducts);
-  const [allOrders, setAllOrders] = useLocalStorage<Order[]>('speedShopAllOrders', []);
-  const [storedCategories, setStoredCategories] = useLocalStorage<StoredCategory[]>('speedShopCategories', initialCategories);
-  const [restaurants, setRestaurants] = useLocalStorage<Restaurant[]>('speedShopRestaurants', initialRestaurants);
-  const [banners, setBanners] = useLocalStorage<Banner[]>('speedShopBanners', []);
-  
   const [discount, setDiscount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
 
   const categories: Category[] = storedCategories.map(c => ({...c, icon: iconMap[c.iconName] || ShoppingBasket}));
-
 
   const router = useRouter();
   const { toast } = useToast();
@@ -118,11 +124,17 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(false);
   }, []);
 
-  // Sync cart and orders when user logs in/out
+  // Sync user-specific data when user changes
   useEffect(() => {
-    setCart(JSON.parse(localStorage.getItem(`speedShopCart_${user?.id ?? 'guest'}`) || '[]'));
-    setOrders(JSON.parse(localStorage.getItem(`speedShopOrders_${user?.id ?? 'guest'}`) || '[]'));
+    const guestCart = JSON.parse(localStorage.getItem('speedShopCart_guest') || '[]');
+    const userCart = user ? JSON.parse(localStorage.getItem(`speedShopCart_${user.id}`) || '[]') : [];
+    setCart(user ? userCart : guestCart);
+
+    const guestOrders = JSON.parse(localStorage.getItem('speedShopOrders_guest') || '[]');
+    const userOrders = user ? JSON.parse(localStorage.getItem(`speedShopOrders_${user.id}`) || '[]') : [];
+    setOrders(user ? userOrders : guestOrders);
   }, [user, setCart, setOrders]);
+
   
   const login = (phoneOrCode: string, password?: string): boolean => {
     let foundUser: User | undefined;
@@ -142,8 +154,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     setUser(null);
-    setCart([]);
-    setOrders([]);
     router.push('/login');
   };
 
@@ -400,9 +410,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AppContext.Provider value={value}>
-      {children}
+      {!isLoading && children}
     </AppContext.Provider>
   );
 };
-
-    
