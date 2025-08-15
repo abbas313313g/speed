@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useContext } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { Badge } from "@/components/ui/badge";
+import React from "react";
 
 const navItems = [
   { href: "/home", label: "الرئيسية", icon: Home },
@@ -17,7 +18,7 @@ const navItems = [
   { href: "/account", label: "حسابي", icon: User },
 ];
 
-export function BottomNav() {
+function BottomNavComponent() {
   const pathname = usePathname();
   const context = useContext(AppContext);
   const cartCount = context?.cart.reduce((count, item) => count + item.quantity, 0) ?? 0;
@@ -50,3 +51,5 @@ export function BottomNav() {
     </nav>
   );
 }
+
+export const BottomNav = React.memo(BottomNavComponent);

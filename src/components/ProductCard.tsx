@@ -1,6 +1,7 @@
 
 "use client";
 
+import React, { useContext } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { PlusCircle } from "lucide-react";
@@ -8,14 +9,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import type { Product } from "@/lib/types";
-import { useContext } from "react";
 import { AppContext } from "@/contexts/AppContext";
 
 interface ProductCardProps {
   product: Product;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+function ProductCardComponent({ product }: ProductCardProps) {
   const context = useContext(AppContext);
 
   const handleAddToCart = (e: React.MouseEvent) => {
@@ -52,3 +52,5 @@ export function ProductCard({ product }: ProductCardProps) {
     </Link>
   );
 }
+
+export const ProductCard = React.memo(ProductCardComponent);

@@ -1,17 +1,18 @@
 
 "use client";
 
+import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Star } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardTitle } from "@/components/ui/card";
 import type { Restaurant } from "@/lib/types";
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
 }
 
-export function RestaurantCard({ restaurant }: RestaurantCardProps) {
+function RestaurantCardComponent({ restaurant }: RestaurantCardProps) {
   return (
     <Link href="#" className="group block">
       <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex items-center gap-4 p-4">
@@ -35,3 +36,5 @@ export function RestaurantCard({ restaurant }: RestaurantCardProps) {
     </Link>
   );
 }
+
+export const RestaurantCard = React.memo(RestaurantCardComponent);
