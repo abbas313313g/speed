@@ -16,6 +16,9 @@ import {
   Users,
   LogOut,
   Shield,
+  LayoutGrid,
+  Store,
+  GalleryHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useContext } from "react";
@@ -25,6 +28,9 @@ const navItems = [
   { href: "/admin", label: "لوحة التحكم", icon: Home },
   { href: "/admin/orders", label: "الطلبات", icon: ShoppingCart },
   { href: "/admin/products", label: "المنتجات", icon: Package },
+  { href: "/admin/categories", label: "الأقسام", icon: LayoutGrid },
+  { href: "/admin/stores", label: "المتاجر", icon: Store },
+  { href: "/admin/banners", label: "البنرات", icon: GalleryHorizontal },
 ];
 
 export function AdminNav() {
@@ -43,7 +49,7 @@ export function AdminNav() {
             <span className="sr-only">Speed Shop Admin</span>
           </Link>
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname.startsWith(item.href);
             return (
               <Tooltip key={item.href}>
                 <TooltipTrigger asChild>
@@ -64,6 +70,18 @@ export function AdminNav() {
           })}
         </nav>
         <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
+           <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href="/home"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8"
+                  >
+                    <Home className="h-5 w-5" />
+                    <span className="sr-only">العودة للتطبيق</span>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="right">العودة للتطبيق</TooltipContent>
+            </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <button

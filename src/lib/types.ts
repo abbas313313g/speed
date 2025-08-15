@@ -33,6 +33,12 @@ export interface Restaurant {
   rating: number;
 }
 
+export interface Banner {
+  id: string;
+  image: string;
+  link: string;
+}
+
 export interface CartItem {
   product: Product;
   quantity: number;

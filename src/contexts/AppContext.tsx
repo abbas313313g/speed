@@ -4,14 +4,10 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
-import type { User, CartItem, Product, Order, OrderStatus } from '@/lib/types';
+import type { User, CartItem, Product, Order, OrderStatus, Category, Restaurant, Banner } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { users as mockUsers, products as mockProducts, deliveryZones } from '@/lib/mock-data';
+import { users as mockUsers, products as mockProducts, categories as mockCategories, restaurants as mockRestaurants, deliveryZones } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
-
-const ADMIN_ACCESS_CODE = "31344313";
-const ADMIN_USER_ID = 'user-admin-special';
-
 
 interface AppContextType {
   user: User | null;
@@ -19,8 +15,11 @@ interface AppContextType {
   cart: CartItem[];
   orders: Order[];
   allOrders: Order[];
+  categories: Category[];
+  restaurants: Restaurant[];
+  banners: Banner[];
   isLoading: boolean;
-  login: (code: string) => boolean;
+  login: (phone: string, password?: string) => boolean;
   logout: () => void;
   signup: (userData: Omit<User, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
@@ -29,7 +28,10 @@ interface AppContextType {
   clearCart: () => void;
   placeOrder: () => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
-  addProduct: (product: Omit<Product, 'id' | 'restaurantId'>) => void;
+  addProduct: (product: Omit<Product, 'id'>) => void;
+  addCategory: (category: Omit<Category, 'id' | 'icon'> & { iconName: string }) => void;
+  addRestaurant: (restaurant: Omit<Restaurant, 'id'>) => void;
+  addBanner: (banner: Omit<Banner, 'id'>) => void;
   applyCoupon: (coupon: string) => void;
   totalCartPrice: number;
   deliveryFee: number;
@@ -44,6 +46,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [categories, setCategories] = useState<Category[]>(mockCategories);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>(mockRestaurants);
+  const [banners, setBanners] = useState<Banner[]>([]);
   const [discount, setDiscount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
@@ -103,23 +108,13 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     saveToLocalStorage();
   }, [saveToLocalStorage]);
   
-  const login = (code: string): boolean => {
-    if (code === ADMIN_ACCESS_CODE) {
-        const adminUser = allUsers.find(u => u.id === ADMIN_USER_ID);
-        if (adminUser) {
-            setUser(adminUser);
-            loadUserSpecificData(adminUser.id);
-            return true;
-        }
-    }
-    
-    const foundUser = allUsers.find(u => u.password === code);
+  const login = (phone: string, password?: string): boolean => {
+    const foundUser = allUsers.find(u => u.phone === phone && u.password === password);
     if (foundUser) {
         setUser(foundUser);
         loadUserSpecificData(foundUser.id);
         return true;
     }
-
     return false;
   };
 
@@ -153,11 +148,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     
     const newUser: User = {
         id: `user-${Date.now()}`,
-        password: `CP-${Date.now()}`, // Generate a unique code
         ...userData,
     };
-
-    setAllUsers(prevUsers => [...prevUsers, newUser]);
+    
+    const updatedUsers = [...allUsers, newUser];
+    setAllUsers(updatedUsers);
+    localStorage.setItem('speedShopAllUsers', JSON.stringify(updatedUsers));
   };
   
   const clearCartAndAdd = (product: Product, quantity: number = 1) => {
@@ -263,10 +259,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const addProduct = (productData: Omit<Product, 'id' | 'restaurantId'>) => {
+  const addProduct = (productData: Omit<Product, 'id'>) => {
     const newProduct: Product = {
         id: `prod-${Date.now()}`,
-        restaurantId: 'res1', // Default restaurant for now
         ...productData
     };
     mockProducts.push(newProduct);
@@ -275,6 +270,34 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         title: "تمت إضافة المنتج بنجاح",
         description: `تمت إضافة ${productData.name} إلى قائمة المنتجات.`,
     })
+  }
+
+  const addCategory = (categoryData: Omit<Category, 'id' | 'icon'> & { iconName: string }) => {
+    const newCategory: Category = {
+        id: `cat-${Date.now()}`,
+        name: categoryData.name,
+        icon: () => <span>Icon</span>, // Placeholder
+    };
+    setCategories(prev => [...prev, newCategory]);
+    toast({ title: "تمت إضافة القسم بنجاح" });
+  }
+  
+  const addRestaurant = (restaurantData: Omit<Restaurant, 'id'>) => {
+    const newRestaurant: Restaurant = {
+        id: `res-${Date.now()}`,
+        ...restaurantData
+    };
+    setRestaurants(prev => [...prev, newRestaurant]);
+    toast({ title: "تمت إضافة المتجر بنجاح" });
+  }
+  
+  const addBanner = (bannerData: Omit<Banner, 'id'>) => {
+    const newBanner: Banner = {
+        id: `banner-${Date.now()}`,
+        ...bannerData
+    };
+    setBanners(prev => [...prev, newBanner]);
+    toast({ title: "تمت إضافة البنر بنجاح" });
   }
 
   const applyCoupon = (coupon: string) => {
@@ -321,6 +344,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         cart,
         orders,
         allOrders,
+        categories,
+        restaurants,
+        banners,
         isLoading,
         login,
         logout,
@@ -332,6 +358,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         placeOrder,
         updateOrderStatus,
         addProduct,
+        addCategory,
+        addRestaurant,
+        addBanner,
         applyCoupon,
         totalCartPrice,
         deliveryFee,

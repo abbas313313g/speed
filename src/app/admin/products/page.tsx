@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { products, categories } from '@/lib/mock-data';
+import { products, categories, restaurants } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
 import Image from 'next/image';
 
@@ -41,23 +41,37 @@ export default function AdminProductsPage() {
       name: '',
       price: '',
       description: '',
-      image: 'https://placehold.co/600x400.png',
+      image: '',
       categoryId: '',
+      restaurantId: '',
   });
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewProduct({ ...newProduct, image: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSaveProduct = () => {
-    if (context && newProduct.name && newProduct.price && newProduct.categoryId) {
+    if (context && newProduct.name && newProduct.price && newProduct.categoryId && newProduct.restaurantId) {
         context.addProduct({
             ...newProduct,
             price: parseFloat(newProduct.price),
+            image: newProduct.image || 'https://placehold.co/600x400.png',
         });
-        setOpen(false); // Close dialog
-        setNewProduct({ // Reset form
+        setOpen(false);
+        setNewProduct({
           name: '',
           price: '',
           description: '',
-          image: 'https://placehold.co/600x400.png',
+          image: '',
           categoryId: '',
+          restaurantId: '',
         });
     }
   };
@@ -94,6 +108,12 @@ export default function AdminProductsPage() {
                         <Label htmlFor="description" className="text-right">الوصف</Label>
                         <Input id="description" value={newProduct.description} onChange={(e) => setNewProduct({...newProduct, description: e.target.value})} className="col-span-3" />
                     </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                         <Label htmlFor="image" className="text-right">صورة</Label>
+                         <Input id="image" type="file" onChange={handleImageUpload} className="col-span-3" accept="image/*" />
+                    </div>
+                    {newProduct.image && <Image src={newProduct.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center"/>}
+
                     <div className="grid grid-cols-4 items-center gap-4">
                          <Label htmlFor="category" className="text-right">القسم</Label>
                          <Select onValueChange={(value) => setNewProduct({...newProduct, categoryId: value})}>
@@ -102,6 +122,17 @@ export default function AdminProductsPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                         <Label htmlFor="restaurant" className="text-right">المتجر</Label>
+                         <Select onValueChange={(value) => setNewProduct({...newProduct, restaurantId: value})}>
+                            <SelectTrigger className="col-span-3">
+                                <SelectValue placeholder="اختر المتجر" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {restaurants.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>
@@ -120,17 +151,19 @@ export default function AdminProductsPage() {
             <TableHead>اسم المنتج</TableHead>
             <TableHead>السعر</TableHead>
             <TableHead>القسم</TableHead>
+            <TableHead>المتجر</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {products.map((product) => (
             <TableRow key={product.id}>
               <TableCell>
-                <Image src={product.image} alt={product.name} width={40} height={40} className="rounded-md" />
+                <Image src={product.image} alt={product.name} width={40} height={40} className="rounded-md object-cover" />
               </TableCell>
               <TableCell className="font-medium">{product.name}</TableCell>
               <TableCell>{formatCurrency(product.price)}</TableCell>
               <TableCell>{categories.find(c => c.id === product.categoryId)?.name || 'غير معروف'}</TableCell>
+              <TableCell>{restaurants.find(r => r.id === product.restaurantId)?.name || 'غير معروف'}</TableCell>
             </TableRow>
           ))}
         </TableBody>

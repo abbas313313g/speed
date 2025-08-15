@@ -5,7 +5,7 @@ import { useContext } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AppContext } from "@/contexts/AppContext";
-import { categories, products, restaurants } from "@/lib/mock-data";
+import { products, restaurants } from "@/lib/mock-data";
 import { ProductCard } from "@/components/ProductCard";
 import { RestaurantCard } from "@/components/RestaurantCard";
 import {
@@ -22,6 +22,9 @@ import { Button } from "@/components/ui/button";
 export default function HomePage() {
   const context = useContext(AppContext);
   const bestSellers = products.filter(p => p.bestSeller);
+
+  if (!context) return null;
+  const { categories, banners } = context;
   
   return (
     <div className="space-y-8 p-4">
@@ -33,13 +36,15 @@ export default function HomePage() {
       <section>
         <Carousel className="w-full" opts={{ loop: true, direction: 'rtl' }}>
           <CarouselContent>
-            {Array.from({ length: 3 }).map((_, index) => (
-              <CarouselItem key={index}>
-                <Card>
-                  <CardContent className="relative flex aspect-video items-center justify-center p-0">
-                    <Image src={`https://placehold.co/600x300.png`} fill alt={`Promotion ${index + 1}`} className="rounded-lg object-cover" data-ai-hint="shopping promotion" />
-                  </CardContent>
-                </Card>
+            {(banners.length > 0 ? banners : [{id: 'placeholder', image: 'https://placehold.co/600x300.png', link: '#'}]).map((banner, index) => (
+              <CarouselItem key={banner.id}>
+                <Link href={banner.link}>
+                    <Card>
+                    <CardContent className="relative flex aspect-video items-center justify-center p-0">
+                        <Image src={banner.image} fill alt={`Promotion ${index + 1}`} className="rounded-lg object-cover" data-ai-hint="shopping promotion" />
+                    </CardContent>
+                    </Card>
+                </Link>
               </CarouselItem>
             ))}
           </CarouselContent>
