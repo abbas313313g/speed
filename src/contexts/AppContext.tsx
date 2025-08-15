@@ -72,9 +72,11 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<R
         }
         try {
             const item = window.localStorage.getItem(key);
+            // Ensure item is a valid JSON string before parsing
             if (item && item !== 'undefined' && item !== 'null') {
                 return JSON.parse(item);
             }
+            // Set initial value in localStorage if not present
             window.localStorage.setItem(key, JSON.stringify(initialValue));
             return initialValue;
         } catch (error) {
@@ -83,31 +85,31 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<R
         }
     });
 
-    useEffect(() => {
+    const setValue = (value: T | ((val: T) => T)) => {
         try {
+            const valueToStore = value instanceof Function ? value(storedValue) : value;
+            setStoredValue(valueToStore);
             if (typeof window !== 'undefined') {
-                window.localStorage.setItem(key, JSON.stringify(storedValue));
+                window.localStorage.setItem(key, JSON.stringify(valueToStore));
             }
         } catch (error) {
             console.log(error);
         }
-    }, [key, storedValue]);
+    };
 
-    return [storedValue, setStoredValue];
+    return [storedValue, setValue];
 };
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
-  // Data is now primarily managed in-memory using useState, initialized from mock-data.
-  const [allUsers, setAllUsers] = useState<User[]>(initialUsers);
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [storedCategories, setStoredCategories] = useState<StoredCategory[]>(initialCategoriesData);
-  const [restaurants, setRestaurants] = useState<Restaurant[]>(initialRestaurants);
-  const [banners, setBanners] = useState<Banner[]>([]);
-  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [allUsers, setAllUsers] = useLocalStorage<User[]>('speedShopAllUsers', initialUsers);
+  const [products, setProducts] = useLocalStorage<Product[]>('speedShopProducts', initialProducts);
+  const [storedCategories, setStoredCategories] = useLocalStorage<StoredCategory[]>('speedShopCategories', initialCategoriesData);
+  const [restaurants, setRestaurants] = useLocalStorage<Restaurant[]>('speedShopRestaurants', initialRestaurants);
+  const [banners, setBanners] = useLocalStorage<Banner[]>('speedShopBanners', []);
+  const [allOrders, setAllOrders] = useLocalStorage<Order[]>('speedShopAllOrders', []);
   
-  // User session and their personal data (cart, orders) are still kept in localStorage.
   const [user, setUser] = useLocalStorage<User | null>('speedShopUser', null);
   const cartKey = user ? `speedShopCart_${user.id}` : 'speedShopCart_guest';
   const ordersKey = user ? `speedShopOrders_${user.id}` : 'speedShopOrders_guest';
@@ -404,3 +406,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     </AppContext.Provider>
   );
 };
+
+    
