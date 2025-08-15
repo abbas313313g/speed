@@ -18,7 +18,7 @@ interface AppContextType {
   isLoading: boolean;
   login: (accessCode: string) => boolean;
   logout: () => void;
-  signup: (userData: Omit<User, 'id'>) => void;
+  signup: (userData: Omit<User, 'id' | 'accessCode'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -109,7 +109,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     if (foundUser) {
         setUser(foundUser);
         loadUserSpecificData(foundUser.id);
-        router.push('/home');
         return true;
     }
     return false;
@@ -124,7 +123,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const logout = () => {
-    const wasAdmin = user?.isAdmin;
     const userId = user?.id;
     setUser(null);
     setCart([]);
@@ -135,16 +133,30 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem(`speedShopCart_${userId}`);
         localStorage.removeItem(`speedShopOrders_${userId}`);
     }
-    router.push(wasAdmin ? '/login' : '/');
+    router.push('/login');
   };
 
-  const signup = (userData: Omit<User, 'id'>) => {
-     toast({
-            title: "فشل التسجيل",
-            description: "خيار إنشاء حساب جديد غير متاح حاليا.",
-            variant: "destructive",
-        });
-        return;
+  const signup = (userData: Omit<User, 'id' | 'accessCode'>) => {
+    const existingUser = allUsers.find(u => u.phone === userData.phone);
+    if(existingUser) {
+        throw new Error("هذا الرقم مسجل بالفعل.");
+    }
+    
+    const newUser: User = {
+        id: `user-${Date.now()}`,
+        ...userData,
+        accessCode: userData.phone.slice(-4) // Use last 4 digits of phone as access code
+    };
+
+    setAllUsers(prevUsers => [...prevUsers, newUser]);
+    setUser(newUser);
+    loadUserSpecificData(newUser.id);
+    
+    toast({
+        title: "تم إنشاء الحساب بنجاح",
+        description: `رمز الدخول الخاص بك هو: ${newUser.accessCode}`,
+        duration: 9000
+    });
   };
   
   const clearCartAndAdd = (product: Product, quantity: number = 1) => {

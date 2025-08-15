@@ -42,7 +42,9 @@ export default function LoginPage() {
     // Simulate API call to give context time to update
     setTimeout(() => {
       const success = context.login(accessCode);
-      if (!success) {
+      if (success) {
+        router.push('/home');
+      } else {
         toast({
           title: "فشل تسجيل الدخول",
           description: "الرمز الذي أدخلته غير صحيح.",
@@ -50,7 +52,6 @@ export default function LoginPage() {
         });
         setLoading(false);
       }
-      // Redirection is handled by the useEffect above
     }, 500);
   };
   
@@ -76,7 +77,10 @@ export default function LoginPage() {
           <CardHeader>
             <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>
             <CardDescription>
-              أدخل رمز الدخول للمتابعة
+              أدخل رمز الدخول للمتابعة. ليس لديك حساب؟{" "}
+              <Link href="/signup" className="text-primary hover:underline">
+                أنشئ حساباً جديداً
+              </Link>
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
