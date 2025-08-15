@@ -14,25 +14,18 @@ export default function AdminLayout({
 }) {
   const context = useContext(AppContext);
   const router = useRouter();
-  const [isChecking, setIsChecking] = useState(true);
 
+  // No separate state needed, we can rely on context.isLoading
   useEffect(() => {
-    if (!context) return;
-    
-    // Give context a moment to load user data from localStorage
-    if (context.isLoading) {
-      return;
+    if (context && !context.isLoading) {
+        if (!context.user || !context.user.isAdmin) {
+            router.replace('/login');
+        }
     }
-
-    // If loading is finished, perform the check
-    if (!context.user || !context.user.isAdmin) {
-      router.replace('/login');
-    }
-    setIsChecking(false);
-
   }, [context, router]);
-
-  if (isChecking || context?.isLoading) {
+  
+  // While loading, show a spinner. This covers the initial hydration and user data loading.
+  if (!context || context.isLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <Shield className="h-16 w-16 animate-pulse text-primary" />
@@ -42,18 +35,21 @@ export default function AdminLayout({
     );
   }
 
-  // Final check after loading is complete
-  if (!context?.user || !context.user.isAdmin) {
-    // This will show the loader while redirecting
+  // After loading, if user is not an admin, they will be redirected by the useEffect.
+  // We can show a loader in the meantime, or just return null as the redirect is fast.
+  // Rendering the layout only when we are sure the user is an admin is cleaner.
+  if (!context.user || !context.user.isAdmin) {
+    // This loader will be shown briefly while the router.replace() in useEffect is kicking in.
      return (
-      <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
-        <Shield className="h-16 w-16 animate-pulse text-primary" />
-        <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />
-        <p className="mt-2">جاري التحقق من صلاحيات المدير...</p>
-      </div>
+        <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+            <Shield className="h-16 w-16 animate-pulse text-primary" />
+            <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />
+            <p className="mt-2">جاري التحقق من صلاحيات المدير...</p>
+        </div>
     );
   }
   
+  // If we reach here, user is loaded and is an admin.
   return (
     <div className="flex min-h-screen w-full bg-muted/40">
       <AdminNav />

@@ -25,8 +25,10 @@ interface AppContextType {
   placeOrder: () => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   addProduct: (product: Omit<Product, 'id' | 'restaurantId'>) => void;
+  applyCoupon: (coupon: string) => void;
   totalCartPrice: number;
   deliveryFee: number;
+  discount: number;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -37,6 +39,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [discount, setDiscount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
@@ -44,23 +47,31 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const loadFromLocalStorage = useCallback(() => {
     try {
       const storedUser = localStorage.getItem('speedShopUser');
-      const storedCart = localStorage.getItem(`speedShopCart_${storedUser ? JSON.parse(storedUser).id : ''}`);
-      const storedOrders = localStorage.getItem(`speedShopOrders_${storedUser ? JSON.parse(storedUser).id : ''}`);
       const storedAllOrders = localStorage.getItem('speedShopAllOrders');
       const storedAllUsers = localStorage.getItem('speedShopAllUsers');
 
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-      }
-      if (storedCart) setCart(JSON.parse(storedCart));
-      if (storedOrders) setOrders(JSON.parse(storedOrders));
-      
+      const activeUsers = storedAllUsers ? JSON.parse(storedAllUsers) : mockUsers;
+      setAllUsers(activeUsers);
       setAllOrders(storedAllOrders ? JSON.parse(storedAllOrders) : []);
-      setAllUsers(storedAllUsers ? JSON.parse(storedAllUsers) : mockUsers);
-      
+
+      if (storedUser) {
+        const parsedUser: User = JSON.parse(storedUser);
+        // Verify user exists in our list of users
+        if (activeUsers.some((u: User) => u.id === parsedUser.id)) {
+            setUser(parsedUser);
+            loadUserSpecificData(parsedUser.id);
+        } else {
+            // If user in localStorage doesn't exist, clear it
+            setUser(null);
+            localStorage.removeItem('speedShopUser');
+        }
+      }
     } catch (error) {
       console.error("Failed to parse from localStorage", error);
+       // On error, reset to a clean state
+      setUser(null);
+      setCart([]);
+      setOrders([]);
     } finally {
       setIsLoading(false);
     }
@@ -71,23 +82,29 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   }, [loadFromLocalStorage]);
 
   const saveToLocalStorage = useCallback(() => {
-    if (isLoading) return;
-    localStorage.setItem('speedShopUser', JSON.stringify(user));
-    if (user) {
-        localStorage.setItem(`speedShopCart_${user.id}`, JSON.stringify(cart));
-        localStorage.setItem(`speedShopOrders_${user.id}`, JSON.stringify(orders));
+    if (isLoading) return; // Prevent writing initial empty/stale state
+    try {
+        localStorage.setItem('speedShopUser', JSON.stringify(user));
+        if (user) {
+            localStorage.setItem(`speedShopCart_${user.id}`, JSON.stringify(cart));
+            localStorage.setItem(`speedShopOrders_${user.id}`, JSON.stringify(orders));
+        }
+        localStorage.setItem('speedShopAllOrders', JSON.stringify(allOrders));
+        localStorage.setItem('speedShopAllUsers', JSON.stringify(allUsers));
+    } catch (error) {
+        console.error("Failed to save to localStorage", error);
     }
-    localStorage.setItem('speedShopAllOrders', JSON.stringify(allOrders));
-    localStorage.setItem('speedShopAllUsers', JSON.stringify(allUsers));
   }, [user, cart, orders, allOrders, allUsers, isLoading]);
 
   useEffect(() => {
+    // This effect now correctly depends on `saveToLocalStorage` which has all the state dependencies.
     saveToLocalStorage();
   }, [saveToLocalStorage]);
 
   const login = (phone: string, password?: string): boolean => {
     const foundUser = allUsers.find(u => u.phone === phone && u.password === password);
     if (foundUser) {
+        setIsLoading(true);
         setUser(foundUser);
         loadUserSpecificData(foundUser.id);
         if (foundUser.isAdmin) {
@@ -95,6 +112,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         } else {
           router.push('/home');
         }
+        setIsLoading(false);
         return true;
     }
     return false;
@@ -105,6 +123,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const storedOrders = localStorage.getItem(`speedShopOrders_${userId}`);
     setCart(storedCart ? JSON.parse(storedCart) : []);
     setOrders(storedOrders ? JSON.parse(storedOrders) : []);
+    setDiscount(0); // Reset discount on user change
   }
 
   const logout = () => {
@@ -112,24 +131,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setCart([]);
     setOrders([]);
+    setDiscount(0);
     localStorage.removeItem('speedShopUser');
-    // We need to clear all user-specific data from localStorage
-    // A simple approach is to clear everything, but this might affect other things.
-    // A better way is to iterate and remove keys, but for this app, clear() is fine.
-    // Let's be more specific
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith('speedShopCart_') || key.startsWith('speedShopOrders_'))) {
-            keysToRemove.push(key);
-        }
-    }
-    keysToRemove.forEach(key => localStorage.removeItem(key));
     router.push(wasAdmin ? '/login' : '/');
   };
 
   const signup = (userData: Omit<User, 'id'>) => {
-    // Check if phone number already exists
     if (allUsers.some(u => u.phone === userData.phone)) {
         toast({
             title: "فشل التسجيل",
@@ -148,6 +155,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const clearCartAndAdd = (product: Product, quantity: number = 1) => {
     const newItem = { product, quantity };
     setCart([newItem]);
+    setDiscount(0);
     toast({
       title: "تم بدء طلب جديد",
       description: "تم مسح سلة التسوق القديمة وإضافة المنتج الجديد.",
@@ -155,7 +163,20 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const addToCart = (product: Product, quantity: number = 1) => {
-    // We remove the restaurant restriction
+    // Enforce ordering from a single restaurant
+    if (cart.length > 0 && cart[0].product.restaurantId !== product.restaurantId) {
+        toast({
+            title: "لا يمكن الطلب من متاجر مختلفة",
+            description: "هل تريد مسح السلة وبدء طلب جديد من هذا المتجر؟",
+            action: (
+              <Button variant="destructive" onClick={() => clearCartAndAdd(product, quantity)}>
+                نعم، ابدأ طلب جديد
+              </Button>
+            ),
+        });
+        return;
+    }
+
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.product.id === product.id);
       if (existingItem) {
@@ -167,6 +188,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
       }
       return [...prevCart, { product, quantity }];
     });
+
     toast({
       title: "تمت الإضافة إلى السلة",
       description: `تمت إضافة ${product.name} إلى سلة التسوق.`,
@@ -174,7 +196,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const removeFromCart = (productId: string) => {
-    setCart(prevCart => prevCart.filter(item => item.product.id !== productId));
+    setCart(prevCart => {
+        const newCart = prevCart.filter(item => item.product.id !== productId);
+        if(newCart.length === 0) setDiscount(0); // Reset discount if cart becomes empty
+        return newCart;
+    });
   };
   
   const updateQuantity = (productId: string, quantity: number) => {
@@ -191,17 +217,19 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
   const clearCart = () => {
     setCart([]);
+    setDiscount(0);
   };
 
   const totalCartPrice = cart.reduce((total, item) => total + item.product.price * item.quantity, 0);
-  const deliveryFee = user?.deliveryZone?.fee ?? 0;
+  const deliveryFee = cart.length > 0 ? (user?.deliveryZone?.fee ?? 3000) : 0;
 
   const updateOrderStatus = useCallback((orderId: string, status: OrderStatus) => {
     const update = (orderList: Order[]) => orderList.map(order => 
         order.id === orderId ? { ...order, status } : order
     );
-    setOrders(update);
-    setAllOrders(update);
+    // This needs to update both the user's personal orders and the global allOrders list
+    setOrders(prevOrders => update(prevOrders));
+    setAllOrders(prevAllOrders => update(prevAllOrders));
   }, []);
 
   const placeOrder = () => {
@@ -210,19 +238,18 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const newOrder: Order = {
       id: `ORD-${Date.now()}`,
       items: cart,
-      total: totalCartPrice + deliveryFee,
+      total: totalCartPrice - discount + deliveryFee,
       date: new Date().toISOString(),
       status: 'confirmed',
       estimatedDelivery: '30-40 دقيقة',
       user: { id: user.id, name: user.name, phone: user.phone },
-      revenue: totalCartPrice,
+      revenue: totalCartPrice - discount,
     };
 
     setOrders(prevOrders => [newOrder, ...prevOrders]);
     setAllOrders(prevAllOrders => [newOrder, ...prevAllOrders]);
     clearCart();
 
-    // Simulate order status progression for demo
     if (newOrder.status === 'confirmed') {
         setTimeout(() => updateOrderStatus(newOrder.id, 'preparing'), 30 * 1000);
         setTimeout(() => updateOrderStatus(newOrder.id, 'on_the_way'), 60 * 1000);
@@ -231,13 +258,30 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   };
   
   const addProduct = (productData: Omit<Product, 'id' | 'restaurantId'>) => {
-    // In a real app, this would be an API call
     console.log("Adding product:", productData);
     toast({
         title: "تمت إضافة المنتج بنجاح",
         description: `تمت إضافة ${productData.name} إلى قائمة المنتجات.`,
     })
   }
+
+  const applyCoupon = (coupon: string) => {
+    if (coupon.toUpperCase() === 'SALE10') {
+        const discountAmount = totalCartPrice * 0.10;
+        setDiscount(discountAmount);
+        toast({
+            title: "تم تطبيق الخصم!",
+            description: `لقد حصلت على خصم بقيمة ${formatCurrency(discountAmount)}.`,
+        });
+    } else {
+        setDiscount(0);
+        toast({
+            title: "كود الخصم غير صالح",
+            description: "الرجاء التأكد من الكود والمحاولة مرة أخرى.",
+            variant: "destructive",
+        });
+    }
+  };
 
   return (
     <AppContext.Provider
@@ -258,8 +302,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         placeOrder,
         updateOrderStatus,
         addProduct,
+        applyCoupon,
         totalCartPrice,
         deliveryFee,
+        discount,
       }}
     >
       {children}

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { AppContext } from '@/contexts/AppContext';
@@ -9,18 +9,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { formatCurrency } from '@/lib/utils';
-import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingBag, Tag } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { Input } from '@/components/ui/input';
 
 export default function CartPage() {
   const context = useContext(AppContext);
   const { toast } = useToast();
   const router = useRouter();
+  const [coupon, setCoupon] = useState('');
 
   if (!context) return null;
 
-  const { cart, updateQuantity, totalCartPrice, deliveryFee, placeOrder } = context;
+  const { cart, updateQuantity, totalCartPrice, deliveryFee, placeOrder, applyCoupon, discount } = context;
 
   const handleCheckout = () => {
     if (placeOrder) {
@@ -32,6 +34,12 @@ export default function CartPage() {
       router.push('/orders');
     }
   }
+
+  const handleApplyCoupon = () => {
+    applyCoupon(coupon);
+  }
+
+  const finalTotal = totalCartPrice - discount + deliveryFee;
 
   if (cart.length === 0) {
     return (
@@ -79,6 +87,18 @@ export default function CartPage() {
           </Card>
         ))}
       </div>
+      
+      <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Tag/> كوبون الخصم</CardTitle>
+          </CardHeader>
+          <CardContent>
+             <div className="flex gap-2">
+                <Input placeholder="أدخل كود الخصم" value={coupon} onChange={(e) => setCoupon(e.target.value)} />
+                <Button onClick={handleApplyCoupon}>تطبيق</Button>
+            </div>
+          </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -89,6 +109,12 @@ export default function CartPage() {
             <span>المجموع الفرعي</span>
             <span className="font-semibold">{formatCurrency(totalCartPrice)}</span>
           </div>
+          {discount > 0 && (
+            <div className="flex justify-between text-green-600">
+                <span>الخصم</span>
+                <span className="font-semibold">{formatCurrency(-discount)}</span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span>رسوم التوصيل</span>
             <span className="font-semibold">{formatCurrency(deliveryFee)}</span>
@@ -96,7 +122,7 @@ export default function CartPage() {
           <Separator />
           <div className="flex justify-between text-xl font-bold">
             <span>المجموع الكلي</span>
-            <span>{formatCurrency(totalCartPrice + deliveryFee)}</span>
+            <span>{formatCurrency(finalTotal)}</span>
           </div>
         </CardContent>
         <CardFooter>

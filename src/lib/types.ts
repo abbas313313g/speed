@@ -15,7 +15,7 @@ export interface Product {
   price: number;
   image: string;
   categoryId: string;
-  restaurantId?: string; // Made optional as we are moving away from restaurants
+  restaurantId: string;
   bestSeller?: boolean;
 }
 
