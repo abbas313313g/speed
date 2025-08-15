@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import type { User, CartItem, Product, Order, OrderStatus, Category, Restaurant, Banner, DeliveryZone } from '@/lib/types';
@@ -23,7 +23,6 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val
         }
         try {
             const item = window.localStorage.getItem(key);
-            // If the item doesn't exist, we use the initial value and set it in localStorage.
             if (item === null) {
                 window.localStorage.setItem(key, JSON.stringify(initialValue));
                 return initialValue;
@@ -46,18 +45,23 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val
             console.error(`Error setting localStorage key "${key}":`, error);
         }
     };
+    
+    const memoizedInitialValue = useMemo(() => initialValue, []);
 
-    // This effect runs once on mount to initialize the data if it's empty,
-    // especially for data that comes from mock-data.ts
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            const item = window.localStorage.getItem(key);
-            if (item === null || (Array.isArray(JSON.parse(item)) && JSON.parse(item).length === 0 && Array.isArray(initialValue) && initialValue.length > 0)) {
-                window.localStorage.setItem(key, JSON.stringify(initialValue));
-                setStoredValue(initialValue);
+            try {
+                const item = window.localStorage.getItem(key);
+                if (item === null || (Array.isArray(JSON.parse(item)) && JSON.parse(item).length === 0 && Array.isArray(memoizedInitialValue) && memoizedInitialValue.length > 0)) {
+                    setValue(memoizedInitialValue);
+                }
+            } catch (error) {
+                 // If parsing fails, it might be corrupted data. Reset to initial.
+                 console.error(`Error processing localStorage key "${key}", resetting to initial value:`, error);
+                 setValue(memoizedInitialValue);
             }
         }
-    }, [key, initialValue]);
+    }, [key, memoizedInitialValue]);
 
 
     return [storedValue, setValue];
@@ -413,3 +417,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
+
+    
