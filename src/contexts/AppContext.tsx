@@ -65,9 +65,13 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T) => vo
         }
         try {
             const item = window.localStorage.getItem(key);
-            return item ? JSON.parse(item) : initialValue;
+            // Fix: Ensure the item is not null or 'undefined' before parsing
+            if (item && item !== 'undefined') {
+                return JSON.parse(item);
+            }
+            return initialValue;
         } catch (error) {
-            console.error(error);
+            console.error(`Error parsing JSON from localStorage key "${key}":`, error);
             return initialValue;
         }
     });
@@ -79,7 +83,7 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T) => vo
                 window.localStorage.setItem(key, JSON.stringify(value));
             }
         } catch (error) {
-            console.error(error);
+            console.error(`Error setting localStorage key "${key}":`, error);
         }
     };
 
@@ -448,3 +452,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     </AppContext.Provider>
   );
 };
+
+    
