@@ -19,10 +19,9 @@ import { Loader2, ShoppingCart, Phone, KeyRound } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
 
-// Define a type for the window object to include recaptchaVerifier
+// Define a type for the window object to include confirmationResult
 declare global {
   interface Window {
-    recaptchaVerifier?: RecaptchaVerifier;
     confirmationResult?: ConfirmationResult;
   }
 }
@@ -49,30 +48,23 @@ export default function LoginPage() {
     }
   }, [context?.isLoading, context?.user, router]);
   
-  useEffect(() => {
-    if (!recaptchaContainerRef.current) return;
-    
-    // Ensure it's only created once
-    if (!window.recaptchaVerifier) {
-        window.recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
-          'size': 'invisible',
-          'callback': (response: any) => {
-            // reCAPTCHA solved, allow signInWithPhoneNumber.
-          },
-          'expired-callback': () => {
-            toast({ title: "انتهت صلاحية التحقق، الرجاء المحاولة مرة أخرى", variant: "destructive" });
-          }
-        });
-    }
-  }, []);
-  
   const onSendOtp = async (e: React.FormEvent) => {
       e.preventDefault();
       if (loading) return;
       setLoading(true);
       
       try {
-          const appVerifier = window.recaptchaVerifier!;
+          if (!recaptchaContainerRef.current) {
+            throw new Error("Recaptcha container not found");
+          }
+
+          const appVerifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
+             'size': 'invisible',
+             'callback': (response: any) => {
+                // reCAPTCHA solved, allow signInWithPhoneNumber.
+             }
+          });
+
           // Clean the phone number by removing all non-digit characters
           const cleanedPhone = phone.replace(/\D/g, '');
           const fullPhoneNumber = `+964${cleanedPhone.replace(/^0/, '')}`;
