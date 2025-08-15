@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { User, CartItem, Product, Order, OrderStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { users as mockUsers } from '@/lib/mock-data';
+import { formatCurrency } from '@/lib/utils';
 
 interface AppContextType {
   user: User | null;
