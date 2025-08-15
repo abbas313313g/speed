@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppContext } from '@/contexts/AppContext';
 import { AdminNav } from '@/components/AdminNav';
@@ -14,28 +14,16 @@ export default function AdminLayout({
 }) {
   const context = useContext(AppContext);
   const router = useRouter();
-  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    // If context is not yet available, do nothing.
-    if (!context) return;
-
-    // If context is loading user data, wait until it's done.
-    if (context.isLoading) {
-      return;
+    if (context && !context.isLoading) {
+      if (!context.user || !context.user.isAdmin) {
+        router.replace('/login');
+      }
     }
-    
-    // Once loading is complete, we can check the user status.
-    if (!context.user || !context.user.isAdmin) {
-      // If there's no user, or the user is not an admin, redirect to login.
-      router.replace('/login');
-    } else {
-      // If there is an admin user, stop checking and show the content.
-      setIsChecking(false);
-    }
-  }, [context, router]); // Dependency array ensures this runs when context, isLoading or user changes.
+  }, [context, context?.isLoading, context?.user, router]);
   
-  if (isChecking || context?.isLoading) {
+  if (context?.isLoading || !context?.user) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <Shield className="h-16 w-16 animate-pulse text-primary" />
@@ -45,7 +33,14 @@ export default function AdminLayout({
     );
   }
   
-  // If we reach here, user is loaded and is an admin.
+  if (!context.user.isAdmin) {
+     return (
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+        <p className="mt-2">غير مصرح لك بالدخول.</p>
+      </div>
+    );
+  }
+  
   return (
     <div className="flex min-h-screen w-full bg-muted/40">
       <AdminNav />
