@@ -26,9 +26,9 @@ import {
     deleteDoc,
     query,
     collection,
-    where,
     getDocs,
     writeBatch,
+    collectionGroup,
 } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
 import { auth, db, storage, firebaseConfig } from '@/lib/firebase';
@@ -93,14 +93,16 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
     
     const [cart, setCart] = useState<CartItem[]>([]);
-    const [discount, setDiscount] = useState<number>(0);
+    const [discount, setDiscount] = useState(0);
+
+    const [adminListeners, setAdminListeners] = useState<(() => void)[]>([]);
 
     const orders = useMemo(() => {
         if (!user) return [];
         return allOrders.filter(o => o.userId === user.id)
                         .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [user, allOrders]);
-
+    
     // --- General Data Fetching (Public) ---
     useEffect(() => {
         const unsubProducts = onSnapshot(collection(db, "products"), (snapshot) => {
@@ -124,49 +126,73 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         };
     }, []);
 
-    // --- Auth State Change and User-Specific/Admin Data Fetching ---
+    // --- Auth State Change Handler ---
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
             setIsLoading(true);
             if (firebaseUser) {
                 const userDocRef = doc(db, "users", firebaseUser.uid);
+                const userDocSnap = await getDoc(userDocRef);
+
+                let userData: User;
+                if (userDocSnap.exists()) {
+                    userData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
+                } else {
+                    const usersQuery = query(collection(db, 'users'));
+                    const usersSnapshot = await getDocs(usersQuery);
+                    const isFirstUser = usersSnapshot.empty;
+
+                    const newUser: User = {
+                        id: firebaseUser.uid,
+                        name: firebaseUser.displayName || "مستخدم جديد",
+                        email: firebaseUser.email!,
+                        phone: '', 
+                        isProfileComplete: false,
+                        isAdmin: isFirstUser, // First user becomes admin
+                        usedCoupons: [],
+                        addresses: [],
+                        deliveryZone: { name: '', fee: 0 },
+                    };
+                    await setDoc(userDocRef, newUser);
+                    userData = newUser;
+                }
                 
-                const unsub = onSnapshot(userDocRef, (userDocSnap) => {
-                    if (userDocSnap.exists()) {
-                        const userData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
-                        setUser(userData);
-                        
-                        if (userData.isAdmin) {
-                            // Setup admin listeners if they don't exist
-                            setupAdminListeners();
-                        }
-                    } 
-                    setIsLoading(false);
-                });
-                
-                return () => unsub();
+                setUser(userData);
+
+                // If user is admin, set up admin-specific data listeners
+                if (userData.isAdmin) {
+                    setupAdminListeners();
+                }
 
             } else {
                 setUser(null);
+                // Clean up admin listeners on logout
+                adminListeners.forEach(unsub => unsub());
+                setAdminListeners([]);
                 setAllOrders([]);
                 setAllUsers([]);
-                setIsLoading(false);
             }
+            setIsLoading(false);
         });
-
-        const setupAdminListeners = () => {
-            const unsubOrders = onSnapshot(collection(db, "orders"), (snapshot) => {
-                setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
-            });
-            const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
-                setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
-            });
-            // Note: These listeners are not unsubscribed here to keep admin data fresh.
-            // In a real-world scenario, you might manage this differently.
-        };
 
         return () => unsubscribeAuth();
     }, []);
+
+
+    // Function to setup admin-specific listeners
+    const setupAdminListeners = () => {
+        // Prevent setting up listeners multiple times
+        if (adminListeners.length > 0) return;
+
+        const unsubOrders = onSnapshot(collection(db, "orders"), (snapshot) => {
+            setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+        });
+        const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+            setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
+        });
+        
+        setAdminListeners([unsubOrders, unsubUsers]);
+    };
 
 
     // --- Cart Persistence (Local Storage) ---
@@ -206,35 +232,13 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const signInWithGoogle = async () => {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({
-            prompt: 'select_account'
+            prompt: 'select_account',
+            authDomain: firebaseConfig.authDomain,
         });
-        auth.useDeviceLanguage();
-
+        
         try {
-            const result = await signInWithPopup(auth, provider);
-            const gUser = result.user;
-            
-            const userDocRef = doc(db, "users", gUser.uid);
-            const userDocSnap = await getDoc(userDocRef);
-
-            if (!userDocSnap.exists()) {
-                const q = query(collection(db, 'users'));
-                const querySnapshot = await getDocs(q);
-                const isFirstUser = querySnapshot.empty;
-
-                const newUser: User = {
-                    id: gUser.uid,
-                    name: gUser.displayName || "مستخدم جديد",
-                    email: gUser.email!,
-                    phone: '', 
-                    isProfileComplete: false,
-                    isAdmin: isFirstUser,
-                    usedCoupons: [],
-                    addresses: [],
-                    deliveryZone: { name: '', fee: 0 },
-                };
-                await setDoc(userDocRef, newUser);
-            }
+            await signInWithPopup(auth, provider);
+            // onAuthStateChanged will handle the rest
         } catch (error: any) {
             console.error("Google Sign-In Error: ", error);
             if (error.code !== 'auth/popup-closed-by-user') {
@@ -264,6 +268,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             isProfileComplete: true,
         };
         await updateDoc(userDocRef, updatedData);
+        setUser(prev => prev ? { ...prev, ...updatedData } : null);
     }
     
     const addAddress = async (address: Omit<Address, 'id'>) => {
@@ -272,6 +277,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const updatedAddresses = [...(user.addresses || []), newAddress];
         const userDocRef = doc(db, "users", user.id);
         await updateDoc(userDocRef, { addresses: updatedAddresses });
+        setUser(prev => prev ? { ...prev, addresses: updatedAddresses } : null);
         toast({ title: "تم إضافة العنوان بنجاح" });
     }
 

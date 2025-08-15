@@ -17,23 +17,23 @@ export default function MainAppLayout({
   const pathname = usePathname();
   
   useEffect(() => {
-    if (!context) return;
-    
-    if (!context.isLoading) {
-      if (!context.user) {
-        // If no user, redirect to login
-        router.replace('/login');
-      } else if (!context.user.isProfileComplete && pathname !== '/complete-profile') {
-        // If user exists but profile is incomplete, redirect to complete-profile
-        router.replace('/complete-profile');
-      }
+    if (!context || context.isLoading) {
+      return; // Wait for context to load
     }
 
-  }, [context?.isLoading, context?.user, router, pathname]);
+    if (!context.user) {
+      // If no user, redirect to login
+      router.replace('/login');
+    } else if (!context.user.isProfileComplete && pathname !== '/complete-profile') {
+      // If user exists but profile is incomplete, redirect to complete-profile
+      router.replace('/complete-profile');
+    }
+
+  }, [context, router, pathname]);
 
   // Show a loading screen while the context is loading OR if there is no user yet
   // OR if the profile is not complete. This prevents a flash of content before redirect.
-  if (context?.isLoading || !context?.user || (!context?.user.isProfileComplete && pathname !== '/complete-profile')) {
+  if (!context || context.isLoading || !context.user || (!context.user.isProfileComplete && pathname !== '/complete-profile')) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
@@ -49,3 +49,5 @@ export default function MainAppLayout({
     </div>
   );
 }
+
+    
