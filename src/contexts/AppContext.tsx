@@ -14,42 +14,6 @@ import {
 } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
 
-// A more robust useLocalStorage hook
-const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    if (typeof window === 'undefined') {
-      return initialValue;
-    }
-    try {
-      const item = window.localStorage.getItem(key);
-      // If item doesn't exist, initialize it with initialValue
-      if (item === null) {
-        window.localStorage.setItem(key, JSON.stringify(initialValue));
-        return initialValue;
-      }
-      return JSON.parse(item);
-    } catch (error) {
-      console.error(`Error reading localStorage key “${key}”:`, error);
-      return initialValue;
-    }
-  });
-
-  const setValue: React.Dispatch<React.SetStateAction<T>> = (value) => {
-    try {
-      // Allow value to be a function so we have same API as useState
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
-      }
-    } catch (error) {
-      console.error(`Error setting localStorage key “${key}”:`, error);
-    }
-  };
-
-  return [storedValue, setValue];
-};
-
 
 interface AppContextType {
   user: User | null;
@@ -89,58 +53,88 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
+// This is the correct, stable version. It uses mock data as the single source of truth.
+// Changes made in the admin panel are temporary and exist only in memory (useState).
+// This ensures a consistent experience across all browsers and devices.
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- Persistent State using the robust useLocalStorage hook ---
-  const [products, setProducts] = useLocalStorage<Product[]>('speedShopProducts', initialProductsData);
-  const [rawCategories, setRawCategories] = useLocalStorage<Omit<Category, 'icon'>[]>('speedShopCategories', initialCategoriesData.map(({icon, ...rest}) => rest));
-  const [restaurants, setRestaurants] = useLocalStorage<Restaurant[]>('speedShopRestaurants', initialRestaurantsData);
-  const [banners, setBanners] = useLocalStorage<Banner[]>('speedShopBanners', []);
-  const [allOrders, setAllOrders] = useLocalStorage<Order[]>('speedShopAllOrders', []);
-  const [allUsers, setAllUsers] = useLocalStorage<User[]>('speedShopAllUsers', initialUsers);
+  // Data state, initialized from mock-data.ts
+  const [products, setProducts] = useState<Product[]>(initialProductsData);
+  const [rawCategories, setRawCategories] = useState<Omit<Category, 'icon'>[]>(initialCategoriesData.map(({icon, ...rest}) => rest));
+  const [restaurants, setRestaurants] = useState<Restaurant[]>(initialRestaurantsData);
+  const [banners, setBanners] = useState<Banner[]>([]);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>(initialUsers);
 
-  // --- Session State ---
-  const [user, setUser] = useLocalStorage<User | null>('speedShopUser', null);
+  // Session state (persists in localStorage for user convenience)
+  const [user, setUser] = useState<User | null>(null);
   
-  // --- Derived State (dependent on user session) ---
+  // User-specific state (persists in localStorage for user convenience)
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [discount, setDiscount] = useState(0);
 
   const router = useRouter();
   const { toast } = useToast();
+  
+  // Load user session from localStorage on initial load
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem('speedShopUser');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+    } catch (error) {
+      console.error("Failed to parse user from localStorage", error);
+    }
+    setIsLoading(false);
+  }, []);
 
-  // Effect to load user-specific data (cart, orders) when user logs in or out
+  // Effect to load/save user-specific data when user changes
   useEffect(() => {
     if (user) {
-        const cartData = localStorage.getItem(`speedShopCart_${user.id}`);
-        const ordersData = localStorage.getItem(`speedShopOrders_${user.id}`);
-        setCart(cartData ? JSON.parse(cartData) : []);
-        setOrders(ordersData ? JSON.parse(ordersData) : []);
+        try {
+            // Save user session
+            localStorage.setItem('speedShopUser', JSON.stringify(user));
+            
+            // Load user-specific data
+            const cartData = localStorage.getItem(`speedShopCart_${user.id}`);
+            const ordersData = localStorage.getItem(`speedShopOrders_${user.id}`);
+            setCart(cartData ? JSON.parse(cartData) : []);
+            setOrders(ordersData ? JSON.parse(ordersData) : []);
+        } catch (error) {
+            console.error("Failed to access localStorage for user data", error);
+        }
     } else {
+        // Clear user session and data
+        localStorage.removeItem('speedShopUser');
         setCart([]);
         setOrders([]);
     }
   }, [user]);
 
-  // Effect to save user-specific data when it changes
+  // Effect to save cart when it changes
   useEffect(() => {
     if (user) {
-        localStorage.setItem(`speedShopCart_${user.id}`, JSON.stringify(cart));
+        try {
+            localStorage.setItem(`speedShopCart_${user.id}`, JSON.stringify(cart));
+        } catch (error) {
+            console.error("Failed to save cart to localStorage", error);
+        }
     }
   }, [cart, user]);
 
+  // Effect to save orders when they change
   useEffect(() => {
     if (user) {
-        localStorage.setItem(`speedShopOrders_${user.id}`, JSON.stringify(orders));
+        try {
+            localStorage.setItem(`speedShopOrders_${user.id}`, JSON.stringify(orders));
+        } catch(error) {
+            console.error("Failed to save orders to localStorage", error);
+        }
     }
   }, [orders, user]);
-
-
-  useEffect(() => {
-    setIsLoading(false);
-  }, []);
 
   const categories = React.useMemo(() => {
     const iconMap = initialCategoriesData.reduce((acc, cat) => {
@@ -431,5 +425,3 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     </AppContext.Provider>
   );
 };
-
-    
