@@ -5,10 +5,19 @@ export interface User {
   phone: string;
   password?: string; // Only used for local mock auth
   deliveryZone: DeliveryZone;
+  addresses?: Address[];
   isAdmin?: boolean;
   usedCoupons?: string[];
   loginCode?: string;
   email: string;
+}
+
+export interface Address {
+    id: string;
+    name: string; // e.g., "المنزل", "العمل"
+    latitude: number;
+    longitude: number;
+    details?: string; // e.g., "الطابق الثاني، شقة 5"
 }
 
 export interface Product {
@@ -66,6 +75,7 @@ export interface Order {
         name: string;
         phone: string;
     };
+    address?: Address;
     revenue?: number;
     userId: string;
 }

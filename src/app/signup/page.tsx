@@ -25,23 +25,50 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { deliveryZones } from "@/lib/mock-data";
+import type { Address } from "@/lib/types";
 
 export default function SignupPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [deliveryZoneName, setDeliveryZoneName] = useState("");
+  const [address, setAddress] = useState<Omit<Address, 'id' | 'name'> | null>(null);
   const [loading, setLoading] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
   const context = useContext(AppContext);
   const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect only if user is already logged in
     if (context && !context.isLoading && context.user) {
       router.replace('/home');
     }
   }, [context, router]);
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+        toast({ title: "المتصفح لا يدعم تحديد الموقع", variant: "destructive" });
+        setLocationStatus('error');
+        return;
+    }
+    setLocationStatus('loading');
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            setAddress({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude
+            });
+            setLocationStatus('success');
+            toast({ title: "تم تحديد موقعك بنجاح!" });
+        },
+        () => {
+            toast({ title: "تم رفض صلاحية الوصول للموقع", description: "الرجاء السماح بالوصول للموقع لإكمال التسجيل.", variant: "destructive" });
+            setLocationStatus('error');
+        }
+    );
+  };
+
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -50,13 +77,21 @@ export default function SignupPage() {
 
     const selectedZone = deliveryZones.find(z => z.name === deliveryZoneName);
     if (!selectedZone) {
-      toast({
-        title: "خطأ",
-        description: "الرجاء اختيار منطقة التوصيل.",
-        variant: "destructive",
-      });
+      toast({ title: "خطأ", description: "الرجاء اختيار منطقة التوصيل.", variant: "destructive" });
       setLoading(false);
       return;
+    }
+
+    if (!address) {
+        toast({ title: "خطأ", description: "الرجاء تحديد موقعك أولاً.", variant: "destructive" });
+        setLoading(false);
+        return;
+    }
+
+    const firstAddress: Address = {
+        ...address,
+        id: `address-${Date.now()}`,
+        name: 'العنوان الأساسي'
     }
 
     try {
@@ -65,6 +100,7 @@ export default function SignupPage() {
         phone,
         password,
         deliveryZone: selectedZone,
+        addresses: [firstAddress],
       });
       
       toast({
@@ -73,12 +109,11 @@ export default function SignupPage() {
       });
       router.push('/login');
     } catch (error: any) {
-      // Error toast is handled in the context
       setLoading(false);
     }
   };
 
-  if (context?.isLoading) {
+  if (context?.isLoading && !context.user) {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
             <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
@@ -87,7 +122,6 @@ export default function SignupPage() {
     );
   }
 
-  // Show the signup form if no user is logged in
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
     <Card className="w-full max-w-md">
@@ -163,9 +197,17 @@ export default function SignupPage() {
                 </Select>
             </div>
             </div>
+             <div className="space-y-2">
+                <Label>الموقع الجغرافي</Label>
+                <Button type="button" variant="outline" className="w-full" onClick={handleGetLocation} disabled={locationStatus === 'loading'}>
+                   {locationStatus === 'loading' && <Loader2 className="ml-2 h-4 w-4 animate-spin"/>}
+                   {locationStatus === 'success' ? 'تم تحديد الموقع بنجاح' : 'تحديد الموقع على الخريطة'}
+                </Button>
+                {locationStatus === 'error' && <p className="text-sm text-destructive">مشاركة موقعك مطلوب لإكمال التسجيل.</p>}
+            </div>
         </CardContent>
         <CardContent>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading || locationStatus !== 'success'}>
             {loading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
             إنشاء حساب
             </Button>

@@ -5,7 +5,7 @@ import { useContext } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, CookingPot, Bike, Home, ShoppingBag } from "lucide-react";
+import { CheckCircle, CookingPot, Bike, Home, ShoppingBag, XCircle } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { Order } from "@/lib/types";
 
@@ -60,6 +60,7 @@ function CurrentOrderCard({ order }: { order: Order }) {
 }
 
 function PastOrderCard({ order }: { order: Order }) {
+    const isDelivered = order.status === 'delivered';
     return (
         <Card>
             <CardContent className="p-4 flex justify-between items-center">
@@ -69,9 +70,9 @@ function PastOrderCard({ order }: { order: Order }) {
                 </div>
                 <div className="text-left">
                     <p className="font-bold text-primary">{formatCurrency(order.total)}</p>
-                    <p className="text-sm text-green-600 flex items-center gap-1">
-                        <CheckCircle className="h-4 w-4" />
-                        <span>تم التوصيل</span>
+                    <p className={`text-sm flex items-center gap-1 ${isDelivered ? 'text-green-600' : 'text-red-600'}`}>
+                        {isDelivered ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                        <span>{isDelivered ? 'تم التوصيل' : 'ملغي'}</span>
                     </p>
                 </div>
             </CardContent>
@@ -85,8 +86,8 @@ export default function OrdersPage() {
     if (!context) return null;
 
     const { orders } = context;
-    const currentOrders = orders.filter(o => o.status !== 'delivered');
-    const pastOrders = orders.filter(o => o.status === 'delivered');
+    const currentOrders = orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled');
+    const pastOrders = orders.filter(o => o.status === 'delivered' || o.status === 'cancelled');
 
     return (
         <div className="p-4 space-y-8">

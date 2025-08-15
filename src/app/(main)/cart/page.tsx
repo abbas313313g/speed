@@ -9,27 +9,36 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { formatCurrency } from '@/lib/utils';
-import { Minus, Plus, Trash2, ShoppingBag, Tag } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingBag, Tag, Home } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import type { Address } from '@/lib/types';
 
 export default function CartPage() {
   const context = useContext(AppContext);
   const { toast } = useToast();
   const router = useRouter();
   const [coupon, setCoupon] = useState('');
+  const [selectedAddressId, setSelectedAddressId] = useState<string | undefined>(undefined);
 
   if (!context) return null;
 
-  const { cart, updateQuantity, totalCartPrice, deliveryFee, placeOrder, applyCoupon, discount } = context;
+  const { cart, updateQuantity, totalCartPrice, deliveryFee, placeOrder, applyCoupon, discount, user } = context;
 
   const handleCheckout = () => {
-    if (placeOrder) {
-      placeOrder();
+    if (!selectedAddressId) {
+        toast({ title: "الرجاء اختيار عنوان التوصيل", variant: "destructive" });
+        return;
+    }
+    const selectedAddress = user?.addresses?.find(a => a.id === selectedAddressId);
+    if (placeOrder && selectedAddress) {
+      placeOrder(selectedAddress);
       toast({
           title: "تم استلام طلبك بنجاح!",
-          description: "سيتم تحضير طلبك وتوصيله في أقرب وقت ممكن. يمكنك متابعة حالة الطلب من صفحة الطلبات.",
+          description: "سيتم تحضير طلبك وتوصيله للعنوان المسجل.",
       });
       router.push('/orders');
     }
@@ -40,6 +49,12 @@ export default function CartPage() {
   }
 
   const finalTotal = totalCartPrice - discount + deliveryFee;
+  
+  useState(() => {
+    if(user?.addresses && user.addresses.length > 0){
+        setSelectedAddressId(user.addresses[0].id);
+    }
+  });
 
   if (cart.length === 0) {
     return (
@@ -99,6 +114,33 @@ export default function CartPage() {
             </div>
           </CardContent>
       </Card>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>اختر عنوان التوصيل</CardTitle>
+        </CardHeader>
+        <CardContent>
+            {user?.addresses && user.addresses.length > 0 ? (
+                <RadioGroup value={selectedAddressId} onValueChange={setSelectedAddressId}>
+                    {user.addresses.map(address => (
+                        <Label key={address.id} htmlFor={address.id} className="flex items-center gap-4 p-3 rounded-md border cursor-pointer">
+                           <RadioGroupItem value={address.id} id={address.id} />
+                           <Home className="h-5 w-5 text-muted-foreground" />
+                           <span>{address.name}</span>
+                        </Label>
+                    ))}
+                </RadioGroup>
+            ) : (
+                <div className="text-center text-muted-foreground py-4">
+                    <p>لا يوجد عنوان توصيل. الرجاء إضافة عنوان من صفحة حسابك.</p>
+                    <Button asChild variant="link">
+                        <Link href="/account">الذهاب لصفحة الحساب</Link>
+                    </Button>
+                </div>
+            )}
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardHeader>
@@ -126,7 +168,7 @@ export default function CartPage() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button size="lg" className="w-full text-lg" onClick={handleCheckout}>
+          <Button size="lg" className="w-full text-lg" onClick={handleCheckout} disabled={!selectedAddressId}>
             تأكيد الطلب
           </Button>
         </CardFooter>

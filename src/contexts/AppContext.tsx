@@ -4,7 +4,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
-import type { User, CartItem, Product, Order, OrderStatus, Category, Restaurant, Banner, DeliveryZone } from '@/lib/types';
+import type { User, CartItem, Product, Order, OrderStatus, Category, Restaurant, Banner, DeliveryZone, Address } from '@/lib/types';
 import { 
     users as initialUsersData, 
     products as initialProductsData, 
@@ -14,6 +14,9 @@ import {
 } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
 import { ShoppingBasket } from 'lucide-react';
+
+const TELEGRAM_BOT_TOKEN = "7601214758:AAFtkJRGqffuDLKPb8wuHm7r0pt_pDE7BSE";
+const TELEGRAM_CHAT_ID = "6626221973";
 
 // --- Local Storage Hook ---
 function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
@@ -46,23 +49,20 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val
         }
     };
 
-    useEffect(() => {
+     useEffect(() => {
         if (typeof window !== 'undefined') {
             try {
-                const item = window.localStorage.getItem(key);
-                // If item is null, or if it's an empty array when it shouldn't be, reset it.
-                if (item === null || (Array.isArray(JSON.parse(item)) && JSON.parse(item).length === 0 && Array.isArray(initialValue) && initialValue.length > 0)) {
-                     // Check if initialValue itself is not just an empty array from a re-render
-                    if(JSON.stringify(storedValue) !== JSON.stringify(initialValue)) {
-                        setValue(initialValue);
-                    }
+                const item = localStorage.getItem(key);
+                // This condition is to prevent re-initializing with mock data if local storage is already populated
+                if (item === null) {
+                    setValue(initialValue);
                 }
             } catch (error) {
                  console.error(`Error processing localStorage key "${key}", resetting to initial value:`, error);
                  setValue(initialValue);
             }
         }
-    }, [key, initialValue, storedValue]);
+    }, [key]);
 
 
     return [storedValue, setValue];
@@ -84,11 +84,12 @@ interface AppContextType {
   login: (phone: string, password?: string) => Promise<boolean>;
   logout: () => void;
   signup: (userData: Omit<User, 'id' | 'email' | 'isAdmin'>) => Promise<void>;
+  addAddress: (address: Omit<Address, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
-  placeOrder: () => void;
+  placeOrder: (address: Address) => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   addProduct: (product: Omit<Product, 'id' | 'bestSeller'>) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
@@ -113,13 +114,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const router = useRouter();
     const { toast } = useToast();
     
-    // Memoize initial data to prevent re-renders
     const initialUsers = useMemo(() => initialUsersData, []);
     const initialProducts = useMemo(() => initialProductsData, []);
     const initialCategories = useMemo(() => initialCategoriesData, []);
     const initialRestaurants = useMemo(() => initialRestaurantsData, []);
 
-    // --- State Management ---
     const [isLoading, setIsLoading] = useState(true);
     const [users, setUsers] = useLocalStorage<User[]>('users', initialUsers);
     const [user, setUser] = useLocalStorage<User | null>('currentUser', null);
@@ -138,25 +137,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     const orders = useMemo(() => (user ? allOrders.filter(o => o.userId === user.id) : []), [user, allOrders]);
 
-    // --- Effects ---
     useEffect(() => {
-        // Simulate loading
         setTimeout(() => setIsLoading(false), 500);
     }, []);
-
-    // This effect is no longer needed as useLocalStorage handles the user-specific keys now
-    // useEffect(() => {
-    //     if(user) {
-    //         const userCart = localStorage.getItem(`cart_${user.id}`);
-    //         setCart(userCart ? JSON.parse(userCart) : []);
-    //         const userDiscount = localStorage.getItem(`discount_${user.id}`);
-    //         setDiscount(userDiscount ? JSON.parse(userDiscount) : 0);
-    //     } else {
-    //         setCart([]);
-    //         setDiscount(0);
-    //     }
-    // }, [user, setCart, setDiscount]);
-
 
     const dynamicCategories = React.useMemo(() => {
         const iconMap = initialCategories.reduce((acc, cat) => {
@@ -168,9 +151,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             ...cat,
             icon: iconMap[cat.iconName] || ShoppingBasket
         }));
-    }, [categories, initialCategories]);
+    }, [categories]);
 
-    // --- Auth ---
+    // --- Auth & User ---
     const login = async (phone: string, password?: string): Promise<boolean> => {
         const foundUser = users.find(u => u.phone === phone && u.password === password);
         if (foundUser) {
@@ -204,6 +187,21 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
         setUsers(prevUsers => [...prevUsers, newUser]);
     };
+    
+    const addAddress = (address: Omit<Address, 'id'>) => {
+        if (!user) return;
+        const newAddress: Address = {
+            ...address,
+            id: `address-${Date.now()}`
+        };
+        const updatedUser = {
+            ...user,
+            addresses: [...(user.addresses || []), newAddress]
+        };
+        setUser(updatedUser);
+        setUsers(prevUsers => prevUsers.map(u => u.id === user.id ? updatedUser : u));
+        toast({ title: "تم إضافة العنوان بنجاح" });
+    }
 
     // --- Cart ---
     const clearCartAndAdd = (product: Product, quantity: number = 1) => {
@@ -275,7 +273,48 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const deliveryFee = useMemo(() => (cart.length > 0 ? (user?.deliveryZone?.fee ?? 3000) : 0), [cart, user]);
     
     // --- Orders ---
-    const placeOrder = () => {
+    const sendOrderToTelegram = async (order: Order) => {
+        if (!user) return;
+        const itemsText = order.items.map(item => `${item.product.name} (x${item.quantity})`).join('\n');
+        const locationLink = `https://www.google.com/maps?q=${order.address?.latitude},${order.address?.longitude}`;
+
+        const message = `
+        <b>طلب جديد!</b> 📦
+        ---
+        <b>رقم الطلب:</b> ${order.id}
+        <b>الزبون:</b> ${user.name}
+        <b>رقم الهاتف:</b> ${user.phone}
+        ---
+        <b>العنوان:</b> ${order.address?.name}
+        <a href="${locationLink}">📍 عرض على الخريطة</a>
+        ---
+        <b>الطلبات:</b>
+        ${itemsText}
+        ---
+        <b>المجموع الفرعي:</b> ${formatCurrency(totalCartPrice)}
+        <b>الخصم:</b> ${formatCurrency(discount)}
+        <b>رسوم التوصيل:</b> ${formatCurrency(deliveryFee)}
+        <b>المجموع الكلي:</b> ${formatCurrency(order.total)}
+        `;
+
+        const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+        try {
+            await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: TELEGRAM_CHAT_ID,
+                    text: message,
+                    parse_mode: 'HTML'
+                })
+            });
+        } catch (error) {
+            console.error("Failed to send message to Telegram:", error);
+        }
+    }
+
+
+    const placeOrder = (address: Address) => {
         if (!user || cart.length === 0) return;
 
         const newOrder: Order = {
@@ -287,10 +326,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             status: 'confirmed',
             estimatedDelivery: '30-40 دقيقة',
             user: { id: user.id, name: user.name, phone: user.phone },
+            address: address,
             revenue: totalCartPrice - discount,
         };
         
         setAllOrders(prevOrders => [...prevOrders, newOrder]);
+        sendOrderToTelegram(newOrder);
         clearCart();
     };
 
@@ -401,6 +442,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         login,
         logout,
         signup,
+        addAddress,
         addToCart,
         removeFromCart,
         updateQuantity,
