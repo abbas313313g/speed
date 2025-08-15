@@ -37,6 +37,7 @@ export default function SignupPage() {
   const router = useRouter();
 
   useEffect(() => {
+    // Redirect only if user is already logged in
     if (context?.user) {
       router.replace('/home');
     }
@@ -77,7 +78,7 @@ export default function SignupPage() {
     }
   };
 
-  if (context?.isLoading || context?.user) {
+  if (context?.isLoading) {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
             <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />

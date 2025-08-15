@@ -41,8 +41,8 @@ export default function LandingPage() {
         <Button asChild size="lg" className="flex-1 text-lg">
           <Link href="/login">تسجيل الدخول</Link>
         </Button>
-         <Button size="lg" variant="outline" className="flex-1 text-lg" onClick={() => router.push('/signup')}>
-          إنشاء حساب جديد
+         <Button asChild size="lg" variant="outline" className="flex-1 text-lg">
+          <Link href="/signup">إنشاء حساب جديد</Link>
         </Button>
       </div>
     </div>

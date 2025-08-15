@@ -28,6 +28,7 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
+    // Redirect only if user is already logged in
     if (context && !context.isLoading && context.user) {
       router.replace('/home');
     }
@@ -52,7 +53,7 @@ export default function LoginPage() {
     }
   };
   
-  if (context?.isLoading || context?.user) {
+  if (context?.isLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
