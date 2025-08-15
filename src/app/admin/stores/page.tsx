@@ -36,8 +36,7 @@ import { Label } from '@/components/ui/label';
 import { Star, Edit, Trash2 } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 
-const EMPTY_STORE: Restaurant = {
-    id: '',
+const EMPTY_STORE: Omit<Restaurant, 'id'> = {
     name: '',
     image: '',
     rating: 0,
@@ -47,7 +46,7 @@ export default function AdminStoresPage() {
   const context = useContext(AppContext);
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentStore, setCurrentStore] = useState<Restaurant>({ ...EMPTY_STORE });
+  const [currentStore, setCurrentStore] = useState<Restaurant>({ ...EMPTY_STORE, id: '' });
 
   if (!context) return null;
   const { restaurants, addRestaurant, updateRestaurant, deleteRestaurant } = context;

@@ -95,8 +95,8 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T) => vo
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useLocalStorage<User | null>('speedShopUser', null);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [cart, setCart] = useLocalStorage<CartItem[]>(`speedShopCart_${user?.id}`, []);
+  const [orders, setOrders] = useLocalStorage<Order[]>(`speedShopOrders_${user?.id}`, []);
   const [discount, setDiscount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -113,28 +113,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const { toast } = useToast();
   
-  // Load user-specific data on user change
   useEffect(() => {
-    setIsLoading(true);
-    if (user) {
-        const storedCart = localStorage.getItem(`speedShopCart_${user.id}`);
-        const storedOrders = localStorage.getItem(`speedShopOrders_${user.id}`);
-        setCart(storedCart ? JSON.parse(storedCart) : []);
-        setOrders(storedOrders ? JSON.parse(storedOrders) : []);
-    } else {
-        setCart([]);
-        setOrders([]);
-    }
     setIsLoading(false);
-  }, [user]);
-
-  // Save user-specific data when it changes
-  useEffect(() => {
-    if (user) {
-        localStorage.setItem(`speedShopCart_${user.id}`, JSON.stringify(cart));
-        localStorage.setItem(`speedShopOrders_${user.id}`, JSON.stringify(orders));
-    }
-  }, [user, cart, orders]);
+  }, []);
   
   const login = (phoneOrCode: string, password?: string): boolean => {
     let foundUser: User | undefined;
@@ -256,7 +237,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     );
     setOrders(prevOrders => update(prevOrders));
     setAllOrders(prevAllOrders => update(prevAllOrders));
-  }, [setAllOrders]);
+  }, [setOrders, setAllOrders]);
 
   const placeOrder = () => {
     if (!user || cart.length === 0) return;
@@ -414,5 +395,3 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     </AppContext.Provider>
   );
 };
-
-    

@@ -36,6 +36,7 @@ import { Label } from '@/components/ui/label';
 import { Edit, Trash2, ShoppingBasket, Stethoscope, SwatchBook, Soup, Salad, ChefHat } from 'lucide-react';
 import type { Category } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import React from 'react';
 
 const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = {
   ShoppingBasket,
@@ -74,7 +75,7 @@ export default function AdminCategoriesPage() {
   const handleSave = () => {
     if (currentCategory.name) {
         if (isEditing) {
-            updateCategory(currentCategory);
+            updateCategory(currentCategory as Category);
         } else {
             addCategory(currentCategory);
         }
