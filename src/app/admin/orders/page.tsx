@@ -23,7 +23,6 @@ import { MoreHorizontal } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import type { OrderStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Timestamp } from 'firebase/firestore';
 
 export default function AdminOrdersPage() {
   const context = useContext(AppContext);
@@ -41,13 +40,6 @@ export default function AdminOrdersPage() {
       case 'cancelled': return 'bg-red-500';
       default: return 'bg-gray-500';
     }
-  }
-
-  const toDate = (date: string | Timestamp): Date => {
-    if (date instanceof Timestamp) {
-        return date.toDate();
-    }
-    return new Date(date);
   }
 
   return (
@@ -73,7 +65,7 @@ export default function AdminOrdersPage() {
             <TableRow key={order.id}>
               <TableCell className="font-medium">{order.id}</TableCell>
               <TableCell>{order.user?.name || 'مستخدم محذوف'}</TableCell>
-              <TableCell>{toDate(order.date).toLocaleString('ar-IQ')}</TableCell>
+              <TableCell>{new Date(order.date).toLocaleString('ar-IQ')}</TableCell>
               <TableCell>{formatCurrency(order.total)}</TableCell>
               <TableCell>
                 <Badge className={cn("text-white", getStatusVariant(order.status))}>

@@ -13,83 +13,38 @@ import {
     deliveryZones
 } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
-import { auth, db, storage } from '@/lib/firebase';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { useCollection, useDocumentData } from 'react-firebase-hooks/firestore';
-import { 
-    collection, query, where, doc, getDocs, writeBatch, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp
-} from 'firebase/firestore';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { ShoppingBasket } from 'lucide-react';
+import { Timestamp } from 'firebase/firestore';
 
-// Helper to check and seed data
-const seedInitialData = async () => {
-    const collectionsToSeed = {
-        categories: initialCategoriesData,
-        restaurants: initialRestaurantsData,
-        products: initialProductsData,
-    };
-
-    const batch = writeBatch(db);
-    let hasWrites = false;
-
-    for (const [collName, data] of Object.entries(collectionsToSeed)) {
-        const collectionRef = collection(db, collName);
-        const snapshot = await getDocs(collectionRef);
-        if (snapshot.empty) {
-            console.log(`Seeding ${collName}...`);
-            hasWrites = true;
-            data.forEach(item => {
-                const docRef = doc(collectionRef, item.id);
-                // remove icon component before saving to firestore
-                if ('icon' in item) {
-                    const { icon, ...rest } = item;
-                    batch.set(docRef, rest);
-                } else {
-                    batch.set(docRef, item);
-                }
-            });
-        }
-    }
-
-    if (hasWrites) {
-        await batch.commit();
-        console.log("Initial data seeding complete.");
-    }
-};
-
-// Run seeding once on app load
-seedInitialData().catch(console.error);
 
 // Custom hook for managing state with localStorage
-function useStickyState<T>(defaultValue: T, key: string): [T, React.Dispatch<React.SetStateAction<T>>] {
-    const [value, setValue] = useState<T>(() => {
+function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
+    const [storedValue, setStoredValue] = useState<T>(() => {
         if (typeof window === 'undefined') {
-            return defaultValue;
+            return initialValue;
         }
         try {
-            const stickyValue = window.localStorage.getItem(key);
-            return stickyValue !== null
-                ? JSON.parse(stickyValue)
-                : defaultValue;
+            const item = window.localStorage.getItem(key);
+            return item ? JSON.parse(item) : initialValue;
         } catch (error) {
-            console.warn(`Error reading localStorage key “${key}”:`, error);
-            return defaultValue;
+            console.error(error);
+            return initialValue;
         }
     });
 
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            try {
-                window.localStorage.setItem(key, JSON.stringify(value));
-            } catch (error) {
-                console.warn(`Error setting localStorage key “${key}”:`, error);
+    const setValue = (value: T | ((val: T) => T)) => {
+        try {
+            const valueToStore = value instanceof Function ? value(storedValue) : value;
+            setStoredValue(valueToStore);
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem(key, JSON.stringify(valueToStore));
             }
+        } catch (error) {
+            console.error(error);
         }
-    }, [key, value]);
+    };
 
-    return [value, setValue];
+    return [storedValue, setValue];
 }
 
 
@@ -113,16 +68,16 @@ interface AppContextType {
   clearCart: () => void;
   placeOrder: () => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
-  addProduct: (product: Omit<Product, 'id' | 'bestSeller' | 'image'> & { image?: string }) => Promise<void>;
-  updateProduct: (product: Product) => Promise<void>;
+  addProduct: (product: Omit<Product, 'id' | 'bestSeller'>) => void;
+  updateProduct: (product: Product) => void;
   deleteProduct: (productId: string) => void;
   addCategory: (category: Omit<Category, 'id' | 'icon'>) => void;
   updateCategory: (category: Omit<Category, 'icon' | 'id'> & {id: string}) => void;
   deleteCategory: (categoryId: string) => void;
-  addRestaurant: (restaurant: Omit<Restaurant, 'id'>) => Promise<void>;
-  updateRestaurant: (restaurant: Restaurant) => Promise<void>;
+  addRestaurant: (restaurant: Omit<Restaurant, 'id'>) => void;
+  updateRestaurant: (restaurant: Restaurant) => void;
   deleteRestaurant: (restaurantId: string) => void;
-  addBanner: (banner: Omit<Banner, 'id'>) => Promise<void>;
+  addBanner: (banner: Omit<Banner, 'id'>) => void;
   applyCoupon: (coupon: string) => void;
   totalCartPrice: number;
   deliveryFee: number;
@@ -131,49 +86,30 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
-const mapDocToId = <T extends {}>(doc: any): T => ({ ...doc.data(), id: doc.id } as T);
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [authUser, authLoading, authError] = useAuthState(auth);
+  const [user, setUser] = useLocalStorage<User | null>('speed-shop-user', null);
+  const [users, setUsers] = useLocalStorage<User[]>('speed-shop-users', initialUsers);
+  const [products, setProducts] = useLocalStorage<Product[]>('speed-shop-products', initialProductsData);
+  const [rawCategories, setRawCategories] = useLocalStorage<Omit<Category, 'icon'>[]>('speed-shop-categories', initialCategoriesData.map(({icon, ...rest}) => rest));
+  const [restaurants, setRestaurants] = useLocalStorage<Restaurant[]>('speed-shop-restaurants', initialRestaurantsData);
+  const [banners, setBanners] = useLocalStorage<Banner[]>('speed-shop-banners', []);
+  const [orders, setOrders] = useLocalStorage<Order[]>('speed-shop-orders', []);
+  const [allOrders, setAllOrders] = useLocalStorage<Order[]>('speed-shop-all-orders', []);
   
-  // Get user profile from Firestore
-  const [userDoc, userLoading, userError] = useDocumentData(authUser ? doc(db, 'users', authUser.uid) : null);
-  const user: User | null = authUser && userDoc ? { ...userDoc, id: authUser.uid, uid: authUser.uid } as User : null;
-
-  // Fetch collections from Firestore
-  const [productsSnapshot, productsLoading] = useCollection(collection(db, 'products'));
-  const [categoriesSnapshot, categoriesLoading] = useCollection(collection(db, 'categories'));
-  const [restaurantsSnapshot, restaurantsLoading] = useCollection(collection(db, 'restaurants'));
-  const [bannersSnapshot, bannersLoading] = useCollection(collection(db, 'banners'));
-  const [allUsersSnapshot, allUsersLoading] = useCollection(collection(db, 'users'));
-  
-  // Fetch orders for the current user
-  const [ordersSnapshot, ordersLoading] = useCollection(
-    authUser ? query(collection(db, 'orders'), where('userId', '==', authUser.uid)) : null
-  );
-
-  // Fetch all orders for admin
-  const [allOrdersSnapshot, allOrdersLoading] = useCollection(
-    user?.isAdmin ? collection(db, 'orders') : null
-  );
-
-  // Map snapshots to data arrays
-  const products = productsSnapshot?.docs.map(mapDocToId<Product>) ?? [];
-  const rawCategories = categoriesSnapshot?.docs.map(mapDocToId<Category>) ?? [];
-  const restaurants = restaurantsSnapshot?.docs.map(mapDocToId<Restaurant>) ?? [];
-  const banners = bannersSnapshot?.docs.map(mapDocToId<Banner>) ?? [];
-  const allUsers = allUsersSnapshot?.docs.map(mapDocToId<User>) ?? [];
-  const orders = ordersSnapshot?.docs.map(mapDocToId<Order>) ?? [];
-  const allOrders = allOrdersSnapshot?.docs.map(mapDocToId<Order>) ?? [];
-  
-  const isLoading = authLoading || userLoading || productsLoading || categoriesLoading || restaurantsLoading || bannersLoading || ordersLoading || (user?.isAdmin && allOrdersLoading);
-
-  // Local state for cart and discount
-  const [cart, setCart] = useStickyState<CartItem[]>([], `speedShopCart_${authUser?.uid || ''}`);
+  const [cart, setCart] = useLocalStorage<CartItem[]>(`speed-shop-cart-${user?.id || ''}`, []);
   const [discount, setDiscount] = useState(0);
+
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Simulate loading for 500ms to allow local storage to hydrate
+    const timer = setTimeout(() => setIsLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const categories = React.useMemo(() => {
     const iconMap = initialCategoriesData.reduce((acc, cat) => {
@@ -189,60 +125,33 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
 
   const login = async (phone: string, password?: string): Promise<boolean> => {
-    try {
-      const email = `${phone}@speedshop.app`;
-      await signInWithEmailAndPassword(auth, email, password!);
-      return true;
-    } catch (error) {
-      console.error("Login failed:", error);
-      return false;
+    const foundUser = users.find(u => u.phone === phone && u.password === password);
+    if (foundUser) {
+        setUser(foundUser);
+        return true;
     }
+    return false;
   };
 
-  const logout = async () => {
-    await signOut(auth);
-    setCart([]); // Clear cart on logout
+  const logout = () => {
+    setUser(null);
+    setCart([]);
     router.push('/login');
   };
 
   const signup = async (userData: Omit<User, 'id'>) => {
-    const email = `${userData.phone}@speedshop.app`;
-    try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, userData.password!);
-        const { uid } = userCredential.user;
-        const { password, ...restOfUserData } = userData;
-
-        const userDocRef = doc(db, 'users', uid);
-        await writeBatch(db).set(userDocRef, {
-             ...restOfUserData,
-            uid: uid,
-            email: email,
-            createdAt: serverTimestamp()
-        }).commit();
-
-
-        toast({
-            title: "تم إنشاء الحساب بنجاح!",
-            description: "يمكنك الآن تسجيل الدخول."
-        });
-
-    } catch (error: any) {
-        console.error("Signup failed:", error);
-        toast({
-            title: "فشل إنشاء الحساب",
-            description: "قد يكون هذا المستخدم موجودًا بالفعل أو أن هناك مشكلة في الشبكة.",
-            variant: "destructive",
-        });
-        throw error;
+    const existingUser = users.find(u => u.phone === userData.phone);
+    if (existingUser) {
+        toast({ title: "هذا المستخدم موجود بالفعل", variant: 'destructive' });
+        throw new Error("User already exists");
     }
+    const newUser: User = {
+        id: `user-${Date.now()}`,
+        ...userData
+    };
+    setUsers(prev => [...prev, newUser]);
+    toast({ title: "تم إنشاء الحساب بنجاح!" });
   };
-
-  const uploadImage = async (dataUrl: string, path: string): Promise<string> => {
-      const storageRef = ref(storage, path);
-      await uploadString(storageRef, dataUrl, 'data_url');
-      const downloadUrl = await getDownloadURL(storageRef);
-      return downloadUrl;
-  }
   
   const clearCartAndAdd = (product: Product, quantity: number = 1) => {
     const newItem = { product, quantity };
@@ -314,103 +223,100 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const totalCartPrice = cart.reduce((total, item) => total + item.product.price * item.quantity, 0);
   const deliveryFee = cart.length > 0 ? (user?.deliveryZone?.fee ?? 3000) : 0;
   
-  const placeOrder = async () => {
-    if (!authUser || cart.length === 0 || !user) return;
+  const placeOrder = () => {
+    if (!user || cart.length === 0) return;
 
-    const newOrder = {
-      userId: authUser.uid,
-      items: cart, // Storing full product details, consider just storing IDs and quantity
+    const newOrder: Order = {
+      id: `order-${Date.now()}`,
+      userId: user.id,
+      items: cart,
       total: totalCartPrice - discount + deliveryFee,
-      date: Timestamp.now(),
+      date: new Date().toISOString(),
       status: 'confirmed',
       estimatedDelivery: '30-40 دقيقة',
-      user: { id: authUser.uid, name: user.name, phone: user.phone },
+      user: { id: user.id, name: user.name, phone: user.phone },
       revenue: totalCartPrice - discount,
     };
-
-    const docRef = await addDoc(collection(db, 'orders'), newOrder);
+    
+    // For current user
+    setOrders(prev => [...prev, newOrder]);
+    // For admin view
+    setAllOrders(prev => [...prev, newOrder]);
+    
     clearCart();
   };
 
-  const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
-    await updateDoc(doc(db, 'orders', orderId), { status });
+  const updateOrderStatus = (orderId: string, status: OrderStatus) => {
+    const update = (prev: Order[]) => prev.map(o => o.id === orderId ? {...o, status} : o);
+    setOrders(update);
+    setAllOrders(update);
   };
   
-  const addProduct = async (productData: Omit<Product, 'id' | 'bestSeller' | 'image'> & { image?: string }) => {
-    let imageUrl = 'https://placehold.co/600x400.png';
-    if(productData.image && productData.image.startsWith('data:')){
-        imageUrl = await uploadImage(productData.image, `products/${Date.now()}`);
-    }
-
-    await addDoc(collection(db, 'products'), {
+  const addProduct = (productData: Omit<Product, 'id' | 'bestSeller'>) => {
+    const newProduct: Product = {
         ...productData,
-        image: imageUrl,
+        id: `prod-${Date.now()}`,
         bestSeller: Math.random() < 0.2
-    });
+    };
+    setProducts(prev => [...prev, newProduct]);
     toast({ title: "تمت إضافة المنتج بنجاح" });
   }
 
-  const updateProduct = async (updatedProduct: Product) => {
-    let imageUrl = updatedProduct.image;
-    if(updatedProduct.image && updatedProduct.image.startsWith('data:')){
-        imageUrl = await uploadImage(updatedProduct.image, `products/${updatedProduct.id}`);
-    }
-    const { id, ...data } = { ...updatedProduct, image: imageUrl };
-    await updateDoc(doc(db, 'products', id), data);
+  const updateProduct = (updatedProduct: Product) => {
+    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
     toast({ title: "تم تحديث المنتج بنجاح" });
   }
 
-  const deleteProduct = async (productId: string) => {
-    await deleteDoc(doc(db, 'products', productId));
+  const deleteProduct = (productId: string) => {
+    setProducts(prev => prev.filter(p => p.id !== productId));
     toast({ title: "تم حذف المنتج بنجاح", variant: "destructive" });
   }
 
-  const addCategory = async (categoryData: Omit<Category, 'id' | 'icon'>) => {
-    await addDoc(collection(db, 'categories'), categoryData);
+  const addCategory = (categoryData: Omit<Category, 'id' | 'icon'>) => {
+     const newCategory: Omit<Category, 'icon'> = {
+        ...categoryData,
+        id: `cat-${Date.now()}`,
+    };
+    setRawCategories(prev => [...prev, newCategory]);
     toast({ title: "تمت إضافة القسم بنجاح" });
   }
 
-  const updateCategory = async (updatedCategory: Omit<Category, 'icon' | 'id'> & {id: string}) => {
-    const { id, ...data } = updatedCategory;
-    await updateDoc(doc(db, 'categories', id), data);
+  const updateCategory = (updatedCategory: Omit<Category, 'icon' | 'id'> & {id: string}) => {
+    setRawCategories(prev => prev.map(c => c.id === updatedCategory.id ? updatedCategory : c));
     toast({ title: "تم تحديث القسم بنجاح" });
   }
 
-  const deleteCategory = async (categoryId: string) => {
-    await deleteDoc(doc(db, 'categories', categoryId));
+  const deleteCategory = (categoryId: string) => {
+    setRawCategories(prev => prev.filter(c => c.id !== categoryId));
     toast({ title: "تم حذف القسم بنجاح", variant: "destructive" });
   }
   
-  const addRestaurant = async (restaurantData: Omit<Restaurant, 'id'>) => {
-     let imageUrl = 'https://placehold.co/400x300.png';
-     if(restaurantData.image && restaurantData.image.startsWith('data:')){
-        imageUrl = await uploadImage(restaurantData.image, `restaurants/${Date.now()}`);
-    }
-    await addDoc(collection(db, 'restaurants'), { ...restaurantData, image: imageUrl });
+  const addRestaurant = (restaurantData: Omit<Restaurant, 'id'>) => {
+    const newRestaurant: Restaurant = {
+        ...restaurantData,
+        id: `res-${Date.now()}`,
+    };
+    setRestaurants(prev => [...prev, newRestaurant]);
     toast({ title: "تمت إضافة المتجر بنجاح" });
   }
 
-  const updateRestaurant = async (updatedRestaurant: Restaurant) => {
-    let imageUrl = updatedRestaurant.image;
-    if(updatedRestaurant.image && updatedRestaurant.image.startsWith('data:')){
-        imageUrl = await uploadImage(updatedRestaurant.image, `restaurants/${updatedRestaurant.id}`);
-    }
-    const { id, ...data } = { ...updatedRestaurant, image: imageUrl };
-    await updateDoc(doc(db, 'restaurants', id), data);
+  const updateRestaurant = (updatedRestaurant: Restaurant) => {
+    setRestaurants(prev => prev.map(r => r.id === updatedRestaurant.id ? updatedRestaurant : r));
     toast({ title: "تم تحديث المتجر بنجاح" });
   }
 
-  const deleteRestaurant = async (restaurantId: string) => {
-    await deleteDoc(doc(db, 'restaurants', restaurantId));
+  const deleteRestaurant = (restaurantId: string) => {
+    setRestaurants(prev => prev.filter(r => r.id !== restaurantId));
     toast({ title: "تم حذف المتجر بنجاح", variant: "destructive" });
   }
   
-  const addBanner = async (bannerData: Omit<Banner, 'id'>) => {
-     let imageUrl = 'https://placehold.co/600x300.png';
-     if(bannerData.image && bannerData.image.startsWith('data:')){
-        imageUrl = await uploadImage(bannerData.image, `banners/${Date.now()}`);
-    }
-    await addDoc(collection(db, 'banners'), { ...bannerData, image: imageUrl, link: bannerData.link || '#' });
+  const addBanner = (bannerData: Omit<Banner, 'id'>) => {
+    const newBanner: Banner = {
+        ...bannerData,
+        id: `banner-${Date.now()}`,
+        link: bannerData.link || '#'
+    };
+    setBanners(prev => [...prev, newBanner]);
     toast({ title: "تمت إضافة البنر بنجاح" });
   }
 
@@ -425,14 +331,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const discountAmount = totalCartPrice * 0.10;
         setDiscount(discountAmount);
         
-        // This should be an update to the user document in Firestore
-        if (authUser) {
-            const userRef = doc(db, 'users', authUser.uid);
-            updateDoc(userRef, {
-                usedCoupons: [...(user.usedCoupons || []), couponCode]
-            });
-        }
-        
+        const updatedUser = { ...user, usedCoupons: [...(user.usedCoupons || []), couponCode] };
+        setUser(updatedUser);
+        setUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
+
         toast({ title: "تم تطبيق الخصم!", description: `لقد حصلت على خصم بقيمة ${formatCurrency(discountAmount)}.` });
     } else {
         setDiscount(0);
@@ -442,7 +344,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   
   const value: AppContextType = {
     user,
-    allUsers,
+    allUsers: users,
     products,
     cart,
     orders,
