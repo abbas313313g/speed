@@ -21,6 +21,7 @@ import {
 } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
+import { ShoppingBasket } from 'lucide-react';
 
 // Helper to check and seed data
 const seedInitialData = async () => {
@@ -51,33 +52,6 @@ const seedInitialData = async () => {
             });
         }
     }
-    
-    // Seed users collection and create them in Firebase Auth
-    const usersCollectionRef = collection(db, 'users');
-    const usersSnapshot = await getDocs(usersCollectionRef);
-    if(usersSnapshot.empty){
-        console.log('Seeding users and creating auth accounts...');
-        hasWrites = true;
-        for (const user of initialUsers) {
-            try {
-                // Use phone as email for auth
-                const email = `${user.phone}@speedshop.app`;
-                const userCredential = await createUserWithEmailAndPassword(auth, email, user.password!);
-                const authUid = userCredential.user.uid;
-                
-                const userDocRef = doc(db, 'users', authUid);
-                const { id, password, ...userData } = user;
-                batch.set(userDocRef, { ...userData, email, uid: authUid });
-
-            } catch (error: any) {
-                // Ignore if user already exists in Auth
-                if(error.code !== 'auth/email-already-in-use') {
-                    console.error("Error seeding user:", user.name, error);
-                }
-            }
-        }
-    }
-
 
     if (hasWrites) {
         await batch.commit();
@@ -166,8 +140,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [authUser, authLoading, authError] = useAuthState(auth);
   
   // Get user profile from Firestore
-  const [user, userLoading, userError] = useDocumentData(authUser ? doc(db, 'users', authUser.uid) : null);
-  
+  const [userDoc, userLoading, userError] = useDocumentData(authUser ? doc(db, 'users', authUser.uid) : null);
+  const user: User | null = authUser && userDoc ? { ...userDoc, id: authUser.uid, uid: authUser.uid } as User : null;
+
   // Fetch collections from Firestore
   const [productsSnapshot, productsLoading] = useCollection(collection(db, 'products'));
   const [categoriesSnapshot, categoriesLoading] = useCollection(collection(db, 'categories'));
@@ -226,6 +201,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     await signOut(auth);
+    setCart([]); // Clear cart on logout
     router.push('/login');
   };
 
@@ -236,22 +212,25 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const { uid } = userCredential.user;
         const { password, ...restOfUserData } = userData;
 
-        await addDoc(collection(db, "users"), {
-            ...restOfUserData,
+        const userDocRef = doc(db, 'users', uid);
+        await writeBatch(db).set(userDocRef, {
+             ...restOfUserData,
             uid: uid,
             email: email,
             createdAt: serverTimestamp()
-        });
+        }).commit();
+
 
         toast({
             title: "تم إنشاء الحساب بنجاح!",
+            description: "يمكنك الآن تسجيل الدخول."
         });
 
     } catch (error: any) {
         console.error("Signup failed:", error);
         toast({
             title: "فشل إنشاء الحساب",
-            description: error.message,
+            description: "قد يكون هذا المستخدم موجودًا بالفعل أو أن هناك مشكلة في الشبكة.",
             variant: "destructive",
         });
         throw error;
@@ -351,7 +330,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     const docRef = await addDoc(collection(db, 'orders'), newOrder);
     clearCart();
-    // No need for local state simulation of status change, this should be handled by a backend process
   };
 
   const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
@@ -463,7 +441,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   };
   
   const value: AppContextType = {
-    user: user ? { ...user, id: authUser!.uid } as User : null,
+    user,
     allUsers,
     products,
     cart,
