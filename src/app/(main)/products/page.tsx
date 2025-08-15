@@ -1,9 +1,20 @@
 
-import { categories, products } from "@/lib/mock-data";
+"use client";
+
+import { useContext } from 'react';
+import { AppContext } from '@/contexts/AppContext';
 import { ProductCard } from "@/components/ProductCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function ProductsPage() {
+  const context = useContext(AppContext);
+
+  if (!context) {
+    return <div>جار التحميل...</div>;
+  }
+  
+  const { products, categories } = context;
+
   return (
     <div className="p-4">
       <header className="mb-6">

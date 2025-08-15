@@ -5,7 +5,6 @@ import { useContext } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AppContext } from "@/contexts/AppContext";
-import { products, restaurants } from "@/lib/mock-data";
 import { ProductCard } from "@/components/ProductCard";
 import { RestaurantCard } from "@/components/RestaurantCard";
 import {
@@ -21,15 +20,15 @@ import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
   const context = useContext(AppContext);
-  const bestSellers = products.filter(p => p.bestSeller);
 
   if (!context) return null;
-  const { categories, banners } = context;
+  const { categories, banners, products, restaurants, user } = context;
+  const bestSellers = products.filter(p => p.bestSeller);
   
   return (
     <div className="space-y-8 p-4">
       <header>
-        <h1 className="text-2xl font-bold">مرحباً, {context?.user?.name.split(" ")[0]}!</h1>
+        <h1 className="text-2xl font-bold">مرحباً, {user?.name.split(" ")[0]}!</h1>
         <p className="text-muted-foreground">اطلب ما تشتهي، نصلك بأسرع وقت.</p>
       </header>
 

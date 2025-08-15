@@ -12,6 +12,7 @@ import { formatCurrency } from '@/lib/utils';
 interface AppContextType {
   user: User | null;
   allUsers: User[];
+  products: Product[];
   cart: CartItem[];
   orders: Order[];
   allOrders: Order[];
@@ -43,6 +44,7 @@ export const AppContext = createContext<AppContextType | null>(null);
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [products, setProducts] = useState<Product[]>(mockProducts);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
@@ -61,6 +63,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
       const currentAllUsers = storedAllUsers ? JSON.parse(storedAllUsers) : mockUsers;
       setAllUsers(currentAllUsers);
       
+      const storedProducts = localStorage.getItem('speedShopProducts');
+      setProducts(storedProducts ? JSON.parse(storedProducts) : mockProducts);
+
       const storedUser = localStorage.getItem('speedShopUser');
       const storedAllOrders = localStorage.getItem('speedShopAllOrders');
       
@@ -96,6 +101,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     if (isLoading) return;
     try {
         localStorage.setItem('speedShopAllUsers', JSON.stringify(allUsers));
+        localStorage.setItem('speedShopProducts', JSON.stringify(products));
         if(user) {
             localStorage.setItem('speedShopUser', JSON.stringify(user));
             localStorage.setItem(`speedShopCart_${user.id}`, JSON.stringify(cart));
@@ -107,7 +113,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
         console.error("Failed to save to localStorage", error);
     }
-  }, [user, cart, orders, allOrders, allUsers, isLoading]);
+  }, [user, cart, orders, allOrders, allUsers, products, isLoading]);
 
   useEffect(() => {
     saveToLocalStorage();
@@ -284,9 +290,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const addProduct = (productData: Omit<Product, 'id'>) => {
     const newProduct: Product = {
         id: `prod-${Date.now()}`,
+        bestSeller: false,
         ...productData
     };
-    mockProducts.push(newProduct);
+    setProducts(prev => [...prev, newProduct]);
     
     toast({
         title: "تمت إضافة المنتج بنجاح",
@@ -363,6 +370,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
       value={{
         user,
         allUsers,
+        products,
         cart,
         orders,
         allOrders,

@@ -30,7 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { products, categories, restaurants } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
 import Image from 'next/image';
 
@@ -45,6 +44,9 @@ export default function AdminProductsPage() {
       categoryId: '',
       restaurantId: '',
   });
+
+  if (!context) return null;
+  const { products, categories, restaurants } = context;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

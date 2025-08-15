@@ -5,7 +5,6 @@ import { useContext, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import { AppContext } from '@/contexts/AppContext';
-import { products } from '@/lib/mock-data';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { Minus, Plus, ShoppingCart } from 'lucide-react';
@@ -16,9 +15,9 @@ export default function ProductDetailPage() {
   const context = useContext(AppContext);
   const [quantity, setQuantity] = useState(1);
 
-  const product = useMemo(() => products.find(p => p.id === id), [id]);
+  const product = useMemo(() => context?.products.find(p => p.id === id), [id, context?.products]);
 
-  if (!product) {
+  if (!product || !context) {
     return (
         <div className="p-4 space-y-4">
             <Skeleton className="h-64 w-full rounded-lg" />
