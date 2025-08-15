@@ -29,7 +29,7 @@ interface AppContextType {
   clearCart: () => void;
   placeOrder: () => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
-  addProduct: (product: Omit<Product, 'id'>) => void;
+  addProduct: (product: Omit<Product, 'id' | 'bestSeller'>) => void;
   addCategory: (category: Omit<Category, 'id' | 'icon'> & { iconName: string }) => void;
   addRestaurant: (restaurant: Omit<Restaurant, 'id'>) => void;
   addBanner: (banner: Omit<Banner, 'id'>) => void;
@@ -41,67 +41,84 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
+const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T) => void] => {
+    const [storedValue, setStoredValue] = useState<T>(() => {
+        if (typeof window === 'undefined') {
+            return initialValue;
+        }
+        try {
+            const item = window.localStorage.getItem(key);
+            return item ? JSON.parse(item) : initialValue;
+        } catch (error) {
+            console.error(error);
+            return initialValue;
+        }
+    });
+
+    const setValue = (value: T) => {
+        try {
+            setStoredValue(value);
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem(key, JSON.stringify(value));
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    return [storedValue, setValue];
+};
+
+
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [products, setProducts] = useState<Product[]>(mockProducts);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [allOrders, setAllOrders] = useState<Order[]>([]);
-  const [categories, setCategories] = useState<Category[]>(mockCategories);
-  const [restaurants, setRestaurants] = useState<Restaurant[]>(mockRestaurants);
-  const [banners, setBanners] = useState<Banner[]>([]);
   const [discount, setDiscount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [allUsers, setAllUsers] = useLocalStorage<User[]>('speedShopAllUsers', mockUsers);
+  const [products, setProducts] = useLocalStorage<Product[]>('speedShopProducts', mockProducts);
+  const [allOrders, setAllOrders] = useLocalStorage<Order[]>('speedShopAllOrders', []);
+  const [categories, setCategories] = useLocalStorage<Category[]>('speedShopCategories', mockCategories);
+  const [restaurants, setRestaurants] = useLocalStorage<Restaurant[]>('speedShopRestaurants', mockRestaurants);
+  const [banners, setBanners] = useLocalStorage<Banner[]>('speedShopBanners', []);
+
   const router = useRouter();
   const { toast } = useToast();
 
-  const loadFromLocalStorage = useCallback(() => {
+  const loadUserFromLocalStorage = useCallback(() => {
     setIsLoading(true);
     try {
-      const storedAllUsers = localStorage.getItem('speedShopAllUsers');
-      const currentAllUsers = storedAllUsers ? JSON.parse(storedAllUsers) : mockUsers;
-      setAllUsers(currentAllUsers);
-      
-      const storedProducts = localStorage.getItem('speedShopProducts');
-      setProducts(storedProducts ? JSON.parse(storedProducts) : mockProducts);
-
       const storedUser = localStorage.getItem('speedShopUser');
-      const storedAllOrders = localStorage.getItem('speedShopAllOrders');
-      
-      setAllOrders(storedAllOrders ? JSON.parse(storedAllOrders) : []);
-
       if (storedUser) {
         const parsedUser: User = JSON.parse(storedUser);
-        const userExists = currentAllUsers.find((u: User) => u.id === parsedUser.id);
+        const userExists = allUsers.find((u: User) => u.id === parsedUser.id);
         
         if (userExists) {
             setUser(userExists);
             loadUserSpecificData(userExists.id);
         } else {
+            // User in session storage doesn't exist in our user list anymore
             localStorage.removeItem('speedShopUser');
             setUser(null);
         }
       }
     } catch (error) {
-      console.error("Failed to parse from localStorage", error);
+      console.error("Failed to parse user from localStorage", error);
       setUser(null);
-      setCart([]);
-      setOrders([]);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [allUsers]);
 
   useEffect(() => {
-    loadFromLocalStorage();
-  }, [loadFromLocalStorage]);
+    loadUserFromLocalStorage();
+  }, [loadUserFromLocalStorage]);
 
-  const saveToLocalStorage = useCallback(() => {
+  const saveUserToLocalStorage = useCallback(() => {
     if (isLoading) return;
     try {
-        localStorage.setItem('speedShopAllUsers', JSON.stringify(allUsers));
-        localStorage.setItem('speedShopProducts', JSON.stringify(products));
         if(user) {
             localStorage.setItem('speedShopUser', JSON.stringify(user));
             localStorage.setItem(`speedShopCart_${user.id}`, JSON.stringify(cart));
@@ -109,15 +126,14 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         } else {
              localStorage.removeItem('speedShopUser');
         }
-        localStorage.setItem('speedShopAllOrders', JSON.stringify(allOrders));
     } catch (error) {
-        console.error("Failed to save to localStorage", error);
+        console.error("Failed to save user data to localStorage", error);
     }
-  }, [user, cart, orders, allOrders, allUsers, products, isLoading]);
+  }, [user, cart, orders, isLoading]);
 
   useEffect(() => {
-    saveToLocalStorage();
-  }, [saveToLocalStorage]);
+    saveUserToLocalStorage();
+  }, [saveUserToLocalStorage]);
   
   const login = (phoneOrCode: string, password?: string): boolean => {
     let foundUser: User | undefined;
@@ -175,8 +191,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         usedCoupons: []
     };
     
-    const updatedUsers = [...allUsers, newUser];
-    setAllUsers(updatedUsers);
+    setAllUsers([...allUsers, newUser]);
     toast({
         title: "تم إنشاء الحساب بنجاح!",
         description: `رمز الدخول السريع الخاص بك هو: ${loginCode}. يمكنك استخدامه لتسجيل الدخول لاحقًا.`,
@@ -260,7 +275,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     );
     setOrders(prevOrders => update(prevOrders));
     setAllOrders(prevAllOrders => update(prevAllOrders));
-  }, []);
+  }, [setAllOrders]);
 
   const placeOrder = () => {
     if (!user || cart.length === 0) return;
@@ -287,10 +302,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const addProduct = (productData: Omit<Product, 'id'>) => {
+  const addProduct = (productData: Omit<Product, 'id' | 'bestSeller'>) => {
     const newProduct: Product = {
         id: `prod-${Date.now()}`,
-        bestSeller: false,
+        bestSeller: Math.random() < 0.2, // 20% chance of being a bestseller
         ...productData
     };
     setProducts(prev => [...prev, newProduct]);
@@ -346,7 +361,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         setDiscount(discountAmount);
         
         if (user) {
-            const updatedUser = { ...user, usedCoupons: [...(user.usedCoupons || []), couponCode] };
+            const updatedUser: User = { ...user, usedCoupons: [...(user.usedCoupons || []), couponCode] };
             setUser(updatedUser);
             setAllUsers(prevUsers => prevUsers.map(u => u.id === user.id ? updatedUser : u));
         }
@@ -401,3 +416,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     </AppContext.Provider>
   );
 };
+
+    
