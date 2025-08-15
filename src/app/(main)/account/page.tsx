@@ -1,0 +1,56 @@
+
+"use client";
+
+import { useContext } from "react";
+import { AppContext } from "@/contexts/AppContext";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { User, Phone, MapPin, LogOut } from "lucide-react";
+
+export default function AccountPage() {
+  const context = useContext(AppContext);
+
+  if (!context || !context.user) {
+    return null; 
+  }
+
+  const { user, logout } = context;
+  const userInitial = user.name ? user.name.charAt(0).toUpperCase() : '?';
+
+  return (
+    <div className="p-4 space-y-8">
+      <header className="flex flex-col items-center space-y-4">
+        <Avatar className="h-24 w-24 text-3xl">
+            <AvatarFallback className="bg-primary text-primary-foreground">{userInitial}</AvatarFallback>
+        </Avatar>
+        <h1 className="text-2xl font-bold">{user.name}</h1>
+      </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>معلومات الحساب</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-lg">
+           <div className="flex items-center gap-4">
+                <User className="h-6 w-6 text-primary" />
+                <span>{user.name}</span>
+           </div>
+           <div className="flex items-center gap-4">
+                <Phone className="h-6 w-6 text-primary" />
+                <span dir="ltr" className="text-left w-full">{user.phone}</span>
+           </div>
+           <div className="flex items-center gap-4">
+                <MapPin className="h-6 w-6 text-primary" />
+                <span>{user.deliveryZone.name}</span>
+           </div>
+        </CardContent>
+      </Card>
+      
+      <Button variant="destructive" size="lg" className="w-full text-lg" onClick={logout}>
+        <LogOut className="ml-2 h-5 w-5" />
+        تسجيل الخروج
+      </Button>
+    </div>
+  );
+}
