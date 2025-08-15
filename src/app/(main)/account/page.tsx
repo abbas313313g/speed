@@ -7,7 +7,7 @@ import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Phone, MapPin, LogOut, KeyRound, PlusCircle, Home } from "lucide-react";
+import { User, Phone, MapPin, LogOut, KeyRound, PlusCircle, Home, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -71,6 +71,7 @@ export default function AccountPage() {
             <AvatarFallback className="bg-primary text-primary-foreground">{userInitial}</AvatarFallback>
         </Avatar>
         <h1 className="text-2xl font-bold">{user.name}</h1>
+        <p className="text-muted-foreground">{user.email}</p>
       </header>
 
       <Card>

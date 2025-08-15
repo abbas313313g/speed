@@ -13,6 +13,8 @@ import { ShoppingBasket } from 'lucide-react';
 import { 
     onAuthStateChanged, 
     signOut,
+    GoogleAuthProvider,
+    signInWithPopup
 } from 'firebase/auth';
 import { 
     doc, 
@@ -25,7 +27,8 @@ import {
     query,
     collection,
     where,
-    getDocs
+    getDocs,
+    writeBatch,
 } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
 import { auth, db, storage } from '@/lib/firebase';
@@ -47,8 +50,9 @@ interface AppContextType {
   restaurants: Restaurant[];
   banners: Banner[];
   isLoading: boolean;
+  signInWithGoogle: () => Promise<void>;
   logout: () => void;
-  completeUserProfile: (userData: Pick<User, 'name' | 'deliveryZone' | 'addresses'>) => Promise<void>;
+  completeUserProfile: (userData: Pick<User, 'name' | 'phone' | 'deliveryZone' | 'addresses'>) => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
@@ -127,22 +131,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 const userDocRef = doc(db, "users", firebaseUser.uid);
                 
                 // Use onSnapshot to listen for real-time updates to the user document
-                const unsubscribeUser = onSnapshot(userDocRef, async (userDocSnap) => {
+                const unsubscribeUser = onSnapshot(userDocRef, (userDocSnap) => {
                     if (userDocSnap.exists()) {
                         const userData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
                         setUser(userData);
-
-                        // --- User-specific data listeners ---
-                        const userOrdersQuery = query(collection(db, "orders"), where("userId", "==", userData.id));
-                        const unsubscribeOrders = onSnapshot(userOrdersQuery, (snapshot) => {
-                           setAllOrders(prevOrders => {
-                                const newOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-                                // Avoid duplicates and merge
-                                const userOrderIds = new Set(newOrders.map(o => o.id));
-                                const otherOrders = prevOrders.filter(o => o.userId !== userData.id);
-                                return [...otherOrders, ...newOrders];
-                           });
-                        });
                         
                         // --- Admin-specific data listeners ---
                         if (userData.isAdmin) {
@@ -152,42 +144,29 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                              const unsubscribeAllUsers = onSnapshot(collection(db, "users"), (snapshot) => {
                                 setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
                             });
-                             // Return a function to cleanup admin listeners when user is no longer admin or logs out
-                            return () => {
+                             return () => {
                                 unsubscribeAllOrders();
                                 unsubscribeAllUsers();
-                                unsubscribeOrders(); 
                             };
                         }
+                    } 
+                    // New user creation is handled in signInWithGoogle, so no 'else' needed here
+                });
 
-                        // Return a function to cleanup user listeners on logout
-                        return () => {
-                            unsubscribeOrders();
-                        };
-
-                    } else {
-                        // This is a new user, create a partial user object
-                        const q = query(collection(db, 'users'));
-                        const querySnapshot = await getDocs(q);
-                        const isFirstUser = querySnapshot.empty;
-
-                        const newUser: User = {
-                            id: firebaseUser.uid,
-                            phone: firebaseUser.phoneNumber!,
-                            isProfileComplete: false,
-                            isAdmin: isFirstUser,
-                            usedCoupons: [],
-                            addresses: [],
-                            name: '',
-                            deliveryZone: { name: '', fee: 0 },
-                        };
-                        await setDoc(userDocRef, newUser);
-                        // The onSnapshot listener will then pick up the newly created user doc
-                    }
+                 // --- User-specific data listeners (for all logged-in users) ---
+                const userOrdersQuery = query(collection(db, "orders"), where("userId", "==", firebaseUser.uid));
+                const unsubscribeOrders = onSnapshot(userOrdersQuery, (snapshot) => {
+                    setAllOrders(prevOrders => {
+                        const newOrders = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Order));
+                        const otherUserOrders = prevOrders.filter(o => o.userId !== firebaseUser.uid);
+                        return [...otherUserOrders, ...newOrders];
+                    });
                 });
                 
-                // Return a function to cleanup user snapshot listener on logout
-                return () => unsubscribeUser();
+                return () => {
+                    unsubscribeUser();
+                    unsubscribeOrders();
+                };
 
             } else {
                 setUser(null);
@@ -235,25 +214,63 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }, [categories]);
 
     // --- Auth & User ---
+    const signInWithGoogle = async () => {
+        const provider = new GoogleAuthProvider();
+        try {
+            const result = await signInWithPopup(auth, provider);
+            const gUser = result.user;
+            
+            const userDocRef = doc(db, "users", gUser.uid);
+            const userDocSnap = await getDoc(userDocRef);
+
+            if (!userDocSnap.exists()) {
+                // New user, create their document
+                const q = query(collection(db, 'users'));
+                const querySnapshot = await getDocs(q);
+                const isFirstUser = querySnapshot.empty;
+
+                const newUser: User = {
+                    id: gUser.uid,
+                    name: gUser.displayName || "مستخدم جديد",
+                    email: gUser.email!,
+                    phone: '', // To be collected in complete-profile
+                    isProfileComplete: false,
+                    isAdmin: isFirstUser,
+                    usedCoupons: [],
+                    addresses: [],
+                    deliveryZone: { name: '', fee: 0 },
+                };
+                await setDoc(userDocRef, newUser);
+                // onAuthStateChanged's snapshot listener will pick this up
+            }
+            // If user exists, onAuthStateChanged handles setting the user state.
+        } catch (error) {
+            console.error("Google Sign-In Error: ", error);
+            throw error;
+        }
+    };
+
+
     const logout = async () => {
+        if(user) {
+            localStorage.removeItem(`cart_${user.id}`);
+            localStorage.removeItem(`discount_${user.id}`);
+        }
         await signOut(auth);
-        // Clear all local storage for the user
-        localStorage.removeItem(`cart_${user?.id}`);
-        localStorage.removeItem(`discount_${user?.id}`);
         router.push('/login');
     };
     
-    const completeUserProfile = async (userData: Pick<User, 'name' | 'deliveryZone' | 'addresses'>) => {
+    const completeUserProfile = async (userData: Pick<User, 'name' | 'phone' | 'deliveryZone' | 'addresses'>) => {
         if (!user) return;
         const userDocRef = doc(db, "users", user.id);
         const updatedData = {
             name: userData.name,
+            phone: userData.phone,
             deliveryZone: userData.deliveryZone,
             addresses: userData.addresses,
             isProfileComplete: true,
         };
         await updateDoc(userDocRef, updatedData);
-        // No need to setUser here, onSnapshot will handle it.
         router.push('/home');
     }
     
@@ -263,7 +280,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const updatedAddresses = [...(user.addresses || []), newAddress];
         const userDocRef = doc(db, "users", user.id);
         await updateDoc(userDocRef, { addresses: updatedAddresses });
-        // No need to setUser here, onSnapshot will handle it.
         toast({ title: "تم إضافة العنوان بنجاح" });
     }
 
@@ -339,7 +355,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     // --- Orders ---
     const sendOrderToTelegram = async (order: Order) => {
         if (!user) return;
-        const itemsText = order.items.map(item => `${item.product.name} (x${item.quantity})`).join('\n');
+        const itemsText = order.items.map(item => `${item.product.name} (x${item.quantity})`).join('\\n');
         const locationLink = `https://www.google.com/maps?q=${order.address?.latitude},${order.address?.longitude}`;
 
         const message = `
@@ -528,6 +544,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         restaurants,
         banners,
         isLoading,
+        signInWithGoogle,
         logout,
         completeUserProfile,
         addAddress,
@@ -559,5 +576,3 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
-
-    

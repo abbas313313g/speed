@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, User, MapPin } from "lucide-react";
+import { Loader2, User, MapPin, Phone } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -27,23 +27,27 @@ import { deliveryZones } from "@/lib/mock-data";
 import type { Address } from "@/lib/types";
 
 export default function CompleteProfilePage() {
+  const context = useContext(AppContext);
+  const { toast } = useToast();
+  const router = useRouter();
+
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [deliveryZoneName, setDeliveryZoneName] = useState("");
   const [address, setAddress] = useState<Omit<Address, 'id' | 'name'> | null>(null);
   const [loading, setLoading] = useState(false);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
-  const context = useContext(AppContext);
-  const { toast } = useToast();
-  const router = useRouter();
 
   useEffect(() => {
-    // If user somehow lands here but is not logged in or profile is complete, redirect
     if (context && !context.isLoading) {
         if (!context.user) {
             router.replace('/login');
         } else if (context.user.isProfileComplete) {
             router.replace('/home');
+        } else {
+            // Pre-fill name from Google account
+            setName(context.user.name);
         }
     }
   }, [context, router]);
@@ -86,6 +90,11 @@ export default function CompleteProfilePage() {
         toast({ title: "خطأ", description: "الرجاء تحديد موقعك أولاً.", variant: "destructive" });
         return;
     }
+    
+    if (!phone.trim()) {
+        toast({ title: "خطأ", description: "الرجاء إدخال رقم الهاتف.", variant: "destructive" });
+        return;
+    }
 
     setLoading(true);
     const firstAddress: Address = {
@@ -97,6 +106,7 @@ export default function CompleteProfilePage() {
     try {
       await context.completeUserProfile({
         name,
+        phone,
         deliveryZone: selectedZone,
         addresses: [firstAddress],
       });
@@ -119,36 +129,52 @@ export default function CompleteProfilePage() {
         <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
             <div className="space-y-2">
-            <Label htmlFor="name">الاسم الكامل</Label>
-            <div className="relative">
-                <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                id="name"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="pr-10"
-                />
+                <Label htmlFor="name">الاسم الكامل</Label>
+                <div className="relative">
+                    <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                    id="name"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="pr-10"
+                    />
+                </div>
             </div>
+             <div className="space-y-2">
+                <Label htmlFor="phone">رقم الهاتف</Label>
+                <div className="relative">
+                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="07xxxxxxxxx"
+                        required
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        dir="ltr"
+                        className="text-left pr-10 tracking-widest"
+                    />
+                </div>
             </div>
             
             <div className="space-y-2">
-            <Label htmlFor="deliveryZone">منطقة التوصيل</Label>
-            <div className="relative">
-                <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Select onValueChange={setDeliveryZoneName} value={deliveryZoneName} required>
-                    <SelectTrigger className="pr-10">
-                        <SelectValue placeholder="اختر منطقتك" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {deliveryZones.map(zone => (
-                            <SelectItem key={zone.name} value={zone.name}>
-                                {zone.name} - {zone.fee} د.ع
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
+                <Label htmlFor="deliveryZone">منطقة التوصيل</Label>
+                <div className="relative">
+                    <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Select onValueChange={setDeliveryZoneName} value={deliveryZoneName} required>
+                        <SelectTrigger className="pr-10">
+                            <SelectValue placeholder="اختر منطقتك" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {deliveryZones.map(zone => (
+                                <SelectItem key={zone.name} value={zone.name}>
+                                    {zone.name} - {zone.fee} د.ع
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
              <div className="space-y-2">
                 <Label>الموقع الجغرافي</Label>
@@ -160,7 +186,7 @@ export default function CompleteProfilePage() {
             </div>
         </CardContent>
         <CardContent>
-            <Button type="submit" className="w-full" disabled={loading || locationStatus !== 'success' || !name || !deliveryZoneName}>
+            <Button type="submit" className="w-full" disabled={loading || locationStatus !== 'success' || !name || !deliveryZoneName || !phone}>
             {loading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
             حفظ وبدء التسوق
             </Button>
@@ -170,4 +196,3 @@ export default function CompleteProfilePage() {
     </div>
   );
 }
-
