@@ -3,12 +3,12 @@ export interface User {
   id: string;
   name: string;
   phone: string;
-  password?: string;
+  // password is not stored in Firestore, it's handled by Firebase Auth
   deliveryZone: DeliveryZone;
   isAdmin?: boolean;
   usedCoupons?: string[];
   loginCode?: string;
-  email?: string; // Firebase Auth uses email
+  email: string; // Firebase Auth uses email
 }
 
 export interface Product {

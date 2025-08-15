@@ -71,12 +71,12 @@ export default function AdminCategoriesPage() {
     setOpen(true);
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (currentCategory.name) {
         if (isEditing && currentCategory.id) {
-            updateCategory(currentCategory as Omit<Category, 'icon' | 'id'> & {id: string});
+            await updateCategory(currentCategory as Omit<Category, 'icon' | 'id'> & {id: string});
         } else {
-            addCategory(currentCategory);
+            await addCategory(currentCategory);
         }
         setOpen(false);
     }
