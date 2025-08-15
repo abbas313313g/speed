@@ -33,19 +33,17 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Edit, Trash2, ShoppingBasket, Stethoscope, SwatchBook, Soup, Salad, ChefHat } from 'lucide-react';
+import { Edit, Trash2 } from 'lucide-react';
 import type { Category } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import React from 'react';
+import { categories as initialCategories } from '@/lib/mock-data';
 
-const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = {
-  ShoppingBasket,
-  Stethoscope,
-  SwatchBook,
-  Soup,
-  Salad,
-  ChefHat,
-};
+const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = initialCategories.reduce((acc, cat) => {
+    acc[cat.iconName] = cat.icon;
+    return acc;
+}, {} as { [key: string]: React.ComponentType<{ className?: string }> });
+
 const iconNames = Object.keys(iconMap);
 
 const EMPTY_CATEGORY: Omit<Category, 'id' | 'icon'> = {
@@ -178,3 +176,5 @@ export default function AdminCategoriesPage() {
     </div>
   );
 }
+
+    
