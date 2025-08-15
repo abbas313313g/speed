@@ -14,11 +14,6 @@ import {
 } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
 
-// NOTE: This context uses useState and does not persist data changes.
-// All data is initialized from mock-data.ts and resets on page refresh.
-// This is to ensure a consistent experience across all browsers and devices
-// as requested by the user, as localStorage is browser-specific.
-
 interface AppContextType {
   user: User | null;
   allUsers: User[];
@@ -67,13 +62,24 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<R
             if (item && item !== 'undefined' && item !== 'null') {
                 return JSON.parse(item);
             }
-            window.localStorage.setItem(key, JSON.stringify(initialValue));
+            // Do not set initial value here, let the useEffect handle it.
             return initialValue;
         } catch (error) {
-            console.error(`Error reading or parsing localStorage key “${key}”:`, error);
+            console.error(`Error reading localStorage key “${key}”:`, error);
             return initialValue;
         }
     });
+
+     useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const item = window.localStorage.getItem(key);
+            if (!item || item === 'null' || item === 'undefined') {
+                 window.localStorage.setItem(key, JSON.stringify(initialValue));
+                 setStoredValue(initialValue);
+            }
+        }
+    }, [key, initialValue]);
+
 
     const setValue = (value: T | ((val: T) => T)) => {
         try {
@@ -94,16 +100,15 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<R
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
-  // Main entity data is now managed by useState, initialized from mock-data.
-  // This ensures data consistency across all browsers and devices.
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [categories, setCategories] = useState<Category[]>(initialCategories);
-  const [restaurants, setRestaurants] = useState<Restaurant[]>(initialRestaurants);
-  const [banners, setBanners] = useState<Banner[]>([]);
-  const [allOrders, setAllOrders] = useState<Order[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>(initialUsers);
+  // Main entity data is managed by our robust useLocalStorage hook
+  const [products, setProducts] = useLocalStorage<Product[]>('speedShopProducts', initialProducts);
+  const [rawCategories, setRawCategories] = useLocalStorage<Omit<Category, 'icon'>[]>('speedShopCategories', initialCategories.map(({icon, ...rest}) => rest));
+  const [restaurants, setRestaurants] = useLocalStorage<Restaurant[]>('speedShopRestaurants', initialRestaurants);
+  const [banners, setBanners] = useLocalStorage<Banner[]>('speedShopBanners', []);
+  const [allOrders, setAllOrders] = useLocalStorage<Order[]>('speedShopAllOrders', []);
+  const [allUsers, setAllUsers] = useLocalStorage<User[]>('speedShopAllUsers', initialUsers);
 
-  // User-specific data and session data can still use localStorage.
+  // User-specific data and session data
   const [user, setUser] = useLocalStorage<User | null>('speedShopUser', null);
   const cartKey = user ? `speedShopCart_${user.id}` : 'speedShopCart_guest';
   const ordersKey = user ? `speedShopOrders_${user.id}` : 'speedShopOrders_guest';
@@ -118,6 +123,18 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     setIsLoading(false);
   }, []);
+
+  const categories = React.useMemo(() => {
+    const iconMap = initialCategories.reduce((acc, cat) => {
+        acc[cat.iconName] = cat.icon;
+        return acc;
+    }, {} as {[key: string]: React.ComponentType<{ className?: string }>});
+
+    return rawCategories.map(cat => ({
+        ...cat,
+        icon: iconMap[cat.iconName] || initialCategories[0].icon
+    }));
+  }, [rawCategories]);
 
   const login = (phoneOrCode: string, password?: string): boolean => {
     let foundUser: User | undefined;
@@ -136,8 +153,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     setUser(null);
-    setCart([]);
-    setOrders([]);
+    // Note: We are not clearing cart/orders on logout anymore,
+    // so they persist if the user logs back in.
     router.push('/login');
   };
 
@@ -274,37 +291,36 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         ...productData
     };
     setProducts(prev => [...prev, newProduct]);
-    toast({ title: "تمت إضافة المنتج بنجاح (مؤقتًا)" });
+    toast({ title: "تمت إضافة المنتج بنجاح" });
   }
 
   const updateProduct = (updatedProduct: Product) => {
     setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
-    toast({ title: "تم تحديث المنتج بنجاح (مؤقتًا)" });
+    toast({ title: "تم تحديث المنتج بنجاح" });
   }
 
   const deleteProduct = (productId: string) => {
     setProducts(prev => prev.filter(p => p.id !== productId));
-    toast({ title: "تم حذف المنتج بنجاح (مؤقتًا)", variant: "destructive" });
+    toast({ title: "تم حذف المنتج بنجاح", variant: "destructive" });
   }
 
   const addCategory = (categoryData: Omit<Category, 'id' | 'icon'>) => {
-    const newCategory: Category = {
+    const newCategory: Omit<Category, 'icon'> = {
         id: `cat-${Date.now()}`,
         ...categoryData,
-        icon: initialCategories.find(c => c.iconName === categoryData.iconName)?.icon || (() => null)
     };
-    setCategories(prev => [...prev, newCategory]);
-    toast({ title: "تمت إضافة القسم بنجاح (مؤقتًا)" });
+    setRawCategories(prev => [...prev, newCategory]);
+    toast({ title: "تمت إضافة القسم بنجاح" });
   }
 
   const updateCategory = (updatedCategory: Omit<Category, 'icon'>) => {
-    setCategories(prev => prev.map(c => c.id === updatedCategory.id ? { ...c, ...updatedCategory} : c));
-    toast({ title: "تم تحديث القسم بنجاح (مؤقتًا)" });
+    setRawCategories(prev => prev.map(c => c.id === updatedCategory.id ? updatedCategory : c));
+    toast({ title: "تم تحديث القسم بنجاح" });
   }
 
   const deleteCategory = (categoryId: string) => {
-    setCategories(prev => prev.filter(c => c.id !== categoryId));
-    toast({ title: "تم حذف القسم بنجاح (مؤقتًا)", variant: "destructive" });
+    setRawCategories(prev => prev.filter(c => c.id !== categoryId));
+    toast({ title: "تم حذف القسم بنجاح", variant: "destructive" });
   }
   
   const addRestaurant = (restaurantData: Omit<Restaurant, 'id'>) => {
@@ -313,17 +329,17 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         ...restaurantData
     };
     setRestaurants(prev => [...prev, newRestaurant]);
-    toast({ title: "تمت إضافة المتجر بنجاح (مؤقتًا)" });
+    toast({ title: "تمت إضافة المتجر بنجاح" });
   }
 
   const updateRestaurant = (updatedRestaurant: Restaurant) => {
     setRestaurants(prev => prev.map(r => r.id === updatedRestaurant.id ? updatedRestaurant : r));
-    toast({ title: "تم تحديث المتجر بنجاح (مؤقتًا)" });
+    toast({ title: "تم تحديث المتجر بنجاح" });
   }
 
   const deleteRestaurant = (restaurantId: string) => {
     setRestaurants(prev => prev.filter(r => r.id !== restaurantId));
-    toast({ title: "تم حذف المتجر بنجاح (مؤقتًا)", variant: "destructive" });
+    toast({ title: "تم حذف المتجر بنجاح", variant: "destructive" });
   }
   
   const addBanner = (bannerData: Omit<Banner, 'id'>) => {
@@ -332,7 +348,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         ...bannerData
     };
     setBanners(prev => [...prev, newBanner]);
-    toast({ title: "تمت إضافة البنر بنجاح (مؤقتًا)" });
+    toast({ title: "تمت إضافة البنر بنجاح" });
   }
 
   const applyCoupon = (coupon: string) => {
@@ -397,6 +413,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
       {children}
     </AppContext.Provider>
   );
-};
 
     
