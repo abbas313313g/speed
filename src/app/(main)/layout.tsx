@@ -20,7 +20,7 @@ export default function MainAppLayout({
     
     // If loading is finished and there's still no user, redirect to login
     if (!context.isLoading && !context.user) {
-      router.replace('/');
+      router.replace('/login');
     }
 
   }, [context?.isLoading, context?.user, router]);
