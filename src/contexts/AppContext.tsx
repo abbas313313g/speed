@@ -6,7 +6,13 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import type { User, CartItem, Product, Order, OrderStatus, Category, Restaurant, Banner } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { users as mockUsers, products as mockProducts, categories as mockCategories, restaurants as mockRestaurants, deliveryZones } from '@/lib/mock-data';
+import { 
+    users as initialUsers, 
+    products as initialProducts, 
+    categories as initialCategories, 
+    restaurants as initialRestaurants,
+    deliveryZones
+} from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
 import { Stethoscope, SwatchBook, Soup, Salad, ChefHat, ShoppingBasket } from 'lucide-react';
 
@@ -59,14 +65,14 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
-const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T) => void] => {
+const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
     const [storedValue, setStoredValue] = useState<T>(() => {
         if (typeof window === 'undefined') {
             return initialValue;
         }
         try {
             const item = window.localStorage.getItem(key);
-            if (item && item !== 'undefined') {
+            if (item && item !== 'undefined' && item !== 'null') {
                 return JSON.parse(item);
             }
             window.localStorage.setItem(key, JSON.stringify(initialValue));
@@ -77,37 +83,31 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T) => vo
         }
     });
 
-    const setValue = (value: T) => {
-        try {
-            const valueToStore = value instanceof Function ? value(storedValue) : value;
-            setStoredValue(valueToStore);
-            if (typeof window !== 'undefined') {
-                window.localStorage.setItem(key, JSON.stringify(valueToStore));
-            }
-        } catch (error) {
-            console.error(`Error setting localStorage key "${key}":`, error);
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem(key, JSON.stringify(storedValue));
         }
-    };
+    }, [key, storedValue]);
 
-    return [storedValue, setValue];
+    return [storedValue, setStoredValue];
 };
 
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useLocalStorage<User | null>('speedShopUser', null);
-  const [cart, setCart] = useLocalStorage<CartItem[]>(`speedShopCart_${user?.id}`, []);
-  const [orders, setOrders] = useLocalStorage<Order[]>(`speedShopOrders_${user?.id}`, []);
+  const [cart, setCart] = useLocalStorage<CartItem[]>(`speedShopCart_${user?.id ?? 'guest'}`, []);
+  const [orders, setOrders] = useLocalStorage<Order[]>(`speedShopOrders_${user?.id ?? 'guest'}`, []);
+  
+  const [allUsers, setAllUsers] = useLocalStorage<User[]>('speedShopAllUsers', initialUsers);
+  const [products, setProducts] = useLocalStorage<Product[]>('speedShopProducts', initialProducts);
+  const [allOrders, setAllOrders] = useLocalStorage<Order[]>('speedShopAllOrders', []);
+  const [storedCategories, setStoredCategories] = useLocalStorage<StoredCategory[]>('speedShopCategories', initialCategories);
+  const [restaurants, setRestaurants] = useLocalStorage<Restaurant[]>('speedShopRestaurants', initialRestaurants);
+  const [banners, setBanners] = useLocalStorage<Banner[]>('speedShopBanners', []);
+  
   const [discount, setDiscount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Use state for data that needs to be modified, initialized from mock data
-  const [allUsers, setAllUsers] = useState<User[]>(mockUsers);
-  const [products, setProducts] = useState<Product[]>(mockProducts);
-  const [allOrders, setAllOrders] = useState<Order[]>([]);
-  const [storedCategories, setStoredCategories] = useState<StoredCategory[]>(mockCategories);
-  const [restaurants, setRestaurants] = useState<Restaurant[]>(mockRestaurants);
-  const [banners, setBanners] = useState<Banner[]>([]);
-  
   const categories: Category[] = storedCategories.map(c => ({...c, icon: iconMap[c.iconName] || ShoppingBasket}));
 
 
@@ -117,6 +117,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     setIsLoading(false);
   }, []);
+
+  // Sync cart and orders when user logs in/out
+  useEffect(() => {
+    setCart(JSON.parse(localStorage.getItem(`speedShopCart_${user?.id ?? 'guest'}`) || '[]'));
+    setOrders(JSON.parse(localStorage.getItem(`speedShopOrders_${user?.id ?? 'guest'}`) || '[]'));
+  }, [user, setCart, setOrders]);
   
   const login = (phoneOrCode: string, password?: string): boolean => {
     let foundUser: User | undefined;
@@ -136,6 +142,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     setUser(null);
+    setCart([]);
+    setOrders([]);
     router.push('/login');
   };
 
@@ -154,7 +162,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         usedCoupons: []
     };
     
-    setAllUsers([...allUsers, newUser]);
+    setAllUsers(prev => [...prev, newUser]);
     toast({
         title: "تم إنشاء الحساب بنجاح!",
         description: `رمز الدخول السريع الخاص بك هو: ${loginCode}. يمكنك استخدامه لتسجيل الدخول لاحقًا.`,
@@ -238,7 +246,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     );
     setOrders(prevOrders => update(prevOrders));
     setAllOrders(prevAllOrders => update(prevAllOrders));
-  }, [setOrders]);
+  }, [setOrders, setAllOrders]);
 
   const placeOrder = () => {
     if (!user || cart.length === 0) return;
@@ -396,3 +404,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     </AppContext.Provider>
   );
 };
+
+    
