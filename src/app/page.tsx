@@ -37,11 +37,11 @@ export default function LandingPage() {
       <p className="mb-12 max-w-md text-xl text-foreground/80">
         أسرع طريقة لتوصيل طلباتك من أفضل المطاعم والمتاجر في مدينتك.
       </p>
-      <div className="flex flex-col sm:flex-row gap-4">
-        <Button asChild size="lg" className="text-lg">
+      <div className="flex w-full max-w-xs flex-col gap-4 sm:flex-row">
+        <Button asChild size="lg" className="flex-1 text-lg">
           <Link href="/login">تسجيل الدخول</Link>
         </Button>
-         <Button asChild size="lg" variant="outline" className="text-lg">
+         <Button asChild size="lg" variant="outline" className="flex-1 text-lg">
           <Link href="/signup">إنشاء حساب جديد</Link>
         </Button>
       </div>
