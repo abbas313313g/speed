@@ -1,9 +1,9 @@
 
 import type { Category, Restaurant, Product, DeliveryZone } from './types';
-import { Burger, Pizza, Sandwich, Soup, Salad, ChefHat } from 'lucide-react';
+import { Beef, Pizza, Sandwich, Soup, Salad, ChefHat } from 'lucide-react';
 
 export const categories: Category[] = [
-  { id: 'cat1', name: 'برجر', icon: Burger },
+  { id: 'cat1', name: 'برجر', icon: Beef },
   { id: 'cat2', name: 'بيتزا', icon: Pizza },
   { id: 'cat3', name: 'سندويتش', icon: Sandwich },
   { id: 'cat4', name: 'شوربات', icon: Soup },
