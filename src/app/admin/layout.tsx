@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminNav } from '@/components/AdminNav';
 import { Shield, KeyRound, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -21,10 +21,16 @@ export default function AdminLayout({
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    const verified = sessionStorage.getItem('admin_verified') === 'true';
+    setIsVerified(verified);
+  }, []);
+
   const handleVerify = () => {
       setIsLoading(true);
       setTimeout(() => {
         if (inputCode === ADMIN_SECRET_CODE) {
+            sessionStorage.setItem('admin_verified', 'true');
             setIsVerified(true);
         } else {
             toast({

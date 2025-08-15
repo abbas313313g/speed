@@ -184,7 +184,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setDiscount(0);
     toast({
       title: "تم بدء طلب جديد",
-      description: "تم مسح سلة التسوق القديمة وإضافة المنتج الجديد.",
+      description: "تم مسح السلة القديمة وإضافة المنتج الجديد.",
     });
   }
 
