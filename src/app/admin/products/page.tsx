@@ -21,6 +21,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -32,93 +43,103 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils';
 import Image from 'next/image';
+import { Edit, Trash2 } from 'lucide-react';
+import type { Product } from '@/lib/types';
+
+const EMPTY_PRODUCT: Omit<Product, 'id' | 'bestSeller'> = {
+  name: '',
+  price: 0,
+  description: '',
+  image: '',
+  categoryId: '',
+  restaurantId: '',
+};
 
 export default function AdminProductsPage() {
   const context = useContext(AppContext);
   const [open, setOpen] = useState(false);
-  const [newProduct, setNewProduct] = useState({
-      name: '',
-      price: '',
-      description: '',
-      image: '',
-      categoryId: '',
-      restaurantId: '',
-  });
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentProduct, setCurrentProduct] = useState<Omit<Product, 'bestSeller'>>({ ...EMPTY_PRODUCT, id: ''});
 
   if (!context) return null;
-  const { products, categories, restaurants } = context;
+  const { products, categories, restaurants, addProduct, updateProduct, deleteProduct } = context;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setNewProduct({ ...newProduct, image: reader.result as string });
+        setCurrentProduct({ ...currentProduct, image: reader.result as string });
       };
       reader.readAsDataURL(file);
     }
   };
 
+  const handleOpenDialog = (product?: Product) => {
+    if (product) {
+        setIsEditing(true);
+        setCurrentProduct(product);
+    } else {
+        setIsEditing(false);
+        setCurrentProduct({ ...EMPTY_PRODUCT, id: '' });
+    }
+    setOpen(true);
+  }
+
   const handleSaveProduct = () => {
-    if (context && newProduct.name && newProduct.price && newProduct.categoryId && newProduct.restaurantId) {
-        context.addProduct({
-            ...newProduct,
-            price: parseFloat(newProduct.price),
-            image: newProduct.image || 'https://placehold.co/600x400.png',
-        });
+    if (currentProduct.name && currentProduct.price && currentProduct.categoryId && currentProduct.restaurantId) {
+        if (isEditing) {
+            updateProduct(currentProduct as Product);
+        } else {
+            addProduct({
+                ...currentProduct,
+                image: currentProduct.image || 'https://placehold.co/600x400.png',
+            });
+        }
         setOpen(false);
-        setNewProduct({
-          name: '',
-          price: '',
-          description: '',
-          image: '',
-          categoryId: '',
-          restaurantId: '',
-        });
     }
   };
-
 
   return (
     <div className="space-y-8">
       <header className="flex justify-between items-center">
         <div>
             <h1 className="text-3xl font-bold">إدارة المنتجات</h1>
-            <p className="text-muted-foreground">عرض وإضافة منتجات جديدة.</p>
+            <p className="text-muted-foreground">عرض، إضافة، تعديل، وحذف المنتجات.</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button>إضافة منتج جديد</Button>
-            </DialogTrigger>
+        <Button onClick={() => handleOpenDialog()}>إضافة منتج جديد</Button>
+      </header>
+
+      <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>إضافة منتج جديد</DialogTitle>
+                    <DialogTitle>{isEditing ? 'تعديل المنتج' : 'إضافة منتج جديد'}</DialogTitle>
                     <DialogDescription>
-                        أدخل تفاصيل المنتج الجديد هنا.
+                        {isEditing ? 'قم بتعديل تفاصيل المنتج.' : 'أدخل تفاصيل المنتج الجديد هنا.'}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="name" className="text-right">الاسم</Label>
-                        <Input id="name" value={newProduct.name} onChange={(e) => setNewProduct({...newProduct, name: e.target.value})} className="col-span-3" />
+                        <Input id="name" value={currentProduct.name} onChange={(e) => setCurrentProduct({...currentProduct, name: e.target.value})} className="col-span-3" />
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="price" className="text-right">السعر</Label>
-                        <Input id="price" type="number" value={newProduct.price} onChange={(e) => setNewProduct({...newProduct, price: e.target.value})} className="col-span-3" />
+                        <Input id="price" type="number" value={currentProduct.price} onChange={(e) => setCurrentProduct({...currentProduct, price: parseFloat(e.target.value) || 0})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="description" className="text-right">الوصف</Label>
-                        <Input id="description" value={newProduct.description} onChange={(e) => setNewProduct({...newProduct, description: e.target.value})} className="col-span-3" />
+                        <Input id="description" value={currentProduct.description} onChange={(e) => setCurrentProduct({...currentProduct, description: e.target.value})} className="col-span-3" />
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                          <Label htmlFor="image" className="text-right">صورة</Label>
                          <Input id="image" type="file" onChange={handleImageUpload} className="col-span-3" accept="image/*" />
                     </div>
-                    {newProduct.image && <Image src={newProduct.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center"/>}
+                    {currentProduct.image && <Image src={currentProduct.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center"/>}
 
                     <div className="grid grid-cols-4 items-center gap-4">
                          <Label htmlFor="category" className="text-right">القسم</Label>
-                         <Select onValueChange={(value) => setNewProduct({...newProduct, categoryId: value})}>
+                         <Select value={currentProduct.categoryId} onValueChange={(value) => setCurrentProduct({...currentProduct, categoryId: value})}>
                             <SelectTrigger className="col-span-3">
                                 <SelectValue placeholder="اختر قسم" />
                             </SelectTrigger>
@@ -129,7 +150,7 @@ export default function AdminProductsPage() {
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                          <Label htmlFor="restaurant" className="text-right">المتجر</Label>
-                         <Select onValueChange={(value) => setNewProduct({...newProduct, restaurantId: value})}>
+                         <Select value={currentProduct.restaurantId} onValueChange={(value) => setCurrentProduct({...currentProduct, restaurantId: value})}>
                             <SelectTrigger className="col-span-3">
                                 <SelectValue placeholder="اختر المتجر" />
                             </SelectTrigger>
@@ -140,11 +161,10 @@ export default function AdminProductsPage() {
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button type="submit" onClick={handleSaveProduct}>حفظ المنتج</Button>
+                    <Button type="submit" onClick={handleSaveProduct}>حفظ</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-      </header>
 
       <Table>
         <TableHeader>
@@ -154,6 +174,7 @@ export default function AdminProductsPage() {
             <TableHead>السعر</TableHead>
             <TableHead>القسم</TableHead>
             <TableHead>المتجر</TableHead>
+            <TableHead>إجراءات</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -166,6 +187,32 @@ export default function AdminProductsPage() {
               <TableCell>{formatCurrency(product.price)}</TableCell>
               <TableCell>{categories.find(c => c.id === product.categoryId)?.name || 'غير معروف'}</TableCell>
               <TableCell>{restaurants.find(r => r.id === product.restaurantId)?.name || 'غير معروف'}</TableCell>
+              <TableCell>
+                  <div className="flex items-center gap-2">
+                      <Button variant="outline" size="icon" onClick={() => handleOpenDialog(product)}>
+                          <Edit className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                           <Button variant="destructive" size="icon">
+                                <Trash2 className="h-4 w-4" />
+                           </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    هذا الإجراء سيقوم بحذف المنتج "{product.name}" بشكل نهائي. لا يمكن التراجع عن هذا الإجراء.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deleteProduct(product.id)}>حذف</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                  </div>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

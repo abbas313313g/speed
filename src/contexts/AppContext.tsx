@@ -8,6 +8,17 @@ import type { User, CartItem, Product, Order, OrderStatus, Category, Restaurant,
 import { Button } from '@/components/ui/button';
 import { users as mockUsers, products as mockProducts, categories as mockCategories, restaurants as mockRestaurants, deliveryZones } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
+import { Stethoscope, SwatchBook, Soup, Salad, ChefHat, ShoppingBasket } from 'lucide-react';
+
+const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = {
+  ShoppingBasket,
+  Stethoscope,
+  SwatchBook,
+  Soup,
+  Salad,
+  ChefHat,
+};
+
 
 interface AppContextType {
   user: User | null;
@@ -30,8 +41,14 @@ interface AppContextType {
   placeOrder: () => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   addProduct: (product: Omit<Product, 'id' | 'bestSeller'>) => void;
+  updateProduct: (product: Product) => void;
+  deleteProduct: (productId: string) => void;
   addCategory: (category: Omit<Category, 'id' | 'icon'> & { iconName: string }) => void;
+  updateCategory: (category: Omit<Category, 'icon'> & { iconName: string }) => void;
+  deleteCategory: (categoryId: string) => void;
   addRestaurant: (restaurant: Omit<Restaurant, 'id'>) => void;
+  updateRestaurant: (restaurant: Restaurant) => void;
+  deleteRestaurant: (restaurantId: string) => void;
   addBanner: (banner: Omit<Banner, 'id'>) => void;
   applyCoupon: (coupon: string) => void;
   totalCartPrice: number;
@@ -80,7 +97,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [allUsers, setAllUsers] = useLocalStorage<User[]>('speedShopAllUsers', mockUsers);
   const [products, setProducts] = useLocalStorage<Product[]>('speedShopProducts', mockProducts);
   const [allOrders, setAllOrders] = useLocalStorage<Order[]>('speedShopAllOrders', []);
-  const [categories, setCategories] = useLocalStorage<Category[]>('speedShopCategories', mockCategories);
+  const [categories, setCategories] = useLocalStorage<Category[]>('speedShopCategories', mockCategories.map(c => ({...c, icon: iconMap[c.iconName]})));
   const [restaurants, setRestaurants] = useLocalStorage<Restaurant[]>('speedShopRestaurants', mockRestaurants);
   const [banners, setBanners] = useLocalStorage<Banner[]>('speedShopBanners', []);
 
@@ -99,7 +116,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             setUser(userExists);
             loadUserSpecificData(userExists.id);
         } else {
-            // User in session storage doesn't exist in our user list anymore
             localStorage.removeItem('speedShopUser');
             setUser(null);
         }
@@ -139,10 +155,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     let foundUser: User | undefined;
 
     if (password) {
-        // Login with phone and password
         foundUser = allUsers.find(u => u.phone === phoneOrCode && u.password === password);
     } else {
-        // Login with code
         foundUser = allUsers.find(u => u.loginCode === phoneOrCode);
     }
 
@@ -305,25 +319,42 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const addProduct = (productData: Omit<Product, 'id' | 'bestSeller'>) => {
     const newProduct: Product = {
         id: `prod-${Date.now()}`,
-        bestSeller: Math.random() < 0.2, // 20% chance of being a bestseller
+        bestSeller: Math.random() < 0.2,
         ...productData
     };
     setProducts(prev => [...prev, newProduct]);
-    
-    toast({
-        title: "تمت إضافة المنتج بنجاح",
-        description: `تمت إضافة ${productData.name} إلى قائمة المنتجات.`,
-    })
+    toast({ title: "تمت إضافة المنتج بنجاح" });
+  }
+
+  const updateProduct = (updatedProduct: Product) => {
+    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+    toast({ title: "تم تحديث المنتج بنجاح" });
+  }
+
+  const deleteProduct = (productId: string) => {
+    setProducts(prev => prev.filter(p => p.id !== productId));
+    toast({ title: "تم حذف المنتج بنجاح", variant: "destructive" });
   }
 
   const addCategory = (categoryData: Omit<Category, 'id' | 'icon'> & { iconName: string }) => {
     const newCategory: Category = {
         id: `cat-${Date.now()}`,
         name: categoryData.name,
-        icon: () => <span>Icon</span>, // Placeholder
+        iconName: categoryData.iconName,
+        icon: iconMap[categoryData.iconName] || ShoppingBasket,
     };
     setCategories(prev => [...prev, newCategory]);
     toast({ title: "تمت إضافة القسم بنجاح" });
+  }
+
+  const updateCategory = (updatedCategory: Omit<Category, 'icon'> & { iconName: string }) => {
+    setCategories(prev => prev.map(c => c.id === updatedCategory.id ? { ...updatedCategory, icon: iconMap[updatedCategory.iconName] || ShoppingBasket } : c));
+    toast({ title: "تم تحديث القسم بنجاح" });
+  }
+
+  const deleteCategory = (categoryId: string) => {
+    setCategories(prev => prev.filter(c => c.id !== categoryId));
+    toast({ title: "تم حذف القسم بنجاح", variant: "destructive" });
   }
   
   const addRestaurant = (restaurantData: Omit<Restaurant, 'id'>) => {
@@ -333,6 +364,16 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     };
     setRestaurants(prev => [...prev, newRestaurant]);
     toast({ title: "تمت إضافة المتجر بنجاح" });
+  }
+
+  const updateRestaurant = (updatedRestaurant: Restaurant) => {
+    setRestaurants(prev => prev.map(r => r.id === updatedRestaurant.id ? updatedRestaurant : r));
+    toast({ title: "تم تحديث المتجر بنجاح" });
+  }
+
+  const deleteRestaurant = (restaurantId: string) => {
+    setRestaurants(prev => prev.filter(r => r.id !== restaurantId));
+    toast({ title: "تم حذف المتجر بنجاح", variant: "destructive" });
   }
   
   const addBanner = (bannerData: Omit<Banner, 'id'>) => {
@@ -346,37 +387,22 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
   const applyCoupon = (coupon: string) => {
     const couponCode = coupon.toUpperCase();
-
     if (user?.usedCoupons?.includes(couponCode)) {
-        toast({
-            title: "الكود مستخدم بالفعل",
-            description: "لقد استخدمت هذا الكود من قبل.",
-            variant: "destructive",
-        });
+        toast({ title: "الكود مستخدم بالفعل", variant: "destructive" });
         return;
     }
-
     if (couponCode === 'SALE10') {
         const discountAmount = totalCartPrice * 0.10;
         setDiscount(discountAmount);
-        
         if (user) {
             const updatedUser: User = { ...user, usedCoupons: [...(user.usedCoupons || []), couponCode] };
             setUser(updatedUser);
             setAllUsers(prevUsers => prevUsers.map(u => u.id === user.id ? updatedUser : u));
         }
-
-        toast({
-            title: "تم تطبيق الخصم!",
-            description: `لقد حصلت على خصم بقيمة ${formatCurrency(discountAmount)}.`,
-        });
+        toast({ title: "تم تطبيق الخصم!", description: `لقد حصلت على خصم بقيمة ${formatCurrency(discountAmount)}.` });
     } else {
         setDiscount(0);
-        toast({
-            title: "كود الخصم غير صالح",
-            description: "الرجاء التأكد من الكود والمحاولة مرة أخرى.",
-            variant: "destructive",
-        });
+        toast({ title: "كود الخصم غير صالح", variant: "destructive" });
     }
   };
 
@@ -403,8 +429,14 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         placeOrder,
         updateOrderStatus,
         addProduct,
+        updateProduct,
+        deleteProduct,
         addCategory,
+        updateCategory,
+        deleteCategory,
         addRestaurant,
+        updateRestaurant,
+        deleteRestaurant,
         addBanner,
         applyCoupon,
         totalCartPrice,
@@ -416,5 +448,3 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     </AppContext.Provider>
   );
 };
-
-    

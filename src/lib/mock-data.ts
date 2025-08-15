@@ -2,13 +2,17 @@
 import type { Category, Restaurant, Product, DeliveryZone, User } from './types';
 import { ShoppingBasket, Stethoscope, SwatchBook, Soup, Salad, ChefHat } from 'lucide-react';
 
-export const categories: Category[] = [
-  { id: 'cat1', name: 'ماركت', icon: ShoppingBasket },
-  { id: 'cat2', name: 'عناية', icon: Stethoscope },
-  { id: 'cat3', name: 'تسوق', icon: SwatchBook },
-  { id: 'cat4', name: 'شوربات', icon: Soup },
-  { id: 'cat5', name: 'سلطات', icon: Salad },
-  { id: 'cat6', name: 'مأكولات شرقية', icon: ChefHat },
+// This is a simplified version for mock data. 
+// In a real app, you would not map components directly.
+type MockCategory = Omit<Category, 'icon'>;
+
+export const categories: MockCategory[] = [
+  { id: 'cat1', name: 'ماركت', iconName: 'ShoppingBasket' },
+  { id: 'cat2', name: 'عناية', iconName: 'Stethoscope' },
+  { id: 'cat3', name: 'تسوق', iconName: 'SwatchBook' },
+  { id: 'cat4', name: 'شوربات', iconName: 'Soup' },
+  { id: 'cat5', name: 'سلطات', iconName: 'Salad' },
+  { id: 'cat6', name: 'مأكولات شرقية', iconName: 'ChefHat' },
 ];
 
 export const restaurants: Restaurant[] = [
@@ -104,7 +108,7 @@ export const deliveryZones: DeliveryZone[] = [
 ];
 
 export const users: User[] = [
-    { id: 'user-admin', name: 'المدير العام', phone: '07700000000', password: 'admin', deliveryZone: deliveryZones[0], isAdmin: true, usedCoupons: [] },
-    { id: 'user-admin-special', name: 'المدير الخاص', phone: '07858366369', password: 'admin', deliveryZone: deliveryZones[0], isAdmin: true, usedCoupons: [] },
-    { id: 'user-1', name: 'علي احمد', phone: '07712345678', password: '1234', deliveryZone: deliveryZones[1], isAdmin: false, usedCoupons: [] }
+    { id: 'user-admin', name: 'المدير العام', phone: '07700000000', password: 'admin', deliveryZone: deliveryZones[0], isAdmin: true, loginCode: 'ADMIN007', usedCoupons: [] },
+    { id: 'user-admin-special', name: 'المدير الخاص', phone: '07858366369', password: 'admin', deliveryZone: deliveryZones[0], isAdmin: true, loginCode: 'BOSS313', usedCoupons: [] },
+    { id: 'user-1', name: 'علي احمد', phone: '07712345678', password: '1234', deliveryZone: deliveryZones[1], isAdmin: false, loginCode: 'ALI123', usedCoupons: [] }
 ]
