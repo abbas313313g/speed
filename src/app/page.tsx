@@ -13,10 +13,10 @@ export default function LandingPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (context?.user) {
+    if (!context?.isLoading && context?.user) {
       router.replace("/home");
     }
-  }, [context?.user, router]);
+  }, [context?.isLoading, context?.user, router]);
 
   if (context?.isLoading || context?.user) {
     return (

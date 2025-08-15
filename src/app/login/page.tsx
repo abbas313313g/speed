@@ -62,13 +62,18 @@ export default function LoginPage() {
     }, 500);
   };
   
-  if (context?.isLoading || (context && context.user)) {
+  if (context?.isLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
         <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+  
+  // Prevent flashing login page if user is already logged in
+  if (context?.user) {
+    return null;
   }
 
   return (

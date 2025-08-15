@@ -14,42 +14,22 @@ export default function MainAppLayout({
 }) {
   const context = useContext(AppContext);
   const router = useRouter();
-  const [isChecking, setIsChecking] = useState(true);
-
+  
   useEffect(() => {
     if (!context) return;
     
-    // Give context a moment to load user data from localStorage
-    if (context.isLoading) {
-      return;
-    }
-    
-    // If loading is finished, perform the check
-    if (!context.user) {
+    if (!context.isLoading && !context.user) {
       router.replace('/');
-    } else {
-      setIsChecking(false);
     }
 
   }, [context, router]);
 
-  if (isChecking || context?.isLoading) {
+  if (context?.isLoading || !context?.user) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
         <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />
       </div>
-    );
-  }
-
-  // Final check after loading is complete
-  if (!context?.user) {
-    // This will show the loader while redirecting
-    return (
-        <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
-            <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
-            <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />
-        </div>
     );
   }
 
