@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Star, Edit, Trash2 } from 'lucide-react';
+import { Star, Edit, Trash2, Loader2 } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 
 const EMPTY_STORE: Omit<Restaurant, 'id'> = {
@@ -46,9 +46,10 @@ export default function AdminStoresPage() {
   const context = useContext(AppContext);
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentStore, setCurrentStore] = useState<Restaurant>({ ...EMPTY_STORE, id: '' });
+  const [currentStore, setCurrentStore] = useState<Partial<Restaurant>>({ ...EMPTY_STORE });
+  const [isSaving, setIsSaving] = useState(false);
 
-  if (!context) return null;
+  if (!context || context.isLoading) return <div>جار التحميل...</div>;
   const { restaurants, addRestaurant, updateRestaurant, deleteRestaurant } = context;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,21 +69,23 @@ export default function AdminStoresPage() {
         setCurrentStore(store);
     } else {
         setIsEditing(false);
-        setCurrentStore({ ...EMPTY_STORE, id: '' });
+        setCurrentStore({ ...EMPTY_STORE });
     }
     setOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (currentStore.name) {
+        setIsSaving(true);
         if (isEditing) {
-            updateRestaurant(currentStore);
+            await updateRestaurant(currentStore as Restaurant);
         } else {
-            addRestaurant({
+            await addRestaurant({
                 ...currentStore,
                 image: currentStore.image || 'https://placehold.co/400x300.png',
-            });
+            } as Omit<Restaurant, 'id'>);
         }
+        setIsSaving(false);
         setOpen(false);
     }
   };
@@ -118,7 +121,10 @@ export default function AdminStoresPage() {
                      {currentStore.image && <Image src={currentStore.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center"/>}
                 </div>
                 <DialogFooter>
-                    <Button type="submit" onClick={handleSave}>حفظ المتجر</Button>
+                    <Button type="submit" onClick={handleSave} disabled={isSaving}>
+                        {isSaving && <Loader2 className="ml-2 h-4 w-4 animate-spin"/>}
+                        حفظ المتجر
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

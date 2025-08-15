@@ -23,11 +23,12 @@ import { MoreHorizontal } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import type { OrderStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { Timestamp } from 'firebase/firestore';
 
 export default function AdminOrdersPage() {
   const context = useContext(AppContext);
   
-  if (!context) return null;
+  if (!context || context.isLoading) return <div>جار التحميل...</div>;
 
   const { allOrders, updateOrderStatus } = context;
 
@@ -40,6 +41,13 @@ export default function AdminOrdersPage() {
       case 'cancelled': return 'bg-red-500';
       default: return 'bg-gray-500';
     }
+  }
+
+  const toDate = (date: string | Timestamp): Date => {
+    if (date instanceof Timestamp) {
+        return date.toDate();
+    }
+    return new Date(date);
   }
 
   return (
@@ -65,11 +73,17 @@ export default function AdminOrdersPage() {
             <TableRow key={order.id}>
               <TableCell className="font-medium">{order.id}</TableCell>
               <TableCell>{order.user?.name || 'مستخدم محذوف'}</TableCell>
-              <TableCell>{new Date(order.date).toLocaleString('ar-IQ')}</TableCell>
+              <TableCell>{toDate(order.date).toLocaleString('ar-IQ')}</TableCell>
               <TableCell>{formatCurrency(order.total)}</TableCell>
               <TableCell>
                 <Badge className={cn("text-white", getStatusVariant(order.status))}>
-                    {order.status}
+                    {order.status === "confirmed" ? "تم التأكيد" :
+                     order.status === "preparing" ? "تحضير الطلب" :
+                     order.status === "on_the_way" ? "في الطريق" :
+                     order.status === "delivered" ? "تم التوصيل" :
+                     order.status === "cancelled" ? "ملغي" :
+                     order.status
+                    }
                 </Badge>
               </TableCell>
               <TableCell>

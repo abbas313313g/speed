@@ -23,10 +23,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Loader2 } from 'lucide-react';
+import type { Banner } from '@/lib/types';
 
 export default function AdminBannersPage() {
   const context = useContext(AppContext);
   const [open, setOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [newBanner, setNewBanner] = useState({
       image: '',
       link: '#',
@@ -43,15 +46,17 @@ export default function AdminBannersPage() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (context && newBanner.image) {
-        context.addBanner(newBanner);
+        setIsSaving(true);
+        await context.addBanner(newBanner);
+        setIsSaving(false);
         setOpen(false);
         setNewBanner({ image: '', link: '#' });
     }
   };
 
-  if (!context) return null;
+  if (!context || context.isLoading) return <div>جار التحميل...</div>;
 
   return (
     <div className="space-y-8">
@@ -76,7 +81,10 @@ export default function AdminBannersPage() {
                      {newBanner.image && <Image src={newBanner.image} alt="preview" width={200} height={100} className="col-span-4 justify-self-center object-contain"/>}
                 </div>
                 <DialogFooter>
-                    <Button type="submit" onClick={handleSave}>حفظ البنر</Button>
+                    <Button type="submit" onClick={handleSave} disabled={isSaving}>
+                        {isSaving && <Loader2 className="ml-2 h-4 w-4 animate-spin"/>}
+                        حفظ البنر
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

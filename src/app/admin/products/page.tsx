@@ -45,6 +45,7 @@ import { formatCurrency } from '@/lib/utils';
 import Image from 'next/image';
 import { Edit, Trash2 } from 'lucide-react';
 import type { Product } from '@/lib/types';
+import { Loader2 } from 'lucide-react';
 
 const EMPTY_PRODUCT: Omit<Product, 'id' | 'bestSeller'> = {
   name: '',
@@ -59,9 +60,10 @@ export default function AdminProductsPage() {
   const context = useContext(AppContext);
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState<Omit<Product, 'bestSeller'>>({ ...EMPTY_PRODUCT, id: ''});
+  const [currentProduct, setCurrentProduct] = useState<Partial<Product>>({ ...EMPTY_PRODUCT });
+  const [isSaving, setIsSaving] = useState(false);
 
-  if (!context) return null;
+  if (!context || context.isLoading) return <div>جار التحميل...</div>;
   const { products, categories, restaurants, addProduct, updateProduct, deleteProduct } = context;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,21 +83,23 @@ export default function AdminProductsPage() {
         setCurrentProduct(product);
     } else {
         setIsEditing(false);
-        setCurrentProduct({ ...EMPTY_PRODUCT, id: '' });
+        setCurrentProduct({ ...EMPTY_PRODUCT });
     }
     setOpen(true);
   }
 
-  const handleSaveProduct = () => {
+  const handleSaveProduct = async () => {
     if (currentProduct.name && currentProduct.price && currentProduct.categoryId && currentProduct.restaurantId) {
+        setIsSaving(true);
         if (isEditing) {
-            updateProduct(currentProduct as Product);
+            await updateProduct(currentProduct as Product);
         } else {
-            addProduct({
+            await addProduct({
                 ...currentProduct,
                 image: currentProduct.image || 'https://placehold.co/600x400.png',
-            });
+            } as any);
         }
+        setIsSaving(false);
         setOpen(false);
     }
   };
@@ -161,7 +165,10 @@ export default function AdminProductsPage() {
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button type="submit" onClick={handleSaveProduct}>حفظ</Button>
+                    <Button type="submit" onClick={handleSaveProduct} disabled={isSaving}>
+                        {isSaving && <Loader2 className="ml-2 h-4 w-4 animate-spin"/>}
+                        حفظ
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

@@ -42,7 +42,7 @@ export default function SignupPage() {
     }
   }, [context?.user, router]);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!context) return;
     setLoading(true);
@@ -58,26 +58,20 @@ export default function SignupPage() {
       return;
     }
 
-    setTimeout(() => {
-      try {
-        context.signup({
-          name,
-          phone,
-          password,
-          deliveryZone: selectedZone,
-          isAdmin: false
-        });
-        
-        router.push('/login');
-      } catch (error: any) {
-        toast({
-          title: "فشل إنشاء الحساب",
-          description: error.message,
-          variant: "destructive",
-        });
-        setLoading(false);
-      }
-    }, 500);
+    try {
+      await context.signup({
+        name,
+        phone,
+        password,
+        deliveryZone: selectedZone,
+        isAdmin: false
+      });
+      
+      router.push('/login');
+    } catch (error: any) {
+      // Error toast is handled in the context
+      setLoading(false);
+    }
   };
 
   if (context?.isLoading || context?.user) {

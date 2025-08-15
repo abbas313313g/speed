@@ -8,11 +8,12 @@ export interface User {
   isAdmin?: boolean;
   usedCoupons?: string[];
   loginCode?: string;
+  email?: string; // Firebase Auth uses email
 }
 
 export interface Product {
   id: string;
-  name: string;
+  name:string;
   description: string;
   price: number;
   image: string;
@@ -24,8 +25,9 @@ export interface Product {
 export interface Category {
   id: string;
   name: string;
-  icon: React.ComponentType<{ className?: string }>;
+  // icon component cannot be stored in Firestore. We will render it dynamically using iconName
   iconName: string;
+  icon?: React.ComponentType<{ className?: string }>;
 }
 
 export interface Restaurant {
@@ -57,9 +59,14 @@ export interface Order {
     id: string;
     items: CartItem[];
     total: number;
-    date: string;
+    date: string; // Should be ISO string
     status: OrderStatus;
     estimatedDelivery: string;
-    user?: Pick<User, 'id' | 'name' | 'phone'>;
+    user?: {
+        id: string;
+        name: string;
+        phone: string;
+    };
     revenue?: number;
+    userId: string;
 }

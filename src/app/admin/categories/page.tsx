@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Edit, Trash2 } from 'lucide-react';
+import { Edit, Trash2, ShoppingBasket } from 'lucide-react';
 import type { Category } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import React from 'react';
@@ -55,25 +55,26 @@ export default function AdminCategoriesPage() {
   const context = useContext(AppContext);
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentCategory, setCurrentCategory] = useState<Omit<Category, 'icon'>>({ ...EMPTY_CATEGORY, id: '' });
+  const [currentCategory, setCurrentCategory] = useState<Omit<Category, 'icon' | 'id'> & {id?: string}>({ ...EMPTY_CATEGORY });
 
   const { categories, addCategory, updateCategory, deleteCategory } = context!;
 
   const handleOpenDialog = (category?: Category) => {
     if (category) {
+        const { icon, ...rest } = category;
         setIsEditing(true);
-        setCurrentCategory(category);
+        setCurrentCategory(rest);
     } else {
         setIsEditing(false);
-        setCurrentCategory({ ...EMPTY_CATEGORY, id: '' });
+        setCurrentCategory({ ...EMPTY_CATEGORY });
     }
     setOpen(true);
   }
 
   const handleSave = () => {
     if (currentCategory.name) {
-        if (isEditing) {
-            updateCategory(currentCategory as Category);
+        if (isEditing && currentCategory.id) {
+            updateCategory(currentCategory as Omit<Category, 'icon' | 'id'> & {id: string});
         } else {
             addCategory(currentCategory);
         }
@@ -81,7 +82,7 @@ export default function AdminCategoriesPage() {
     }
   };
 
-  if (!context) return null;
+  if (!context || context.isLoading) return <div>جار التحميل...</div>;
 
   return (
     <div className="space-y-8">
@@ -113,7 +114,7 @@ export default function AdminCategoriesPage() {
                                 {iconNames.map(name => (
                                     <SelectItem key={name} value={name}>
                                         <div className="flex items-center gap-2">
-                                            {React.createElement(iconMap[name], { className: "h-5 w-5" })}
+                                            {React.createElement(iconMap[name] || ShoppingBasket, { className: "h-5 w-5" })}
                                             <span>{name}</span>
                                         </div>
                                     </SelectItem>
@@ -137,44 +138,45 @@ export default function AdminCategoriesPage() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {categories.map((category) => (
-            <TableRow key={category.id}>
-              <TableCell>
-                 <category.icon className="h-6 w-6" />
-              </TableCell>
-              <TableCell className="font-medium">{category.name}</TableCell>
-              <TableCell>
-                  <div className="flex items-center gap-2">
-                      <Button variant="outline" size="icon" onClick={() => handleOpenDialog(category)}>
-                          <Edit className="h-4 w-4" />
-                      </Button>
-                       <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                           <Button variant="destructive" size="icon">
-                                <Trash2 className="h-4 w-4" />
-                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    هذا الإجراء سيقوم بحذف القسم "{category.name}" بشكل نهائي.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteCategory(category.id)}>حذف</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                  </div>
-              </TableCell>
-            </TableRow>
-          ))}
+          {categories.map((category) => {
+              const Icon = category.icon || ShoppingBasket;
+              return (
+                <TableRow key={category.id}>
+                <TableCell>
+                    <Icon className="h-6 w-6" />
+                </TableCell>
+                <TableCell className="font-medium">{category.name}</TableCell>
+                <TableCell>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="icon" onClick={() => handleOpenDialog(category)}>
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="icon">
+                                    <Trash2 className="h-4 w-4" />
+                            </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        هذا الإجراء سيقوم بحذف القسم "{category.name}" بشكل نهائي.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteCategory(category.id)}>حذف</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                </TableCell>
+                </TableRow>
+              )
+            })}
         </TableBody>
       </Table>
     </div>
   );
 }
-
-    
