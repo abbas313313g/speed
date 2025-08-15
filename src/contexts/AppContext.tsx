@@ -53,88 +53,71 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
-// This is the correct, stable version. It uses mock data as the single source of truth.
-// Changes made in the admin panel are temporary and exist only in memory (useState).
-// This ensures a consistent experience across all browsers and devices.
+// Custom hook for managing state with localStorage
+function useStickyState<T>(defaultValue: T, key: string): [T, React.Dispatch<React.SetStateAction<T>>] {
+    const [value, setValue] = useState<T>(() => {
+        if (typeof window === 'undefined') {
+            return defaultValue;
+        }
+        try {
+            const stickyValue = window.localStorage.getItem(key);
+            return stickyValue !== null
+                ? JSON.parse(stickyValue)
+                : defaultValue;
+        } catch (error) {
+            console.warn(`Error reading localStorage key “${key}”:`, error);
+            return defaultValue;
+        }
+    });
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                window.localStorage.setItem(key, JSON.stringify(value));
+            } catch (error) {
+                console.warn(`Error setting localStorage key “${key}”:`, error);
+            }
+        }
+    }, [key, value]);
+
+    return [value, setValue];
+}
+
+
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
-  // Data state, initialized from mock-data.ts
-  const [products, setProducts] = useState<Product[]>(initialProductsData);
-  const [rawCategories, setRawCategories] = useState<Omit<Category, 'icon'>[]>(initialCategoriesData.map(({icon, ...rest}) => rest));
-  const [restaurants, setRestaurants] = useState<Restaurant[]>(initialRestaurantsData);
-  const [banners, setBanners] = useState<Banner[]>([]);
-  const [allOrders, setAllOrders] = useState<Order[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>(initialUsers);
-
+  // Data state, initialized from localStorage or mock-data
+  const [products, setProducts] = useStickyState<Product[]>(initialProductsData, 'speedShopProducts');
+  const [rawCategories, setRawCategories] = useStickyState<Omit<Category, 'icon'>[]>(initialCategoriesData.map(({icon, ...rest}) => rest), 'speedShopRawCategories');
+  const [restaurants, setRestaurants] = useStickyState<Restaurant[]>(initialRestaurantsData, 'speedShopRestaurants');
+  const [banners, setBanners] = useStickyState<Banner[]>([], 'speedShopBanners');
+  const [allOrders, setAllOrders] = useStickyState<Order[]>([], 'speedShopAllOrders');
+  const [allUsers, setAllUsers] = useStickyState<User[]>(initialUsers, 'speedShopAllUsers');
+  
   // Session state (persists in localStorage for user convenience)
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useStickyState<User | null>(null, 'speedShopUser');
   
   // User-specific state (persists in localStorage for user convenience)
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [cart, setCart] = useStickyState<CartItem[]>([], `speedShopCart_${user?.id || ''}`);
+  const [orders, setOrders] = useStickyState<Order[]>([], `speedShopOrders_${user?.id || ''}`);
   const [discount, setDiscount] = useState(0);
 
   const router = useRouter();
   const { toast } = useToast();
   
-  // Load user session from localStorage on initial load
+  // Effect to handle initial loading state
   useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem('speedShopUser');
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
-      }
-    } catch (error) {
-      console.error("Failed to parse user from localStorage", error);
-    }
     setIsLoading(false);
   }, []);
 
-  // Effect to load/save user-specific data when user changes
+  // Effect to clear cart/orders when user logs out
   useEffect(() => {
-    if (user) {
-        try {
-            // Save user session
-            localStorage.setItem('speedShopUser', JSON.stringify(user));
-            
-            // Load user-specific data
-            const cartData = localStorage.getItem(`speedShopCart_${user.id}`);
-            const ordersData = localStorage.getItem(`speedShopOrders_${user.id}`);
-            setCart(cartData ? JSON.parse(cartData) : []);
-            setOrders(ordersData ? JSON.parse(ordersData) : []);
-        } catch (error) {
-            console.error("Failed to access localStorage for user data", error);
-        }
-    } else {
-        // Clear user session and data
-        localStorage.removeItem('speedShopUser');
-        setCart([]);
-        setOrders([]);
-    }
-  }, [user]);
-
-  // Effect to save cart when it changes
-  useEffect(() => {
-    if (user) {
-        try {
-            localStorage.setItem(`speedShopCart_${user.id}`, JSON.stringify(cart));
-        } catch (error) {
-            console.error("Failed to save cart to localStorage", error);
-        }
-    }
-  }, [cart, user]);
-
-  // Effect to save orders when they change
-  useEffect(() => {
-    if (user) {
-        try {
-            localStorage.setItem(`speedShopOrders_${user.id}`, JSON.stringify(orders));
-        } catch(error) {
-            console.error("Failed to save orders to localStorage", error);
-        }
-    }
-  }, [orders, user]);
+      if (!user) {
+          setCart([]);
+          setOrders([]);
+      }
+  }, [user, setCart, setOrders]);
 
   const categories = React.useMemo(() => {
     const iconMap = initialCategoriesData.reduce((acc, cat) => {
