@@ -53,7 +53,8 @@ export default function AccountPage() {
         () => {
             setIsLocating(false);
             toast({ title: "فشل تحديد الموقع", variant: "destructive" });
-        }
+        },
+        { enableHighAccuracy: true }
     );
   };
   

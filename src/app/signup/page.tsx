@@ -65,7 +65,8 @@ export default function SignupPage() {
         () => {
             toast({ title: "تم رفض صلاحية الوصول للموقع", description: "الرجاء السماح بالوصول للموقع لإكمال التسجيل.", variant: "destructive" });
             setLocationStatus('error');
-        }
+        },
+        { enableHighAccuracy: true }
     );
   };
 
