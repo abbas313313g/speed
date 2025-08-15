@@ -1,15 +1,16 @@
 
 "use client";
 
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
-import type { User, CartItem, Product, DeliveryZone } from '@/lib/types';
+import type { User, CartItem, Product, Order, OrderStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 
 interface AppContextType {
   user: User | null;
   cart: CartItem[];
+  orders: Order[];
   isLoading: boolean;
   login: (phone: string) => boolean;
   logout: () => void;
@@ -18,6 +19,7 @@ interface AppContextType {
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
+  placeOrder: () => void;
   totalCartPrice: number;
   deliveryFee: number;
 }
@@ -27,6 +29,7 @@ export const AppContext = createContext<AppContextType | null>(null);
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
@@ -35,11 +38,15 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     try {
       const storedUser = localStorage.getItem('speedShopUser');
       const storedCart = localStorage.getItem('speedShopCart');
+      const storedOrders = localStorage.getItem('speedShopOrders');
       if (storedUser) {
         setUser(JSON.parse(storedUser));
       }
       if (storedCart) {
         setCart(JSON.parse(storedCart));
+      }
+      if (storedOrders) {
+        setOrders(JSON.parse(storedOrders));
       }
     } catch (error) {
       console.error("Failed to parse from localStorage", error);
@@ -60,6 +67,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [cart, isLoading]);
 
+  useEffect(() => {
+    if (!isLoading) {
+      localStorage.setItem('speedShopOrders', JSON.stringify(orders));
+    }
+  }, [orders, isLoading]);
+
   const login = (phone: string): boolean => {
     // In a real app, you'd fetch the user. Here we just check localStorage.
     const storedUser = localStorage.getItem('speedShopUser');
@@ -77,13 +90,15 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     setUser(null);
     setCart([]);
+    setOrders([]); // Also clear orders on logout
     localStorage.removeItem('speedShopUser');
     localStorage.removeItem('speedShopCart');
+    localStorage.removeItem('speedShopOrders');
     router.push('/');
   };
 
   const signup = (userData: Omit<User, 'id'>) => {
-    const newUser: User = { ...userData, id: new Date().toISOString() };
+    const newUser: User = { ...userData, id: `user-${Date.now()}` };
     setUser(newUser);
     router.push('/home');
   };
@@ -151,11 +166,41 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const totalCartPrice = cart.reduce((total, item) => total + item.product.price * item.quantity, 0);
   const deliveryFee = user?.deliveryZone?.fee ?? 0;
 
+  const updateOrderStatus = useCallback((orderId: string, newStatus: OrderStatus) => {
+      setOrders(prevOrders =>
+        prevOrders.map(order =>
+          order.id === orderId ? { ...order, status: newStatus } : order
+        )
+      );
+  }, []);
+
+  const placeOrder = () => {
+    if (!user || cart.length === 0) return;
+
+    const newOrder: Order = {
+      id: `ORD-${Date.now()}`,
+      items: cart,
+      total: totalCartPrice + deliveryFee,
+      date: new Date().toISOString(),
+      status: 'confirmed',
+      estimatedDelivery: '30-40 دقيقة',
+    };
+
+    setOrders(prevOrders => [newOrder, ...prevOrders]);
+    clearCart();
+
+    // Simulate order status progression
+    setTimeout(() => updateOrderStatus(newOrder.id, 'preparing'), 30 * 1000); // 30 seconds
+    setTimeout(() => updateOrderStatus(newOrder.id, 'on_the_way'), 60 * 1000); // 1 minute
+    setTimeout(() => updateOrderStatus(newOrder.id, 'delivered'), 120 * 1000); // 2 minutes
+  };
+
   return (
     <AppContext.Provider
       value={{
         user,
         cart,
+        orders,
         isLoading,
         login,
         logout,
@@ -164,6 +209,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         removeFromCart,
         updateQuantity,
         clearCart,
+        placeOrder,
         totalCartPrice,
         deliveryFee,
       }}

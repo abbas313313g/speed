@@ -39,3 +39,14 @@ export interface DeliveryZone {
   name: string;
   fee: number;
 }
+
+export type OrderStatus = 'confirmed' | 'preparing' | 'on_the_way' | 'delivered';
+
+export interface Order {
+    id: string;
+    items: CartItem[];
+    total: number;
+    date: string;
+    status: OrderStatus;
+    estimatedDelivery: string;
+}

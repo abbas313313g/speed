@@ -20,15 +20,17 @@ export default function CartPage() {
 
   if (!context) return null;
 
-  const { cart, updateQuantity, totalCartPrice, deliveryFee, clearCart } = context;
+  const { cart, updateQuantity, totalCartPrice, deliveryFee, placeOrder } = context;
 
   const handleCheckout = () => {
-    toast({
-        title: "تم استلام طلبك بنجاح!",
-        description: "سيتم تحضير طلبك وتوصيله في أقرب وقت ممكن.",
-    });
-    clearCart();
-    router.push('/orders');
+    if (placeOrder) {
+      placeOrder();
+      toast({
+          title: "تم استلام طلبك بنجاح!",
+          description: "سيتم تحضير طلبك وتوصيله في أقرب وقت ممكن. يمكنك متابعة حالة الطلب من صفحة الطلبات.",
+      });
+      router.push('/orders');
+    }
   }
 
   if (cart.length === 0) {

@@ -1,27 +1,13 @@
 
 "use client";
 
+import { useContext } from "react";
+import { AppContext } from "@/contexts/AppContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, CookingPot, Bike, Home } from "lucide-react";
+import { CheckCircle, CookingPot, Bike, Home, ShoppingBag } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-
-// Mock data for current and past orders
-const currentOrder = {
-  id: "ORD-12345",
-  status: "preparing",
-  estimatedDelivery: "30-40 دقيقة",
-  total: 25500,
-  items: [
-    { name: "برجر لحم كلاسيك", quantity: 2 },
-    { name: "بطاطا مقلية", quantity: 1 },
-  ],
-};
-
-const pastOrders = [
-  { id: "ORD-12344", date: "2024-05-20", total: 15000, status: "delivered" },
-  { id: "ORD-12342", date: "2024-05-18", total: 32000, status: "delivered" },
-];
+import type { Order } from "@/lib/types";
 
 const orderStatusSteps = [
     { id: 'confirmed', label: 'تم التأكيد', icon: CheckCircle, progress: 10 },
@@ -30,78 +16,112 @@ const orderStatusSteps = [
     { id: 'delivered', label: 'تم التوصيل', icon: Home, progress: 100 },
 ];
 
-export default function OrdersPage() {
-    const currentStep = orderStatusSteps.find(s => s.id === currentOrder.status) || orderStatusSteps[0];
+function CurrentOrderCard({ order }: { order: Order }) {
+    const currentStep = orderStatusSteps.find(s => s.id === order.status) || orderStatusSteps[0];
     const currentProgress = currentStep.progress;
     
-  return (
-    <div className="p-4 space-y-8">
-      <header>
-        <h1 className="text-3xl font-bold">متابعة طلباتك</h1>
-        <p className="text-muted-foreground">تتبع طلبك الحالي واطلع على طلباتك السابقة.</p>
-      </header>
-
-      <section>
-        <h2 className="text-xl font-bold mb-4">طلبك الحالي</h2>
+    return (
         <Card>
-          <CardHeader>
-            <CardTitle>طلب رقم: {currentOrder.id}</CardTitle>
-            <CardDescription>الوقت المتوقع للتوصيل: {currentOrder.estimatedDelivery}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div>
-              {currentOrder.items.map(item => (
-                <div key={item.name} className="flex justify-between">
-                  <span>{item.name} <span className="text-muted-foreground text-sm">(x{item.quantity})</span></span>
-                </div>
-              ))}
-              <hr className="my-2"/>
-              <div className="flex justify-between font-bold">
-                <span>المجموع</span>
-                <span>{formatCurrency(currentOrder.total)}</span>
-              </div>
-            </div>
-
-            <div>
-              <Progress value={currentProgress} className="w-full h-2" />
-              <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                {orderStatusSteps.map(step => {
-                    const isCompleted = orderStatusSteps.indexOf(step) <= orderStatusSteps.indexOf(currentStep);
-                    return (
-                        <div key={step.id} className={`flex flex-col items-center ${isCompleted ? 'text-primary font-semibold' : ''}`}>
-                            <step.icon className="h-5 w-5 mb-1" />
-                            <span>{step.label}</span>
+            <CardHeader>
+                <CardTitle>طلب رقم: {order.id}</CardTitle>
+                <CardDescription>الوقت المتوقع للتوصيل: {order.estimatedDelivery}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div>
+                    {order.items.map(item => (
+                        <div key={item.product.id} className="flex justify-between">
+                            <span>{item.product.name} <span className="text-muted-foreground text-sm">(x{item.quantity})</span></span>
                         </div>
-                    )
-                })}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
+                    ))}
+                    <hr className="my-2"/>
+                    <div className="flex justify-between font-bold">
+                        <span>المجموع</span>
+                        <span>{formatCurrency(order.total)}</span>
+                    </div>
+                </div>
 
-      <section>
-        <h2 className="text-xl font-bold mb-4">الطلبات السابقة</h2>
-        <div className="space-y-4">
-          {pastOrders.map(order => (
-             <Card key={order.id}>
-                <CardContent className="p-4 flex justify-between items-center">
-                    <div>
-                        <p className="font-semibold">طلب رقم: {order.id}</p>
-                        <p className="text-sm text-muted-foreground">بتاريخ: {order.date}</p>
+                <div>
+                    <Progress value={currentProgress} className="w-full h-2" />
+                    <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+                        {orderStatusSteps.map(step => {
+                            const isCompleted = orderStatusSteps.findIndex(s => s.id === order.status) >= orderStatusSteps.findIndex(s => s.id === step.id);
+                            return (
+                                <div key={step.id} className={`flex flex-col items-center w-16 text-center ${isCompleted ? 'text-primary font-semibold' : ''}`}>
+                                    <step.icon className="h-5 w-5 mb-1" />
+                                    <span>{step.label}</span>
+                                </div>
+                            )
+                        })}
                     </div>
-                    <div className="text-left">
-                        <p className="font-bold text-primary">{formatCurrency(order.total)}</p>
-                        <p className="text-sm text-green-600 flex items-center gap-1">
-                            <CheckCircle className="h-4 w-4" />
-                            <span>تم التوصيل</span>
-                        </p>
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
+
+function PastOrderCard({ order }: { order: Order }) {
+    return (
+        <Card>
+            <CardContent className="p-4 flex justify-between items-center">
+                <div>
+                    <p className="font-semibold">طلب رقم: {order.id}</p>
+                    <p className="text-sm text-muted-foreground">بتاريخ: {new Date(order.date).toLocaleDateString('ar-IQ')}</p>
+                </div>
+                <div className="text-left">
+                    <p className="font-bold text-primary">{formatCurrency(order.total)}</p>
+                    <p className="text-sm text-green-600 flex items-center gap-1">
+                        <CheckCircle className="h-4 w-4" />
+                        <span>تم التوصيل</span>
+                    </p>
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
+
+export default function OrdersPage() {
+    const context = useContext(AppContext);
+
+    if (!context) return null;
+
+    const { orders } = context;
+    const currentOrders = orders.filter(o => o.status !== 'delivered');
+    const pastOrders = orders.filter(o => o.status === 'delivered');
+
+    return (
+        <div className="p-4 space-y-8">
+            <header>
+                <h1 className="text-3xl font-bold">متابعة طلباتك</h1>
+                <p className="text-muted-foreground">تتبع طلباتك الحالية واطلع على طلباتك السابقة.</p>
+            </header>
+
+            <section>
+                <h2 className="text-xl font-bold mb-4">طلباتك الحالية</h2>
+                {currentOrders.length > 0 ? (
+                    <div className="space-y-4">
+                        {currentOrders.map(order => <CurrentOrderCard key={order.id} order={order} />)}
                     </div>
-                </CardContent>
-            </Card>
-          ))}
+                ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                        <ShoppingBag className="h-16 w-16 mx-auto mb-2" />
+                        <p>لا توجد طلبات حالية.</p>
+                    </div>
+                )}
+            </section>
+
+            <section>
+                <h2 className="text-xl font-bold mb-4">الطلبات السابقة</h2>
+                {pastOrders.length > 0 ? (
+                    <div className="space-y-4">
+                        {pastOrders.map(order => <PastOrderCard key={order.id} order={order} />)}
+                    </div>
+                 ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                        <ShoppingBag className="h-16 w-16 mx-auto mb-2" />
+                        <p>لا توجد طلبات سابقة.</p>
+                    </div>
+                )}
+            </section>
         </div>
-      </section>
-    </div>
-  );
+    );
 }

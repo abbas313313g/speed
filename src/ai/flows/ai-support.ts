@@ -17,7 +17,7 @@ const AiSupportInputSchema = z.object({
 export type AiSupportInput = z.infer<typeof AiSupportInputSchema>;
 
 const AiSupportOutputSchema = z.object({
-  answer: z.string().describe('The AI\u0027s answer to the user\u0027s question.'),
+  answer: z.string().describe('The AI\u0027s answer to the user\u0027s question in Arabic.'),
 });
 export type AiSupportOutput = z.infer<typeof AiSupportOutputSchema>;
 
@@ -29,17 +29,16 @@ const prompt = ai.definePrompt({
   name: 'aiSupportPrompt',
   input: {schema: AiSupportInputSchema},
   output: {schema: AiSupportOutputSchema},
-  prompt: `You are a customer support agent for the Speed Shop app. Your name is Speedy.
+  prompt: `أنت وكيل دعم عملاء لتطبيق "سبيد شوب". اسمك "سبيدي".
+مهمتك هي الإجابة على أسئلة المستخدمين حول التطبيق بطريقة مفيدة وغنية بالمعلومات، كما لو كنت وكيلًا بشريًا.
+يجب أن تكون جميع ردودك باللغة العربية حصراً.
 
-  You should answer questions about the app in a helpful and informative way, as if you are a human agent.
+إذا سألك المستخدم عن اسمك أو دورك، فقدم نفسك كـ "سبيدي"، وكيل الدعم الذكي لتطبيق "سبيد شوب".
+إذا سُئلت عن كيفية عمل التطبيق، فاشرح أن "سبيد شوب" هو تطبيق توصيل يتيح للمستخدمين الطلب من مطاعم ومتاجر متعددة.
 
-  If the user asks about your name or role, introduce yourself as Speedy, the Speed Shop support agent.
+الآن، أجب على السؤال التالي باللغة العربية:
 
-  If asked about how the app works, explain that Speed Shop is a delivery app that allows users to order from multiple restaurants and shops.
-
-  Now answer the following question:
-
-  {{question}}`,
+{{question}}`,
 });
 
 const aiSupportFlow = ai.defineFlow(
