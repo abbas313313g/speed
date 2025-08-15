@@ -7,12 +7,49 @@ import { useToast } from "@/hooks/use-toast";
 import type { User, CartItem, Product, Order, OrderStatus, Category, Restaurant, Banner } from '@/lib/types';
 import { 
     users as initialUsers, 
-    products as initialProducts, 
+    products as initialProductsData, 
     categories as initialCategoriesData, 
-    restaurants as initialRestaurants,
+    restaurants as initialRestaurantsData,
     deliveryZones
 } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
+
+// A more robust useLocalStorage hook
+const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    if (typeof window === 'undefined') {
+      return initialValue;
+    }
+    try {
+      const item = window.localStorage.getItem(key);
+      // If item doesn't exist, initialize it with initialValue
+      if (item === null) {
+        window.localStorage.setItem(key, JSON.stringify(initialValue));
+        return initialValue;
+      }
+      return JSON.parse(item);
+    } catch (error) {
+      console.error(`Error reading localStorage key “${key}”:`, error);
+      return initialValue;
+    }
+  });
+
+  const setValue: React.Dispatch<React.SetStateAction<T>> = (value) => {
+    try {
+      // Allow value to be a function so we have same API as useState
+      const valueToStore = value instanceof Function ? value(storedValue) : value;
+      setStoredValue(valueToStore);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+      }
+    } catch (error) {
+      console.error(`Error setting localStorage key “${key}”:`, error);
+    }
+  };
+
+  return [storedValue, setValue];
+};
+
 
 interface AppContextType {
   user: User | null;
@@ -52,66 +89,55 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
-const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] => {
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    if (typeof window === 'undefined') {
-      return initialValue;
-    }
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
-    } catch (error) {
-      console.error(error);
-      return initialValue;
-    }
-  });
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && !window.localStorage.getItem(key)) {
-      window.localStorage.setItem(key, JSON.stringify(initialValue));
-      setStoredValue(initialValue);
-    }
-  }, [key, initialValue]);
-
-  const setValue = (value: T | ((val: T) => T)) => {
-    try {
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  return [storedValue, setValue];
-};
-
-
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
-  // Main entity data is managed by our robust useLocalStorage hook
-  const [products, setProducts] = useLocalStorage<Product[]>('speedShopProducts', initialProducts);
+  // --- Persistent State using the robust useLocalStorage hook ---
+  const [products, setProducts] = useLocalStorage<Product[]>('speedShopProducts', initialProductsData);
   const [rawCategories, setRawCategories] = useLocalStorage<Omit<Category, 'icon'>[]>('speedShopCategories', initialCategoriesData.map(({icon, ...rest}) => rest));
-  const [restaurants, setRestaurants] = useLocalStorage<Restaurant[]>('speedShopRestaurants', initialRestaurants);
+  const [restaurants, setRestaurants] = useLocalStorage<Restaurant[]>('speedShopRestaurants', initialRestaurantsData);
   const [banners, setBanners] = useLocalStorage<Banner[]>('speedShopBanners', []);
   const [allOrders, setAllOrders] = useLocalStorage<Order[]>('speedShopAllOrders', []);
   const [allUsers, setAllUsers] = useLocalStorage<User[]>('speedShopAllUsers', initialUsers);
 
-  // User-specific data and session data
+  // --- Session State ---
   const [user, setUser] = useLocalStorage<User | null>('speedShopUser', null);
-  const cartKey = user ? `speedShopCart_${user.id}` : 'speedShopCart_guest';
-  const ordersKey = user ? `speedShopOrders_${user.id}` : 'speedShopOrders_guest';
-  const [cart, setCart] = useLocalStorage<CartItem[]>(cartKey, []);
-  const [orders, setOrders] = useLocalStorage<Order[]>(ordersKey, []);
   
+  // --- Derived State (dependent on user session) ---
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [discount, setDiscount] = useState(0);
-  
+
   const router = useRouter();
   const { toast } = useToast();
-  
+
+  // Effect to load user-specific data (cart, orders) when user logs in or out
+  useEffect(() => {
+    if (user) {
+        const cartData = localStorage.getItem(`speedShopCart_${user.id}`);
+        const ordersData = localStorage.getItem(`speedShopOrders_${user.id}`);
+        setCart(cartData ? JSON.parse(cartData) : []);
+        setOrders(ordersData ? JSON.parse(ordersData) : []);
+    } else {
+        setCart([]);
+        setOrders([]);
+    }
+  }, [user]);
+
+  // Effect to save user-specific data when it changes
+  useEffect(() => {
+    if (user) {
+        localStorage.setItem(`speedShopCart_${user.id}`, JSON.stringify(cart));
+    }
+  }, [cart, user]);
+
+  useEffect(() => {
+    if (user) {
+        localStorage.setItem(`speedShopOrders_${user.id}`, JSON.stringify(orders));
+    }
+  }, [orders, user]);
+
+
   useEffect(() => {
     setIsLoading(false);
   }, []);
@@ -342,19 +368,20 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const applyCoupon = (coupon: string) => {
+    if (!user) return;
     const couponCode = coupon.toUpperCase();
-    if (user?.usedCoupons?.includes(couponCode)) {
+    if (user.usedCoupons?.includes(couponCode)) {
         toast({ title: "الكود مستخدم بالفعل", variant: "destructive" });
         return;
     }
     if (couponCode === 'SALE10') {
         const discountAmount = totalCartPrice * 0.10;
         setDiscount(discountAmount);
-        if (user) {
-            const updatedUser: User = { ...user, usedCoupons: [...(user.usedCoupons || []), couponCode] };
-            setUser(updatedUser);
-            setAllUsers(allUsers.map(u => u.id === user.id ? updatedUser : u));
-        }
+        
+        const updatedUser: User = { ...user, usedCoupons: [...(user.usedCoupons || []), couponCode] };
+        setUser(updatedUser);
+        setAllUsers(allUsers.map(u => u.id === user.id ? updatedUser : u));
+        
         toast({ title: "تم تطبيق الخصم!", description: `لقد حصلت على خصم بقيمة ${formatCurrency(discountAmount)}.` });
     } else {
         setDiscount(0);
@@ -404,3 +431,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     </AppContext.Provider>
   );
 };
+
+    
