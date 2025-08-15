@@ -17,22 +17,25 @@ export default function AdminLayout({
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
+    // If context is not yet available, do nothing.
     if (!context) return;
 
+    // If context is loading user data, wait until it's done.
     if (context.isLoading) {
-      // Still loading user data, so we wait.
       return;
     }
     
     // Once loading is complete, we can check the user status.
     if (!context.user || !context.user.isAdmin) {
+      // If there's no user, or the user is not an admin, redirect to login.
       router.replace('/login');
     } else {
+      // If there is an admin user, stop checking and show the content.
       setIsChecking(false);
     }
-  }, [context, context?.isLoading, context?.user, router]);
+  }, [context, router]); // Dependency array ensures this runs when context, isLoading or user changes.
   
-  if (isChecking) {
+  if (isChecking || context?.isLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <Shield className="h-16 w-16 animate-pulse text-primary" />

@@ -49,7 +49,7 @@ export default function AccountPage() {
       </Card>
       
       <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4 sm:space-x-reverse w-full">
-        {user.isAdmin && user.phone === '07858366369' && (
+        {user.isAdmin && (
             <Button asChild size="lg" className="flex-1 text-lg bg-accent hover:bg-accent/90">
                 <Link href="/admin">
                     <Shield className="ml-2 h-5 w-5" />
