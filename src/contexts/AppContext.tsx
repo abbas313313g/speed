@@ -8,7 +8,7 @@ import type { User, CartItem, Product, Order, OrderStatus, Category, Restaurant,
 import { 
     users as initialUsers, 
     products as initialProducts, 
-    categories as initialCategories, 
+    categories as initialCategoriesData, 
     restaurants as initialRestaurants,
     deliveryZones
 } from '@/lib/mock-data';
@@ -52,48 +52,40 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
-const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
-    const [storedValue, setStoredValue] = useState<T>(() => {
-        if (typeof window === 'undefined') {
-            return initialValue;
-        }
-        try {
-            const item = window.localStorage.getItem(key);
-            if (item && item !== 'undefined' && item !== 'null') {
-                return JSON.parse(item);
-            }
-            // Do not set initial value here, let the useEffect handle it.
-            return initialValue;
-        } catch (error) {
-            console.error(`Error reading localStorage key “${key}”:`, error);
-            return initialValue;
-        }
-    });
+const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] => {
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    if (typeof window === 'undefined') {
+      return initialValue;
+    }
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      console.error(error);
+      return initialValue;
+    }
+  });
 
-     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const item = window.localStorage.getItem(key);
-            if (!item || item === 'null' || item === 'undefined') {
-                 window.localStorage.setItem(key, JSON.stringify(initialValue));
-                 setStoredValue(initialValue);
-            }
-        }
-    }, [key, initialValue]);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !window.localStorage.getItem(key)) {
+      window.localStorage.setItem(key, JSON.stringify(initialValue));
+      setStoredValue(initialValue);
+    }
+  }, [key, initialValue]);
 
+  const setValue = (value: T | ((val: T) => T)) => {
+    try {
+      const valueToStore = value instanceof Function ? value(storedValue) : value;
+      setStoredValue(valueToStore);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
-    const setValue = (value: T | ((val: T) => T)) => {
-        try {
-            const valueToStore = value instanceof Function ? value(storedValue) : value;
-            setStoredValue(valueToStore);
-            if (typeof window !== 'undefined') {
-                window.localStorage.setItem(key, JSON.stringify(valueToStore));
-            }
-        } catch (error) {
-            console.log(error);
-        }
-    };
-
-    return [storedValue, setValue];
+  return [storedValue, setValue];
 };
 
 
@@ -102,7 +94,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
   // Main entity data is managed by our robust useLocalStorage hook
   const [products, setProducts] = useLocalStorage<Product[]>('speedShopProducts', initialProducts);
-  const [rawCategories, setRawCategories] = useLocalStorage<Omit<Category, 'icon'>[]>('speedShopCategories', initialCategories.map(({icon, ...rest}) => rest));
+  const [rawCategories, setRawCategories] = useLocalStorage<Omit<Category, 'icon'>[]>('speedShopCategories', initialCategoriesData.map(({icon, ...rest}) => rest));
   const [restaurants, setRestaurants] = useLocalStorage<Restaurant[]>('speedShopRestaurants', initialRestaurants);
   const [banners, setBanners] = useLocalStorage<Banner[]>('speedShopBanners', []);
   const [allOrders, setAllOrders] = useLocalStorage<Order[]>('speedShopAllOrders', []);
@@ -125,14 +117,14 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const categories = React.useMemo(() => {
-    const iconMap = initialCategories.reduce((acc, cat) => {
+    const iconMap = initialCategoriesData.reduce((acc, cat) => {
         acc[cat.iconName] = cat.icon;
         return acc;
     }, {} as {[key: string]: React.ComponentType<{ className?: string }>});
 
     return rawCategories.map(cat => ({
         ...cat,
-        icon: iconMap[cat.iconName] || initialCategories[0].icon
+        icon: iconMap[cat.iconName] || initialCategoriesData[0].icon
     }));
   }, [rawCategories]);
 
@@ -153,8 +145,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     setUser(null);
-    // Note: We are not clearing cart/orders on logout anymore,
-    // so they persist if the user logs back in.
     router.push('/login');
   };
 
@@ -413,5 +403,4 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
       {children}
     </AppContext.Provider>
   );
-
-    
+};
