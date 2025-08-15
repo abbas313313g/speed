@@ -136,8 +136,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
                 let userData: User;
                 if (userDocSnap.exists()) {
+                    // Existing user
                     userData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
                 } else {
+                    // New user
                     const usersQuery = query(collection(db, 'users'));
                     const usersSnapshot = await getDocs(usersQuery);
                     const isFirstUser = usersSnapshot.empty;
@@ -159,14 +161,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 
                 setUser(userData);
 
-                // If user is admin, set up admin-specific data listeners
-                if (userData.isAdmin) {
-                    setupAdminListeners();
-                }
-
             } else {
+                // User is signed out
                 setUser(null);
-                // Clean up admin listeners on logout
                 adminListeners.forEach(unsub => unsub());
                 setAdminListeners([]);
                 setAllOrders([]);
@@ -177,6 +174,17 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
         return () => unsubscribeAuth();
     }, []);
+
+    // Effect to setup admin listeners when user becomes admin
+    useEffect(() => {
+        if (user?.isAdmin) {
+            setupAdminListeners();
+        } else {
+            // Cleanup if user is no longer admin or logs out
+            adminListeners.forEach(unsub => unsub());
+            setAdminListeners([]);
+        }
+    }, [user?.isAdmin]);
 
 
     // Function to setup admin-specific listeners
