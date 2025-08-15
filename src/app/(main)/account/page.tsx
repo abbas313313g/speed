@@ -7,10 +7,12 @@ import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Phone, MapPin, LogOut, Shield } from "lucide-react";
+import { User, Phone, MapPin, LogOut, Shield, KeyRound } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AccountPage() {
   const context = useContext(AppContext);
+  const { toast } = useToast();
 
   if (!context || !context.user) {
     return null; 
@@ -18,6 +20,14 @@ export default function AccountPage() {
 
   const { user, logout } = context;
   const userInitial = user.name ? user.name.charAt(0).toUpperCase() : '?';
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+        title: "تم النسخ!",
+        description: "تم نسخ الرمز السريع إلى الحافظة.",
+    });
+  };
 
   return (
     <div className="p-4 space-y-8">
@@ -45,6 +55,17 @@ export default function AccountPage() {
                 <MapPin className="h-6 w-6 text-primary" />
                 <span>{user.deliveryZone.name}</span>
            </div>
+           {user.loginCode && (
+            <div className="flex items-center gap-4">
+                  <KeyRound className="h-6 w-6 text-primary" />
+                  <span 
+                    className="font-bold text-lg cursor-pointer" 
+                    onClick={() => copyToClipboard(user.loginCode!)}
+                  >
+                    {user.loginCode}
+                  </span>
+            </div>
+           )}
         </CardContent>
       </Card>
       
