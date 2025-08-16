@@ -96,13 +96,13 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     const orders = useMemo(() => {
         if (!user) return [];
-        return allOrders.filter(o => o.userId === user.id)
-                        .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const userOrders = allOrders.filter(o => o.userId === user.id);
+        return userOrders.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [user, allOrders]);
     
-    const getAdminStatus = async () => {
-        if(!user) return false;
-        const userDocRef = doc(db, 'users', user.id);
+    const getAdminStatus = async (userId: string) => {
+        if(!userId) return false;
+        const userDocRef = doc(db, 'users', userId);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
            return (userDocSnap.data() as User).isAdmin;
@@ -121,7 +121,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 const userDocRef = doc(db, 'users', sessionUser.id);
                 const userDocSnap = await getDoc(userDocRef);
                 if (userDocSnap.exists()) {
-                    setUser({ id: userDocSnap.id, ...userDocSnap.data() } as User);
+                    const freshUserData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
+                    setUser(freshUserData);
+                    if (freshUserData.isAdmin) {
+                        setupAdminListeners();
+                    }
                 } else {
                     // Session is invalid, clear it
                     localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -149,6 +153,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             setBanners(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
         });
 
+        // The user-specific and allOrders listener is now tied to whether the user is an admin or not.
+        // It will be set up in the `checkSession` effect or after login.
+
         return () => {
             unsubProducts();
             unsubCategories();
@@ -156,17 +163,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             unsubBanners();
         };
     }, []);
-
-    // Effect to setup admin listeners when user becomes admin
-    useEffect(() => {
-        if (user?.isAdmin) {
-            setupAdminListeners();
-        } else {
-            // Cleanup if user is no longer admin or logs out
-            adminListeners.forEach(unsub => unsub());
-            setAdminListeners([]);
-        }
-    }, [user?.isAdmin]);
 
 
     // Function to setup admin-specific listeners
@@ -183,7 +179,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         
         setAdminListeners([unsubOrders, unsubUsers]);
     };
-
+    
+    // Function to clear admin-specific listeners
+    const clearAdminListeners = () => {
+        adminListeners.forEach(unsub => unsub());
+        setAdminListeners([]);
+    }
 
     // --- Cart Persistence (Local Storage) ---
      useEffect(() => {
@@ -263,6 +264,19 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         setUser(currentUser);
         localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentUser));
         toast({ title: `مرحباً بك، ${currentUser.name.split(' ')[0]}` });
+
+        // Setup admin listeners if the user is an admin
+        if (currentUser.isAdmin) {
+            setupAdminListeners();
+        } else {
+            // If user is not admin, we still need to fetch their own orders
+            const ordersQuery = query(collection(db, "orders"), where("userId", "==", currentUser.id));
+            const unsubOrders = onSnapshot(ordersQuery, (snapshot) => {
+                setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+            });
+            // We set this as an admin listener to be cleaned up on logout
+            setAdminListeners([unsubOrders]);
+        }
     };
 
     const logout = async () => {
@@ -272,6 +286,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         }
         localStorage.removeItem(SESSION_STORAGE_KEY);
         setUser(null);
+        clearAdminListeners();
         router.push('/login'); // Use push for a fresh navigation state
     };
     
@@ -596,3 +611,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
+
+    
