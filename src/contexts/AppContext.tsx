@@ -49,8 +49,9 @@ interface AppContextType {
   banners: Banner[];
   isAuthLoading: boolean;
   isLoading: boolean;
+  setUser: (user: User | null) => void;
   signupWithPhone: (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => Promise<void>;
-  loginWithPhone: (phone: string, password: string) => Promise<void>;
+  loginWithPhone: (phone: string, password: string) => Promise<User | null>;
   logout: () => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
@@ -227,6 +228,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             };
 
             await setDoc(doc(db, "users", fbUser.uid), newUser);
+            setUser(newUser);
+            setFirebaseUser(fbUser);
             
             toast({ title: `أهلاً بك، ${name}` });
 
@@ -236,23 +239,29 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             } else {
                 toast({ title: "فشل إنشاء الحساب", description: "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.", variant: "destructive" });
             }
-            // Re-throw the error so the calling component knows it failed
             throw error;
         }
     };
     
 
-    const loginWithPhone = async (phone: string, password:string) => {
+    const loginWithPhone = async (phone: string, password:string): Promise<User | null> => {
         const email = `${phone}@${DUMMY_DOMAIN}`;
         try {
              const userCredential = await signInWithEmailAndPassword(auth, email, password);
-             // onAuthStateChanged will handle fetching user data and routing
-             toast({ title: `مرحباً بعودتك` });
-             return userCredential.user;
+             const userDocRef = doc(db, 'users', userCredential.user.uid);
+             const userDocSnap = await getDoc(userDocRef);
+             
+             if (userDocSnap.exists()) {
+                 const userData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
+                 toast({ title: `مرحباً بعودتك` });
+                 return userData;
+             } else {
+                 toast({ title: "فشل تسجيل الدخول", description: "لم يتم العثور على بيانات المستخدم.", variant: "destructive" });
+                 return null;
+             }
 
         } catch(error: any) {
             toast({ title: "فشل تسجيل الدخول", description: "الرجاء التأكد من رقم الهاتف وكلمة المرور.", variant: "destructive" });
-            // Re-throw the error so the calling component knows it failed
             throw error;
         }
     };
@@ -499,6 +508,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         banners,
         isAuthLoading,
         isLoading,
+        setUser,
         loginWithPhone,
         signupWithPhone,
         logout,
@@ -531,5 +541,3 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
-
-    

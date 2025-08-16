@@ -60,8 +60,11 @@ export default function LoginPage() {
     if (!context) return;
     setIsSubmittingLogin(true);
     try {
-        await context.loginWithPhone(loginPhone, loginPassword);
-        // On success, the useEffect above will redirect to /home when the user state is updated.
+        const loggedInUser = await context.loginWithPhone(loginPhone, loginPassword);
+        if (loggedInUser) {
+            context.setUser(loggedInUser); // Manually set user in context
+            router.replace('/home');
+        }
     } catch (error) {
         // Error toast is handled inside the context
     } finally {
@@ -106,8 +109,8 @@ export default function LoginPage() {
     setIsSubmittingSignup(true);
     try {
         await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
-        // On success, the onAuthStateChanged listener will update the user state,
-        // and the useEffect will redirect to /home.
+        // On success, the new user state is set directly in signupWithPhone
+        router.replace('/home');
     } catch (error) {
         // Error is handled in the context function
     } finally {
