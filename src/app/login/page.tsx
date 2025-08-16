@@ -60,7 +60,7 @@ export default function LoginPage() {
     setIsSubmittingLogin(true);
     try {
         await context.loginWithPhone(loginPhone, loginPassword);
-        // Successful login will be handled by the onAuthStateChanged listener in AppContext
+        // Successful login will trigger onAuthStateChanged, which triggers the useEffect above to redirect.
     } catch (error) {
         // Error toast is handled inside loginWithPhone function
     } finally {
@@ -105,9 +105,9 @@ export default function LoginPage() {
     setIsSubmittingSignup(true);
     try {
         await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
-        // Successful signup will be handled by the signupWithPhone function in AppContext
+        // On success, onAuthStateChanged will fire, and the useEffect will redirect to /home
     } catch (error) {
-        // Error toast is handled inside signupWithPhone function
+        // Error is handled in the context function
     } finally {
         setIsSubmittingSignup(false);
     }
@@ -116,7 +116,7 @@ export default function LoginPage() {
   const isSignupDisabled = isSubmittingSignup || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
 
 
-  if (context?.isAuthLoading || context?.firebaseUser) {
+  if (context?.isAuthLoading || (!context?.firebaseUser && router.pathname !== '/login')) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
@@ -233,3 +233,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    

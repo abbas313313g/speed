@@ -106,14 +106,13 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
         const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
             if (fbUser) {
-                setFirebaseUser(fbUser);
                 const userDocRef = doc(db, 'users', fbUser.uid);
-                
                 try {
                     const userDocSnap = await getDoc(userDocRef);
                     if (userDocSnap.exists()) {
                         const currentUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
                         setUser(currentUser);
+                        setFirebaseUser(fbUser);
 
                         // Clean up previous listeners before attaching new ones
                         if (userOrdersUnsubscribe) userOrdersUnsubscribe();
@@ -131,10 +130,14 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     } else {
                         // User doc doesn't exist, this might happen during signup flow
                         setUser(null);
+                        setFirebaseUser(null);
                     }
                 } catch (error) {
                     console.error("Error fetching user document:", error);
                     setUser(null); // Clear user state on error
+                    setFirebaseUser(null);
+                } finally {
+                    setIsAuthLoading(false);
                 }
             } else {
                 setFirebaseUser(null);
@@ -144,8 +147,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 // Clean up listeners on logout
                 if (userOrdersUnsubscribe) userOrdersUnsubscribe();
                 if (adminUnsubscribe) adminUnsubscribe();
+                setIsAuthLoading(false);
             }
-            setIsAuthLoading(false);
         });
 
         const unsubsPublic = [
@@ -199,23 +202,17 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }, [categories]);
 
     // --- AUTH ACTIONS ---
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
     const signupWithPhone = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => {
-        setIsSubmitting(true);
         const email = `${phone}@${DUMMY_DOMAIN}`;
 
         try {
-            // Step 1: Create the user in Firebase Auth
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const fbUser = userCredential.user;
 
-            // Step 2: Determine if this is the first user (and should be admin)
             const usersQuery = query(collection(db, 'users'));
             const usersSnapshot = await getDocs(usersQuery);
-            const isFirstUser = usersSnapshot.size === 0; // Check size instead of empty
+            const isFirstUser = usersSnapshot.empty;
 
-            // Step 3: Create the user document in Firestore
             const firstAddress: Address = { ...address, id: `address-${Date.now()}`, name: 'العنوان الأساسي' };
             
             const newUser: User = {
@@ -231,48 +228,37 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
             await setDoc(doc(db, "users", fbUser.uid), newUser);
             
-            // Step 4: Manually update the state
-            setUser(newUser);
-            setFirebaseUser(fbUser);
-            
             toast({ title: `أهلاً بك، ${name}` });
-            router.replace('/home');
 
         } catch (error: any) {
             if (error.code === 'auth/email-already-in-use') {
                 toast({ title: "فشل إنشاء الحساب", description: "رقم الهاتف مستخدم بالفعل.", variant: "destructive" });
             } else {
-                console.error("Signup Error:", error.code, error.message);
                 toast({ title: "فشل إنشاء الحساب", description: "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.", variant: "destructive" });
             }
-        } finally {
-            setIsSubmitting(false);
+            // Re-throw the error so the calling component knows it failed
+            throw error;
         }
     };
     
 
     const loginWithPhone = async (phone: string, password:string) => {
-        setIsSubmitting(true);
         const email = `${phone}@${DUMMY_DOMAIN}`;
         try {
-             await signInWithEmailAndPassword(auth, email, password);
+             const userCredential = await signInWithEmailAndPassword(auth, email, password);
              // onAuthStateChanged will handle fetching user data and routing
              toast({ title: `مرحباً بعودتك` });
-             router.replace('/home');
+             return userCredential.user;
+
         } catch(error: any) {
-            console.error("Login Error:", error.code, error.message);
             toast({ title: "فشل تسجيل الدخول", description: "الرجاء التأكد من رقم الهاتف وكلمة المرور.", variant: "destructive" });
-        } finally {
-            setIsSubmitting(false);
+            // Re-throw the error so the calling component knows it failed
+            throw error;
         }
     };
 
     const logout = async () => {
         await signOut(auth);
-        setUser(null);
-        setFirebaseUser(null);
-        setCart([]);
-        setDiscount(0);
         router.push('/login');
     };
     
@@ -545,3 +531,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
+
+    
