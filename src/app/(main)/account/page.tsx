@@ -71,7 +71,6 @@ export default function AccountPage() {
             <AvatarFallback className="bg-primary text-primary-foreground">{userInitial}</AvatarFallback>
         </Avatar>
         <h1 className="text-2xl font-bold">{user.name}</h1>
-        <p className="text-muted-foreground">{user.email}</p>
       </header>
 
       <Card>

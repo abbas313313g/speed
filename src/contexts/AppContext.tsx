@@ -11,11 +11,6 @@ import {
 import { formatCurrency } from '@/lib/utils';
 import { ShoppingBasket } from 'lucide-react';
 import { 
-    onAuthStateChanged, 
-    signOut,
-    User as FirebaseUser
-} from 'firebase/auth';
-import { 
     doc, 
     getDoc, 
     setDoc, 
@@ -27,11 +22,10 @@ import {
     collection,
     getDocs,
     writeBatch,
-    collectionGroup,
+    where
 } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
-import { auth, db, storage } from '@/lib/firebase';
-
+import { db, storage } from '@/lib/firebase';
 
 const TELEGRAM_BOT_TOKEN = "7601214758:AAFtkJRGqffuDLKPb8wuHm7r0pt_pDE7BSE";
 const TELEGRAM_CHAT_ID = "6626221973";
@@ -49,8 +43,10 @@ interface AppContextType {
   restaurants: Restaurant[];
   banners: Banner[];
   isLoading: boolean;
+  login: (phone: string, name?: string) => Promise<void>;
+  checkUserExists: (phone: string) => Promise<boolean>;
   logout: () => void;
-  completeUserProfile: (userData: Pick<User, 'name' | 'deliveryZone' | 'addresses'>) => Promise<void>;
+  completeUserProfile: (userData: Pick<User, 'deliveryZone' | 'addresses'> & {name?:string}) => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
@@ -75,6 +71,9 @@ interface AppContextType {
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
+
+// We will use local storage for the session instead of Firebase Auth
+const SESSION_STORAGE_KEY = 'speedshop_session';
 
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
@@ -101,6 +100,30 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                         .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [user, allOrders]);
     
+    // Check for a saved session on initial load
+    useEffect(() => {
+        const checkSession = async () => {
+            setIsLoading(true);
+            const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
+            if (sessionData) {
+                const sessionUser = JSON.parse(sessionData) as User;
+                // Re-validate user data from Firestore
+                const userDocRef = doc(db, 'users', sessionUser.id);
+                const userDocSnap = await getDoc(userDocRef);
+                if (userDocSnap.exists()) {
+                    setUser({ id: userDocSnap.id, ...userDocSnap.data() } as User);
+                } else {
+                    // Session is invalid, clear it
+                    localStorage.removeItem(SESSION_STORAGE_KEY);
+                    setUser(null);
+                }
+            }
+            setIsLoading(false);
+        };
+        checkSession();
+    }, []);
+
+
     // --- General Data Fetching (Public) ---
     useEffect(() => {
         const unsubProducts = onSnapshot(collection(db, "products"), (snapshot) => {
@@ -123,53 +146,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             unsubBanners();
         };
     }, []);
-
-    // Refactored Auth State Change Handler
-    useEffect(() => {
-        const handleUser = async (firebaseUser: FirebaseUser | null) => {
-            if (firebaseUser) {
-                const userDocRef = doc(db, 'users', firebaseUser.uid);
-                const userDocSnap = await getDoc(userDocRef);
-
-                if (userDocSnap.exists()) {
-                    // Existing user
-                    setUser({ id: userDocSnap.id, ...userDocSnap.data() } as User);
-                } else {
-                    // New user -> Create their profile document
-                    const usersQuery = query(collection(db, 'users'));
-                    const usersSnapshot = await getDocs(usersQuery);
-                    const isFirstUser = usersSnapshot.empty;
-
-                    const newUser: User = {
-                        id: firebaseUser.uid,
-                        phone: firebaseUser.phoneNumber!,
-                        name: "",
-                        email: "",
-                        isProfileComplete: false,
-                        isAdmin: isFirstUser, // First user becomes admin
-                        usedCoupons: [],
-                        addresses: [],
-                        deliveryZone: { name: '', fee: 0 },
-                    };
-                    await setDoc(userDocRef, newUser);
-                    setUser(newUser);
-                }
-            } else {
-                // User is signed out
-                setUser(null);
-                adminListeners.forEach(unsub => unsub());
-                setAdminListeners([]);
-                setAllOrders([]);
-                setAllUsers([]);
-            }
-            setIsLoading(false);
-        };
-
-        const unsubscribeAuth = onAuthStateChanged(auth, handleUser);
-
-        return () => unsubscribeAuth();
-    }, []);
-
 
     // Effect to setup admin listeners when user becomes admin
     useEffect(() => {
@@ -232,27 +208,74 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         }));
     }, [categories]);
 
-    // --- Auth & User ---
+    // --- NEW SIMPLIFIED AUTH ---
+
+    const checkUserExists = async (phone: string): Promise<boolean> => {
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("phone", "==", phone));
+        const querySnapshot = await getDocs(q);
+        return !querySnapshot.empty;
+    };
+
+    const login = async (phone: string, name?: string) => {
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("phone", "==", phone));
+        const querySnapshot = await getDocs(q);
+
+        let currentUser: User;
+
+        if (!querySnapshot.empty) {
+            // User exists, log them in
+            const userDoc = querySnapshot.docs[0];
+            currentUser = { id: userDoc.id, ...userDoc.data() } as User;
+        } else {
+            // New user, create them
+            if (!name) throw new Error("Name is required for a new user.");
+
+            const usersQuery = query(collection(db, 'users'));
+            const usersSnapshot = await getDocs(usersQuery);
+            const isFirstUser = usersSnapshot.empty;
+
+            const newUserData: Omit<User, 'id'> = {
+                phone: phone,
+                name: name,
+                email: "", // Not collected anymore
+                isProfileComplete: false,
+                isAdmin: isFirstUser, // First user becomes admin
+                usedCoupons: [],
+                addresses: [],
+                deliveryZone: { name: '', fee: 0 },
+            };
+            const newUserDocRef = await addDoc(collection(db, "users"), newUserData);
+            currentUser = { id: newUserDocRef.id, ...newUserData };
+        }
+        
+        setUser(currentUser);
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentUser));
+        toast({ title: `مرحباً بك، ${currentUser.name.split(' ')[0]}` });
+    };
+
     const logout = async () => {
         if(user) {
             localStorage.removeItem(`cart_${user.id}`);
             localStorage.removeItem(`discount_${user.id}`);
         }
-        await signOut(auth);
-        router.push('/login');
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+        setUser(null);
+        router.push('/login'); // Use push for a fresh navigation state
     };
     
-    const completeUserProfile = async (userData: Pick<User, 'name' | 'deliveryZone' | 'addresses'>) => {
+    const completeUserProfile = async (userData: Pick<User, 'deliveryZone' | 'addresses'> & {name?: string}) => {
         if (!user) return;
         const userDocRef = doc(db, "users", user.id);
         const updatedData = {
-            name: userData.name,
-            deliveryZone: userData.deliveryZone,
-            addresses: userData.addresses,
+            ...userData,
             isProfileComplete: true,
         };
         await updateDoc(userDocRef, updatedData);
-        setUser(prev => prev ? { ...prev, ...updatedData } : null);
+        const updatedUser = { ...user, ...updatedData };
+        setUser(updatedUser);
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(updatedUser));
     }
     
     const addAddress = async (address: Omit<Address, 'id'>) => {
@@ -261,7 +284,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const updatedAddresses = [...(user.addresses || []), newAddress];
         const userDocRef = doc(db, "users", user.id);
         await updateDoc(userDocRef, { addresses: updatedAddresses });
-        setUser(prev => prev ? { ...prev, addresses: updatedAddresses } : null);
+        const updatedUser = { ...user, addresses: updatedAddresses };
+        setUser(updatedUser);
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(updatedUser));
         toast({ title: "تم إضافة العنوان بنجاح" });
     }
 
@@ -526,6 +551,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         restaurants,
         banners,
         isLoading,
+        login,
+        checkUserExists,
         logout,
         completeUserProfile,
         addAddress,

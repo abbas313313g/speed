@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useContext, FormEvent, useEffect } from "react";
@@ -42,8 +41,13 @@ export default function CompleteProfilePage() {
     if (context && !context.isLoading) {
         if (!context.user) {
             router.replace('/login');
-        } else if (context.user.isProfileComplete) {
-            router.replace('/home');
+        } else {
+             if (context.user.isProfileComplete) {
+                router.replace('/home');
+             } else {
+                 // Pre-fill name if available from login
+                setName(context.user.name);
+             }
         }
     }
   }, [context, router]);
@@ -96,11 +100,11 @@ export default function CompleteProfilePage() {
 
     try {
       await context.completeUserProfile({
-        name,
+        name: name || context.user.name,
         deliveryZone: selectedZone,
         addresses: [firstAddress],
       });
-      // Redirect is handled by the context change
+      // Redirect is handled by the context change in the main layout
     } catch (error: any) {
       toast({ title: "حدث خطأ", description: error.message, variant: "destructive" });
       setLoading(false);
