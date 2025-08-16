@@ -50,8 +50,9 @@ interface AppContextType {
   isAuthLoading: boolean;
   isLoading: boolean;
   setUser: (user: User | null) => void;
-  signupWithPhone: (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => Promise<FirebaseAuthUser | null>;
-  loginWithPhone: (phone: string, password: string) => Promise<void>;
+  setLoggedInUser: (fbUser: FirebaseAuthUser, userData: User) => void;
+  signupWithPhone: (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => Promise<{fbUser: FirebaseAuthUser, newUser: User} | null>;
+  loginWithPhone: (phone: string, password: string) => Promise<{fbUser: FirebaseAuthUser, userData: User} | null>;
   logout: () => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
@@ -129,14 +130,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                             userOrdersUnsubscribe = onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
                         }
                     } else {
-                        // User doc doesn't exist, this might happen during signup flow
-                        setUser(null);
-                        setFirebaseUser(null);
+                        // This can happen if a user is deleted from the db but not auth
+                         signOut(auth); // Log them out
                     }
                 } catch (error) {
                     console.error("Error fetching user document:", error);
-                    setUser(null); // Clear user state on error
-                    setFirebaseUser(null);
+                    signOut(auth);
                 } finally {
                     setIsAuthLoading(false);
                 }
@@ -203,7 +202,13 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }, [categories]);
 
     // --- AUTH ACTIONS ---
-    const signupWithPhone = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>): Promise<FirebaseAuthUser | null> => {
+    const setLoggedInUser = (fbUser: FirebaseAuthUser, userData: User) => {
+        setFirebaseUser(fbUser);
+        setUser(userData);
+        setIsAuthLoading(false);
+    };
+
+    const signupWithPhone = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>): Promise<{fbUser: FirebaseAuthUser, newUser: User} | null> => {
         const email = `${phone}@${DUMMY_DOMAIN}`;
 
         try {
@@ -216,7 +221,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
             const firstAddress: Address = { ...address, id: `address-${Date.now()}`, name: 'العنوان الأساسي' };
             
-            const newUser: Omit<User, 'id'> = {
+            const newUser: User = {
+                id: fbUser.uid,
                 name,
                 phone,
                 deliveryZone,
@@ -228,7 +234,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
             await setDoc(doc(db, "users", fbUser.uid), newUser);
             toast({ title: `أهلاً بك، ${name}` });
-            return fbUser;
+            return { fbUser, newUser };
 
         } catch (error: any) {
             if (error.code === 'auth/email-already-in-use') {
@@ -236,19 +242,31 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             } else {
                 toast({ title: "فشل إنشاء الحساب", description: "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.", variant: "destructive" });
             }
-            throw error;
+            return null;
         }
     };
     
 
-    const loginWithPhone = async (phone: string, password:string): Promise<void> => {
+    const loginWithPhone = async (phone: string, password:string): Promise<{fbUser: FirebaseAuthUser, userData: User} | null> => {
         const email = `${phone}@${DUMMY_DOMAIN}`;
         try {
-             await signInWithEmailAndPassword(auth, email, password);
-             toast({ title: `مرحباً بعودتك` });
+             const userCredential = await signInWithEmailAndPassword(auth, email, password);
+             const fbUser = userCredential.user;
+
+             const userDocRef = doc(db, "users", fbUser.uid);
+             const userDocSnap = await getDoc(userDocRef);
+
+             if(userDocSnap.exists()){
+                const userData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
+                toast({ title: `مرحباً بعودتك` });
+                return { fbUser, userData };
+             } else {
+                toast({ title: "فشل تسجيل الدخول", description: "لم يتم العثور على بيانات المستخدم.", variant: "destructive" });
+                return null;
+             }
         } catch(error: any) {
             toast({ title: "فشل تسجيل الدخول", description: "الرجاء التأكد من رقم الهاتف وكلمة المرور.", variant: "destructive" });
-            throw error;
+            return null;
         }
     };
 
@@ -495,6 +513,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         isAuthLoading,
         isLoading,
         setUser,
+        setLoggedInUser,
         loginWithPhone,
         signupWithPhone,
         logout,

@@ -48,7 +48,7 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // If the user is already logged in, redirect them from the login page.
+    // This effect redirects the user if they are already logged in when visiting the page.
     if (!context?.isAuthLoading && context?.firebaseUser) {
         router.replace('/home');
     }
@@ -60,8 +60,11 @@ export default function LoginPage() {
     if (!context) return;
     setIsSubmittingLogin(true);
     try {
-        await context.loginWithPhone(loginPhone, loginPassword);
-        // The useEffect above will handle the redirection once firebaseUser is set.
+        const result = await context.loginWithPhone(loginPhone, loginPassword);
+        if (result) {
+            context.setLoggedInUser(result.fbUser, result.userData);
+            router.replace('/home');
+        }
     } catch (error) {
         // Error toast is handled inside the context
     } finally {
@@ -105,8 +108,11 @@ export default function LoginPage() {
     
     setIsSubmittingSignup(true);
     try {
-        const newUser = await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
-        // The useEffect will handle redirection.
+        const result = await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
+        if(result) {
+            context.setLoggedInUser(result.fbUser, result.newUser);
+            router.replace('/home');
+        }
     } catch (error) {
         // Error is handled in the context function
     } finally {
