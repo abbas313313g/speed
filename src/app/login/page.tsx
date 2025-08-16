@@ -48,7 +48,7 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // If the app is done loading the initial auth state and the user is logged in,
+    // If the app is done loading and the user is ALREADY logged in,
     // redirect them away from the login page.
     if (context && !context.isAuthLoading && context.firebaseUser) {
         router.replace('/home');
@@ -60,8 +60,8 @@ export default function LoginPage() {
     e.preventDefault();
     if (!context) return;
     setIsSubmittingLogin(true);
-    // The login function will trigger onAuthStateChanged, which will update the context.
-    // The useEffect above will then handle the redirect.
+    // The login function will trigger onAuthStateChanged in AppContext.
+    // The useEffect in (main)/layout.tsx will then handle the redirect.
     await context.loginWithPhone(loginPhone, loginPassword);
     setIsSubmittingLogin(false);
   }
@@ -101,8 +101,8 @@ export default function LoginPage() {
     }
     
     setIsSubmittingSignup(true);
-    // The signup function will trigger onAuthStateChanged, which will update the context.
-    // The useEffect above will then handle the redirect.
+    // The signup function will trigger onAuthStateChanged in AppContext.
+    // The useEffect in (main)/layout.tsx will then handle the redirect.
     await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
     setIsSubmittingSignup(false);
   }
