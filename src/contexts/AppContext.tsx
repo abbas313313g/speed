@@ -108,32 +108,42 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             if (fbUser) {
                 setFirebaseUser(fbUser);
                 const userDocRef = doc(db, 'users', fbUser.uid);
-                const userDocSnap = await getDoc(userDocRef);
+                
+                try {
+                    const userDocSnap = await getDoc(userDocRef);
+                    if (userDocSnap.exists()) {
+                        const currentUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
+                        setUser(currentUser);
 
-                if (userDocSnap.exists()) {
-                    const currentUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
-                    setUser(currentUser);
+                        // Clean up previous listeners before attaching new ones
+                        if (userOrdersUnsubscribe) userOrdersUnsubscribe();
+                        if (adminUnsubscribe) adminUnsubscribe();
 
-                    if (userOrdersUnsubscribe) userOrdersUnsubscribe();
-                    if (adminUnsubscribe) adminUnsubscribe();
-
-                    if (currentUser.isAdmin) {
-                        const qOrders = query(collection(db, "orders"));
-                        adminUnsubscribe = onSnapshot(qOrders, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
-                        const qUsers = query(collection(db, "users"));
-                        onSnapshot(qUsers, snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User))));
+                        if (currentUser.isAdmin) {
+                            const qOrders = query(collection(db, "orders"));
+                            adminUnsubscribe = onSnapshot(qOrders, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
+                            const qUsers = query(collection(db, "users"));
+                            onSnapshot(qUsers, snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User))));
+                        } else {
+                            const q = query(collection(db, "orders"), where("userId", "==", currentUser.id));
+                            userOrdersUnsubscribe = onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
+                        }
                     } else {
-                        const q = query(collection(db, "orders"), where("userId", "==", currentUser.id));
-                        userOrdersUnsubscribe = onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
+                        // User doc doesn't exist, this might happen during signup flow
+                        setUser(null);
                     }
-                } else {
-                     setUser(null);
+                } catch (error) {
+                    console.error("Error fetching user document:", error);
+                    setUser(null); // Clear user state on error
                 }
             } else {
                 setFirebaseUser(null);
                 setUser(null);
                 setAllOrders([]);
                 setAllUsers([]);
+                // Clean up listeners on logout
+                if (userOrdersUnsubscribe) userOrdersUnsubscribe();
+                if (adminUnsubscribe) adminUnsubscribe();
             }
             setIsAuthLoading(false);
         });
@@ -189,6 +199,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }, [categories]);
 
     // --- AUTH ACTIONS ---
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     const signupWithPhone = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => {
         setIsSubmitting(true);
         const email = `${phone}@${DUMMY_DOMAIN}`;
@@ -201,7 +213,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             // Step 2: Determine if this is the first user (and should be admin)
             const usersQuery = query(collection(db, 'users'));
             const usersSnapshot = await getDocs(usersQuery);
-            const isFirstUser = usersSnapshot.empty;
+            const isFirstUser = usersSnapshot.size === 0; // Check size instead of empty
 
             // Step 3: Create the user document in Firestore
             const firstAddress: Address = { ...address, id: `address-${Date.now()}`, name: 'العنوان الأساسي' };
@@ -227,10 +239,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             router.replace('/home');
 
         } catch (error: any) {
-            console.error("Signup Error:", error.code, error.message);
             if (error.code === 'auth/email-already-in-use') {
                 toast({ title: "فشل إنشاء الحساب", description: "رقم الهاتف مستخدم بالفعل.", variant: "destructive" });
             } else {
+                console.error("Signup Error:", error.code, error.message);
                 toast({ title: "فشل إنشاء الحساب", description: "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.", variant: "destructive" });
             }
         } finally {
@@ -238,7 +250,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         }
     };
     
-    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const loginWithPhone = async (phone: string, password:string) => {
         setIsSubmitting(true);
