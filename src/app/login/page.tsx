@@ -60,11 +60,8 @@ export default function LoginPage() {
     if (!context) return;
     setIsSubmittingLogin(true);
     try {
-        const loggedInUser = await context.loginWithPhone(loginPhone, loginPassword);
-        if (loggedInUser) {
-            context.setUser(loggedInUser); // Manually set user in context
-            router.replace('/home');
-        }
+        await context.loginWithPhone(loginPhone, loginPassword);
+        // The useEffect above will handle the redirection once firebaseUser is set.
     } catch (error) {
         // Error toast is handled inside the context
     } finally {
@@ -108,9 +105,8 @@ export default function LoginPage() {
     
     setIsSubmittingSignup(true);
     try {
-        await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
-        // On success, the new user state is set directly in signupWithPhone
-        router.replace('/home');
+        const newUser = await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
+        // The useEffect will handle redirection.
     } catch (error) {
         // Error is handled in the context function
     } finally {
@@ -120,8 +116,7 @@ export default function LoginPage() {
 
   const isSignupDisabled = isSubmittingSignup || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
 
-  // Show a loading screen only while actively submitting, not while waiting for auth state.
-  if (context?.isAuthLoading && !isSubmittingLogin && !isSubmittingSignup) {
+  if (context?.isAuthLoading && !context.firebaseUser) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
