@@ -37,7 +37,9 @@ export default function LoginPage() {
   const [deliveryZoneName, setDeliveryZoneName] = useState("");
   const [address, setAddress] = useState<Omit<Address, 'id' | 'name'> | null>(null);
   
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
+  const [isSubmittingSignup, setIsSubmittingSignup] = useState(false);
+
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   
@@ -55,15 +57,14 @@ export default function LoginPage() {
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     if (!context) return;
-    setIsSubmitting(true);
+    setIsSubmittingLogin(true);
     try {
         await context.loginWithPhone(loginPhone, loginPassword);
-        toast({ title: `مرحباً بعودتك` });
-        router.replace('/home');
-    } catch (error: any) {
-        toast({ title: "فشل تسجيل الدخول", description: "الرجاء التأكد من رقم الهاتف وكلمة المرور.", variant: "destructive" });
+        // Successful login will be handled by the onAuthStateChanged listener in AppContext
+    } catch (error) {
+        // Error toast is handled inside loginWithPhone function
     } finally {
-        setIsSubmitting(false);
+        setIsSubmittingLogin(false);
     }
   }
 
@@ -101,19 +102,18 @@ export default function LoginPage() {
       return;
     }
     
-    setIsSubmitting(true);
+    setIsSubmittingSignup(true);
     try {
         await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
-        toast({ title: `أهلاً بك، ${signupName}` });
-        router.replace('/home');
-    } catch (error: any) {
-        toast({ title: "فشل إنشاء الحساب", description: "قد يكون رقم الهاتف مستخدماً بالفعل.", variant: "destructive" });
+        // Successful signup will be handled by the signupWithPhone function in AppContext
+    } catch (error) {
+        // Error toast is handled inside signupWithPhone function
     } finally {
-        setIsSubmitting(false);
+        setIsSubmittingSignup(false);
     }
   }
 
-  const isSignupDisabled = isSubmitting || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
+  const isSignupDisabled = isSubmittingSignup || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
 
 
   if (context?.isAuthLoading || context?.firebaseUser) {
@@ -159,8 +159,8 @@ export default function LoginPage() {
                                     <Input id="login-password" type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="pr-10" dir="ltr"/>
                                 </div>
                             </div>
-                            <Button type="submit" className="w-full h-11 text-lg" disabled={isSubmitting}>
-                                {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : 'تسجيل الدخول'}
+                            <Button type="submit" className="w-full h-11 text-lg" disabled={isSubmittingLogin}>
+                                {isSubmittingLogin ? <Loader2 className="h-6 w-6 animate-spin" /> : 'تسجيل الدخول'}
                             </Button>
                         </form>
                     </CardContent>
@@ -222,7 +222,7 @@ export default function LoginPage() {
                                 {locationStatus === 'error' && <p className="text-sm text-destructive">مشاركة موقعك مطلوب لإكمال التسجيل.</p>}
                             </div>
                             <Button type="submit" className="w-full h-11 text-lg" disabled={isSignupDisabled}>
-                                {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : 'إنشاء حساب'}
+                                {isSubmittingSignup ? <Loader2 className="h-6 w-6 animate-spin" /> : 'إنشاء حساب'}
                             </Button>
                         </form>
                     </CardContent>
@@ -233,5 +233,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

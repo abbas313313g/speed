@@ -105,42 +105,30 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         let adminUnsubscribe: Unsubscribe | null = null;
 
         const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
-            setIsAuthLoading(true);
-            
-            // Clean up previous listeners
-            if (userOrdersUnsubscribe) userOrdersUnsubscribe();
-            if (adminUnsubscribe) adminUnsubscribe();
-
             if (fbUser) {
                 setFirebaseUser(fbUser);
                 const userDocRef = doc(db, 'users', fbUser.uid);
-                
-                // Firestore listener for user data
-                onSnapshot(userDocRef, (userDocSnap) => {
-                    if (userDocSnap.exists()) {
-                        const currentUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
-                        setUser(currentUser);
+                const userDocSnap = await getDoc(userDocRef);
 
-                        // Cleanup previous order listener before attaching a new one
-                        if (userOrdersUnsubscribe) userOrdersUnsubscribe();
+                if (userDocSnap.exists()) {
+                    const currentUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
+                    setUser(currentUser);
 
-                        if (currentUser.isAdmin) {
-                             if(adminUnsubscribe) adminUnsubscribe();
-                             const q = query(collection(db, "orders"));
-                             adminUnsubscribe = onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
-                        } else {
-                            const q = query(collection(db, "orders"), where("userId", "==", currentUser.id));
-                            userOrdersUnsubscribe = onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
-                        }
+                    if (userOrdersUnsubscribe) userOrdersUnsubscribe();
+                    if (adminUnsubscribe) adminUnsubscribe();
 
+                    if (currentUser.isAdmin) {
+                        const qOrders = query(collection(db, "orders"));
+                        adminUnsubscribe = onSnapshot(qOrders, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
+                        const qUsers = query(collection(db, "users"));
+                        onSnapshot(qUsers, snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User))));
                     } else {
-                         setUser(null);
+                        const q = query(collection(db, "orders"), where("userId", "==", currentUser.id));
+                        userOrdersUnsubscribe = onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
                     }
-                }, (error) => {
-                    console.error("Error listening to user document:", error);
-                    setUser(null);
-                });
-
+                } else {
+                     setUser(null);
+                }
             } else {
                 setFirebaseUser(null);
                 setUser(null);
@@ -202,6 +190,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     // --- AUTH ACTIONS ---
     const signupWithPhone = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => {
+        setIsSubmitting(true);
         const email = `${phone}@${DUMMY_DOMAIN}`;
 
         try {
@@ -228,30 +217,42 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 isProfileComplete: true,
             };
 
-            // This setDoc will trigger the onSnapshot listener, which will update the user state
             await setDoc(doc(db, "users", fbUser.uid), newUser);
             
+            // Step 4: Manually update the state
+            setUser(newUser);
+            setFirebaseUser(fbUser);
+            
+            toast({ title: `أهلاً بك، ${name}` });
+            router.replace('/home');
+
         } catch (error: any) {
-            console.error("Signup failed with error code:", error.code);
-            console.error("Full signup error:", error);
+            console.error("Signup Error:", error.code, error.message);
             if (error.code === 'auth/email-already-in-use') {
                 toast({ title: "فشل إنشاء الحساب", description: "رقم الهاتف مستخدم بالفعل.", variant: "destructive" });
             } else {
                 toast({ title: "فشل إنشاء الحساب", description: "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.", variant: "destructive" });
             }
-            throw error; // Re-throw the error to be handled by the UI if needed
+        } finally {
+            setIsSubmitting(false);
         }
     };
+    
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const loginWithPhone = async (phone: string, password:string) => {
+        setIsSubmitting(true);
         const email = `${phone}@${DUMMY_DOMAIN}`;
         try {
              await signInWithEmailAndPassword(auth, email, password);
-             // onAuthStateChanged will handle the rest of the user state update
+             // onAuthStateChanged will handle fetching user data and routing
+             toast({ title: `مرحباً بعودتك` });
+             router.replace('/home');
         } catch(error: any) {
-            console.error("Login failed with error:", error);
+            console.error("Login Error:", error.code, error.message);
             toast({ title: "فشل تسجيل الدخول", description: "الرجاء التأكد من رقم الهاتف وكلمة المرور.", variant: "destructive" });
-            throw error; // Re-throw the error to be caught by the UI
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
