@@ -92,52 +92,15 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const [cart, setCart] = useState<CartItem[]>([]);
     const [discount, setDiscount] = useState(0);
 
-    const [adminListeners, setAdminListeners] = useState<(() => void)[]>([]);
+    const [dataListeners, setDataListeners] = useState<(() => void)[]>([]);
 
     const orders = useMemo(() => {
         if (!user) return [];
-        const userOrders = allOrders.filter(o => o.userId === user.id);
-        return userOrders.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        // When admin, show all orders. When user, show only their orders.
+        const ordersToShow = user.isAdmin ? allOrders : allOrders.filter(o => o.userId === user.id);
+        return ordersToShow.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [user, allOrders]);
     
-    const getAdminStatus = async (userId: string) => {
-        if(!userId) return false;
-        const userDocRef = doc(db, 'users', userId);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-           return (userDocSnap.data() as User).isAdmin;
-        }
-        return false;
-    }
-
-    // Check for a saved session on initial load
-    useEffect(() => {
-        const checkSession = async () => {
-            setIsLoading(true);
-            const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
-            if (sessionData) {
-                const sessionUser = JSON.parse(sessionData) as User;
-                // Re-validate user data from Firestore
-                const userDocRef = doc(db, 'users', sessionUser.id);
-                const userDocSnap = await getDoc(userDocRef);
-                if (userDocSnap.exists()) {
-                    const freshUserData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
-                    setUser(freshUserData);
-                    if (freshUserData.isAdmin) {
-                        setupAdminListeners();
-                    }
-                } else {
-                    // Session is invalid, clear it
-                    localStorage.removeItem(SESSION_STORAGE_KEY);
-                    setUser(null);
-                }
-            }
-            setIsLoading(false);
-        };
-        checkSession();
-    }, []);
-
-
     // --- General Data Fetching (Public) ---
     useEffect(() => {
         const unsubProducts = onSnapshot(collection(db, "products"), (snapshot) => {
@@ -153,9 +116,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             setBanners(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
         });
 
-        // The user-specific and allOrders listener is now tied to whether the user is an admin or not.
-        // It will be set up in the `checkSession` effect or after login.
-
         return () => {
             unsubProducts();
             unsubCategories();
@@ -164,27 +124,61 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         };
     }, []);
 
+    // --- User Session and Data Listeners ---
+    useEffect(() => {
+        // Clear previous listeners when user changes or logs out
+        dataListeners.forEach(unsub => unsub());
+        setDataListeners([]);
 
-    // Function to setup admin-specific listeners
-    const setupAdminListeners = () => {
-        // Prevent setting up listeners multiple times
-        if (adminListeners.length > 0) return;
+        const setupListeners = (currentUser: User) => {
+            let listeners: (() => void)[] = [];
+            if (currentUser.isAdmin) {
+                // Admin: listens to all orders and all users
+                const unsubOrders = onSnapshot(query(collection(db, "orders")), (snapshot) => {
+                    setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+                });
+                const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+                    setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
+                });
+                listeners.push(unsubOrders, unsubUsers);
+            } else {
+                // Regular user: listens only to their own orders
+                const q = query(collection(db, "orders"), where("userId", "==", currentUser.id));
+                const unsubUserOrders = onSnapshot(q, (snapshot) => {
+                    setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+                });
+                listeners.push(unsubUserOrders);
+            }
+            setDataListeners(listeners);
+        };
 
-        const unsubOrders = onSnapshot(collection(db, "orders"), (snapshot) => {
-            setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
-        });
-        const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
-            setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
-        });
-        
-        setAdminListeners([unsubOrders, unsubUsers]);
-    };
-    
-    // Function to clear admin-specific listeners
-    const clearAdminListeners = () => {
-        adminListeners.forEach(unsub => unsub());
-        setAdminListeners([]);
-    }
+        const checkSession = async () => {
+            setIsLoading(true);
+            const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
+            if (sessionData) {
+                const sessionUser = JSON.parse(sessionData) as User;
+                const userDocRef = doc(db, 'users', sessionUser.id);
+                const userDocSnap = await getDoc(userDocRef);
+                if (userDocSnap.exists()) {
+                    const freshUserData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
+                    setUser(freshUserData);
+                    setupListeners(freshUserData);
+                } else {
+                    localStorage.removeItem(SESSION_STORAGE_KEY);
+                    setUser(null);
+                }
+            }
+            setIsLoading(false);
+        };
+
+        checkSession();
+
+        // Cleanup function for when the component unmounts
+        return () => {
+            dataListeners.forEach(unsub => unsub());
+        };
+    }, [user?.id]); // Re-run when user ID changes (login/logout)
+
 
     // --- Cart Persistence (Local Storage) ---
      useEffect(() => {
@@ -197,14 +191,14 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             setCart([]);
             setDiscount(0);
         }
-    }, [user]);
+    }, [user?.id]);
 
     useEffect(() => {
         if (user) {
             localStorage.setItem(`cart_${user.id}`, JSON.stringify(cart));
             localStorage.setItem(`discount_${user.id}`, JSON.stringify(discount));
         }
-    }, [cart, discount, user]);
+    }, [cart, discount, user?.id]);
 
 
     const dynamicCategories = React.useMemo(() => {
@@ -219,7 +213,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         }));
     }, [categories]);
 
-    // --- NEW SIMPLIFIED AUTH ---
 
     const checkUserExists = async (phone: string): Promise<boolean> => {
         const usersRef = collection(db, "users");
@@ -250,7 +243,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             const newUserData: Omit<User, 'id'> = {
                 phone: phone,
                 name: name,
-                email: "", // Not collected anymore
+                email: "", 
                 isProfileComplete: false,
                 isAdmin: isFirstUser, // First user becomes admin
                 usedCoupons: [],
@@ -264,19 +257,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         setUser(currentUser);
         localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentUser));
         toast({ title: `مرحباً بك، ${currentUser.name.split(' ')[0]}` });
-
-        // Setup admin listeners if the user is an admin
-        if (currentUser.isAdmin) {
-            setupAdminListeners();
-        } else {
-            // If user is not admin, we still need to fetch their own orders
-            const ordersQuery = query(collection(db, "orders"), where("userId", "==", currentUser.id));
-            const unsubOrders = onSnapshot(ordersQuery, (snapshot) => {
-                setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
-            });
-            // We set this as an admin listener to be cleaned up on logout
-            setAdminListeners([unsubOrders]);
-        }
     };
 
     const logout = async () => {
@@ -286,8 +266,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         }
         localStorage.removeItem(SESSION_STORAGE_KEY);
         setUser(null);
-        clearAdminListeners();
-        router.push('/login'); // Use push for a fresh navigation state
+        router.push('/login');
     };
     
     const completeUserProfile = async (userData: Pick<User, 'deliveryZone' | 'addresses'> & {name?: string}) => {
@@ -611,5 +590,3 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
-
-    
