@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useContext, useEffect, useState }from "react";
+import { useContext, useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
@@ -13,24 +13,29 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ShoppingCart } from "lucide-react";
+import { Loader2, ShoppingCart, KeyRound, Phone } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
-// Simple SVG for Google Icon
-const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="24px" height="24px" {...props}>
-        <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
-        <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
-        <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.222,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z" />
-        <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.99,36.596,44,31.1,44,24C44,22.659,43.862,21.35,43.611,20.083z" />
-    </svg>
-);
-
+declare global {
+    interface Window {
+        recaptchaVerifier?: RecaptchaVerifier;
+        confirmationResult?: ConfirmationResult;
+    }
+}
 
 export default function LoginPage() {
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [isSigningIn, setIsSigningIn] = useState(false);
   const context = useContext(AppContext);
   const router = useRouter();
-  
+  const { toast } = useToast();
+  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (context && !context.isLoading && context.user) {
         if(context.user.isProfileComplete) {
@@ -41,11 +46,70 @@ export default function LoginPage() {
     }
   }, [context?.isLoading, context?.user, router]);
   
-  const handleGoogleSignIn = async () => {
-    if (isSigningIn || !context) return;
+  const setupRecaptcha = () => {
+    if (!recaptchaContainerRef.current) return;
+    // Render only once
+    if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+    }
+    
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainerRef.current, {
+        'size': 'invisible',
+        'callback': () => {
+           // reCAPTCHA solved, allow signInWithPhoneNumber.
+        }
+    });
+  }
+
+  const onSendOtp = async () => {
+      if (!phone.match(/^07[0-9]{9}$/)) {
+          toast({ title: "رقم الهاتف غير صحيح", description: "الرجاء إدخال رقم هاتف عراقي صالح يبدأ بـ 07.", variant: "destructive" });
+          return;
+      }
+      
+      setIsSigningIn(true);
+      try {
+          setupRecaptcha();
+          const appVerifier = window.recaptchaVerifier!;
+          const cleanedPhone = phone.startsWith('0') ? phone.substring(1) : phone;
+          const fullPhoneNumber = `+964${cleanedPhone}`;
+          
+          const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, appVerifier);
+          window.confirmationResult = confirmationResult;
+          setStep('otp');
+          toast({ title: "تم إرسال الرمز", description: "الرجاء إدخال الرمز الذي وصلك عبر رسالة SMS." });
+
+      } catch (error: any) {
+          console.error("OTP Send Error:", error);
+          toast({ title: "فشل إرسال الرمز", description: "حدث خطأ ما. الرجاء التأكد من أنك قمت بتفعيل الفوترة في مشروع Firebase.", variant: "destructive" });
+          if(window.recaptchaVerifier) {
+            window.recaptchaVerifier.render().then((widgetId) => {
+              // @ts-ignore
+              window.grecaptcha.reset(widgetId);
+            });
+          }
+      } finally {
+          setIsSigningIn(false);
+      }
+  };
+  
+  const onVerifyOtp = async () => {
+    if (otp.length !== 6) {
+        toast({ title: "رمز التحقق غير صحيح", description: "الرجاء إدخال الرمز المكون من 6 أرقام.", variant: "destructive" });
+        return;
+    }
+    
     setIsSigningIn(true);
-    await context.signInWithGoogle();
-    setIsSigningIn(false);
+    try {
+        await window.confirmationResult?.confirm(otp);
+        // onAuthStateChanged will handle the redirect
+        toast({ title: "تم التحقق بنجاح!" });
+    } catch (error) {
+        console.error("OTP Verify Error:", error);
+        toast({ title: "فشل التحقق", description: "الرمز الذي أدخلته غير صحيح أو انتهت صلاحيته.", variant: "destructive" });
+    } finally {
+        setIsSigningIn(false);
+    }
   }
 
 
@@ -60,6 +124,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div id="recaptcha-container" ref={recaptchaContainerRef}></div>
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
             <ShoppingCart className="h-12 w-12 mx-auto text-primary" />
@@ -68,28 +133,74 @@ export default function LoginPage() {
         <Card>
             <CardHeader>
                 <CardTitle className="text-2xl">
-                    تسجيل الدخول أو إنشاء حساب
+                    {step === 'phone' ? 'تسجيل الدخول أو إنشاء حساب' : 'أدخل رمز التحقق'}
                 </CardTitle>
                 <CardDescription>
-                    استخدم حساب Google الخاص بك للمتابعة.
+                   {step === 'phone' 
+                    ? 'أدخل رقم هاتفك للمتابعة. سيتم إرسال رمز تحقق عبر رسالة SMS.'
+                    : `تم إرسال رمز إلى الرقم ${phone}. الرجاء إدخاله أدناه.`
+                   }
                 </CardDescription>
             </CardHeader>
-            <CardContent>
-                <Button variant="outline" className="w-full h-12 text-lg" onClick={handleGoogleSignIn} disabled={isSigningIn}>
+            <CardContent className="space-y-4">
+                {step === 'phone' ? (
+                     <div className="space-y-2">
+                        <Label htmlFor="phone">رقم الهاتف</Label>
+                        <div className="relative">
+                            <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Input
+                                id="phone"
+                                type="tel"
+                                placeholder="07xxxxxxxxx"
+                                required
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                dir="ltr"
+                                className="text-left pr-10 tracking-widest"
+                            />
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        <Label htmlFor="otp">رمز التحقق (OTP)</Label>
+                         <div className="relative">
+                            <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Input
+                                id="otp"
+                                type="text"
+                                placeholder="xxxxxx"
+                                required
+                                value={otp}
+                                onChange={(e) => setOtp(e.target.value)}
+                                dir="ltr"
+                                className="text-center tracking-[0.5em] pr-10 font-mono"
+                                maxLength={6}
+                            />
+                        </div>
+                    </div>
+                )}
+               
+                <Button 
+                    variant="default" 
+                    className="w-full h-11 text-lg" 
+                    onClick={step === 'phone' ? onSendOtp : onVerifyOtp} 
+                    disabled={isSigningIn}
+                >
                     {isSigningIn ? (
                         <Loader2 className="ml-2 h-6 w-6 animate-spin" />
                     ) : (
-                       <>
-                         <GoogleIcon className="ml-2" />
-                         <span>متابعة باستخدام Google</span>
-                       </>
+                       <span>{step === 'phone' ? 'إرسال رمز التحقق' : 'تحقق من الرمز'}</span>
                     )}
                 </Button>
+                
+                 {step === 'otp' && (
+                    <Button variant="link" onClick={() => setStep('phone')}>
+                        تغيير رقم الهاتف
+                    </Button>
+                 )}
             </CardContent>
         </Card>
       </div>
     </div>
   );
 }
-
-    

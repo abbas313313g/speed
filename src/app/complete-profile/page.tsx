@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, User, MapPin, Phone } from "lucide-react";
+import { Loader2, User, MapPin } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -32,7 +32,6 @@ export default function CompleteProfilePage() {
   const router = useRouter();
 
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
   const [deliveryZoneName, setDeliveryZoneName] = useState("");
   const [address, setAddress] = useState<Omit<Address, 'id' | 'name'> | null>(null);
   const [loading, setLoading] = useState(false);
@@ -45,9 +44,6 @@ export default function CompleteProfilePage() {
             router.replace('/login');
         } else if (context.user.isProfileComplete) {
             router.replace('/home');
-        } else {
-            // Pre-fill name from Google account
-            setName(context.user.name);
         }
     }
   }, [context, router]);
@@ -91,11 +87,6 @@ export default function CompleteProfilePage() {
         return;
     }
     
-    if (!phone.trim()) {
-        toast({ title: "خطأ", description: "الرجاء إدخال رقم الهاتف.", variant: "destructive" });
-        return;
-    }
-
     setLoading(true);
     const firstAddress: Address = {
         ...address,
@@ -106,7 +97,6 @@ export default function CompleteProfilePage() {
     try {
       await context.completeUserProfile({
         name,
-        phone,
         deliveryZone: selectedZone,
         addresses: [firstAddress],
       });
@@ -141,22 +131,6 @@ export default function CompleteProfilePage() {
                     />
                 </div>
             </div>
-             <div className="space-y-2">
-                <Label htmlFor="phone">رقم الهاتف</Label>
-                <div className="relative">
-                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                        id="phone"
-                        type="tel"
-                        placeholder="07xxxxxxxxx"
-                        required
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        dir="ltr"
-                        className="text-left pr-10 tracking-widest"
-                    />
-                </div>
-            </div>
             
             <div className="space-y-2">
                 <Label htmlFor="deliveryZone">منطقة التوصيل</Label>
@@ -186,7 +160,7 @@ export default function CompleteProfilePage() {
             </div>
         </CardContent>
         <CardContent>
-            <Button type="submit" className="w-full" disabled={loading || locationStatus !== 'success' || !name || !deliveryZoneName || !phone}>
+            <Button type="submit" className="w-full" disabled={loading || locationStatus !== 'success' || !name || !deliveryZoneName}>
             {loading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
             حفظ وبدء التسوق
             </Button>

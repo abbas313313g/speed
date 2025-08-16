@@ -13,8 +13,6 @@ import { ShoppingBasket } from 'lucide-react';
 import { 
     onAuthStateChanged, 
     signOut,
-    GoogleAuthProvider,
-    signInWithPopup,
     User as FirebaseUser
 } from 'firebase/auth';
 import { 
@@ -51,9 +49,8 @@ interface AppContextType {
   restaurants: Restaurant[];
   banners: Banner[];
   isLoading: boolean;
-  signInWithGoogle: () => Promise<void>;
   logout: () => void;
-  completeUserProfile: (userData: Pick<User, 'name' | 'phone' | 'deliveryZone' | 'addresses'>) => Promise<void>;
+  completeUserProfile: (userData: Pick<User, 'name' | 'deliveryZone' | 'addresses'>) => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
@@ -145,9 +142,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
                     const newUser: User = {
                         id: firebaseUser.uid,
-                        name: firebaseUser.displayName || "مستخدم جديد",
-                        email: firebaseUser.email!,
-                        phone: '',
+                        phone: firebaseUser.phoneNumber!,
+                        name: "",
+                        email: "",
                         isProfileComplete: false,
                         isAdmin: isFirstUser, // First user becomes admin
                         usedCoupons: [],
@@ -236,22 +233,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }, [categories]);
 
     // --- Auth & User ---
-    const signInWithGoogle = async () => {
-        const provider = new GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
-        
-        try {
-            // onAuthStateChanged will handle the user creation/retrieval
-            await signInWithPopup(auth, provider);
-        } catch (error: any) {
-            console.error("Google Sign-In Error: ", error);
-            if (error.code !== 'auth/popup-closed-by-user') {
-               toast({ title: "فشل تسجيل الدخول", description: "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.", variant: "destructive" });
-            }
-        }
-    };
-
-
     const logout = async () => {
         if(user) {
             localStorage.removeItem(`cart_${user.id}`);
@@ -261,12 +242,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         router.push('/login');
     };
     
-    const completeUserProfile = async (userData: Pick<User, 'name' | 'phone' | 'deliveryZone' | 'addresses'>) => {
+    const completeUserProfile = async (userData: Pick<User, 'name' | 'deliveryZone' | 'addresses'>) => {
         if (!user) return;
         const userDocRef = doc(db, "users", user.id);
         const updatedData = {
             name: userData.name,
-            phone: userData.phone,
             deliveryZone: userData.deliveryZone,
             addresses: userData.addresses,
             isProfileComplete: true,
@@ -546,7 +526,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         restaurants,
         banners,
         isLoading,
-        signInWithGoogle,
         logout,
         completeUserProfile,
         addAddress,
@@ -578,5 +557,3 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
-
-    
