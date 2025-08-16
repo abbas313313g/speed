@@ -21,7 +21,7 @@ export default function AdminLayout({
   const router = useRouter();
 
   // If AppContext is loading, show a full-screen loader
-  if (context?.isLoading) {
+  if (context?.isAuthLoading) {
     return (
        <div className="flex h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
          <Loader2 className="h-8 w-8 animate-spin text-primary" />

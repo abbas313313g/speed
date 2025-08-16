@@ -113,6 +113,3 @@ export const deliveryZones: DeliveryZone[] = [
     { name: 'زيونة', fee: 2000 },
     { name: 'الأعظمية', fee: 3500 },
 ];
-
-export const users: User[] = [
-]

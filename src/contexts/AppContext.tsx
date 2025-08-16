@@ -20,10 +20,20 @@ import {
     query,
     collection,
     getDocs,
-    where
+    where,
+    onSnapshot,
+    Unsubscribe
 } from 'firebase/firestore';
+import { 
+    getAuth, 
+    onAuthStateChanged,
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    signOut,
+    type User as AuthUser
+} from 'firebase/auth';
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
-import { db, storage } from '@/lib/firebase';
+import { db, auth, storage } from '@/lib/firebase';
 
 const TELEGRAM_BOT_TOKEN = "7601214758:AAFtkJRGqffuDLKPb8wuHm7r0pt_pDE7BSE";
 const TELEGRAM_CHAT_ID = "6626221973";
@@ -40,10 +50,10 @@ interface AppContextType {
   categories: Category[];
   restaurants: Restaurant[];
   banners: Banner[];
-  isLoading: boolean;
-  login: (phone: string, name?: string) => Promise<void>;
-  checkUserExists: (phone: string) => Promise<boolean>;
-  logout: () => void;
+  isAuthLoading: boolean;
+  loginWithEmail: (email: string, password: string) => Promise<void>;
+  signupWithEmail: (email: string, password: string, name: string) => Promise<void>;
+  logout: () => Promise<void>;
   completeUserProfile: (userData: Pick<User, 'deliveryZone' | 'addresses'> & {name?:string}) => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
@@ -70,96 +80,81 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
-const SESSION_STORAGE_KEY = 'speedshop_session';
-
-
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const router = useRouter();
     const { toast } = useToast();
     
-    const [isLoading, setIsLoading] = useState(true);
     const [user, setUser] = useState<User | null>(null);
-    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [isAuthLoading, setIsAuthLoading] = useState(true);
+    const [dataLoading, setDataLoading] = useState(true);
+
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
     const [banners, setBanners] = useState<Banner[]>([]);
+    
+    const [allUsers, setAllUsers] = useState<User[]>([]);
     const [allOrders, setAllOrders] = useState<Order[]>([]);
     
     const [cart, setCart] = useState<CartItem[]>([]);
     const [discount, setDiscount] = useState(0);
 
-    const orders = useMemo(() => {
-        if (!user) return [];
-        const ordersToShow = user.isAdmin ? allOrders : allOrders.filter(o => o.userId === user.id);
-        return ordersToShow.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [user, allOrders]);
-    
-    // --- Data Fetching (Direct Fetch, No Listeners) ---
-    const fetchData = useCallback(async (currentUser: User | null) => {
-        setIsLoading(true);
-        try {
-            // Public data
-            const productsSnap = await getDocs(collection(db, "products"));
-            setProducts(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
-            const categoriesSnap = await getDocs(collection(db, "categories"));
-            setCategories(categoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)));
-            const restaurantsSnap = await getDocs(collection(db, "restaurants"));
-            setRestaurants(restaurantsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant)));
-            const bannersSnap = await getDocs(collection(db, "banners"));
-            setBanners(bannersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
+    const isLoading = isAuthLoading || dataLoading;
 
-            // Conditional data
-            if (currentUser) {
-                if (currentUser.isAdmin) {
-                    const allOrdersSnap = await getDocs(collection(db, "orders"));
-                    setAllOrders(allOrdersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
-                    const allUsersSnap = await getDocs(collection(db, "users"));
-                    setAllUsers(allUsersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
-                } else {
-                    const userOrdersQuery = query(collection(db, "orders"), where("userId", "==", currentUser.id));
-                    const userOrdersSnap = await getDocs(userOrdersQuery);
-                    setAllOrders(userOrdersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+    // --- Auth Listener ---
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
+            if (authUser) {
+                const userDocRef = doc(db, 'users', authUser.uid);
+                const userDocSnap = await getDoc(userDocRef);
+                if (userDocSnap.exists()) {
+                    setUser({ id: userDocSnap.id, ...userDocSnap.data() } as User);
                 }
             } else {
-                setAllOrders([]);
-                setAllUsers([]);
+                setUser(null);
             }
-        } catch (error) {
-            console.error("Error fetching data:", error);
-            toast({ title: "خطأ في تحميل البيانات", description: "لا يمكن الاتصال بالخادم.", variant: "destructive" });
-        } finally {
-            setIsLoading(false);
-        }
-    }, [toast]);
+            setIsAuthLoading(false);
+        });
+        return () => unsubscribe();
+    }, []);
 
-
-    // --- User Session Check ---
+    // --- Data Listeners ---
     useEffect(() => {
-        const checkSession = async () => {
-            let sessionUser: User | null = null;
-            try {
-                const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
-                if (sessionData) {
-                    const parsedUser = JSON.parse(sessionData) as User;
-                    const userDocRef = doc(db, 'users', parsedUser.id);
-                    const userDocSnap = await getDoc(userDocRef);
-                    if (userDocSnap.exists()) {
-                        sessionUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
-                    } else {
-                        localStorage.removeItem(SESSION_STORAGE_KEY);
-                    }
-                }
-            } catch (error) {
-                console.error("Error checking session:", error);
+        setDataLoading(true);
+        const unsubs: Unsubscribe[] = [];
+        
+        // Public data listeners
+        unsubs.push(onSnapshot(collection(db, "products"), snap => setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)))));
+        unsubs.push(onSnapshot(collection(db, "categories"), snap => setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)))));
+        unsubs.push(onSnapshot(collection(db, "restaurants"), snap => setRestaurants(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant)))));
+        unsubs.push(onSnapshot(collection(db, "banners"), snap => setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)))));
+
+        if (user) {
+            if (user.isAdmin) {
+                // Admin data listeners
+                unsubs.push(onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)))));
+                unsubs.push(onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)))));
+            } else {
+                // Regular user data listener for their own orders
+                const q = query(collection(db, "orders"), where("userId", "==", user.id));
+                unsubs.push(onSnapshot(q, snap => setAllOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)))));
             }
-            setUser(sessionUser);
-            await fetchData(sessionUser);
+        } else {
+             setAllOrders([]);
+             setAllUsers([]);
+        }
+        setDataLoading(false);
+
+        // Cleanup function
+        return () => {
+            unsubs.forEach(unsub => unsub());
         };
+    }, [user?.id, user?.isAdmin]);
 
-        checkSession();
-    }, [fetchData]);
-
+    const orders = useMemo(() => {
+        if (!user) return [];
+        return allOrders.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [user, allOrders]);
 
     // --- Cart Persistence (Local Storage) ---
      useEffect(() => {
@@ -181,7 +176,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [cart, discount, user?.id]);
 
-
     const dynamicCategories = React.useMemo(() => {
         const iconMap = initialCategoriesData.reduce((acc, cat) => {
             acc[cat.iconName] = cat.icon;
@@ -194,49 +188,35 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         }));
     }, [categories]);
 
-
-    const checkUserExists = async (phone: string): Promise<boolean> => {
-        const usersRef = collection(db, "users");
-        const q = query(usersRef, where("phone", "==", phone));
-        const querySnapshot = await getDocs(q);
-        return !querySnapshot.empty;
+    // --- AUTH ACTIONS ---
+    const loginWithEmail = async (email: string, password: string) => {
+        await signInWithEmailAndPassword(auth, email, password);
+        toast({ title: `مرحباً بعودتك` });
     };
 
-    const login = async (phone: string, name?: string) => {
-        const usersRef = collection(db, "users");
-        const q = query(usersRef, where("phone", "==", phone));
-        const querySnapshot = await getDocs(q);
+    const signupWithEmail = async (email: string, password: string, name: string) => {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const { user: authUser } = userCredential;
 
-        let currentUser: User;
+        const usersQuery = query(collection(db, 'users'));
+        const usersSnapshot = await getDocs(usersQuery);
+        const isFirstUser = usersSnapshot.size === 0;
 
-        if (!querySnapshot.empty) {
-            const userDoc = querySnapshot.docs[0];
-            currentUser = { id: userDoc.id, ...userDoc.data() } as User;
-        } else {
-            if (!name) throw new Error("Name is required for a new user.");
-
-            const usersQuery = query(collection(db, 'users'));
-            const usersSnapshot = await getDocs(usersQuery);
-            const isFirstUser = usersSnapshot.empty;
-
-            const newUserData: Omit<User, 'id'> = {
-                phone: phone,
-                name: name,
-                email: "", 
-                isProfileComplete: false,
-                isAdmin: isFirstUser,
-                usedCoupons: [],
-                addresses: [],
-                deliveryZone: { name: '', fee: 0 },
-            };
-            const newUserDocRef = await addDoc(collection(db, "users"), newUserData);
-            currentUser = { id: newUserDocRef.id, ...newUserData };
-        }
+        const newUserData: User = {
+            id: authUser.uid,
+            name: name,
+            email: authUser.email || "",
+            phone: authUser.phoneNumber || "",
+            isProfileComplete: false,
+            isAdmin: isFirstUser,
+            usedCoupons: [],
+            addresses: [],
+            deliveryZone: { name: '', fee: 0 },
+        };
         
-        setUser(currentUser);
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentUser));
-        await fetchData(currentUser); // Fetch data for the new user
-        toast({ title: `مرحباً بك، ${currentUser.name.split(' ')[0]}` });
+        await setDoc(doc(db, "users", authUser.uid), newUserData);
+        setUser(newUserData);
+        toast({ title: `أهلاً بك، ${name}` });
     };
 
     const logout = async () => {
@@ -244,9 +224,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             localStorage.removeItem(`cart_${user.id}`);
             localStorage.removeItem(`discount_${user.id}`);
         }
-        localStorage.removeItem(SESSION_STORAGE_KEY);
+        await signOut(auth);
         setUser(null);
-        await fetchData(null); // Clear user-specific data
         router.push('/login');
     };
     
@@ -257,8 +236,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         await updateDoc(userDocRef, updatedData);
         const updatedUser = { ...user, ...updatedData };
         setUser(updatedUser);
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(updatedUser));
-        await fetchData(updatedUser);
     }
     
     const addAddress = async (address: Omit<Address, 'id'>) => {
@@ -269,10 +246,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         await updateDoc(userDocRef, { addresses: updatedAddresses });
         const updatedUser = { ...user, addresses: updatedAddresses };
         setUser(updatedUser);
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(updatedUser));
         toast({ title: "تم إضافة العنوان بنجاح" });
     }
 
+    // --- CART ACTIONS ---
     const clearCartAndAdd = (product: Product, quantity: number = 1) => {
         const newItem = { product, quantity };
         setCart([newItem]);
@@ -319,9 +296,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     const clearCart = () => { setCart([]); setDiscount(0); };
     
+    // --- COMPUTED VALUES ---
     const totalCartPrice = useMemo(() => cart.reduce((total, item) => total + item.product.price * item.quantity, 0), [cart]);
     const deliveryFee = useMemo(() => (cart.length > 0 ? (user?.deliveryZone?.fee ?? 3000) : 0), [cart, user]);
     
+    // --- ORDER ACTIONS ---
     const sendOrderToTelegram = async (order: Order) => {
         if (!user) return;
         const itemsText = order.items.map(item => `${item.product.name} (x${item.quantity})`).join('\\n');
@@ -373,16 +352,15 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         
         const docRef = await addDoc(collection(db, "orders"), newOrderData);
         await sendOrderToTelegram({ ...newOrderData, id: docRef.id });
-        setAllOrders(prev => [{...newOrderData, id: docRef.id}, ...prev]);
         clearCart();
     };
 
     const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
         const orderDocRef = doc(db, "orders", orderId);
         await updateDoc(orderDocRef, { status });
-        setAllOrders(prev => prev.map(o => o.id === orderId ? {...o, status} : o));
     };
     
+    // --- ADMIN ACTIONS ---
     const uploadImage = async (dataUrl: string, path: string): Promise<string> => {
         const storageRef = ref(storage, path);
         const snapshot = await uploadString(storageRef, dataUrl, 'data_url');
@@ -395,8 +373,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             : productData.image;
 
         const newProductData: Omit<Product, 'id'> = { ...productData, image: imageUrl, bestSeller: Math.random() < 0.2 };
-        const docRef = await addDoc(collection(db, "products"), newProductData);
-        setProducts(prev => [{...newProductData, id: docRef.id}, ...prev]);
+        await addDoc(collection(db, "products"), newProductData);
         toast({ title: "تمت إضافة المنتج بنجاح" });
     }
 
@@ -405,19 +382,16 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const productDocRef = doc(db, "products", id);
         const imageUrl = productData.image.startsWith('data:') ? await uploadImage(productData.image, `products/${id}`) : productData.image;
         await updateDoc(productDocRef, { ...productData, image: imageUrl });
-        setProducts(prev => prev.map(p => p.id === id ? { ...p, ...productData, image: imageUrl } : p));
         toast({ title: "تم تحديث المنتج بنجاح" });
     }
 
     const deleteProduct = async (productId: string) => {
         await deleteDoc(doc(db, "products", productId));
-        setProducts(prev => prev.filter(p => p.id !== productId));
         toast({ title: "تم حذف المنتج بنجاح", variant: "destructive" });
     }
 
     const addCategory = async (categoryData: Omit<Category, 'id' | 'icon'>) => {
-        const docRef = await addDoc(collection(db, "categories"), categoryData);
-        setCategories(prev => [{...categoryData, id: docRef.id }, ...prev]);
+        await addDoc(collection(db, "categories"), categoryData);
         toast({ title: "تمت إضافة القسم بنجاح" });
     }
 
@@ -425,13 +399,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const { id, ...categoryData } = updatedCategory;
         const categoryDocRef = doc(db, "categories", id);
         await updateDoc(categoryDocRef, categoryData);
-        setCategories(prev => prev.map(c => c.id === id ? { ...c, ...categoryData } : c));
         toast({ title: "تم تحديث القسم بنجاح" });
     }
 
     const deleteCategory = async (categoryId: string) => {
         await deleteDoc(doc(db, "categories", categoryId));
-        setCategories(prev => prev.filter(c => c.id !== categoryId));
         toast({ title: "تم حذف القسم بنجاح", variant: "destructive" });
     }
 
@@ -440,8 +412,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         if (imageUrl && imageUrl.startsWith('data:')) {
             imageUrl = await uploadImage(imageUrl, `restaurants/res-${Date.now()}`);
         }
-        const docRef = await addDoc(collection(db, "restaurants"), { ...restaurantData, image: imageUrl });
-        setRestaurants(prev => [{ ...restaurantData, image: imageUrl, id: docRef.id }, ...prev]);
+        await addDoc(collection(db, "restaurants"), { ...restaurantData, image: imageUrl });
         toast({ title: "تمت إضافة المتجر بنجاح" });
     }
 
@@ -453,13 +424,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         }
         const restaurantDocRef = doc(db, "restaurants", id);
         await updateDoc(restaurantDocRef, { ...restaurantData, image: imageUrl });
-        setRestaurants(prev => prev.map(r => r.id === id ? { ...r, ...restaurantData, image: imageUrl } : r));
         toast({ title: "تم تحديث المتجر بنجاح" });
     }
 
     const deleteRestaurant = async (restaurantId: string) => {
         await deleteDoc(doc(db, "restaurants", restaurantId));
-        setRestaurants(prev => prev.filter(r => r.id !== restaurantId));
         toast({ title: "تم حذف المتجر بنجاح", variant: "destructive" });
     }
   
@@ -467,8 +436,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const imageUrl = bannerData.image.startsWith('data:') 
             ? await uploadImage(bannerData.image, `banners/banner-${Date.now()}`)
             : bannerData.image;
-        const docRef = await addDoc(collection(db, "banners"), { ...bannerData, image: imageUrl });
-        setBanners(prev => [{ ...bannerData, image: imageUrl, id: docRef.id }, ...prev]);
+        await addDoc(collection(db, "banners"), { ...bannerData, image: imageUrl });
         toast({ title: "تمت إضافة البنر بنجاح" });
     }
 
@@ -477,8 +445,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const couponCode = coupon.toUpperCase();
 
         const userDocRef = doc(db, "users", user.id);
-        const userDoc = await getDoc(userDocRef);
-        const userData = userDoc.data() as User;
+        const userDocSnap = await getDoc(userDocRef);
+        const userData = userDocSnap.data() as User;
 
         if (userData.usedCoupons?.includes(couponCode)) {
             toast({ title: "الكود مستخدم بالفعل", variant: "destructive" });
@@ -506,9 +474,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         categories: dynamicCategories,
         restaurants,
         banners,
-        isLoading,
-        login,
-        checkUserExists,
+        isAuthLoading: isLoading,
+        loginWithEmail,
+        signupWithEmail,
         logout,
         completeUserProfile,
         addAddress,

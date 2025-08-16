@@ -11,9 +11,7 @@ export default function LandingPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // This page is now just a loading/redirect page.
-    // It will redirect to /login if not authenticated, or /home if authenticated.
-    if (context && !context.isLoading) {
+    if (context && !context.isAuthLoading) {
       if (context.user) {
         if (context.user.isProfileComplete) {
             router.replace("/home");
