@@ -103,7 +103,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     useEffect(() => {
         let userOrdersUnsubscribe: Unsubscribe | null = null;
         let adminUnsubscribe: Unsubscribe | null = null;
-
+    
         const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
             if (fbUser) {
                 setFirebaseUser(fbUser);
@@ -113,11 +113,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     if (userDocSnap.exists()) {
                         const currentUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
                         setUser(currentUser);
-
+    
                         // Clean up previous listeners before attaching new ones
                         if (userOrdersUnsubscribe) userOrdersUnsubscribe();
                         if (adminUnsubscribe) adminUnsubscribe();
-
+    
                         if (currentUser.isAdmin) {
                             const qOrders = query(collection(db, "orders"));
                             adminUnsubscribe = onSnapshot(qOrders, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
@@ -128,16 +128,14 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                             userOrdersUnsubscribe = onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
                         }
                     } else {
-                         // This can happen if the user is deleted from Firestore but not Auth
-                         await signOut(auth);
-                         setUser(null);
-                         setFirebaseUser(null);
+                        // This might happen if user is deleted from firestore but not auth
+                        await signOut(auth);
+                        setUser(null);
+                        setFirebaseUser(null);
                     }
                 } catch (error) {
                     console.error("Error fetching user document:", error);
                     await signOut(auth);
-                } finally {
-                    setIsAuthLoading(false);
                 }
             } else {
                 setFirebaseUser(null);
@@ -146,10 +144,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 setAllUsers([]);
                 if (userOrdersUnsubscribe) userOrdersUnsubscribe();
                 if (adminUnsubscribe) adminUnsubscribe();
-                setIsAuthLoading(false);
             }
+            // Crucially, set loading to false only after all async operations are done
+            setIsAuthLoading(false);
         });
-
+    
         const unsubsPublic = [
             onSnapshot(collection(db, "products"), snap => setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)))),
             onSnapshot(collection(db, "categories"), snap => setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)))),

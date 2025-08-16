@@ -48,21 +48,22 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // هذا التأثير سيراقب حالة المستخدم
-    // إذا انتهى التحميل الأولي وكان هناك مستخدم، سيتم التوجيه
-    if (!context?.isAuthLoading && context?.firebaseUser) {
+    // If the app is done loading the initial auth state and the user is logged in,
+    // redirect them away from the login page.
+    if (context && !context.isAuthLoading && context.firebaseUser) {
         router.replace('/home');
     }
-  }, [context?.isAuthLoading, context?.firebaseUser, router]);
+  }, [context?.isAuthLoading, context?.firebaseUser, router, context]);
 
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     if (!context) return;
     setIsSubmittingLogin(true);
+    // The login function will trigger onAuthStateChanged, which will update the context.
+    // The useEffect above will then handle the redirect.
     await context.loginWithPhone(loginPhone, loginPassword);
     setIsSubmittingLogin(false);
-    // لا تقم بالتوجيه هنا، useEffect سيهتم بذلك
   }
 
   const handleGetLocation = () => {
@@ -100,14 +101,15 @@ export default function LoginPage() {
     }
     
     setIsSubmittingSignup(true);
+    // The signup function will trigger onAuthStateChanged, which will update the context.
+    // The useEffect above will then handle the redirect.
     await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
     setIsSubmittingSignup(false);
-     // لا تقم بالتوجيه هنا، useEffect سيهتم بذلك
   }
 
   const isSignupDisabled = isSubmittingSignup || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
 
-  // أظهر شاشة التحميل فقط أثناء التحميل الأولي للتطبيق
+  // Show a loader while the initial auth state is being determined.
   if (context?.isAuthLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
@@ -117,13 +119,13 @@ export default function LoginPage() {
     );
   }
 
-  // إذا انتهى التحميل الأولي وكان المستخدم موجودًا، useEffect سيقوم بالتوجيه
-  // لذا يمكن إظهار null هنا لمنع ظهور النموذج للحظة
+  // If the user is already logged in, the useEffect will redirect them.
+  // We can show null here to avoid flashing the login form.
   if (context?.firebaseUser) {
     return null;
   }
   
-  // إذا انتهى التحميل الأولي ولا يوجد مستخدم، أظهر النموذج
+  // If loading is done and there's no user, show the login form.
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">

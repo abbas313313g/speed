@@ -11,14 +11,20 @@ export default function LandingPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // هذه الصفحة وظيفتها فقط الانتظار ثم التوجيه لصفحة تسجيل الدخول
-    // صفحة تسجيل الدخول هي التي ستقرر توجيه المستخدم إلى الرئيسية أم لا
+    // This page's only job is to wait for the initial auth state to be determined,
+    // then redirect to the correct part of the app.
     if (context && !context.isAuthLoading) {
-      router.replace("/login");
+      if (context.firebaseUser) {
+        // If user is logged in, go to the main app page.
+        router.replace("/home");
+      } else {
+        // If no user, go to the login page.
+        router.replace("/login");
+      }
     }
-  }, [context, context?.isAuthLoading, router]);
+  }, [context, context?.isAuthLoading, context?.firebaseUser, router]);
 
-  // أظهر دائمًا شاشة التحميل
+  // Always show a loading screen while we determine the auth state.
   return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
