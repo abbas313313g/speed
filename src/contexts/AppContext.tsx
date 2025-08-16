@@ -128,21 +128,28 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     useEffect(() => {
         const checkSession = async () => {
             setIsLoading(true);
-            const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
-            if (sessionData) {
-                const sessionUser = JSON.parse(sessionData) as User;
-                const userDocRef = doc(db, 'users', sessionUser.id);
-                const userDocSnap = await getDoc(userDocRef);
-                if (userDocSnap.exists()) {
-                    const freshUserData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
-                    setUser(freshUserData);
-                } else {
-                    localStorage.removeItem(SESSION_STORAGE_KEY);
-                    setUser(null);
+            try {
+                const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
+                if (sessionData) {
+                    const sessionUser = JSON.parse(sessionData) as User;
+                    const userDocRef = doc(db, 'users', sessionUser.id);
+                    const userDocSnap = await getDoc(userDocRef);
+                    if (userDocSnap.exists()) {
+                        const freshUserData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
+                        setUser(freshUserData);
+                    } else {
+                        // User in session not found in DB, clear session
+                        localStorage.removeItem(SESSION_STORAGE_KEY);
+                        setUser(null);
+                    }
                 }
+            } catch (error) {
+                console.error("Error checking session:", error);
+                setUser(null);
+            } finally {
+                setIsLoading(false);
+                setIsSessionChecked(true);
             }
-            setIsLoading(false);
-            setIsSessionChecked(true);
         };
 
         checkSession();
@@ -170,17 +177,17 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 // Admin: listens to all orders and all users
                 const unsubOrders = onSnapshot(query(collection(db, "orders")), (snapshot) => {
                     setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
-                });
+                }, (error) => console.error("Admin orders listener error:", error));
                 const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
                     setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
-                });
+                }, (error) => console.error("Admin users listener error:", error));
                 newListeners.push(unsubOrders, unsubUsers);
             } else {
                 // Regular user: listens only to their own orders
                 const q = query(collection(db, "orders"), where("userId", "==", user.id));
                 const unsubUserOrders = onSnapshot(q, (snapshot) => {
                     setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
-                });
+                }, (error) => console.error("User orders listener error:", error));
                 newListeners.push(unsubUserOrders);
             }
             dataListeners.current = newListeners;
@@ -604,5 +611,3 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
-
-    
