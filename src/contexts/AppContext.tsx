@@ -492,18 +492,20 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const addRestaurant = async (restaurantData: Omit<Restaurant, 'id'>) => {
-         const imageUrl = restaurantData.image.startsWith('data:') 
-            ? await uploadImage(restaurantData.image, `restaurants/res-${Date.now()}`)
-            : restaurantData.image;
+        let imageUrl = restaurantData.image;
+        if (imageUrl && imageUrl.startsWith('data:')) {
+            imageUrl = await uploadImage(imageUrl, `restaurants/res-${Date.now()}`);
+        }
         await addDoc(collection(db, "restaurants"), { ...restaurantData, image: imageUrl });
         toast({ title: "تمت إضافة المتجر بنجاح" });
     }
 
     const updateRestaurant = async (updatedRestaurant: Restaurant) => {
         const { id, ...restaurantData } = updatedRestaurant;
-        const imageUrl = restaurantData.image.startsWith('data:') 
-            ? await uploadImage(restaurantData.image, `restaurants/${id}`)
-            : restaurantData.image;
+        let imageUrl = restaurantData.image;
+        if (imageUrl && imageUrl.startsWith('data:')) {
+            imageUrl = await uploadImage(imageUrl, `restaurants/${id}`);
+        }
         const restaurantDocRef = doc(db, "restaurants", id);
         await updateDoc(restaurantDocRef, { ...restaurantData, image: imageUrl });
         toast({ title: "تم تحديث المتجر بنجاح" });
