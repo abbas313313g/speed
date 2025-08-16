@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useContext, useState, FormEvent } from "react";
+import { useContext, useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,7 @@ export default function LoginPage() {
   const [deliveryZoneName, setDeliveryZoneName] = useState("");
   const [address, setAddress] = useState<Omit<Address, 'id' | 'name'> | null>(null);
   
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   
@@ -44,22 +45,25 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  if (context?.user) {
-      router.replace('/home');
-  }
+  useEffect(() => {
+    if (!context?.isAuthLoading && context?.firebaseUser) {
+        router.replace('/home');
+    }
+  }, [context?.isAuthLoading, context?.firebaseUser, router]);
+
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     if (!context) return;
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
         await context.loginWithPhone(loginPhone, loginPassword);
         toast({ title: `مرحباً بعودتك` });
         router.replace('/home');
     } catch (error: any) {
-        toast({ title: "فشل تسجيل الدخول", description: error.message, variant: "destructive" });
+        toast({ title: "فشل تسجيل الدخول", description: "الرجاء التأكد من رقم الهاتف وكلمة المرور.", variant: "destructive" });
     } finally {
-        setIsLoading(false);
+        setIsSubmitting(false);
     }
   }
 
@@ -97,27 +101,22 @@ export default function LoginPage() {
       return;
     }
     
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
-        const firstAddress: Address = {
-            ...address,
-            id: `address-${Date.now()}`,
-            name: 'العنوان الأساسي'
-        }
-        await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, [firstAddress]);
+        await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
         toast({ title: `أهلاً بك، ${signupName}` });
         router.replace('/home');
     } catch (error: any) {
-        toast({ title: "فشل إنشاء الحساب", description: error.message, variant: "destructive" });
+        toast({ title: "فشل إنشاء الحساب", description: "قد يكون رقم الهاتف مستخدماً بالفعل.", variant: "destructive" });
     } finally {
-        setIsLoading(false);
+        setIsSubmitting(false);
     }
   }
 
-  const isSignupDisabled = isLoading || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
+  const isSignupDisabled = isSubmitting || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
 
 
-  if (context?.isAuthLoading || context?.user) {
+  if (context?.isAuthLoading || context?.firebaseUser) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
@@ -160,8 +159,8 @@ export default function LoginPage() {
                                     <Input id="login-password" type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="pr-10" dir="ltr"/>
                                 </div>
                             </div>
-                            <Button type="submit" className="w-full h-11 text-lg" disabled={isLoading}>
-                                {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : 'تسجيل الدخول'}
+                            <Button type="submit" className="w-full h-11 text-lg" disabled={isSubmitting}>
+                                {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : 'تسجيل الدخول'}
                             </Button>
                         </form>
                     </CardContent>
@@ -223,7 +222,7 @@ export default function LoginPage() {
                                 {locationStatus === 'error' && <p className="text-sm text-destructive">مشاركة موقعك مطلوب لإكمال التسجيل.</p>}
                             </div>
                             <Button type="submit" className="w-full h-11 text-lg" disabled={isSignupDisabled}>
-                                {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : 'إنشاء حساب'}
+                                {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : 'إنشاء حساب'}
                             </Button>
                         </form>
                     </CardContent>
@@ -234,3 +233,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    

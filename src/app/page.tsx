@@ -12,7 +12,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (context && !context.isAuthLoading) {
-      if (context.user) {
+      if (context.firebaseUser) {
         router.replace("/home");
       } else {
         router.replace("/login");
@@ -28,3 +28,5 @@ export default function LandingPage() {
       </div>
   );
 }
+
+    

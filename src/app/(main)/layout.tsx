@@ -17,17 +17,15 @@ export default function MainAppLayout({
   
   useEffect(() => {
     if (context?.isAuthLoading) {
-      return; // Wait for auth to load
+      return; 
     }
 
-    if (!context?.user) {
-      // If no user, redirect to login
+    if (!context?.firebaseUser) {
       router.replace('/login');
     }
+    
+  }, [context?.isAuthLoading, context?.firebaseUser, router]);
 
-  }, [context?.isAuthLoading, context?.user, router]);
-
-  // Show a loading screen while the context is loading OR if there is no user yet
   if (context?.isAuthLoading || !context?.user) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
@@ -44,3 +42,5 @@ export default function MainAppLayout({
     </div>
   );
 }
+
+    

@@ -1,9 +1,9 @@
 
 export interface User {
-  id: string;
+  id: string; // This will be the Firebase Auth UID
   name: string;
   phone: string;
-  password?: string; // Should be handled securely, not stored/transmitted plain-text
+  // password should not be stored here
   deliveryZone: DeliveryZone;
   addresses: Address[];
   isAdmin: boolean;
@@ -78,3 +78,5 @@ export interface Order {
     revenue?: number;
     userId: string;
 }
+
+    

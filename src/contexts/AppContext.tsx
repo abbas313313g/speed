@@ -1,16 +1,21 @@
 
 "use client";
 
-import React, { createContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
+import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import type { User, CartItem, Product, Order, OrderStatus, Category, Restaurant, Banner, Address, DeliveryZone } from '@/lib/types';
-import { 
-    categories as initialCategoriesData, 
-    deliveryZones
-} from '@/lib/mock-data';
+import { categories as initialCategoriesData } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
 import { ShoppingBasket } from 'lucide-react';
+import { auth, db, storage } from '@/lib/firebase';
+import { 
+    createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword, 
+    onAuthStateChanged, 
+    signOut,
+    User as FirebaseAuthUser
+} from 'firebase/auth';
 import { 
     doc, 
     getDoc, 
@@ -25,16 +30,15 @@ import {
     onSnapshot,
     Unsubscribe
 } from 'firebase/firestore';
-import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
-import { db, storage } from '@/lib/firebase';
+import { ref, uploadString, getDownloadURL } from "firebase/storage";
 
 const TELEGRAM_BOT_TOKEN = "7601214758:AAFtkJRGqffuDLKPb8wuHm7r0pt_pDE7BSE";
 const TELEGRAM_CHAT_ID = "6626221973";
 
-
 // --- App Context ---
 interface AppContextType {
   user: User | null;
+  firebaseUser: FirebaseAuthUser | null;
   allUsers: User[];
   products: Product[];
   cart: CartItem[];
@@ -44,8 +48,9 @@ interface AppContextType {
   restaurants: Restaurant[];
   banners: Banner[];
   isAuthLoading: boolean;
+  isLoading: boolean;
+  signupWithPhone: (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => Promise<void>;
   loginWithPhone: (phone: string, password: string) => Promise<void>;
-  signupWithPhone: (phone: string, password: string, name: string, deliveryZone: DeliveryZone, addresses: Address[]) => Promise<void>;
   logout: () => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
@@ -72,16 +77,16 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
-const SESSION_KEY = 'speed-shop-session';
+const DUMMY_DOMAIN = "speedshop.app";
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const router = useRouter();
     const { toast } = useToast();
     
+    const [firebaseUser, setFirebaseUser] = useState<FirebaseAuthUser | null>(null);
     const [user, setUser] = useState<User | null>(null);
     const [isAuthLoading, setIsAuthLoading] = useState(true);
-    const [isSessionChecked, setIsSessionChecked] = useState(false);
-    const [dataLoading, setDataLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
 
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -93,86 +98,63 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     
     const [cart, setCart] = useState<CartItem[]>([]);
     const [discount, setDiscount] = useState(0);
-    const [userSpecificUnsubs, setUserSpecificUnsubs] = useState<Unsubscribe[]>([]);
 
-
-    // --- Data Listeners Setup ---
+    // --- Auth Listener ---
     useEffect(() => {
-        setDataLoading(true);
+        const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+            setIsAuthLoading(true);
+            if (fbUser) {
+                setFirebaseUser(fbUser);
+                const userDocRef = doc(db, 'users', fbUser.uid);
+                const userDocSnap = await getDoc(userDocRef);
+                if (userDocSnap.exists()) {
+                    setUser({ id: userDocSnap.id, ...userDocSnap.data() } as User);
+                } else {
+                    // This case should ideally not happen if signup is atomic
+                    setUser(null);
+                }
+            } else {
+                setFirebaseUser(null);
+                setUser(null);
+            }
+            setIsAuthLoading(false);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    // --- Data Listeners ---
+    useEffect(() => {
+        setIsLoading(true);
         const unsubs: Unsubscribe[] = [];
         
-        // Public data listeners
         unsubs.push(onSnapshot(collection(db, "products"), snap => setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)))));
         unsubs.push(onSnapshot(collection(db, "categories"), snap => setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)))));
         unsubs.push(onSnapshot(collection(db, "restaurants"), snap => setRestaurants(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant)))));
         unsubs.push(onSnapshot(collection(db, "banners"), snap => setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)))));
 
-        setDataLoading(false);
+        if (user) {
+            if (user.isAdmin) {
+                unsubs.push(onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
+                unsubs.push(onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))));
+            } else {
+                const q = query(collection(db, "orders"), where("userId", "==", user.id));
+                unsubs.push(onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
+            }
+        } else {
+            setAllOrders([]);
+            setAllUsers([]);
+        }
+        
+        setIsLoading(false);
 
-        // Cleanup function for public listeners
         return () => {
             unsubs.forEach(unsub => unsub());
         };
-    }, []);
+    }, [user]);
 
-    // --- Auth & User-Specific Data Listener ---
-     useEffect(() => {
-        // First, check for a session in localStorage
-        const storedSession = localStorage.getItem(SESSION_KEY);
-        if (storedSession) {
-            const sessionUser = JSON.parse(storedSession);
-            setUser(sessionUser);
-        }
-        setIsAuthLoading(false);
-        setIsSessionChecked(true); // Mark session check as complete
-    }, []);
-    
-    useEffect(() => {
-        if (!isSessionChecked) return; // Don't run until session check is done
-        
-        // Clean up previous user's listeners
-        userSpecificUnsubs.forEach(unsub => unsub());
-        setUserSpecificUnsubs([]);
+    const orders = allOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-        if (user?.id) {
-             const newUnsubs: Unsubscribe[] = [];
-
-             // Listen to the user's own document for real-time updates (e.g., new addresses)
-             const userDocUnsubscribe = onSnapshot(doc(db, 'users', user.id), (userDocSnap) => {
-                 if (userDocSnap.exists()) {
-                     const updatedUserData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
-                     setUser(updatedUserData);
-                      // Also update the session in localStorage
-                     localStorage.setItem(SESSION_KEY, JSON.stringify(updatedUserData));
-                 } else {
-                     // User was deleted from DB, log them out
-                     logout();
-                 }
-             });
-             newUnsubs.push(userDocUnsubscribe);
-
-            // Setup listeners based on role
-            if (user.isAdmin) {
-                newUnsubs.push(onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
-                newUnsubs.push(onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))));
-            } else {
-                const q = query(collection(db, "orders"), where("userId", "==", user.id));
-                newUnsubs.push(onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
-            }
-            setUserSpecificUnsubs(newUnsubs);
-        } else {
-            // No user, clear all data
-             setAllOrders([]);
-             setAllUsers([]);
-        }
-    }, [user?.id, isSessionChecked]); // Rerun when user.id or session check status changes
-
-    const orders = useMemo(() => {
-        if (!user) return [];
-        return allOrders.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [user, allOrders]);
-
-    // --- Cart Persistence (Local Storage) ---
+    // --- Cart Persistence ---
      useEffect(() => {
         if (user) {
             const cartData = localStorage.getItem(`cart_${user.id}`);
@@ -205,64 +187,40 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }, [categories]);
 
     // --- AUTH ACTIONS ---
-    const loginWithPhone = async (phone: string, password: string) => {
-        const q = query(collection(db, "users"), where("phone", "==", phone));
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-            throw new Error("رقم الهاتف غير مسجل.");
-        }
-
-        const userDoc = querySnapshot.docs[0];
-        const userData = { id: userDoc.id, ...userDoc.data() } as User;
-
-        // In a real app, password should be hashed and compared securely.
-        // For this simplified version, we're assuming plain text or a simple check.
-        if (userData.password !== password) {
-             throw new Error("كلمة المرور غير صحيحة.");
-        }
-        
-        setUser(userData);
-        localStorage.setItem(SESSION_KEY, JSON.stringify(userData));
-    };
-
-    const signupWithPhone = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, addresses: Address[]) => {
-        const q = query(collection(db, "users"), where("phone", "==", phone));
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-            throw new Error("رقم الهاتف هذا مسجل بالفعل.");
-        }
-        
+    const signupWithPhone = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => {
+        const email = `${phone}@${DUMMY_DOMAIN}`;
         const usersQuery = query(collection(db, 'users'));
         const usersSnapshot = await getDocs(usersQuery);
         const isFirstUser = usersSnapshot.size === 0;
 
-        const newUserData: Omit<User, 'id'> = {
-            name: name,
-            phone: phone,
-            password: password, // Storing plain text password. NOT FOR PRODUCTION.
-            isProfileComplete: true, // Profile is complete from the start now
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const fbUser = userCredential.user;
+
+        const firstAddress: Address = { ...address, id: `address-${Date.now()}`, name: 'العنوان الأساسي' };
+
+        const newUser: User = {
+            id: fbUser.uid,
+            name,
+            phone,
+            deliveryZone,
+            addresses: [firstAddress],
             isAdmin: isFirstUser,
             usedCoupons: [],
-            addresses: addresses,
-            deliveryZone: deliveryZone,
+            isProfileComplete: true,
         };
-        
-        const docRef = await addDoc(collection(db, "users"), newUserData);
-
-        const finalUser = {id: docRef.id, ...newUserData};
-        setUser(finalUser);
-        localStorage.setItem(SESSION_KEY, JSON.stringify(finalUser));
+        await setDoc(doc(db, "users", fbUser.uid), newUser);
+        setUser(newUser);
     };
 
+    const loginWithPhone = async (phone: string, password: string) => {
+        const email = `${phone}@${DUMMY_DOMAIN}`;
+        await signInWithEmailAndPassword(auth, email, password);
+    };
 
     const logout = async () => {
-        if(user) {
-            localStorage.removeItem(`cart_${user.id}`);
-            localStorage.removeItem(`discount_${user.id}`);
-        }
-        localStorage.removeItem(SESSION_KEY);
+        await signOut(auth);
         setUser(null);
+        setFirebaseUser(null);
         router.push('/login');
     };
     
@@ -322,9 +280,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     const clearCart = () => { setCart([]); setDiscount(0); };
     
-    // --- COMPUTED VALUES ---
-    const totalCartPrice = useMemo(() => cart.reduce((total, item) => total + item.product.price * item.quantity, 0), [cart]);
-    const deliveryFee = useMemo(() => (cart.length > 0 ? (user?.deliveryZone?.fee ?? 3000) : 0), [cart, user]);
+    const totalCartPrice = cart.reduce((total, item) => total + item.product.price * item.quantity, 0);
+    const deliveryFee = (cart.length > 0 ? (user?.deliveryZone?.fee ?? 3000) : 0);
     
     // --- ORDER ACTIONS ---
     const sendOrderToTelegram = async (order: Order) => {
@@ -492,6 +449,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
   
     const value: AppContextType = {
         user,
+        firebaseUser,
         allUsers,
         products,
         cart,
@@ -501,6 +459,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         restaurants,
         banners,
         isAuthLoading,
+        isLoading,
         loginWithPhone,
         signupWithPhone,
         logout,
