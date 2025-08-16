@@ -100,6 +100,16 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                         .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [user, allOrders]);
     
+    const getAdminStatus = async () => {
+        if(!user) return false;
+        const userDocRef = doc(db, 'users', user.id);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+           return (userDocSnap.data() as User).isAdmin;
+        }
+        return false;
+    }
+
     // Check for a saved session on initial load
     useEffect(() => {
         const checkSession = async () => {
