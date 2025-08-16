@@ -48,6 +48,7 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   useEffect(() => {
+    // If the user is already logged in, redirect them from the login page.
     if (!context?.isAuthLoading && context?.firebaseUser) {
         router.replace('/home');
     }
@@ -60,9 +61,9 @@ export default function LoginPage() {
     setIsSubmittingLogin(true);
     try {
         await context.loginWithPhone(loginPhone, loginPassword);
-        // Successful login will trigger onAuthStateChanged, which triggers the useEffect above to redirect.
+        // On success, the useEffect above will redirect to /home when the user state is updated.
     } catch (error) {
-        // Error toast is handled inside loginWithPhone function
+        // Error toast is handled inside the context
     } finally {
         setIsSubmittingLogin(false);
     }
@@ -105,7 +106,8 @@ export default function LoginPage() {
     setIsSubmittingSignup(true);
     try {
         await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
-        // On success, onAuthStateChanged will fire, and the useEffect will redirect to /home
+        // On success, the onAuthStateChanged listener will update the user state,
+        // and the useEffect will redirect to /home.
     } catch (error) {
         // Error is handled in the context function
     } finally {
@@ -115,8 +117,8 @@ export default function LoginPage() {
 
   const isSignupDisabled = isSubmittingSignup || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
 
-
-  if (context?.isAuthLoading || (!context?.firebaseUser && router.pathname !== '/login')) {
+  // Show a loading screen only while actively submitting, not while waiting for auth state.
+  if (context?.isAuthLoading && !isSubmittingLogin && !isSubmittingSignup) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
@@ -233,5 +235,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    
