@@ -13,17 +13,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ShoppingCart, KeyRound, Mail, User } from "lucide-react";
+import { Loader2, ShoppingCart, KeyRound, Phone, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function LoginPage() {
-  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPhone, setLoginPhone] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   
   const [signupName, setSignupName] = useState("");
-  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPhone, setSignupPhone] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   
   const [isLoading, setIsLoading] = useState(false);
@@ -48,7 +48,7 @@ export default function LoginPage() {
     if (!context) return;
     setIsLoading(true);
     try {
-        await context.loginWithEmail(loginEmail, loginPassword);
+        await context.loginWithPhone(loginPhone, loginPassword);
         // useEffect will handle redirection
     } catch (error: any) {
         toast({ title: "فشل تسجيل الدخول", description: error.message, variant: "destructive" });
@@ -62,7 +62,7 @@ export default function LoginPage() {
      if (!context) return;
     setIsLoading(true);
     try {
-        await context.signupWithEmail(signupEmail, signupPassword, signupName);
+        await context.signupWithPhone(signupPhone, signupPassword, signupName);
          // useEffect will handle redirection
     } catch (error: any) {
         toast({ title: "فشل إنشاء الحساب", description: error.message, variant: "destructive" });
@@ -97,15 +97,15 @@ export default function LoginPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-2xl">مرحباً بعودتك</CardTitle>
-                        <CardDescription>أدخل بريدك الإلكتروني وكلمة المرور للمتابعة.</CardDescription>
+                        <CardDescription>أدخل رقم هاتفك وكلمة المرور للمتابعة.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleLogin} className="space-y-4">
                              <div className="space-y-2">
-                                <Label htmlFor="login-email">البريد الإلكتروني</Label>
+                                <Label htmlFor="login-phone">رقم الهاتف</Label>
                                 <div className="relative">
-                                    <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                                    <Input id="login-email" type="email" placeholder="example@mail.com" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="pr-10" dir="ltr"/>
+                                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                    <Input id="login-phone" type="tel" placeholder="07xxxxxxxxx" required value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} className="pr-10" dir="ltr"/>
                                 </div>
                             </div>
                              <div className="space-y-2">
@@ -138,10 +138,10 @@ export default function LoginPage() {
                                 </div>
                             </div>
                              <div className="space-y-2">
-                                <Label htmlFor="signup-email">البريد الإلكتروني</Label>
+                                <Label htmlFor="signup-phone">رقم الهاتف</Label>
                                 <div className="relative">
-                                    <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                                    <Input id="signup-email" type="email" placeholder="example@mail.com" required value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} className="pr-10" dir="ltr"/>
+                                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                    <Input id="signup-phone" type="tel" placeholder="07xxxxxxxxx" required value={signupPhone} onChange={(e) => setSignupPhone(e.target.value)} className="pr-10" dir="ltr"/>
                                 </div>
                             </div>
                             <div className="space-y-2">

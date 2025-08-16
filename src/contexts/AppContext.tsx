@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { User, CartItem, Product, Order, OrderStatus, Category, Restaurant, Banner, Address } from '@/lib/types';
 import { 
     categories as initialCategoriesData, 
+    deliveryZones
 } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
 import { ShoppingBasket } from 'lucide-react';
@@ -51,8 +52,8 @@ interface AppContextType {
   restaurants: Restaurant[];
   banners: Banner[];
   isAuthLoading: boolean;
-  loginWithEmail: (email: string, password: string) => Promise<void>;
-  signupWithEmail: (email: string, password: string, name: string) => Promise<void>;
+  loginWithPhone: (phone: string, password: string) => Promise<void>;
+  signupWithPhone: (phone: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
   completeUserProfile: (userData: Pick<User, 'deliveryZone' | 'addresses'> & {name?:string}) => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
@@ -80,6 +81,9 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
+// Helper function to create a fake email from a phone number
+const createEmailFromPhone = (phone: string) => `${phone}@speedshop.app`;
+
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const router = useRouter();
     const { toast } = useToast();
@@ -98,6 +102,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     
     const [cart, setCart] = useState<CartItem[]>([]);
     const [discount, setDiscount] = useState(0);
+    const [userSpecificUnsubs, setUserSpecificUnsubs] = useState<Unsubscribe[]>([]);
+
 
     const isLoading = isAuthLoading || dataLoading;
 
@@ -123,40 +129,34 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     // --- Auth & User-Specific Data Listener ---
     useEffect(() => {
         const authUnsubscribe = onAuthStateChanged(auth, (authUser) => {
+            // Clean up previous user's listeners
+            userSpecificUnsubs.forEach(unsub => unsub());
+            setUserSpecificUnsubs([]);
+
             if (authUser) {
-                // User is logged in, now listen to their document and specific data
-                const userDocUnsubscribe = onSnapshot(doc(db, 'users', authUser.uid), (userDocSnap) => {
+                const userDocUnsubscribe = onSnapshot(doc(db, 'users', authUser.uid), async (userDocSnap) => {
                     if (userDocSnap.exists()) {
                         const userData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
                         setUser(userData);
-
-                        // Now that we have user data, setup user-specific listeners
-                        const specificDataUnsubs: Unsubscribe[] = [];
-                        if (userData.isAdmin) {
-                            // Admin data listeners
-                            specificDataUnsubs.push(onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
-                            specificDataUnsubs.push(onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))));
-                        } else {
-                            // Regular user data listener for their own orders
-                            const q = query(collection(db, "orders"), where("userId", "==", userData.id));
-                            specificDataUnsubs.push(onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
-                        }
                         
-                        // This cleanup will run if the user doc changes (e.g., isAdmin status changes)
-                        // or when the component unmounts.
-                        return () => specificDataUnsubs.forEach(unsub => unsub());
+                        const newUnsubs: Unsubscribe[] = [];
+                        // Setup user-specific listeners
+                        if (userData.isAdmin) {
+                            newUnsubs.push(onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
+                            newUnsubs.push(onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))));
+                        } else {
+                            const q = query(collection(db, "orders"), where("userId", "==", userData.id));
+                            newUnsubs.push(onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
+                        }
+                        setUserSpecificUnsubs(newUnsubs);
+
                     } else {
-                         // This case can happen briefly during account creation
                         setUser(null);
                     }
                     setIsAuthLoading(false);
                 });
-
-                // Return cleanup for the user doc listener
-                return () => userDocUnsubscribe();
-
+                setUserSpecificUnsubs(prev => [...prev, userDocUnsubscribe]);
             } else {
-                // User is logged out
                 setUser(null);
                 setAllOrders([]);
                 setAllUsers([]);
@@ -164,9 +164,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             }
         });
 
-        // Return the main auth listener cleanup function
         return () => authUnsubscribe();
     }, []);
+
 
     const orders = useMemo(() => {
         if (!user) return [];
@@ -206,12 +206,21 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }, [categories]);
 
     // --- AUTH ACTIONS ---
-    const loginWithEmail = async (email: string, password: string) => {
+    const loginWithPhone = async (phone: string, password: string) => {
+        const email = createEmailFromPhone(phone);
         await signInWithEmailAndPassword(auth, email, password);
         toast({ title: `مرحباً بعودتك` });
     };
 
-    const signupWithEmail = async (email: string, password: string, name: string) => {
+    const signupWithPhone = async (phone: string, password: string, name: string) => {
+        // Check if phone number already exists in Firestore
+        const q = query(collection(db, "users"), where("phone", "==", phone));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            throw new Error("رقم الهاتف هذا مسجل بالفعل.");
+        }
+        
+        const email = createEmailFromPhone(phone);
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const { user: authUser } = userCredential;
 
@@ -221,8 +230,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
         const newUserData: Omit<User, 'id'> = {
             name: name,
-            email: authUser.email || "",
-            phone: authUser.phoneNumber || "",
+            email: authUser.email || "", // This is the fake email
+            phone: phone,
             isProfileComplete: false,
             isAdmin: isFirstUser,
             usedCoupons: [],
@@ -231,9 +240,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         };
         
         await setDoc(doc(db, "users", authUser.uid), newUserData);
-        // The onAuthStateChanged listener will handle setting the user state
         toast({ title: `أهلاً بك، ${name}` });
     };
+
 
     const logout = async () => {
         if(user) {
@@ -241,7 +250,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             localStorage.removeItem(`discount_${user.id}`);
         }
         await signOut(auth);
-        // onAuthStateChanged will handle setting user to null and clearing data
         router.push('/login');
     };
     
@@ -259,7 +267,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const updatedAddresses = [...(user.addresses || []), newAddress];
         const userDocRef = doc(db, "users", user.id);
         await updateDoc(userDocRef, { addresses: updatedAddresses });
-        // The user doc listener will update the state automatically
         toast({ title: "تم إضافة العنوان بنجاح" });
     }
 
@@ -489,8 +496,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         restaurants,
         banners,
         isAuthLoading: isLoading,
-        loginWithEmail,
-        signupWithEmail,
+        loginWithPhone,
+        signupWithPhone,
         logout,
         completeUserProfile,
         addAddress,
