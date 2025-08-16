@@ -18,7 +18,7 @@ export default function LandingPage() {
         router.replace("/login");
       }
     }
-  }, [context, router]);
+  }, [context, context?.isAuthLoading, context?.firebaseUser, router]);
 
   return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">

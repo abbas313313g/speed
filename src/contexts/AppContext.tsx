@@ -49,10 +49,8 @@ interface AppContextType {
   banners: Banner[];
   isAuthLoading: boolean;
   isLoading: boolean;
-  setUser: (user: User | null) => void;
-  setLoggedInUser: (fbUser: FirebaseAuthUser, userData: User) => void;
-  signupWithPhone: (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => Promise<{fbUser: FirebaseAuthUser, newUser: User} | null>;
-  loginWithPhone: (phone: string, password: string) => Promise<{fbUser: FirebaseAuthUser, userData: User} | null>;
+  signupWithPhone: (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => Promise<boolean>;
+  loginWithPhone: (phone: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
@@ -107,14 +105,15 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         let adminUnsubscribe: Unsubscribe | null = null;
 
         const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
+            setIsAuthLoading(true); // Start loading whenever auth state might change
             if (fbUser) {
+                setFirebaseUser(fbUser);
                 const userDocRef = doc(db, 'users', fbUser.uid);
                 try {
                     const userDocSnap = await getDoc(userDocRef);
                     if (userDocSnap.exists()) {
                         const currentUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
                         setUser(currentUser);
-                        setFirebaseUser(fbUser);
 
                         // Clean up previous listeners before attaching new ones
                         if (userOrdersUnsubscribe) userOrdersUnsubscribe();
@@ -130,25 +129,21 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                             userOrdersUnsubscribe = onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
                         }
                     } else {
-                        // This can happen if a user is deleted from the db but not auth
-                         signOut(auth); // Log them out
+                         signOut(auth);
                     }
                 } catch (error) {
                     console.error("Error fetching user document:", error);
                     signOut(auth);
-                } finally {
-                    setIsAuthLoading(false);
                 }
             } else {
                 setFirebaseUser(null);
                 setUser(null);
                 setAllOrders([]);
                 setAllUsers([]);
-                // Clean up listeners on logout
                 if (userOrdersUnsubscribe) userOrdersUnsubscribe();
                 if (adminUnsubscribe) adminUnsubscribe();
-                setIsAuthLoading(false);
             }
+            setIsAuthLoading(false); // Finish loading after all checks are done
         });
 
         const unsubsPublic = [
@@ -202,13 +197,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }, [categories]);
 
     // --- AUTH ACTIONS ---
-    const setLoggedInUser = (fbUser: FirebaseAuthUser, userData: User) => {
-        setFirebaseUser(fbUser);
-        setUser(userData);
-        setIsAuthLoading(false);
-    };
-
-    const signupWithPhone = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>): Promise<{fbUser: FirebaseAuthUser, newUser: User} | null> => {
+    const signupWithPhone = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>): Promise<boolean> => {
         const email = `${phone}@${DUMMY_DOMAIN}`;
 
         try {
@@ -234,7 +223,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
             await setDoc(doc(db, "users", fbUser.uid), newUser);
             toast({ title: `أهلاً بك، ${name}` });
-            return { fbUser, newUser };
+            return true;
 
         } catch (error: any) {
             if (error.code === 'auth/email-already-in-use') {
@@ -242,31 +231,20 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             } else {
                 toast({ title: "فشل إنشاء الحساب", description: "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.", variant: "destructive" });
             }
-            return null;
+            return false;
         }
     };
     
 
-    const loginWithPhone = async (phone: string, password:string): Promise<{fbUser: FirebaseAuthUser, userData: User} | null> => {
+    const loginWithPhone = async (phone: string, password:string): Promise<boolean> => {
         const email = `${phone}@${DUMMY_DOMAIN}`;
         try {
-             const userCredential = await signInWithEmailAndPassword(auth, email, password);
-             const fbUser = userCredential.user;
-
-             const userDocRef = doc(db, "users", fbUser.uid);
-             const userDocSnap = await getDoc(userDocRef);
-
-             if(userDocSnap.exists()){
-                const userData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
-                toast({ title: `مرحباً بعودتك` });
-                return { fbUser, userData };
-             } else {
-                toast({ title: "فشل تسجيل الدخول", description: "لم يتم العثور على بيانات المستخدم.", variant: "destructive" });
-                return null;
-             }
+             await signInWithEmailAndPassword(auth, email, password);
+             toast({ title: `مرحباً بعودتك` });
+             return true;
         } catch(error: any) {
             toast({ title: "فشل تسجيل الدخول", description: "الرجاء التأكد من رقم الهاتف وكلمة المرور.", variant: "destructive" });
-            return null;
+            return false;
         }
     };
 
@@ -512,10 +490,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         banners,
         isAuthLoading,
         isLoading,
-        setUser,
-        setLoggedInUser,
-        loginWithPhone,
         signupWithPhone,
+        loginWithPhone,
         logout,
         addAddress,
         addToCart,
