@@ -11,13 +11,14 @@ export default function LandingPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // This page now only shows a loader and then redirects to login.
-    // The login page itself will handle redirecting to /home if the user is already authenticated.
+    // هذه الصفحة وظيفتها فقط الانتظار ثم التوجيه لصفحة تسجيل الدخول
+    // صفحة تسجيل الدخول هي التي ستقرر توجيه المستخدم إلى الرئيسية أم لا
     if (context && !context.isAuthLoading) {
       router.replace("/login");
     }
   }, [context, context?.isAuthLoading, router]);
 
+  // أظهر دائمًا شاشة التحميل
   return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />

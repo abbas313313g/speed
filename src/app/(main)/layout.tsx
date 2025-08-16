@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useContext, useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useContext, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { AppContext } from '@/contexts/AppContext';
 import { BottomNav } from '@/components/BottomNav';
 import { Loader2, ShoppingCart } from 'lucide-react';
@@ -17,15 +17,17 @@ export default function MainAppLayout({
   
   useEffect(() => {
     if (context?.isAuthLoading) {
-      return; 
+      return; // انتظر حتى ينتهي تحميل المصادقة
     }
 
     if (!context?.firebaseUser) {
+      // إذا انتهى التحميل ولا يوجد مستخدم، وجهه لصفحة تسجيل الدخول
       router.replace('/login');
     }
     
   }, [context?.isAuthLoading, context?.firebaseUser, router]);
 
+  // أظهر شاشة التحميل طالما أن المصادقة قيد التحميل، أو إذا كان المستخدم موجودًا ولكن بياناته لم تحمل بعد
   if (context?.isAuthLoading || !context?.user) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
@@ -35,6 +37,7 @@ export default function MainAppLayout({
     );
   }
 
+  // إذا انتهى التحميل وكان المستخدم موجودًا، أظهر المحتوى
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-card shadow-lg">
       <main className="flex-1 pb-20">{children}</main>
@@ -42,5 +45,3 @@ export default function MainAppLayout({
     </div>
   );
 }
-
-    

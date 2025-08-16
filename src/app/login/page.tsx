@@ -48,8 +48,8 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // This is the single source of truth for redirection.
-    // If auth is done loading and we have a user, redirect to home.
+    // هذا التأثير سيراقب حالة المستخدم
+    // إذا انتهى التحميل الأولي وكان هناك مستخدم، سيتم التوجيه
     if (!context?.isAuthLoading && context?.firebaseUser) {
         router.replace('/home');
     }
@@ -62,7 +62,7 @@ export default function LoginPage() {
     setIsSubmittingLogin(true);
     await context.loginWithPhone(loginPhone, loginPassword);
     setIsSubmittingLogin(false);
-    // No redirect here, the useEffect will handle it when firebaseUser updates.
+    // لا تقم بالتوجيه هنا، useEffect سيهتم بذلك
   }
 
   const handleGetLocation = () => {
@@ -102,14 +102,13 @@ export default function LoginPage() {
     setIsSubmittingSignup(true);
     await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
     setIsSubmittingSignup(false);
-    // No redirect here, the useEffect will handle it when firebaseUser updates.
+     // لا تقم بالتوجيه هنا، useEffect سيهتم بذلك
   }
 
   const isSignupDisabled = isSubmittingSignup || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
 
-  // Show a loader IF we are still authenticating AND there's no user yet.
-  // This prevents the login form from flashing for a logged-in user before redirect.
-  if (context?.isAuthLoading && !context?.firebaseUser) {
+  // أظهر شاشة التحميل فقط أثناء التحميل الأولي للتطبيق
+  if (context?.isAuthLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
@@ -118,12 +117,13 @@ export default function LoginPage() {
     );
   }
 
-  // If the user is already logged in, the useEffect will redirect them. 
-  // We can render null or a loader here to prevent the form from appearing momentarily.
+  // إذا انتهى التحميل الأولي وكان المستخدم موجودًا، useEffect سيقوم بالتوجيه
+  // لذا يمكن إظهار null هنا لمنع ظهور النموذج للحظة
   if (context?.firebaseUser) {
-    return null; 
+    return null;
   }
-
+  
+  // إذا انتهى التحميل الأولي ولا يوجد مستخدم، أظهر النموذج
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">

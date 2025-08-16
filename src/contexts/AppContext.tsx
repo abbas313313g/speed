@@ -105,7 +105,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         let adminUnsubscribe: Unsubscribe | null = null;
 
         const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
-            setIsAuthLoading(true); // Start loading whenever auth state might change
             if (fbUser) {
                 setFirebaseUser(fbUser);
                 const userDocRef = doc(db, 'users', fbUser.uid);
@@ -129,11 +128,16 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                             userOrdersUnsubscribe = onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
                         }
                     } else {
-                         signOut(auth);
+                         // This can happen if the user is deleted from Firestore but not Auth
+                         await signOut(auth);
+                         setUser(null);
+                         setFirebaseUser(null);
                     }
                 } catch (error) {
                     console.error("Error fetching user document:", error);
-                    signOut(auth);
+                    await signOut(auth);
+                } finally {
+                    setIsAuthLoading(false);
                 }
             } else {
                 setFirebaseUser(null);
@@ -142,8 +146,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 setAllUsers([]);
                 if (userOrdersUnsubscribe) userOrdersUnsubscribe();
                 if (adminUnsubscribe) adminUnsubscribe();
+                setIsAuthLoading(false);
             }
-            setIsAuthLoading(false); // Finish loading after all checks are done
         });
 
         const unsubsPublic = [
@@ -199,7 +203,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     // --- AUTH ACTIONS ---
     const signupWithPhone = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>): Promise<boolean> => {
         const email = `${phone}@${DUMMY_DOMAIN}`;
-
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const fbUser = userCredential.user;
@@ -210,8 +213,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
             const firstAddress: Address = { ...address, id: `address-${Date.now()}`, name: 'العنوان الأساسي' };
             
-            const newUser: User = {
-                id: fbUser.uid,
+            const newUser: Omit<User, 'id'> = {
                 name,
                 phone,
                 deliveryZone,
