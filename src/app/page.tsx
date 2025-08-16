@@ -13,11 +13,7 @@ export default function LandingPage() {
   useEffect(() => {
     if (context && !context.isAuthLoading) {
       if (context.user) {
-        if (context.user.isProfileComplete) {
-            router.replace("/home");
-        } else {
-            router.replace("/complete-profile");
-        }
+        router.replace("/home");
       } else {
         router.replace("/login");
       }

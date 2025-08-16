@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useContext, useEffect, useState, FormEvent } from "react";
+import { useContext, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
@@ -13,10 +12,19 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ShoppingCart, KeyRound, Phone, User } from "lucide-react";
+import { Loader2, ShoppingCart, KeyRound, Phone, User, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { deliveryZones } from "@/lib/mock-data";
+import type { Address, DeliveryZone } from "@/lib/types";
 
 export default function LoginPage() {
   const [loginPhone, setLoginPhone] = useState("");
@@ -25,23 +33,20 @@ export default function LoginPage() {
   const [signupName, setSignupName] = useState("");
   const [signupPhone, setSignupPhone] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
+  const [deliveryZoneName, setDeliveryZoneName] = useState("");
+  const [address, setAddress] = useState<Omit<Address, 'id' | 'name'> | null>(null);
   
   const [isLoading, setIsLoading] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
   
   const context = useContext(AppContext);
   const router = useRouter();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (context?.user) {
-        if(context.user.isProfileComplete) {
-            router.replace('/home');
-        } else {
-            router.replace('/complete-profile');
-        }
-    }
-  }, [context?.user, router]);
-
+  if (context?.user) {
+      router.replace('/home');
+  }
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -49,7 +54,8 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
         await context.loginWithPhone(loginPhone, loginPassword);
-        // useEffect will handle redirection
+        toast({ title: `مرحباً بعودتك` });
+        router.replace('/home');
     } catch (error: any) {
         toast({ title: "فشل تسجيل الدخول", description: error.message, variant: "destructive" });
     } finally {
@@ -57,19 +63,58 @@ export default function LoginPage() {
     }
   }
 
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+        toast({ title: "المتصفح لا يدعم تحديد الموقع", variant: "destructive" });
+        setLocationStatus('error');
+        return;
+    }
+    setLocationStatus('loading');
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            setAddress({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude
+            });
+            setLocationStatus('success');
+            toast({ title: "تم تحديد موقعك بنجاح!" });
+        },
+        () => {
+            toast({ title: "تم رفض صلاحية الوصول للموقع", description: "الرجاء السماح بالوصول للموقع لإكمال التسجيل.", variant: "destructive" });
+            setLocationStatus('error');
+        },
+        { enableHighAccuracy: true }
+    );
+  };
+
   const handleSignup = async (e: FormEvent) => {
     e.preventDefault();
-     if (!context) return;
+    if (!context) return;
+    
+    const selectedZone = deliveryZones.find(z => z.name === deliveryZoneName);
+    if (!selectedZone || !address) {
+      toast({ title: "خطأ", description: "الرجاء تعبئة جميع الحقول وتحديد الموقع.", variant: "destructive" });
+      return;
+    }
+    
     setIsLoading(true);
     try {
-        await context.signupWithPhone(signupPhone, signupPassword, signupName);
-         // useEffect will handle redirection
+        const firstAddress: Address = {
+            ...address,
+            id: `address-${Date.now()}`,
+            name: 'العنوان الأساسي'
+        }
+        await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, [firstAddress]);
+        toast({ title: `أهلاً بك، ${signupName}` });
+        router.replace('/home');
     } catch (error: any) {
         toast({ title: "فشل إنشاء الحساب", description: error.message, variant: "destructive" });
     } finally {
         setIsLoading(false);
     }
   }
+
+  const isSignupDisabled = isLoading || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
 
 
   if (context?.isAuthLoading || context?.user) {
@@ -151,7 +196,33 @@ export default function LoginPage() {
                                     <Input id="signup-password" type="password" required value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} className="pr-10" dir="ltr"/>
                                 </div>
                             </div>
-                            <Button type="submit" className="w-full h-11 text-lg" disabled={isLoading}>
+                             <div className="space-y-2">
+                                <Label htmlFor="deliveryZone">منطقة التوصيل</Label>
+                                <div className="relative">
+                                    <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                    <Select onValueChange={setDeliveryZoneName} value={deliveryZoneName} required>
+                                        <SelectTrigger className="pr-10">
+                                            <SelectValue placeholder="اختر منطقتك" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {deliveryZones.map(zone => (
+                                                <SelectItem key={zone.name} value={zone.name}>
+                                                    {zone.name} - {zone.fee} د.ع
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>الموقع الجغرافي</Label>
+                                <Button type="button" variant="outline" className="w-full" onClick={handleGetLocation} disabled={locationStatus === 'loading'}>
+                                {locationStatus === 'loading' && <Loader2 className="ml-2 h-4 w-4 animate-spin"/>}
+                                {locationStatus === 'success' ? 'تم تحديد الموقع بنجاح' : 'تحديد الموقع على الخريطة (مطلوب)'}
+                                </Button>
+                                {locationStatus === 'error' && <p className="text-sm text-destructive">مشاركة موقعك مطلوب لإكمال التسجيل.</p>}
+                            </div>
+                            <Button type="submit" className="w-full h-11 text-lg" disabled={isSignupDisabled}>
                                 {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : 'إنشاء حساب'}
                             </Button>
                         </form>

@@ -4,7 +4,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
-import type { User, CartItem, Product, Order, OrderStatus, Category, Restaurant, Banner, Address } from '@/lib/types';
+import type { User, CartItem, Product, Order, OrderStatus, Category, Restaurant, Banner, Address, DeliveryZone } from '@/lib/types';
 import { 
     categories as initialCategoriesData, 
     deliveryZones
@@ -25,16 +25,8 @@ import {
     onSnapshot,
     Unsubscribe
 } from 'firebase/firestore';
-import { 
-    getAuth, 
-    onAuthStateChanged,
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
-    signOut,
-    type User as AuthUser
-} from 'firebase/auth';
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
-import { db, auth, storage } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
 
 const TELEGRAM_BOT_TOKEN = "7601214758:AAFtkJRGqffuDLKPb8wuHm7r0pt_pDE7BSE";
 const TELEGRAM_CHAT_ID = "6626221973";
@@ -53,9 +45,8 @@ interface AppContextType {
   banners: Banner[];
   isAuthLoading: boolean;
   loginWithPhone: (phone: string, password: string) => Promise<void>;
-  signupWithPhone: (phone: string, password: string, name: string) => Promise<void>;
+  signupWithPhone: (phone: string, password: string, name: string, deliveryZone: DeliveryZone, addresses: Address[]) => Promise<void>;
   logout: () => Promise<void>;
-  completeUserProfile: (userData: Pick<User, 'deliveryZone' | 'addresses'> & {name?:string}) => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
@@ -81,8 +72,7 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
-// Helper function to create a fake email from a phone number
-const createEmailFromPhone = (phone: string) => `${phone}@speedshop.app`;
+const SESSION_KEY = 'speed-shop-session';
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const router = useRouter();
@@ -90,6 +80,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     
     const [user, setUser] = useState<User | null>(null);
     const [isAuthLoading, setIsAuthLoading] = useState(true);
+    const [isSessionChecked, setIsSessionChecked] = useState(false);
     const [dataLoading, setDataLoading] = useState(true);
 
     const [products, setProducts] = useState<Product[]>([]);
@@ -104,8 +95,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const [discount, setDiscount] = useState(0);
     const [userSpecificUnsubs, setUserSpecificUnsubs] = useState<Unsubscribe[]>([]);
 
-
-    const isLoading = isAuthLoading || dataLoading;
 
     // --- Data Listeners Setup ---
     useEffect(() => {
@@ -127,46 +116,56 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     // --- Auth & User-Specific Data Listener ---
-    useEffect(() => {
-        const authUnsubscribe = onAuthStateChanged(auth, (authUser) => {
-            // Clean up previous user's listeners
-            userSpecificUnsubs.forEach(unsub => unsub());
-            setUserSpecificUnsubs([]);
-
-            if (authUser) {
-                const userDocUnsubscribe = onSnapshot(doc(db, 'users', authUser.uid), async (userDocSnap) => {
-                    if (userDocSnap.exists()) {
-                        const userData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
-                        setUser(userData);
-                        
-                        const newUnsubs: Unsubscribe[] = [];
-                        // Setup user-specific listeners
-                        if (userData.isAdmin) {
-                            newUnsubs.push(onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
-                            newUnsubs.push(onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))));
-                        } else {
-                            const q = query(collection(db, "orders"), where("userId", "==", userData.id));
-                            newUnsubs.push(onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
-                        }
-                        setUserSpecificUnsubs(newUnsubs);
-
-                    } else {
-                        setUser(null);
-                    }
-                    setIsAuthLoading(false);
-                });
-                setUserSpecificUnsubs(prev => [...prev, userDocUnsubscribe]);
-            } else {
-                setUser(null);
-                setAllOrders([]);
-                setAllUsers([]);
-                setIsAuthLoading(false);
-            }
-        });
-
-        return () => authUnsubscribe();
+     useEffect(() => {
+        // First, check for a session in localStorage
+        const storedSession = localStorage.getItem(SESSION_KEY);
+        if (storedSession) {
+            const sessionUser = JSON.parse(storedSession);
+            setUser(sessionUser);
+        }
+        setIsAuthLoading(false);
+        setIsSessionChecked(true); // Mark session check as complete
     }, []);
+    
+    useEffect(() => {
+        if (!isSessionChecked) return; // Don't run until session check is done
+        
+        // Clean up previous user's listeners
+        userSpecificUnsubs.forEach(unsub => unsub());
+        setUserSpecificUnsubs([]);
 
+        if (user?.id) {
+             const newUnsubs: Unsubscribe[] = [];
+
+             // Listen to the user's own document for real-time updates (e.g., new addresses)
+             const userDocUnsubscribe = onSnapshot(doc(db, 'users', user.id), (userDocSnap) => {
+                 if (userDocSnap.exists()) {
+                     const updatedUserData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
+                     setUser(updatedUserData);
+                      // Also update the session in localStorage
+                     localStorage.setItem(SESSION_KEY, JSON.stringify(updatedUserData));
+                 } else {
+                     // User was deleted from DB, log them out
+                     logout();
+                 }
+             });
+             newUnsubs.push(userDocUnsubscribe);
+
+            // Setup listeners based on role
+            if (user.isAdmin) {
+                newUnsubs.push(onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
+                newUnsubs.push(onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))));
+            } else {
+                const q = query(collection(db, "orders"), where("userId", "==", user.id));
+                newUnsubs.push(onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
+            }
+            setUserSpecificUnsubs(newUnsubs);
+        } else {
+            // No user, clear all data
+             setAllOrders([]);
+             setAllUsers([]);
+        }
+    }, [user?.id, isSessionChecked]); // Rerun when user.id or session check status changes
 
     const orders = useMemo(() => {
         if (!user) return [];
@@ -207,40 +206,54 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     // --- AUTH ACTIONS ---
     const loginWithPhone = async (phone: string, password: string) => {
-        const email = createEmailFromPhone(phone);
-        await signInWithEmailAndPassword(auth, email, password);
-        toast({ title: `مرحباً بعودتك` });
+        const q = query(collection(db, "users"), where("phone", "==", phone));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            throw new Error("رقم الهاتف غير مسجل.");
+        }
+
+        const userDoc = querySnapshot.docs[0];
+        const userData = { id: userDoc.id, ...userDoc.data() } as User;
+
+        // In a real app, password should be hashed and compared securely.
+        // For this simplified version, we're assuming plain text or a simple check.
+        if (userData.password !== password) {
+             throw new Error("كلمة المرور غير صحيحة.");
+        }
+        
+        setUser(userData);
+        localStorage.setItem(SESSION_KEY, JSON.stringify(userData));
     };
 
-    const signupWithPhone = async (phone: string, password: string, name: string) => {
-        // Check if phone number already exists in Firestore
+    const signupWithPhone = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, addresses: Address[]) => {
         const q = query(collection(db, "users"), where("phone", "==", phone));
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
             throw new Error("رقم الهاتف هذا مسجل بالفعل.");
         }
         
-        const email = createEmailFromPhone(phone);
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const { user: authUser } = userCredential;
-
         const usersQuery = query(collection(db, 'users'));
         const usersSnapshot = await getDocs(usersQuery);
         const isFirstUser = usersSnapshot.size === 0;
 
         const newUserData: Omit<User, 'id'> = {
             name: name,
-            email: authUser.email || "", // This is the fake email
             phone: phone,
-            isProfileComplete: false,
+            password: password, // Storing plain text password. NOT FOR PRODUCTION.
+            isProfileComplete: true, // Profile is complete from the start now
             isAdmin: isFirstUser,
             usedCoupons: [],
-            addresses: [],
-            deliveryZone: { name: '', fee: 0 },
+            addresses: addresses,
+            deliveryZone: deliveryZone,
         };
         
-        await setDoc(doc(db, "users", authUser.uid), newUserData);
-        toast({ title: `أهلاً بك، ${name}` });
+        const docRef = doc(collection(db, "users"));
+        await setDoc(docRef, newUserData);
+
+        const finalUser = {id: docRef.id, ...newUserData};
+        setUser(finalUser);
+        localStorage.setItem(SESSION_KEY, JSON.stringify(finalUser));
     };
 
 
@@ -249,17 +262,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             localStorage.removeItem(`cart_${user.id}`);
             localStorage.removeItem(`discount_${user.id}`);
         }
-        await signOut(auth);
+        localStorage.removeItem(SESSION_KEY);
+        setUser(null);
         router.push('/login');
     };
-    
-    const completeUserProfile = async (userData: Pick<User, 'deliveryZone' | 'addresses'> & {name?: string}) => {
-        if (!user) return;
-        const userDocRef = doc(db, "users", user.id);
-        const updatedData = { ...userData, isProfileComplete: true };
-        await updateDoc(userDocRef, updatedData);
-        // The user doc listener will update the state automatically
-    }
     
     const addAddress = async (address: Omit<Address, 'id'>) => {
         if (!user) return;
@@ -495,11 +501,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         categories: dynamicCategories,
         restaurants,
         banners,
-        isAuthLoading: isLoading,
+        isAuthLoading,
         loginWithPhone,
         signupWithPhone,
         logout,
-        completeUserProfile,
         addAddress,
         addToCart,
         removeFromCart,

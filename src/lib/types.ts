@@ -2,8 +2,8 @@
 export interface User {
   id: string;
   name: string;
-  email: string;
   phone: string;
+  password?: string; // Should be handled securely, not stored/transmitted plain-text
   deliveryZone: DeliveryZone;
   addresses: Address[];
   isAdmin: boolean;
