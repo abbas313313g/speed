@@ -72,7 +72,6 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
-// We will use local storage for the session instead of Firebase Auth
 const SESSION_STORAGE_KEY = 'speedshop_session';
 
 
@@ -81,6 +80,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const { toast } = useToast();
     
     const [isLoading, setIsLoading] = useState(true);
+    const [isSessionChecked, setIsSessionChecked] = useState(false);
     const [user, setUser] = useState<User | null>(null);
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
@@ -92,7 +92,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const [cart, setCart] = useState<CartItem[]>([]);
     const [discount, setDiscount] = useState(0);
 
-    const [dataListeners, setDataListeners] = useState<(() => void)[]>([]);
+    const dataListeners = React.useRef<(() => void)[]>([]);
 
     const orders = useMemo(() => {
         if (!user) return [];
@@ -124,34 +124,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         };
     }, []);
 
-    // --- User Session and Data Listeners ---
+    // --- User Session Check ---
     useEffect(() => {
-        // Clear previous listeners when user changes or logs out
-        dataListeners.forEach(unsub => unsub());
-        setDataListeners([]);
-
-        const setupListeners = (currentUser: User) => {
-            let listeners: (() => void)[] = [];
-            if (currentUser.isAdmin) {
-                // Admin: listens to all orders and all users
-                const unsubOrders = onSnapshot(query(collection(db, "orders")), (snapshot) => {
-                    setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
-                });
-                const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
-                    setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
-                });
-                listeners.push(unsubOrders, unsubUsers);
-            } else {
-                // Regular user: listens only to their own orders
-                const q = query(collection(db, "orders"), where("userId", "==", currentUser.id));
-                const unsubUserOrders = onSnapshot(q, (snapshot) => {
-                    setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
-                });
-                listeners.push(unsubUserOrders);
-            }
-            setDataListeners(listeners);
-        };
-
         const checkSession = async () => {
             setIsLoading(true);
             const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
@@ -162,22 +136,62 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 if (userDocSnap.exists()) {
                     const freshUserData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
                     setUser(freshUserData);
-                    setupListeners(freshUserData);
                 } else {
                     localStorage.removeItem(SESSION_STORAGE_KEY);
                     setUser(null);
                 }
             }
             setIsLoading(false);
+            setIsSessionChecked(true);
         };
 
         checkSession();
+    }, []);
 
-        // Cleanup function for when the component unmounts
-        return () => {
-            dataListeners.forEach(unsub => unsub());
+    // --- User-Specific Data Listeners (after session check is complete) ---
+    useEffect(() => {
+        // Don't run this effect until the initial session check is complete.
+        if (!isSessionChecked) {
+            return;
+        }
+
+        // Cleanup function to run when user changes or component unmounts.
+        const cleanupListeners = () => {
+            dataListeners.current.forEach(unsub => unsub());
+            dataListeners.current = [];
         };
-    }, [user?.id]); // Re-run when user ID changes (login/logout)
+
+        // Clear previous listeners before setting up new ones.
+        cleanupListeners();
+
+        if (user) {
+            const newListeners: (() => void)[] = [];
+            if (user.isAdmin) {
+                // Admin: listens to all orders and all users
+                const unsubOrders = onSnapshot(query(collection(db, "orders")), (snapshot) => {
+                    setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+                });
+                const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+                    setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
+                });
+                newListeners.push(unsubOrders, unsubUsers);
+            } else {
+                // Regular user: listens only to their own orders
+                const q = query(collection(db, "orders"), where("userId", "==", user.id));
+                const unsubUserOrders = onSnapshot(q, (snapshot) => {
+                    setAllOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
+                });
+                newListeners.push(unsubUserOrders);
+            }
+            dataListeners.current = newListeners;
+        } else {
+            // No user, clear any potentially lingering data
+            setAllOrders([]);
+            setAllUsers([]);
+        }
+
+        return cleanupListeners;
+    }, [user, isSessionChecked]);
 
 
     // --- Cart Persistence (Local Storage) ---
@@ -590,3 +604,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
+
+    
