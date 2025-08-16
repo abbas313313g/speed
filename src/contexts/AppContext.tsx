@@ -198,41 +198,50 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const signupWithPhone = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => {
         const email = `${phone}@${DUMMY_DOMAIN}`;
 
-        const q = query(collection(db, "users"), where("phone", "==", phone));
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-            throw new Error("رقم الهاتف هذا مستخدم بالفعل.");
+        try {
+            // Step 1: Create the user in Firebase Auth
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const fbUser = userCredential.user;
+
+            // Step 2: Determine if this is the first user (and should be admin)
+            const usersSnapshot = await getDocs(query(collection(db, 'users')));
+            const isFirstUser = usersSnapshot.empty;
+
+            // Step 3: Create the user document in Firestore
+            const firstAddress: Address = { ...address, id: `address-${Date.now()}`, name: 'العنوان الأساسي' };
+            
+            const newUser: User = {
+                id: fbUser.uid,
+                name,
+                phone,
+                deliveryZone,
+                addresses: [firstAddress],
+                isAdmin: isFirstUser,
+                usedCoupons: [],
+                isProfileComplete: true,
+            };
+
+            await setDoc(doc(db, "users", fbUser.uid), newUser);
+            
+            // Step 4: Manually update the local state to reflect the new user session
+            setUser(newUser);
+            setFirebaseUser(fbUser);
+            
+        } catch (error) {
+            console.error("Signup failed with error:", error);
+            throw error; // Re-throw the error to be caught by the UI
         }
-        
-        const usersSnapshot = await getDocs(collection(db, 'users'));
-        const isFirstUser = usersSnapshot.empty;
-
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const fbUser = userCredential.user;
-
-        const firstAddress: Address = { ...address, id: `address-${Date.now()}`, name: 'العنوان الأساسي' };
-        
-        const newUser: User = {
-            id: fbUser.uid,
-            name,
-            phone,
-            deliveryZone,
-            addresses: [firstAddress],
-            isAdmin: isFirstUser,
-            usedCoupons: [],
-            isProfileComplete: true,
-        };
-
-        await setDoc(doc(db, "users", fbUser.uid), newUser);
-        
-        setUser(newUser);
-        setFirebaseUser(fbUser);
     };
 
     const loginWithPhone = async (phone: string, password: string) => {
         const email = `${phone}@${DUMMY_DOMAIN}`;
-        await signInWithEmailAndPassword(auth, email, password);
-        // onAuthStateChanged will handle the rest
+        try {
+             await signInWithEmailAndPassword(auth, email, password);
+             // onAuthStateChanged will handle the rest of the user state update
+        } catch(error) {
+            console.error("Login failed with error:", error);
+            throw error; // Re-throw the error to be caught by the UI
+        }
     };
 
     const logout = async () => {
