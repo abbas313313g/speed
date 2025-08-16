@@ -115,26 +115,32 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 setFirebaseUser(fbUser);
                 const userDocRef = doc(db, 'users', fbUser.uid);
                 
-                try {
-                    const userDocSnap = await getDoc(userDocRef);
+                // Firestore listener for user data
+                onSnapshot(userDocRef, (userDocSnap) => {
                     if (userDocSnap.exists()) {
                         const currentUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
                         setUser(currentUser);
 
+                        // Cleanup previous order listener before attaching a new one
+                        if (userOrdersUnsubscribe) userOrdersUnsubscribe();
+
                         if (currentUser.isAdmin) {
-                            const q = query(collection(db, "orders"));
-                            adminUnsubscribe = onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
+                             if(adminUnsubscribe) adminUnsubscribe();
+                             const q = query(collection(db, "orders"));
+                             adminUnsubscribe = onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
                         } else {
                             const q = query(collection(db, "orders"), where("userId", "==", currentUser.id));
                             userOrdersUnsubscribe = onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
                         }
+
                     } else {
                          setUser(null);
                     }
-                } catch (error) {
-                    console.error("Error fetching user data:", error);
+                }, (error) => {
+                    console.error("Error listening to user document:", error);
                     setUser(null);
-                }
+                });
+
             } else {
                 setFirebaseUser(null);
                 setUser(null);
@@ -204,7 +210,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             const fbUser = userCredential.user;
 
             // Step 2: Determine if this is the first user (and should be admin)
-            const usersSnapshot = await getDocs(query(collection(db, 'users')));
+            const usersQuery = query(collection(db, 'users'));
+            const usersSnapshot = await getDocs(usersQuery);
             const isFirstUser = usersSnapshot.empty;
 
             // Step 3: Create the user document in Firestore
@@ -221,25 +228,29 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 isProfileComplete: true,
             };
 
+            // This setDoc will trigger the onSnapshot listener, which will update the user state
             await setDoc(doc(db, "users", fbUser.uid), newUser);
             
-            // Step 4: Manually update the local state to reflect the new user session
-            setUser(newUser);
-            setFirebaseUser(fbUser);
-            
-        } catch (error) {
-            console.error("Signup failed with error:", error);
-            throw error; // Re-throw the error to be caught by the UI
+        } catch (error: any) {
+            console.error("Signup failed with error code:", error.code);
+            console.error("Full signup error:", error);
+            if (error.code === 'auth/email-already-in-use') {
+                toast({ title: "فشل إنشاء الحساب", description: "رقم الهاتف مستخدم بالفعل.", variant: "destructive" });
+            } else {
+                toast({ title: "فشل إنشاء الحساب", description: "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.", variant: "destructive" });
+            }
+            throw error; // Re-throw the error to be handled by the UI if needed
         }
     };
 
-    const loginWithPhone = async (phone: string, password: string) => {
+    const loginWithPhone = async (phone: string, password:string) => {
         const email = `${phone}@${DUMMY_DOMAIN}`;
         try {
              await signInWithEmailAndPassword(auth, email, password);
              // onAuthStateChanged will handle the rest of the user state update
-        } catch(error) {
+        } catch(error: any) {
             console.error("Login failed with error:", error);
+            toast({ title: "فشل تسجيل الدخول", description: "الرجاء التأكد من رقم الهاتف وكلمة المرور.", variant: "destructive" });
             throw error; // Re-throw the error to be caught by the UI
         }
     };
@@ -248,6 +259,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         await signOut(auth);
         setUser(null);
         setFirebaseUser(null);
+        setCart([]);
+        setDiscount(0);
         router.push('/login');
     };
     
@@ -257,7 +270,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const updatedAddresses = [...(user.addresses || []), newAddress];
         const userDocRef = doc(db, "users", user.id);
         await updateDoc(userDocRef, { addresses: updatedAddresses });
-        setUser({ ...user, addresses: updatedAddresses }); // Update local state
+        // The onSnapshot listener will update the local state automatically
         toast({ title: "تم إضافة العنوان بنجاح" });
     }
 
