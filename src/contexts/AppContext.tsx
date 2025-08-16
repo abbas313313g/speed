@@ -248,8 +248,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             deliveryZone: deliveryZone,
         };
         
-        const docRef = doc(collection(db, "users"));
-        await setDoc(docRef, newUserData);
+        const docRef = await addDoc(collection(db, "users"), newUserData);
 
         const finalUser = {id: docRef.id, ...newUserData};
         setUser(finalUser);
