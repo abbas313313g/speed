@@ -11,14 +11,12 @@ export default function LandingPage() {
   const router = useRouter();
 
   useEffect(() => {
+    // This page now only shows a loader and then redirects to login.
+    // The login page itself will handle redirecting to /home if the user is already authenticated.
     if (context && !context.isAuthLoading) {
-      if (context.firebaseUser) {
-        router.replace("/home");
-      } else {
-        router.replace("/login");
-      }
+      router.replace("/login");
     }
-  }, [context, context?.isAuthLoading, context?.firebaseUser, router]);
+  }, [context, context?.isAuthLoading, router]);
 
   return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">

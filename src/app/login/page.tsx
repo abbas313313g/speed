@@ -48,7 +48,8 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // This effect redirects the user if they are already logged in when visiting the page.
+    // This is the single source of truth for redirection.
+    // If auth is done loading and we have a user, redirect to home.
     if (!context?.isAuthLoading && context?.firebaseUser) {
         router.replace('/home');
     }
@@ -61,6 +62,7 @@ export default function LoginPage() {
     setIsSubmittingLogin(true);
     await context.loginWithPhone(loginPhone, loginPassword);
     setIsSubmittingLogin(false);
+    // No redirect here, the useEffect will handle it when firebaseUser updates.
   }
 
   const handleGetLocation = () => {
@@ -100,17 +102,26 @@ export default function LoginPage() {
     setIsSubmittingSignup(true);
     await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
     setIsSubmittingSignup(false);
+    // No redirect here, the useEffect will handle it when firebaseUser updates.
   }
 
   const isSignupDisabled = isSubmittingSignup || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
 
-  if (context?.isAuthLoading || (context?.isAuthLoading === false && context.firebaseUser !== null)) {
+  // Show a loader IF we are still authenticating AND there's no user yet.
+  // This prevents the login form from flashing for a logged-in user before redirect.
+  if (context?.isAuthLoading && !context?.firebaseUser) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
         <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  // If the user is already logged in, the useEffect will redirect them. 
+  // We can render null or a loader here to prevent the form from appearing momentarily.
+  if (context?.firebaseUser) {
+    return null; 
   }
 
   return (
