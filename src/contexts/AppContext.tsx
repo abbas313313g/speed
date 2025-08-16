@@ -101,24 +101,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     const isLoading = isAuthLoading || dataLoading;
 
-    // --- Auth Listener ---
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
-            if (authUser) {
-                const userDocRef = doc(db, 'users', authUser.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                if (userDocSnap.exists()) {
-                    setUser({ id: userDocSnap.id, ...userDocSnap.data() } as User);
-                }
-            } else {
-                setUser(null);
-            }
-            setIsAuthLoading(false);
-        });
-        return () => unsubscribe();
-    }, []);
-
-    // --- Data Listeners ---
+    // --- Data Listeners Setup ---
     useEffect(() => {
         setDataLoading(true);
         const unsubs: Unsubscribe[] = [];
@@ -129,27 +112,61 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         unsubs.push(onSnapshot(collection(db, "restaurants"), snap => setRestaurants(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant)))));
         unsubs.push(onSnapshot(collection(db, "banners"), snap => setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)))));
 
-        if (user) {
-            if (user.isAdmin) {
-                // Admin data listeners
-                unsubs.push(onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)))));
-                unsubs.push(onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)))));
-            } else {
-                // Regular user data listener for their own orders
-                const q = query(collection(db, "orders"), where("userId", "==", user.id));
-                unsubs.push(onSnapshot(q, snap => setAllOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)))));
-            }
-        } else {
-             setAllOrders([]);
-             setAllUsers([]);
-        }
         setDataLoading(false);
 
-        // Cleanup function
+        // Cleanup function for public listeners
         return () => {
             unsubs.forEach(unsub => unsub());
         };
-    }, [user?.id, user?.isAdmin]);
+    }, []);
+
+    // --- Auth & User-Specific Data Listener ---
+    useEffect(() => {
+        const authUnsubscribe = onAuthStateChanged(auth, (authUser) => {
+            if (authUser) {
+                // User is logged in, now listen to their document and specific data
+                const userDocUnsubscribe = onSnapshot(doc(db, 'users', authUser.uid), (userDocSnap) => {
+                    if (userDocSnap.exists()) {
+                        const userData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
+                        setUser(userData);
+
+                        // Now that we have user data, setup user-specific listeners
+                        const specificDataUnsubs: Unsubscribe[] = [];
+                        if (userData.isAdmin) {
+                            // Admin data listeners
+                            specificDataUnsubs.push(onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
+                            specificDataUnsubs.push(onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))));
+                        } else {
+                            // Regular user data listener for their own orders
+                            const q = query(collection(db, "orders"), where("userId", "==", userData.id));
+                            specificDataUnsubs.push(onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
+                        }
+                        
+                        // This cleanup will run if the user doc changes (e.g., isAdmin status changes)
+                        // or when the component unmounts.
+                        return () => specificDataUnsubs.forEach(unsub => unsub());
+                    } else {
+                         // This case can happen briefly during account creation
+                        setUser(null);
+                    }
+                    setIsAuthLoading(false);
+                });
+
+                // Return cleanup for the user doc listener
+                return () => userDocUnsubscribe();
+
+            } else {
+                // User is logged out
+                setUser(null);
+                setAllOrders([]);
+                setAllUsers([]);
+                setIsAuthLoading(false);
+            }
+        });
+
+        // Return the main auth listener cleanup function
+        return () => authUnsubscribe();
+    }, []);
 
     const orders = useMemo(() => {
         if (!user) return [];
@@ -202,8 +219,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const usersSnapshot = await getDocs(usersQuery);
         const isFirstUser = usersSnapshot.size === 0;
 
-        const newUserData: User = {
-            id: authUser.uid,
+        const newUserData: Omit<User, 'id'> = {
             name: name,
             email: authUser.email || "",
             phone: authUser.phoneNumber || "",
@@ -215,7 +231,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         };
         
         await setDoc(doc(db, "users", authUser.uid), newUserData);
-        setUser(newUserData);
+        // The onAuthStateChanged listener will handle setting the user state
         toast({ title: `أهلاً بك، ${name}` });
     };
 
@@ -225,7 +241,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             localStorage.removeItem(`discount_${user.id}`);
         }
         await signOut(auth);
-        setUser(null);
+        // onAuthStateChanged will handle setting user to null and clearing data
         router.push('/login');
     };
     
@@ -234,8 +250,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const userDocRef = doc(db, "users", user.id);
         const updatedData = { ...userData, isProfileComplete: true };
         await updateDoc(userDocRef, updatedData);
-        const updatedUser = { ...user, ...updatedData };
-        setUser(updatedUser);
+        // The user doc listener will update the state automatically
     }
     
     const addAddress = async (address: Omit<Address, 'id'>) => {
@@ -244,8 +259,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const updatedAddresses = [...(user.addresses || []), newAddress];
         const userDocRef = doc(db, "users", user.id);
         await updateDoc(userDocRef, { addresses: updatedAddresses });
-        const updatedUser = { ...user, addresses: updatedAddresses };
-        setUser(updatedUser);
+        // The user doc listener will update the state automatically
         toast({ title: "تم إضافة العنوان بنجاح" });
     }
 
@@ -508,3 +522,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
+
+    
