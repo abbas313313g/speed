@@ -99,58 +99,62 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const [cart, setCart] = useState<CartItem[]>([]);
     const [discount, setDiscount] = useState(0);
 
-    // --- Auth Listener ---
+    // --- Auth & Data Listener ---
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+        const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
             setIsAuthLoading(true);
+            let dataUnsub: Unsubscribe = () => {};
+
             if (fbUser) {
                 setFirebaseUser(fbUser);
                 const userDocRef = doc(db, 'users', fbUser.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                if (userDocSnap.exists()) {
-                    setUser({ id: userDocSnap.id, ...userDocSnap.data() } as User);
-                } else {
-                    // This case should ideally not happen if signup is atomic
+                
+                try {
+                    const userDocSnap = await getDoc(userDocRef);
+                    if (userDocSnap.exists()) {
+                        const currentUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
+                        setUser(currentUser);
+
+                        const unsubs: Unsubscribe[] = [];
+                        if (currentUser.isAdmin) {
+                            unsubs.push(onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
+                            unsubs.push(onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))));
+                        } else {
+                            const q = query(collection(db, "orders"), where("userId", "==", currentUser.id));
+                            unsubs.push(onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
+                        }
+                        dataUnsub = () => unsubs.forEach(unsub => unsub());
+                    } else {
+                        // User exists in Auth but not Firestore, might happen during signup
+                        setUser(null);
+                    }
+                } catch (error) {
+                    console.error("Error fetching user data:", error);
                     setUser(null);
                 }
             } else {
                 setFirebaseUser(null);
                 setUser(null);
+                setAllOrders([]);
+                setAllUsers([]);
             }
             setIsAuthLoading(false);
+            return () => { dataUnsub(); };
         });
-        return () => unsubscribe();
+
+        const unsubsPublic = [
+            onSnapshot(collection(db, "products"), snap => setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)))),
+            onSnapshot(collection(db, "categories"), snap => setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)))),
+            onSnapshot(collection(db, "restaurants"), snap => setRestaurants(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant)))),
+            onSnapshot(collection(db, "banners"), snap => setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)))),
+        ];
+        
+        return () => {
+            unsubscribeAuth();
+            unsubsPublic.forEach(unsub => unsub());
+        };
     }, []);
 
-    // --- Data Listeners ---
-    useEffect(() => {
-        setIsLoading(true);
-        const unsubs: Unsubscribe[] = [];
-        
-        unsubs.push(onSnapshot(collection(db, "products"), snap => setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)))));
-        unsubs.push(onSnapshot(collection(db, "categories"), snap => setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)))));
-        unsubs.push(onSnapshot(collection(db, "restaurants"), snap => setRestaurants(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant)))));
-        unsubs.push(onSnapshot(collection(db, "banners"), snap => setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)))));
-
-        if (user) {
-            if (user.isAdmin) {
-                unsubs.push(onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
-                unsubs.push(onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))));
-            } else {
-                const q = query(collection(db, "orders"), where("userId", "==", user.id));
-                unsubs.push(onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
-            }
-        } else {
-            setAllOrders([]);
-            setAllUsers([]);
-        }
-        
-        setIsLoading(false);
-
-        return () => {
-            unsubs.forEach(unsub => unsub());
-        };
-    }, [user]);
 
     const orders = allOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -189,13 +193,24 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     // --- AUTH ACTIONS ---
     const signupWithPhone = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => {
         const email = `${phone}@${DUMMY_DOMAIN}`;
+        
+        // 1. Check if user already exists in Firestore by phone number
+        const q = query(collection(db, 'users'), where('phone', '==', phone));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            throw new Error("هذا الرقم مستخدم بالفعل.");
+        }
+        
+        // 2. Check if it's the first user ever
         const usersQuery = query(collection(db, 'users'));
         const usersSnapshot = await getDocs(usersQuery);
         const isFirstUser = usersSnapshot.size === 0;
 
+        // 3. Create user in Firebase Auth
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const fbUser = userCredential.user;
 
+        // 4. Create user document in Firestore
         const firstAddress: Address = { ...address, id: `address-${Date.now()}`, name: 'العنوان الأساسي' };
 
         const newUser: User = {
@@ -209,18 +224,19 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             isProfileComplete: true,
         };
         await setDoc(doc(db, "users", fbUser.uid), newUser);
-        setUser(newUser);
+        
+        // 5. The onAuthStateChanged listener will automatically pick up the new user and set the state.
+        // No need to call setUser here.
     };
 
     const loginWithPhone = async (phone: string, password: string) => {
         const email = `${phone}@${DUMMY_DOMAIN}`;
         await signInWithEmailAndPassword(auth, email, password);
+        // onAuthStateChanged will handle the rest
     };
 
     const logout = async () => {
         await signOut(auth);
-        setUser(null);
-        setFirebaseUser(null);
         router.push('/login');
     };
     
@@ -230,6 +246,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const updatedAddresses = [...(user.addresses || []), newAddress];
         const userDocRef = doc(db, "users", user.id);
         await updateDoc(userDocRef, { addresses: updatedAddresses });
+        setUser({ ...user, addresses: updatedAddresses }); // Update local state
         toast({ title: "تم إضافة العنوان بنجاح" });
     }
 
