@@ -25,7 +25,8 @@ export default function MainAppLayout({
     }
   }, [context?.isAuthLoading, context?.firebaseUser, router, context]);
 
-  // Show a loading screen while auth state is being determined.
+  // Show a loading screen while auth state is being determined OR if there's no user yet.
+  // This is the core of the protection logic.
   if (context?.isAuthLoading || !context?.firebaseUser) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
