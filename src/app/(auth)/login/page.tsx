@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useContext, useState, FormEvent } from "react";
+import { useContext, useState, FormEvent, useEffect } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,15 +47,20 @@ export default function LoginPage() {
   const { toast } = useToast();
   const router = useRouter();
 
+  // Redirect if user is already logged in
+  useEffect(() => {
+    if (!context?.isAuthLoading && context?.firebaseUser) {
+        router.replace('/welcome');
+    }
+  }, [context?.isAuthLoading, context?.firebaseUser, router]);
+
+
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     if (!context) return;
     setIsSubmittingLogin(true);
-    const success = await context.loginWithPhone(loginPhone, loginPassword);
-    if (success) {
-      // Redirect to welcome page on successful login
-      router.replace('/welcome');
-    }
+    await context.loginWithPhone(loginPhone, loginPassword);
+    // The useEffect above will handle the redirect on successful login
     setIsSubmittingLogin(false);
   }
 
@@ -94,11 +99,8 @@ export default function LoginPage() {
     }
     
     setIsSubmittingSignup(true);
-    const success = await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
-    if (success) {
-        // Redirect to welcome page on successful signup
-        router.replace('/welcome');
-    }
+    await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
+    // The useEffect above will handle the redirect on successful signup
     setIsSubmittingSignup(false);
   }
 
@@ -212,5 +214,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

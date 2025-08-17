@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useContext } from 'react';
+import { useContext, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppContext } from '@/contexts/AppContext';
 
@@ -16,8 +16,14 @@ export default function AuthLayout({
   const router = useRouter();
 
   // If auth is not loading and a user exists, redirect them away from auth pages.
-  if (!context?.isAuthLoading && context?.firebaseUser) {
-    router.replace('/home');
+  useEffect(() => {
+    if (!context?.isAuthLoading && context?.firebaseUser) {
+      router.replace('/home');
+    }
+  }, [context?.isAuthLoading, context?.firebaseUser, router]);
+  
+  // Prevent rendering login page if user is found and redirecting
+  if (context?.firebaseUser) {
     return null; // Return null to prevent rendering children during redirect
   }
   

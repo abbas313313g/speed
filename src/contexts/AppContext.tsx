@@ -105,9 +105,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         let adminSubs: Unsubscribe[] = [];
 
         const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
-            setIsAuthLoading(true); // Start loading whenever auth state changes
+            setIsAuthLoading(true);
             
-            // Clean up previous listeners
             if (userSub) userSub();
             adminSubs.forEach(sub => sub());
             adminSubs = [];
@@ -116,32 +115,25 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 setFirebaseUser(fbUser);
                 const userDocRef = doc(db, 'users', fbUser.uid);
                 
-                userSub = onSnapshot(userDocRef, async (userDocSnap) => {
+                userSub = onSnapshot(userDocRef, (userDocSnap) => {
                     if (userDocSnap.exists()) {
                         const currentUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
                         setUser(currentUser);
                         
-                        // Clear old admin data if user is no longer admin
-                        if (!currentUser.isAdmin) {
-                            setAllUsers([]);
-                        }
-                        
-                        // Setup role-based listeners
                         if (currentUser.isAdmin) {
                             const qOrders = query(collection(db, "orders"));
                             const qUsers = query(collection(db, "users"));
                             adminSubs.push(onSnapshot(qOrders, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
                             adminSubs.push(onSnapshot(qUsers, snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))));
                         } else {
+                            setAllUsers([]);
                             const q = query(collection(db, "orders"), where("userId", "==", currentUser.id));
                             adminSubs.push(onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
                         }
                     } else {
-                        // This case can happen if user is deleted from db but not auth
                         setUser(null);
-                        await signOut(auth);
                     }
-                    setIsAuthLoading(false); // Stop loading after all data is fetched
+                    setIsAuthLoading(false);
                 }, (error) => {
                     console.error("Error listening to user document:", error);
                     setIsAuthLoading(false);
@@ -152,6 +144,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 setUser(null);
                 setAllOrders([]);
                 setAllUsers([]);
+                setCart([]);
+                setDiscount(0);
                 setIsAuthLoading(false);
             }
         });
@@ -176,16 +170,13 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     // --- Cart Persistence ---
      useEffect(() => {
-        if (user) {
+        if (!isAuthLoading && user) {
             const cartData = localStorage.getItem(`cart_${user.id}`);
             if (cartData) setCart(JSON.parse(cartData));
             const discountData = localStorage.getItem(`discount_${user.id}`);
             if (discountData) setDiscount(JSON.parse(discountData));
-        } else {
-            setCart([]);
-            setDiscount(0);
         }
-    }, [user?.id]);
+    }, [user?.id, isAuthLoading]);
 
     useEffect(() => {
         if (user) {
@@ -231,7 +222,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
             await setDoc(doc(db, "users", fbUser.uid), newUser);
             toast({ title: `أهلاً بك، ${name}` });
-            router.replace('/welcome');
             return true;
 
         } catch (error: any) {
@@ -249,7 +239,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         try {
              await signInWithEmailAndPassword(auth, email, password);
              toast({ title: `مرحباً بعودتك` });
-             router.replace('/welcome');
              return true;
         } catch(error: any) {
             toast({ title: "فشل تسجيل الدخول", description: "الرجاء التأكد من رقم الهاتف وكلمة المرور.", variant: "destructive" });
