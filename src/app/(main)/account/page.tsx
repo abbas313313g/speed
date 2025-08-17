@@ -1,31 +1,45 @@
 
 "use client";
 
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import Link from "next/link";
 import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Phone, MapPin, LogOut, KeyRound, PlusCircle, Home, Mail } from "lucide-react";
+import { User, Phone, MapPin, LogOut, KeyRound, PlusCircle, Home, Mail, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
 import type { Address } from "@/lib/types";
+import { useRouter } from "next/navigation";
 
 export default function AccountPage() {
   const context = useContext(AppContext);
   const { toast } = useToast();
+  const router = useRouter();
 
   const [open, setOpen] = useState(false);
   const [newAddressName, setNewAddressName] = useState("");
   const [newAddressLocation, setNewAddressLocation] = useState<{latitude: number, longitude: number} | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   
-  if (!context || !context.user) {
-    return null; 
+  useEffect(() => {
+    // If auth is loading, we wait. If it's done and there's no user, redirect.
+    if (!context?.isAuthLoading && !context?.firebaseUser) {
+      router.replace('/login');
+    }
+  }, [context?.isAuthLoading, context?.firebaseUser, router]);
+
+
+  if (context?.isAuthLoading || !context?.firebaseUser || !context?.user) {
+    return (
+       <div className="flex h-[calc(100vh-8rem)] w-full flex-col items-center justify-center p-4">
+         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+         <p className="mt-2 text-muted-foreground">الرجاء الانتظار...</p>
+       </div>
+    );
   }
 
   const { user, logout, addAddress } = context;

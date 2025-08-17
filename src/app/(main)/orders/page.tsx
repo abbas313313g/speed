@@ -1,13 +1,14 @@
 
 "use client";
 
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, CookingPot, Bike, Home, ShoppingBag, XCircle } from "lucide-react";
+import { CheckCircle, CookingPot, Bike, Home, ShoppingBag, XCircle, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { Order } from "@/lib/types";
+import { useRouter } from "next/navigation";
 
 const orderStatusSteps = [
     { id: 'confirmed', label: 'تم التأكيد', icon: CheckCircle, progress: 10 },
@@ -82,8 +83,24 @@ function PastOrderCard({ order }: { order: Order }) {
 
 export default function OrdersPage() {
     const context = useContext(AppContext);
+    const router = useRouter();
 
-    if (!context) return null;
+    useEffect(() => {
+        // If auth is loading, we wait. If it's done and there's no user, redirect.
+        if (!context?.isAuthLoading && !context?.firebaseUser) {
+          router.replace('/login');
+        }
+    }, [context?.isAuthLoading, context?.firebaseUser, router]);
+
+    if (context?.isAuthLoading || !context?.firebaseUser) {
+        return (
+           <div className="flex h-[calc(100vh-8rem)] w-full flex-col items-center justify-center p-4">
+             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+             <p className="mt-2 text-muted-foreground">الرجاء الانتظار...</p>
+           </div>
+        );
+    }
+    
 
     const { orders } = context;
     const currentOrders = orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled');

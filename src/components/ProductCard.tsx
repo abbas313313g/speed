@@ -11,6 +11,7 @@ import { formatCurrency } from "@/lib/utils";
 import type { Product } from "@/lib/types";
 import { AppContext } from "@/contexts/AppContext";
 import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
 
 interface ProductCardProps {
   product: Product;
@@ -19,9 +20,21 @@ interface ProductCardProps {
 function ProductCardComponent({ product }: ProductCardProps) {
   const context = useContext(AppContext);
   const { toast } = useToast();
+  const router = useRouter();
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (!context?.firebaseUser) {
+        toast({
+            title: "يرجى تسجيل الدخول أولاً",
+            description: "يجب عليك تسجيل الدخول لتتمكن من إضافة المنتجات إلى السلة.",
+            variant: "destructive",
+            action: (
+                <Button onClick={() => router.push('/login')}>تسجيل الدخول</Button>
+            ),
+        });
+        return;
+    }
     context?.addToCart(product);
   };
 

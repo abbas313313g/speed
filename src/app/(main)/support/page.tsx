@@ -9,6 +9,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Bot, Loader2, Send, User } from "lucide-react";
 import { askAiSupport } from "@/ai/flows/ai-support";
+import { AppContext } from "@/contexts/AppContext";
+import { useContext } from "react";
 
 interface Message {
   role: "user" | "assistant";
@@ -16,6 +18,7 @@ interface Message {
 }
 
 export default function SupportPage() {
+  const context = useContext(AppContext);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -63,6 +66,9 @@ export default function SupportPage() {
       setIsLoading(false);
     }
   };
+  
+  const userIcon = context?.firebaseUser ? <User /> : <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-user-round-search"><circle cx="10" cy="8" r="4"/><path d="M10 12H5c-2.2 0-4 1.8-4 4v1"/><circle cx="18" cy="18" r="3"/><path d="m22 22-1.9-1.9"/></svg>;
+
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
@@ -99,7 +105,7 @@ export default function SupportPage() {
                {message.role === "user" && (
                 <Avatar className="h-8 w-8">
                   <AvatarFallback>
-                    <User />
+                    {userIcon}
                   </AvatarFallback>
                 </Avatar>
               )}
