@@ -25,6 +25,7 @@ import {
 import { deliveryZones } from "@/lib/mock-data";
 import type { Address } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [loginPhone, setLoginPhone] = useState("");
@@ -44,14 +45,17 @@ export default function LoginPage() {
   
   const context = useContext(AppContext);
   const { toast } = useToast();
+  const router = useRouter();
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     if (!context) return;
     setIsSubmittingLogin(true);
-    // The login function only needs to be called.
-    // The redirect is handled by the layout protectors when the auth state changes.
-    await context.loginWithPhone(loginPhone, loginPassword);
+    const success = await context.loginWithPhone(loginPhone, loginPassword);
+    if (success) {
+      // Redirect to welcome page on successful login
+      router.replace('/welcome');
+    }
     setIsSubmittingLogin(false);
   }
 
@@ -90,9 +94,11 @@ export default function LoginPage() {
     }
     
     setIsSubmittingSignup(true);
-    // The signup function only needs to be called.
-    // The redirect is handled by the layout protectors when the auth state changes.
-    await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
+    const success = await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
+    if (success) {
+        // Redirect to welcome page on successful signup
+        router.replace('/welcome');
+    }
     setIsSubmittingSignup(false);
   }
 
@@ -206,3 +212,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    
