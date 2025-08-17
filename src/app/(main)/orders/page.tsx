@@ -91,7 +91,7 @@ export default function OrdersPage() {
         return (
            <div className="flex h-[calc(100vh-8rem)] w-full flex-col items-center justify-center p-4">
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-             <p className="mt-2 text-muted-foreground">الرجاء الانتظار...</p>
+             <p className="mt-2 text-muted-foreground">الرجاء الانتظar...</p>
            </div>
         );
     }
