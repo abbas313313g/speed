@@ -23,8 +23,8 @@ export default function AuthLayout({
     }
   }, [context?.isAuthLoading, context?.firebaseUser, router]);
 
-  // While checking auth, or if the user is logged in (and about to be redirected), show a loader.
-  if (context?.isAuthLoading || context?.firebaseUser) {
+  // While checking auth, show a loader.
+  if (context?.isAuthLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
@@ -33,6 +33,16 @@ export default function AuthLayout({
     );
   }
   
+  // If user is logged in, they will be redirected, so we can show a loader as well.
+  if (context?.firebaseUser) {
+      return (
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+        <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
+        <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   // If user is not authenticated (and not loading), show the auth page (login/signup form).
   return <>{children}</>;
 }

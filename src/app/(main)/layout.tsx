@@ -24,7 +24,7 @@ export default function MainAppLayout({
     }
   }, [context?.isAuthLoading, context?.firebaseUser, router]);
 
-  // While checking auth status OR if there is no user yet, show a loader.
+  // While checking auth status OR if there is no user yet (and we are about to redirect), show a loader.
   if (context?.isAuthLoading || !context?.firebaseUser) {
     return (
        <div className="flex h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
