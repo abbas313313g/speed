@@ -1,12 +1,48 @@
 
 "use client";
 
+import { useContext, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { AppContext } from '@/contexts/AppContext';
+import { Loader2, ShoppingCart } from 'lucide-react';
+
 // This layout is for the auth pages (like /login, /signup)
-// All authentication checks have been removed as per user request.
+// It redirects authenticated users to the home page.
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  const context = useContext(AppContext);
+  const router = useRouter();
+
+  useEffect(() => {
+    // If auth is not loading and a user exists, redirect them away from auth pages.
+    if (!context?.isAuthLoading && context?.firebaseUser) {
+      router.replace('/home');
+    }
+  }, [context?.isAuthLoading, context?.firebaseUser, router]);
+
+  // While checking auth, show a loader.
+  if (context?.isAuthLoading) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+        <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
+        <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
+  // If user is not authenticated, show the auth page (login/signup form).
+  if (!context?.firebaseUser) {
+     return <>{children}</>;
+  }
+  
+  // If user is authenticated (and useEffect is about to redirect), show a loader.
+  return (
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+        <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
+        <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />
+      </div>
+  );
 }
