@@ -2,13 +2,15 @@
 "use client";
 
 import { useContext, useEffect } from "react";
+import Link from 'next/link';
 import { AppContext } from "@/contexts/AppContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, CookingPot, Bike, Home, ShoppingBag, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle, CookingPot, Bike, Home, ShoppingBag, XCircle, Loader2, LogIn } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { Order } from "@/lib/types";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 const orderStatusSteps = [
     { id: 'confirmed', label: 'تم التأكيد', icon: CheckCircle, progress: 10 },
@@ -85,14 +87,7 @@ export default function OrdersPage() {
     const context = useContext(AppContext);
     const router = useRouter();
 
-    useEffect(() => {
-        // If auth is loading, we wait. If it's done and there's no user, redirect.
-        if (!context?.isAuthLoading && !context?.firebaseUser) {
-          router.replace('/login');
-        }
-    }, [context?.isAuthLoading, context?.firebaseUser, router]);
-
-    if (context?.isAuthLoading || !context?.firebaseUser) {
+    if (context?.isAuthLoading) {
         return (
            <div className="flex h-[calc(100vh-8rem)] w-full flex-col items-center justify-center p-4">
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -101,6 +96,21 @@ export default function OrdersPage() {
         );
     }
     
+    if (!context?.firebaseUser) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] text-center p-4">
+                <ShoppingBag className="h-24 w-24 text-muted-foreground/50 mb-4" />
+                <h2 className="text-2xl font-bold">صفحة الطلبات</h2>
+                <p className="text-muted-foreground mt-2">الرجاء تسجيل الدخول لعرض طلباتك الحالية والسابقة.</p>
+                <Button asChild className="mt-6">
+                    <Link href="/login">
+                         <LogIn className="ml-2 h-5 w-5" />
+                        تسجيل الدخول
+                    </Link>
+                </Button>
+            </div>
+        )
+    }
 
     const { orders } = context;
     const currentOrders = orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled');

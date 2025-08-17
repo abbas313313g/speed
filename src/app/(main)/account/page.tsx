@@ -7,7 +7,7 @@ import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Phone, MapPin, LogOut, KeyRound, PlusCircle, Home, Mail, Loader2 } from "lucide-react";
+import { User, Phone, MapPin, LogOut, KeyRound, PlusCircle, Home, Mail, Loader2, LogIn } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -24,22 +24,30 @@ export default function AccountPage() {
   const [newAddressName, setNewAddressName] = useState("");
   const [newAddressLocation, setNewAddressLocation] = useState<{latitude: number, longitude: number} | null>(null);
   const [isLocating, setIsLocating] = useState(false);
-  
-  useEffect(() => {
-    // If auth is loading, we wait. If it's done and there's no user, redirect.
-    if (!context?.isAuthLoading && !context?.firebaseUser) {
-      router.replace('/login');
-    }
-  }, [context?.isAuthLoading, context?.firebaseUser, router]);
 
-
-  if (context?.isAuthLoading || !context?.firebaseUser || !context?.user) {
+  if (context?.isAuthLoading) {
     return (
        <div className="flex h-[calc(100vh-8rem)] w-full flex-col items-center justify-center p-4">
          <Loader2 className="h-8 w-8 animate-spin text-primary" />
          <p className="mt-2 text-muted-foreground">الرجاء الانتظار...</p>
        </div>
     );
+  }
+
+  if (!context?.firebaseUser || !context?.user) {
+    return (
+        <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] text-center p-4">
+            <User className="h-24 w-24 text-muted-foreground/50 mb-4" />
+            <h2 className="text-2xl font-bold">صفحة الحساب</h2>
+            <p className="text-muted-foreground mt-2">الرجاء تسجيل الدخول لعرض معلومات حسابك وإدارة عناوينك.</p>
+            <Button asChild className="mt-6">
+                <Link href="/login">
+                    <LogIn className="ml-2 h-5 w-5" />
+                    تسجيل الدخول
+                </Link>
+            </Button>
+        </div>
+    )
   }
 
   const { user, logout, addAddress } = context;

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { formatCurrency } from '@/lib/utils';
-import { Minus, Plus, Trash2, ShoppingBag, Tag, Home, Loader2 } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingBag, Tag, Home, Loader2, LogIn } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
@@ -25,13 +25,6 @@ export default function CartPage() {
   const [selectedAddressId, setSelectedAddressId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    // If auth is loading, we wait. If it's done and there's no user, redirect.
-    if (!context?.isAuthLoading && !context?.firebaseUser) {
-      router.replace('/login');
-    }
-  }, [context?.isAuthLoading, context?.firebaseUser, router]);
-
-  useEffect(() => {
     // Set default address when component loads or user addresses change
     if(context?.user?.addresses && context.user.addresses.length > 0 && !selectedAddressId){
         setSelectedAddressId(context.user.addresses[0].id);
@@ -39,13 +32,29 @@ export default function CartPage() {
   }, [context?.user?.addresses, selectedAddressId]);
 
 
-  if (context?.isAuthLoading || !context?.firebaseUser) {
+  if (context?.isAuthLoading) {
     return (
        <div className="flex h-[calc(100vh-8rem)] w-full flex-col items-center justify-center p-4">
          <Loader2 className="h-8 w-8 animate-spin text-primary" />
          <p className="mt-2 text-muted-foreground">الرجاء الانتظار...</p>
        </div>
     );
+  }
+  
+  if (!context?.firebaseUser) {
+    return (
+        <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] text-center p-4">
+            <ShoppingBag className="h-24 w-24 text-muted-foreground/50 mb-4" />
+            <h2 className="text-2xl font-bold">سلّتك فارغة!</h2>
+            <p className="text-muted-foreground mt-2">الرجاء تسجيل الدخول لإضافة منتجات إلى سلتك.</p>
+            <Button asChild className="mt-6">
+                <Link href="/login">
+                    <LogIn className="ml-2 h-5 w-5" />
+                    تسجيل الدخول
+                </Link>
+            </Button>
+        </div>
+    )
   }
 
   const { cart, updateQuantity, totalCartPrice, deliveryFee, placeOrder, applyCoupon, discount, user } = context;
