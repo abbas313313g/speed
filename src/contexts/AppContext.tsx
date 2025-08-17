@@ -49,8 +49,8 @@ interface AppContextType {
   banners: Banner[];
   isAuthLoading: boolean;
   isLoading: boolean;
-  signupWithPhone: (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => Promise<boolean>;
-  loginWithPhone: (phone: string, password: string) => Promise<boolean>;
+  signup: (email: string, password: string, name: string, phone: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
@@ -76,8 +76,6 @@ interface AppContextType {
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
-
-const DUMMY_DOMAIN = "speedshop.app";
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const router = useRouter();
@@ -198,8 +196,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }, [categories]);
 
     // --- AUTH ACTIONS ---
-    const signupWithPhone = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>): Promise<boolean> => {
-        const email = `${phone}@${DUMMY_DOMAIN}`;
+    const signup = async (email: string, password: string, name: string, phone: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>): Promise<boolean> => {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const fbUser = userCredential.user;
@@ -212,6 +209,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             
             const newUser: Omit<User, 'id'> = {
                 name,
+                email,
                 phone,
                 deliveryZone,
                 addresses: [firstAddress],
@@ -226,7 +224,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
         } catch (error: any) {
             if (error.code === 'auth/email-already-in-use') {
-                toast({ title: "فشل إنشاء الحساب", description: "رقم الهاتف مستخدم بالفعل.", variant: "destructive" });
+                toast({ title: "فشل إنشاء الحساب", description: "البريد الإلكتروني مستخدم بالفعل.", variant: "destructive" });
             } else {
                 toast({ title: "فشل إنشاء الحساب", description: "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.", variant: "destructive" });
             }
@@ -234,14 +232,13 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         }
     };
     
-    const loginWithPhone = async (phone: string, password:string): Promise<boolean> => {
-        const email = `${phone}@${DUMMY_DOMAIN}`;
+    const login = async (email: string, password:string): Promise<boolean> => {
         try {
              await signInWithEmailAndPassword(auth, email, password);
              toast({ title: `مرحباً بعودتك` });
              return true;
         } catch(error: any) {
-            toast({ title: "فشل تسجيل الدخول", description: "الرجاء التأكد من رقم الهاتف وكلمة المرور.", variant: "destructive" });
+            toast({ title: "فشل تسجيل الدخول", description: "الرجاء التأكد من البريد الإلكتروني وكلمة المرور.", variant: "destructive" });
             return false;
         }
     };
@@ -269,6 +266,15 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const addToCart = (product: Product, quantity: number = 1) => {
+        if (!firebaseUser) {
+            toast({
+                title: "يرجى تسجيل الدخول أولاً",
+                description: "يجب عليك تسجيل الدخول لتتمكن من إضافة المنتجات إلى السلة.",
+                variant: "destructive",
+                action: (<Button onClick={() => router.push('/login')}>تسجيل الدخول</Button>),
+            });
+            return;
+        }
         if (cart.length > 0 && cart[0].product.restaurantId !== product.restaurantId) {
             toast({
                 title: "لا يمكن الطلب من متاجر مختلفة",
@@ -487,8 +493,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         banners,
         isAuthLoading,
         isLoading,
-        signupWithPhone,
-        loginWithPhone,
+        signup,
+        login,
         logout,
         addAddress,
         addToCart,

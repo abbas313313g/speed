@@ -29,12 +29,12 @@ export default function AccountPage() {
     return (
        <div className="flex h-[calc(100vh-8rem)] w-full flex-col items-center justify-center p-4">
          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-         <p className="mt-2 text-muted-foreground">الرجاء الانتظار...</p>
+         <p className="mt-2 text-muted-foreground">جارِ جلب بيانات الحساب...</p>
        </div>
     );
   }
 
-  if (!context?.firebaseUser) {
+  if (!context?.firebaseUser || !context?.user) {
     return (
         <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] text-center p-4">
             <User className="h-24 w-24 text-muted-foreground/50 mb-4" />
@@ -49,17 +49,6 @@ export default function AccountPage() {
         </div>
     )
   }
-  
-  // Render a simple loader if the user object from firestore is not yet available
-  if (!context.user) {
-    return (
-       <div className="flex h-[calc(100vh-8rem)] w-full flex-col items-center justify-center p-4">
-         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-         <p className="mt-2 text-muted-foreground">جارِ جلب بيانات الحساب...</p>
-       </div>
-    );
-  }
-
 
   const { user, logout, addAddress } = context;
   const userInitial = user.name ? user.name.charAt(0).toUpperCase() : '?';
@@ -114,6 +103,10 @@ export default function AccountPage() {
            <div className="flex items-center gap-4">
                 <User className="h-6 w-6 text-primary" />
                 <span>{user.name}</span>
+           </div>
+            <div className="flex items-center gap-4">
+                <Mail className="h-6 w-6 text-primary" />
+                <span>{user.email}</span>
            </div>
            <div className="flex items-center gap-4">
                 <Phone className="h-6 w-6 text-primary" />

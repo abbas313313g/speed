@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ShoppingCart, KeyRound, Phone, User, MapPin } from "lucide-react";
+import { Loader2, ShoppingCart, KeyRound, Phone, User, MapPin, Mail } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -28,10 +28,11 @@ import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  const [loginPhone, setLoginPhone] = useState("");
+  const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   
   const [signupName, setSignupName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
   const [signupPhone, setSignupPhone] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [deliveryZoneName, setDeliveryZoneName] = useState("");
@@ -47,21 +48,22 @@ export default function LoginPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  // Redirect if user is already logged in
   useEffect(() => {
-    if (!context?.isAuthLoading && context?.firebaseUser) {
+    if (context?.firebaseUser) {
         router.replace('/welcome');
     }
-  }, [context?.isAuthLoading, context?.firebaseUser, router]);
+  }, [context?.firebaseUser, router]);
 
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     if (!context) return;
     setIsSubmittingLogin(true);
-    await context.loginWithPhone(loginPhone, loginPassword);
+    const success = await context.login(loginEmail, loginPassword);
+    if (!success) {
+      setIsSubmittingLogin(false);
+    }
     // The useEffect above will handle the redirect on successful login
-    setIsSubmittingLogin(false);
   }
 
   const handleGetLocation = () => {
@@ -99,12 +101,14 @@ export default function LoginPage() {
     }
     
     setIsSubmittingSignup(true);
-    await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
+    const success = await context.signup(signupEmail, signupPassword, signupName, signupPhone, selectedZone, address);
+    if (!success) {
+        setIsSubmittingSignup(false);
+    }
     // The useEffect above will handle the redirect on successful signup
-    setIsSubmittingSignup(false);
   }
 
-  const isSignupDisabled = isSubmittingSignup || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
+  const isSignupDisabled = isSubmittingSignup || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupEmail || !signupPassword || !signupPhone;
   
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
@@ -124,10 +128,10 @@ export default function LoginPage() {
             <CardContent>
                 <form onSubmit={handleLogin} className="space-y-4">
                      <div className="space-y-2">
-                        <Label htmlFor="login-phone">رقم الهاتف</Label>
+                        <Label htmlFor="login-email">البريد الإلكتروني</Label>
                         <div className="relative">
-                            <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                            <Input id="login-phone" type="tel" placeholder="07xxxxxxxxx" required value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} className="pr-10" dir="ltr"/>
+                            <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Input id="login-email" type="email" placeholder="example@mail.com" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="pr-10" dir="ltr"/>
                         </div>
                     </div>
                      <div className="space-y-2">
@@ -162,6 +166,13 @@ export default function LoginPage() {
                         <div className="relative">
                             <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                             <Input id="signup-name" type="text" placeholder="مثال: علي محمد" required value={signupName} onChange={(e) => setSignupName(e.target.value)} className="pr-10" />
+                        </div>
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="signup-email">البريد الإلكتروني</Label>
+                        <div className="relative">
+                            <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Input id="signup-email" type="email" placeholder="example@mail.com" required value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} className="pr-10" dir="ltr"/>
                         </div>
                     </div>
                      <div className="space-y-2">
