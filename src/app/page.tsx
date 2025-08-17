@@ -9,12 +9,9 @@ export default function LandingPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // This page's only job is to redirect to the main app flow.
-    // The gatekeeping logic is in (main)/layout.tsx.
     router.replace("/home");
   }, [router]);
 
-  // Show a loading screen while redirecting.
   return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />

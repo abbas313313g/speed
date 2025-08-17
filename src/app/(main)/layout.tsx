@@ -15,17 +15,12 @@ export default function MainAppLayout({
   const context = useContext(AppContext);
   const router = useRouter();
   
-  // This is the gatekeeper for the main part of the app.
   useEffect(() => {
-    // Wait until loading is finished, then check for user.
     if (context && !context.isAuthLoading && !context.firebaseUser) {
-      // If no user, redirect to login.
       router.replace('/login');
     }
   }, [context?.isAuthLoading, context?.firebaseUser, router, context]);
 
-  // Show a loading screen while checking auth state.
-  // This screen will show until the useEffect above decides where to redirect.
   if (context?.isAuthLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
@@ -35,9 +30,6 @@ export default function MainAppLayout({
     );
   }
 
-  // If auth is loaded AND a user exists, show the main app content.
-  // If no user exists, the useEffect will have already triggered a redirect, 
-  // so we can render null here to avoid content flash.
   if (context?.firebaseUser) {
     return (
       <div className="mx-auto flex min-h-screen max-w-md flex-col bg-card shadow-lg">
@@ -47,6 +39,5 @@ export default function MainAppLayout({
     );
   }
 
-  // While redirecting, show nothing.
   return null;
 }

@@ -50,8 +50,7 @@ interface AppContextType {
   isAuthLoading: boolean;
   isLoading: boolean;
   signupWithPhone: (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => Promise<boolean>;
-  loginWithPhone: (phone: string, password: string) => Promise<{ firebaseUser: FirebaseAuthUser; user: User; } | null>;
-  setAuthData: (data: { firebaseUser: FirebaseAuthUser; user: User; }) => void;
+  loginWithPhone: (phone: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
@@ -106,16 +105,16 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         let adminUnsubscribe: Unsubscribe | null = null;
     
         const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
+            setIsAuthLoading(true);
             if (fbUser) {
-                setFirebaseUser(fbUser);
                 const userDocRef = doc(db, 'users', fbUser.uid);
                 try {
                     const userDocSnap = await getDoc(userDocRef);
                     if (userDocSnap.exists()) {
                         const currentUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
                         setUser(currentUser);
+                        setFirebaseUser(fbUser);
     
-                        // Clean up previous listeners before attaching new ones
                         if (userOrdersUnsubscribe) userOrdersUnsubscribe();
                         if (adminUnsubscribe) adminUnsubscribe();
     
@@ -129,10 +128,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                             userOrdersUnsubscribe = onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
                         }
                     } else {
-                        // This might happen if user is deleted from firestore but not auth
                         await signOut(auth);
-                        setUser(null);
-                        setFirebaseUser(null);
                     }
                 } catch (error) {
                     console.error("Error fetching user document:", error);
@@ -146,7 +142,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 if (userOrdersUnsubscribe) userOrdersUnsubscribe();
                 if (adminUnsubscribe) adminUnsubscribe();
             }
-            // Crucially, set loading to false only after all async operations are done
             setIsAuthLoading(false);
         });
     
@@ -200,11 +195,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         }));
     }, [categories]);
 
-    const setAuthData = useCallback((data: { firebaseUser: FirebaseAuthUser; user: User; }) => {
-        setFirebaseUser(data.firebaseUser);
-        setUser(data.user);
-    }, []);
-
     // --- AUTH ACTIONS ---
     const signupWithPhone = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>): Promise<boolean> => {
         const email = `${phone}@${DUMMY_DOMAIN}`;
@@ -243,27 +233,15 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     };
     
 
-    const loginWithPhone = async (phone: string, password:string): Promise<{ firebaseUser: FirebaseAuthUser; user: User; } | null> => {
+    const loginWithPhone = async (phone: string, password:string): Promise<boolean> => {
         const email = `${phone}@${DUMMY_DOMAIN}`;
         try {
-             const userCredential = await signInWithEmailAndPassword(auth, email, password);
-             const fbUser = userCredential.user;
-
-             const userDocRef = doc(db, 'users', fbUser.uid);
-             const userDocSnap = await getDoc(userDocRef);
-
-             if (userDocSnap.exists()) {
-                 const userData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
-                 toast({ title: `مرحباً بعودتك` });
-                 return { firebaseUser: fbUser, user: userData };
-             } else {
-                 toast({ title: "فشل تسجيل الدخول", description: "لم يتم العثور على بيانات المستخدم.", variant: "destructive" });
-                 await signOut(auth);
-                 return null;
-             }
+             await signInWithEmailAndPassword(auth, email, password);
+             toast({ title: `مرحباً بعودتك` });
+             return true;
         } catch(error: any) {
             toast({ title: "فشل تسجيل الدخول", description: "الرجاء التأكد من رقم الهاتف وكلمة المرور.", variant: "destructive" });
-            return null;
+            return false;
         }
     };
 
@@ -278,7 +256,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const updatedAddresses = [...(user.addresses || []), newAddress];
         const userDocRef = doc(db, "users", user.id);
         await updateDoc(userDocRef, { addresses: updatedAddresses });
-        // The onSnapshot listener will update the local state automatically
         toast({ title: "تم إضافة العنوان بنجاح" });
     }
 
@@ -511,7 +488,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         isLoading,
         signupWithPhone,
         loginWithPhone,
-        setAuthData,
         logout,
         addAddress,
         addToCart,

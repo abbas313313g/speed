@@ -48,8 +48,6 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // If the app is done loading and the user is ALREADY logged in,
-    // redirect them away from the login page.
     if (context && !context.isAuthLoading && context.firebaseUser) {
         router.replace('/home');
     }
@@ -61,12 +59,7 @@ export default function LoginPage() {
     if (!context) return;
     setIsSubmittingLogin(true);
     
-    const result = await context.loginWithPhone(loginPhone, loginPassword);
-    
-    if (result) {
-        context.setAuthData(result);
-        router.push('/home');
-    }
+    await context.loginWithPhone(loginPhone, loginPassword);
     
     setIsSubmittingLogin(false);
   }
@@ -107,20 +100,12 @@ export default function LoginPage() {
     
     setIsSubmittingSignup(true);
     const success = await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
-    if (success) {
-        // After successful signup, log the user in to get their data and redirect.
-        const loginResult = await context.loginWithPhone(signupPhone, signupPassword);
-        if (loginResult) {
-            context.setAuthData(loginResult);
-            router.push('/home');
-        }
-    }
+    
     setIsSubmittingSignup(false);
   }
 
   const isSignupDisabled = isSubmittingSignup || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
 
-  // Show a loader while the initial auth state is being determined.
   if (context?.isAuthLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
@@ -130,13 +115,10 @@ export default function LoginPage() {
     );
   }
 
-  // If the user is already logged in, the useEffect will redirect them.
-  // We can show null here to avoid flashing the login form.
   if (context?.firebaseUser) {
     return null;
   }
   
-  // If loading is done and there's no user, show the login form.
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
