@@ -9,10 +9,12 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { Minus, Plus, ShoppingCart } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
   const context = useContext(AppContext);
+  const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
 
   const product = useMemo(() => context?.products.find(p => p.id === id), [id, context?.products]);
@@ -32,6 +34,10 @@ export default function ProductDetailPage() {
   const handleAddToCart = () => {
     if (context) {
       context.addToCart(product, quantity);
+       toast({
+        title: "تمت الإضافة إلى السلة",
+        description: `${quantity}x ${product.name}`,
+      });
     }
   };
 

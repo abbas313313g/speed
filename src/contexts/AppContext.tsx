@@ -1,10 +1,11 @@
 
 "use client";
 
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner } from '@/lib/types';
+import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address } from '@/lib/types';
 import { categories as initialCategoriesData } from '@/lib/mock-data';
+import { deliveryZones as initialDeliveryZones } from '@/lib/mock-data';
 import { ShoppingBasket } from 'lucide-react';
 import { db, storage } from '@/lib/firebase';
 import { 
@@ -26,18 +27,29 @@ interface AppContextType {
   banners: Banner[];
   allUsers: User[];
   isLoading: boolean;
+  cart: CartItem[];
+  cartTotal: number;
+  addToCart: (product: Product, quantity: number) => void;
+  removeFromCart: (productId: string) => void;
+  updateCartQuantity: (productId: string, quantity: number) => void;
+  clearCart: () => void;
+  placeOrder: (address: Address) => Promise<void>;
+  addresses: Address[];
+  addAddress: (address: Omit<Address, 'id'>) => void;
+  deleteAddress: (addressId: string) => void;
+  deliveryZones: typeof initialDeliveryZones;
+  localOrderIds: string[];
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
-  addProduct: (product: Omit<Product, 'id' | 'bestSeller'>) => Promise<void>;
+  addProduct: (product: Omit<Product, 'id' | 'bestSeller'> & {image: string}) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
   addCategory: (category: Omit<Category, 'id' | 'icon'>) => Promise<void>;
   updateCategory: (category: Omit<Category, 'icon' | 'id'> & {id: string}) => Promise<void>;
   deleteCategory: (categoryId: string) => Promise<void>;
-  addRestaurant: (restaurant: Omit<Restaurant, 'id'>) => Promise<void>;
+  addRestaurant: (restaurant: Omit<Restaurant, 'id'> & {image: string}) => Promise<void>;
   updateRestaurant: (restaurant: Restaurant) => Promise<void>;
   deleteRestaurant: (restaurantId: string) => Promise<void>;
-  addBanner: (banner: Omit<Banner, 'id'>) => Promise<void>;
-  addToCart: (product: Product, quantity: number) => void;
+  addBanner: (banner: Omit<Banner, 'id'> & {image: string}) => Promise<void>;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -52,6 +64,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const [banners, setBanners] = useState<Banner[]>([]);
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [allOrders, setAllOrders] = useState<Order[]>([]);
+    const [cart, setCart] = useState<CartItem[]>([]);
+    const [addresses, setAddresses] = useState<Address[]>([]);
+    const [localOrderIds, setLocalOrderIds] = useState<string[]>([]);
     
     // --- Data Listeners ---
     useEffect(() => {
@@ -65,6 +80,14 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))),
         ];
         
+        // Load cart, addresses, and order IDs from localStorage
+        const savedCart = localStorage.getItem('speedShopCart');
+        const savedAddresses = localStorage.getItem('speedShopAddresses');
+        const savedOrderIds = localStorage.getItem('speedShopOrderIds');
+        if (savedCart) setCart(JSON.parse(savedCart));
+        if (savedAddresses) setAddresses(JSON.parse(savedAddresses));
+        if (savedOrderIds) setLocalOrderIds(JSON.parse(savedOrderIds));
+
         setIsLoading(false);
 
         return () => {
@@ -72,7 +95,84 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         };
     }, []);
 
-    const dynamicCategories = React.useMemo(() => {
+    // --- Cart Management ---
+    useEffect(() => {
+        localStorage.setItem('speedShopCart', JSON.stringify(cart));
+    }, [cart]);
+
+    const cartTotal = useMemo(() => {
+        return cart.reduce((total, item) => total + item.product.price * item.quantity, 0);
+    }, [cart]);
+    
+    const addToCart = (product: Product, quantity: number) => {
+        setCart(prevCart => {
+            const existingItem = prevCart.find(item => item.product.id === product.id);
+            if (existingItem) {
+                return prevCart.map(item =>
+                    item.product.id === product.id ? { ...item, quantity: item.quantity + quantity } : item
+                );
+            }
+            return [...prevCart, { product, quantity }];
+        });
+    };
+
+    const removeFromCart = (productId: string) => {
+        setCart(prevCart => prevCart.filter(item => item.product.id !== productId));
+    };
+
+    const updateCartQuantity = (productId: string, quantity: number) => {
+        if (quantity < 1) {
+            removeFromCart(productId);
+            return;
+        }
+        setCart(prevCart => prevCart.map(item => item.product.id === productId ? { ...item, quantity } : item));
+    };
+    
+    const clearCart = () => setCart([]);
+
+    // --- Address Management ---
+     useEffect(() => {
+        localStorage.setItem('speedShopAddresses', JSON.stringify(addresses));
+    }, [addresses]);
+    
+    const addAddress = (address: Omit<Address, 'id'>) => {
+        const newAddress = { ...address, id: `addr_${Date.now()}`};
+        setAddresses(prev => [...prev, newAddress]);
+    };
+
+    const deleteAddress = (addressId: string) => {
+        setAddresses(prev => prev.filter(addr => addr.id !== addressId));
+    };
+
+    // --- Order Management ---
+     useEffect(() => {
+        localStorage.setItem('speedShopOrderIds', JSON.stringify(localOrderIds));
+    }, [localOrderIds]);
+
+    const placeOrder = async (address: Address) => {
+        if (cart.length === 0) return;
+        
+        const deliveryZoneDetails = initialDeliveryZones.find(z => z.name === address.deliveryZone);
+        const deliveryFee = deliveryZoneDetails ? deliveryZoneDetails.fee : 0;
+        const total = cartTotal + deliveryFee;
+
+        const newOrder: Omit<Order, 'id' | 'userId'> = {
+            items: cart,
+            total,
+            date: new Date().toISOString(),
+            status: 'confirmed',
+            estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
+            address,
+            revenue: cartTotal,
+        };
+        
+        const docRef = await addDoc(collection(db, "orders"), newOrder);
+        setLocalOrderIds(prev => [...prev, docRef.id]);
+        clearCart();
+    }
+
+
+    const dynamicCategories = useMemo(() => {
         const iconMap = initialCategoriesData.reduce((acc, cat) => {
             acc[cat.iconName] = cat.icon;
             return acc;
@@ -89,36 +189,28 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         await updateDoc(orderDocRef, { status });
     };
 
-    const addToCart = () => {
-        toast({
-            title: "الميزة غير متاحة حالياً",
-            description: "تم تبسيط التطبيق. الطلب غير ممكن في الوقت الحالي.",
-            variant: "destructive",
-        });
-    };
-    
     // --- ADMIN ACTIONS ---
-    // This function is kept in case it's needed later, but it is not used by default.
-    const uploadImage = async (dataUrl: string, path: string): Promise<string> => {
+    const uploadImage = useCallback(async (dataUrl: string, path: string): Promise<string> => {
+        if (!dataUrl.startsWith('data:')) {
+            return dataUrl; // It's already a URL, no need to upload.
+        }
         const storageRef = ref(storage, path);
         const snapshot = await uploadString(storageRef, dataUrl, 'data_url');
         return await getDownloadURL(snapshot.ref);
-    }
+    }, []);
     
-    const addProduct = async (productData: Omit<Product, 'id' | 'bestSeller'>) => {
-        const newProductData: Omit<Product, 'id'> = { ...productData, image: 'https://placehold.co/600x400.png', bestSeller: Math.random() < 0.2 };
+    const addProduct = async (productData: Omit<Product, 'id' | 'bestSeller'> & { image: string }) => {
+        const imageUrl = await uploadImage(productData.image, `products/${Date.now()}`);
+        const newProductData: Omit<Product, 'id'> = { ...productData, image: imageUrl, bestSeller: Math.random() < 0.2 };
         await addDoc(collection(db, "products"), newProductData);
         toast({ title: "تمت إضافة المنتج بنجاح" });
     }
 
     const updateProduct = async (updatedProduct: Product) => {
         const { id, ...productData } = updatedProduct;
+        const imageUrl = await uploadImage(productData.image, `products/${id}`);
+        const finalProductData = { ...productData, image: imageUrl };
         const productDocRef = doc(db, "products", id);
-        // Do not attempt to re-upload image on update to keep it simple
-        const finalProductData = { ...productData };
-        if (finalProductData.image.startsWith('data:')) {
-            finalProductData.image = 'https://placehold.co/600x400.png';
-        }
         await updateDoc(productDocRef, finalProductData);
         toast({ title: "تم تحديث المنتج بنجاح" });
     }
@@ -145,18 +237,17 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         toast({ title: "تم حذف القسم بنجاح", variant: "destructive" });
     }
 
-    const addRestaurant = async (restaurantData: Omit<Restaurant, 'id'>) => {
-        await addDoc(collection(db, "restaurants"), { ...restaurantData, image: 'https://placehold.co/400x300.png' });
+    const addRestaurant = async (restaurantData: Omit<Restaurant, 'id'> & {image: string}) => {
+        const imageUrl = await uploadImage(restaurantData.image, `restaurants/${Date.now()}`);
+        await addDoc(collection(db, "restaurants"), { ...restaurantData, image: imageUrl });
         toast({ title: "تمت إضافة المتجر بنجاح" });
     }
 
     const updateRestaurant = async (updatedRestaurant: Restaurant) => {
         const { id, ...restaurantData } = updatedRestaurant;
+        const imageUrl = await uploadImage(restaurantData.image, `restaurants/${id}`);
+        const finalRestaurantData = { ...restaurantData, image: imageUrl };
         const restaurantDocRef = doc(db, "restaurants", id);
-        const finalRestaurantData = { ...restaurantData };
-        if (finalRestaurantData.image.startsWith('data:')) {
-            finalRestaurantData.image = 'https://placehold.co/400x300.png';
-        }
         await updateDoc(restaurantDocRef, finalRestaurantData);
         toast({ title: "تم تحديث المتجر بنجاح" });
     }
@@ -166,8 +257,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         toast({ title: "تم حذف المتجر بنجاح", variant: "destructive" });
     }
   
-    const addBanner = async (bannerData: Omit<Banner, 'id'>) => {
-        await addDoc(collection(db, "banners"), { ...bannerData, image: 'https://placehold.co/600x300.png' });
+    const addBanner = async (bannerData: Omit<Banner, 'id'> & {image: string}) => {
+        const imageUrl = await uploadImage(bannerData.image, `banners/${Date.now()}`);
+        await addDoc(collection(db, "banners"), { ...bannerData, image: imageUrl });
         toast({ title: "تمت إضافة البنر بنجاح" });
     }
 
@@ -190,7 +282,18 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         updateRestaurant,
         deleteRestaurant,
         addBanner,
+        cart,
+        cartTotal,
         addToCart,
+        removeFromCart,
+        updateCartQuantity,
+        clearCart,
+        placeOrder,
+        addresses,
+        addAddress,
+        deleteAddress,
+        deliveryZones: initialDeliveryZones,
+        localOrderIds,
     };
 
     return (

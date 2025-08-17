@@ -10,8 +10,10 @@ export interface User {
 export interface Address {
     id: string;
     name: string; // e.g., "المنزل", "العمل"
-    latitude: number;
-    longitude: number;
+    phone: string;
+    deliveryZone: string;
+    latitude?: number;
+    longitude?: number;
     details?: string; // e.g., "الطابق الثاني، شقة 5"
 }
 
@@ -65,12 +67,7 @@ export interface Order {
     date: string; // Should be ISO string
     status: OrderStatus;
     estimatedDelivery: string;
-    user?: {
-        id: string;
-        name: string;
-        phone: string;
-    };
-    address?: Address;
+    address: Address;
     revenue?: number;
     userId: string;
 }

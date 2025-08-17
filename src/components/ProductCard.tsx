@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from "react";
+import React, { useContext } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { PlusCircle } from "lucide-react";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import type { Product } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { AppContext } from "@/contexts/AppContext";
 
 interface ProductCardProps {
   product: Product;
@@ -17,14 +18,17 @@ interface ProductCardProps {
 
 function ProductCardComponent({ product }: ProductCardProps) {
   const { toast } = useToast();
+  const context = useContext(AppContext);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
-    toast({
-        title: "الميزة غير متاحة حالياً",
-        description: "تم تبسيط التطبيق. الطلب غير ممكن في الوقت الحالي.",
-        variant: "destructive",
-    });
+    if (context) {
+        context.addToCart(product, 1);
+        toast({
+            title: "تمت الإضافة إلى السلة",
+            description: `تمت إضافة ${product.name} إلى سلتك.`,
+        });
+    }
   };
 
   return (
