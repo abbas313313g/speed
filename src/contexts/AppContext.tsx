@@ -18,15 +18,13 @@ import {
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 
 // --- App Context ---
-// NOTE: User authentication has been completely removed for simplification.
-// The context now focuses on providing data for browsing and admin management.
 interface AppContextType {
   products: Product[];
   allOrders: Order[];
   categories: Category[];
   restaurants: Restaurant[];
   banners: Banner[];
-  allUsers: User[]; // Kept for admin panel stats
+  allUsers: User[];
   isLoading: boolean;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   addProduct: (product: Omit<Product, 'id' | 'bestSeller'>) => Promise<void>;
@@ -39,7 +37,6 @@ interface AppContextType {
   updateRestaurant: (restaurant: Restaurant) => Promise<void>;
   deleteRestaurant: (restaurantId: string) => Promise<void>;
   addBanner: (banner: Omit<Banner, 'id'>) => Promise<void>;
-  // Simplified functionalities
   addToCart: (product: Product, quantity: number) => void;
 }
 
@@ -101,6 +98,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     };
     
     // --- ADMIN ACTIONS ---
+    // This function is kept in case it's needed later, but it is not used by default.
     const uploadImage = async (dataUrl: string, path: string): Promise<string> => {
         const storageRef = ref(storage, path);
         const snapshot = await uploadString(storageRef, dataUrl, 'data_url');
@@ -108,11 +106,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }
     
     const addProduct = async (productData: Omit<Product, 'id' | 'bestSeller'>) => {
-        const imageUrl = productData.image.startsWith('data:') 
-            ? await uploadImage(productData.image, `products/prod-${Date.now()}`)
-            : productData.image;
-
-        const newProductData: Omit<Product, 'id'> = { ...productData, image: imageUrl, bestSeller: Math.random() < 0.2 };
+        const newProductData: Omit<Product, 'id'> = { ...productData, image: 'https://placehold.co/600x400.png', bestSeller: Math.random() < 0.2 };
         await addDoc(collection(db, "products"), newProductData);
         toast({ title: "تمت إضافة المنتج بنجاح" });
     }
@@ -120,8 +114,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const updateProduct = async (updatedProduct: Product) => {
         const { id, ...productData } = updatedProduct;
         const productDocRef = doc(db, "products", id);
-        const imageUrl = productData.image.startsWith('data:') ? await uploadImage(productData.image, `products/${id}`) : productData.image;
-        await updateDoc(productDocRef, { ...productData, image: imageUrl });
+        // Do not attempt to re-upload image on update to keep it simple
+        const finalProductData = { ...productData };
+        if (finalProductData.image.startsWith('data:')) {
+            finalProductData.image = 'https://placehold.co/600x400.png';
+        }
+        await updateDoc(productDocRef, finalProductData);
         toast({ title: "تم تحديث المنتج بنجاح" });
     }
 
@@ -148,22 +146,18 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const addRestaurant = async (restaurantData: Omit<Restaurant, 'id'>) => {
-        let imageUrl = restaurantData.image;
-        if (imageUrl && imageUrl.startsWith('data:')) {
-            imageUrl = await uploadImage(imageUrl, `restaurants/res-${Date.now()}`);
-        }
-        await addDoc(collection(db, "restaurants"), { ...restaurantData, image: imageUrl });
+        await addDoc(collection(db, "restaurants"), { ...restaurantData, image: 'https://placehold.co/400x300.png' });
         toast({ title: "تمت إضافة المتجر بنجاح" });
     }
 
     const updateRestaurant = async (updatedRestaurant: Restaurant) => {
         const { id, ...restaurantData } = updatedRestaurant;
-        let imageUrl = restaurantData.image;
-        if (imageUrl && imageUrl.startsWith('data:')) {
-            imageUrl = await uploadImage(imageUrl, `restaurants/${id}`);
-        }
         const restaurantDocRef = doc(db, "restaurants", id);
-        await updateDoc(restaurantDocRef, { ...restaurantData, image: imageUrl });
+        const finalRestaurantData = { ...restaurantData };
+        if (finalRestaurantData.image.startsWith('data:')) {
+            finalRestaurantData.image = 'https://placehold.co/400x300.png';
+        }
+        await updateDoc(restaurantDocRef, finalRestaurantData);
         toast({ title: "تم تحديث المتجر بنجاح" });
     }
 
@@ -173,10 +167,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }
   
     const addBanner = async (bannerData: Omit<Banner, 'id'>) => {
-        const imageUrl = bannerData.image.startsWith('data:') 
-            ? await uploadImage(bannerData.image, `banners/banner-${Date.now()}`)
-            : bannerData.image;
-        await addDoc(collection(db, "banners"), { ...bannerData, image: imageUrl });
+        await addDoc(collection(db, "banners"), { ...bannerData, image: 'https://placehold.co/600x300.png' });
         toast({ title: "تمت إضافة البنر بنجاح" });
     }
 
