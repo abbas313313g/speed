@@ -24,18 +24,14 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (!context?.firebaseUser) {
-        toast({
-            title: "يرجى تسجيل الدخول أولاً",
-            description: "يجب عليك تسجيل الدخول لتتمكن من إضافة المنتجات إلى السلة.",
-            variant: "destructive",
-            action: (
-                <Button onClick={() => router.push('/login')}>تسجيل الدخول</Button>
-            ),
-        });
-        return;
-    }
-    context?.addToCart(product);
+    if (!context) return;
+    
+    // As auth is removed, we show a toast that this feature is disabled.
+    toast({
+        title: "الميزة غير متاحة حالياً",
+        description: "تم تبسيط التطبيق. الطلب غير ممكن في الوقت الحالي.",
+        variant: "destructive",
+    });
   };
 
   return (
