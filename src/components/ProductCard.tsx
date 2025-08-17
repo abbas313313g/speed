@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useContext } from "react";
+import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { PlusCircle } from "lucide-react";
@@ -9,24 +9,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import type { Product } from "@/lib/types";
-import { AppContext } from "@/contexts/AppContext";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation";
 
 interface ProductCardProps {
   product: Product;
 }
 
 function ProductCardComponent({ product }: ProductCardProps) {
-  const context = useContext(AppContext);
   const { toast } = useToast();
-  const router = useRouter();
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (!context) return;
-    
-    // As auth is removed, we show a toast that this feature is disabled.
     toast({
         title: "الميزة غير متاحة حالياً",
         description: "تم تبسيط التطبيق. الطلب غير ممكن في الوقت الحالي.",

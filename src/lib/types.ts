@@ -2,14 +2,9 @@
 export interface User {
   id: string; // This will be the Firebase Auth UID
   name: string;
-  email: string; // This will be a "fake" email generated from the phone number
+  email: string;
   phone: string;
-  // password should not be stored here
-  deliveryZone: DeliveryZone;
-  addresses: Address[];
   isAdmin: boolean;
-  usedCoupons: string[];
-  isProfileComplete: boolean;
 }
 
 export interface Address {

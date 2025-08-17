@@ -1,51 +1,34 @@
 
 "use client";
 
-import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import type { User, CartItem, Product, Order, OrderStatus, Category, Restaurant, Banner, Address, DeliveryZone } from '@/lib/types';
+import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner } from '@/lib/types';
 import { categories as initialCategoriesData } from '@/lib/mock-data';
-import { formatCurrency } from '@/lib/utils';
 import { ShoppingBasket } from 'lucide-react';
-import { auth, db, storage } from '@/lib/firebase';
-import { 
-    onAuthStateChanged, 
-    User as FirebaseAuthUser
-} from 'firebase/auth';
+import { db, storage } from '@/lib/firebase';
 import { 
     doc, 
-    getDoc, 
-    setDoc, 
     addDoc,
     updateDoc,
     deleteDoc,
-    query,
     collection,
-    getDocs,
-    where,
     onSnapshot,
-    Unsubscribe
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 
 // --- App Context ---
-// NOTE: User authentication has been removed for simplification.
+// NOTE: User authentication has been completely removed for simplification.
 // The context now focuses on providing data for browsing and admin management.
 interface AppContextType {
-  user: User | null;
-  firebaseUser: FirebaseAuthUser | null;
-  allUsers: User[];
   products: Product[];
-  cart: CartItem[];
-  orders: Order[];
   allOrders: Order[];
   categories: Category[];
   restaurants: Restaurant[];
   banners: Banner[];
-  isAuthLoading: boolean;
+  allUsers: User[]; // Kept for admin panel stats
   isLoading: boolean;
-  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   addProduct: (product: Omit<Product, 'id' | 'bestSeller'>) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
@@ -56,58 +39,41 @@ interface AppContextType {
   updateRestaurant: (restaurant: Restaurant) => Promise<void>;
   deleteRestaurant: (restaurantId: string) => Promise<void>;
   addBanner: (banner: Omit<Banner, 'id'>) => Promise<void>;
-  totalCartPrice: number;
-  deliveryFee: number;
-  discount: number;
+  // Simplified functionalities
+  addToCart: (product: Product, quantity: number) => void;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
 
-
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const { toast } = useToast();
     
-    // Auth state is kept minimal, as full user auth is disabled.
-    const [firebaseUser, setFirebaseUser] = useState<FirebaseAuthUser | null>(null);
-    const [user, setUser] = useState<User | null>(null);
-    const [isAuthLoading, setIsAuthLoading] = useState(true);
-    const [isLoading, setIsLoading] = useState(false);
-
+    const [isLoading, setIsLoading] = useState(true);
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
     const [banners, setBanners] = useState<Banner[]>([]);
-    
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [allOrders, setAllOrders] = useState<Order[]>([]);
     
-    // Cart is disabled as auth is removed.
-    const [cart, setCart] = useState<CartItem[]>([]);
-    const [discount, setDiscount] = useState(0);
-
     // --- Data Listeners ---
     useEffect(() => {
-        setIsAuthLoading(true);
-        // Only fetch public and admin data. No user-specific data is fetched.
+        setIsLoading(true);
         const unsubs = [
             onSnapshot(collection(db, "products"), snap => setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)))),
             onSnapshot(collection(db, "categories"), snap => setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)))),
             onSnapshot(collection(db, "restaurants"), snap => setRestaurants(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant)))),
             onSnapshot(collection(db, "banners"), snap => setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)))),
-            onSnapshot(query(collection(db, "orders")), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))),
-            onSnapshot(query(collection(db, "users")), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))),
+            onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))),
+            onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User))))
         ];
         
-        // No more onAuthStateChanged, auth is simplified.
-        setIsAuthLoading(false);
+        setIsLoading(false);
 
         return () => {
             unsubs.forEach(unsub => unsub());
         };
     }, []);
-
-
-    const orders = allOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const dynamicCategories = React.useMemo(() => {
         const iconMap = initialCategoriesData.reduce((acc, cat) => {
@@ -120,14 +86,18 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             icon: iconMap[cat.iconName] || ShoppingBasket
         }));
     }, [categories]);
-
-    // Cart and order placement functionality is disabled.
-    const totalCartPrice = 0;
-    const deliveryFee = 0;
     
     const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
         const orderDocRef = doc(db, "orders", orderId);
         await updateDoc(orderDocRef, { status });
+    };
+
+    const addToCart = () => {
+        toast({
+            title: "الميزة غير متاحة حالياً",
+            description: "تم تبسيط التطبيق. الطلب غير ممكن في الوقت الحالي.",
+            variant: "destructive",
+        });
     };
     
     // --- ADMIN ACTIONS ---
@@ -211,17 +181,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const value: AppContextType = {
-        user,
-        firebaseUser,
-        allUsers,
         products,
-        cart,
-        orders,
         allOrders,
         categories: dynamicCategories,
         restaurants,
         banners,
-        isAuthLoading,
+        allUsers,
         isLoading,
         updateOrderStatus,
         addProduct,
@@ -234,9 +199,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         updateRestaurant,
         deleteRestaurant,
         addBanner,
-        totalCartPrice,
-        deliveryFee,
-        discount,
+        addToCart,
     };
 
     return (

@@ -16,19 +16,18 @@ import {
 } from "@/components/ui/carousel";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
   const context = useContext(AppContext);
 
   if (!context) return null;
-  const { categories, banners, products, restaurants, user } = context;
+  const { categories, banners, products, restaurants } = context;
   const bestSellers = products.filter(p => p.bestSeller);
   
   return (
     <div className="space-y-8 p-4">
       <header>
-        <h1 className="text-2xl font-bold">مرحباً, {user?.name.split(" ")[0]}!</h1>
+        <h1 className="text-2xl font-bold">مرحباً بك في سبيد شوب!</h1>
         <p className="text-muted-foreground">اطلب ما تشتهي، نصلك بأسرع وقت.</p>
       </header>
 
