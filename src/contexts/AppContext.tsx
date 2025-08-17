@@ -111,8 +111,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             if (userSub) userSub();
             adminSubs.forEach(sub => sub());
             adminSubs = [];
-            setUser(null); // Reset user profile
-
+            
             if (fbUser) {
                 setFirebaseUser(fbUser);
                 const userDocRef = doc(db, 'users', fbUser.uid);
@@ -139,6 +138,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                         }
                     } else {
                         // This case can happen if user is deleted from db but not auth
+                        setUser(null);
                         await signOut(auth);
                     }
                     setIsAuthLoading(false); // Stop loading after all data is fetched
@@ -231,6 +231,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
             await setDoc(doc(db, "users", fbUser.uid), newUser);
             toast({ title: `أهلاً بك، ${name}` });
+            router.replace('/welcome');
             return true;
 
         } catch (error: any) {
@@ -248,6 +249,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         try {
              await signInWithEmailAndPassword(auth, email, password);
              toast({ title: `مرحباً بعودتك` });
+             router.replace('/welcome');
              return true;
         } catch(error: any) {
             toast({ title: "فشل تسجيل الدخول", description: "الرجاء التأكد من رقم الهاتف وكلمة المرور.", variant: "destructive" });
