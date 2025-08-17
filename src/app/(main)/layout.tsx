@@ -15,10 +15,10 @@ export default function MainAppLayout({
   const context = useContext(AppContext);
   const router = useRouter();
   
+  // This is the primary guard for all protected routes.
+  // It waits until auth is resolved, then checks for a user.
+  // If no user, it redirects to the login page.
   useEffect(() => {
-    // This is the primary guard for all protected routes.
-    // It waits until auth is resolved, then checks for a user.
-    // If no user, it redirects to the login page.
     if (context && !context.isAuthLoading && !context.firebaseUser) {
       router.replace('/login');
     }

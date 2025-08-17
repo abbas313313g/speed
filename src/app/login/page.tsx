@@ -47,8 +47,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  // This effect redirects a user who is ALREADY logged in to the home page.
   useEffect(() => {
-    // This effect redirects a user who is ALREADY logged in to the home page.
     if (context && !context.isAuthLoading && context.firebaseUser) {
         router.replace('/home');
     }
@@ -59,9 +59,8 @@ export default function LoginPage() {
     e.preventDefault();
     if (!context) return;
     setIsSubmittingLogin(true);
-    // The login function now just performs the auth and shows a toast.
-    // The redirect is handled by the useEffect hook above when firebaseUser changes.
     await context.loginWithPhone(loginPhone, loginPassword);
+    // The redirect is handled by the useEffect hook above when firebaseUser changes.
     setIsSubmittingLogin(false);
   }
 
@@ -100,15 +99,15 @@ export default function LoginPage() {
     }
     
     setIsSubmittingSignup(true);
-    // The signup function just performs the auth and shows a toast.
-    // The redirect is handled by the useEffect hook when firebaseUser changes.
     await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
+    // The redirect is handled by the useEffect hook when firebaseUser changes.
     setIsSubmittingSignup(false);
   }
 
   const isSignupDisabled = isSubmittingSignup || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
 
   // Show a loading screen if we are still waiting for the initial auth state.
+  // This helps prevent a flash of the login page for an already authenticated user.
   if (context?.isAuthLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
