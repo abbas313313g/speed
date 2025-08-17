@@ -14,7 +14,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, ShoppingCart, KeyRound, Phone, User, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -23,7 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { deliveryZones } from "@/lib/mock-data";
-import type { Address, DeliveryZone } from "@/lib/types";
+import type { Address } from "@/lib/types";
+import { Separator } from "@/components/ui/separator";
 
 export default function LoginPage() {
   const [loginPhone, setLoginPhone] = useState("");
@@ -98,110 +98,115 @@ export default function LoginPage() {
   const isSignupDisabled = isSubmittingSignup || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
   
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-6">
-            <ShoppingCart className="h-12 w-12 mx-auto text-primary" />
-            <h1 className="text-3xl font-bold text-primary mt-2">Speed Shop</h1>
+    <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
+      <div className="w-full max-w-4xl">
+        <div className="text-center mb-8">
+            <ShoppingCart className="h-16 w-16 mx-auto text-primary" />
+            <h1 className="text-4xl font-bold text-primary mt-4">Speed Shop</h1>
+            <p className="text-muted-foreground mt-2 text-lg">أسرع طريقة لطلب كل ما تحتاجه</p>
         </div>
-        <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">تسجيل الدخول</TabsTrigger>
-                <TabsTrigger value="signup">إنشاء حساب</TabsTrigger>
-            </TabsList>
-            <TabsContent value="login">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-2xl">مرحباً بعودتك</CardTitle>
-                        <CardDescription>أدخل رقم هاتفك وكلمة المرور للمتابعة.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <form onSubmit={handleLogin} className="space-y-4">
-                             <div className="space-y-2">
-                                <Label htmlFor="login-phone">رقم الهاتف</Label>
-                                <div className="relative">
-                                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                                    <Input id="login-phone" type="tel" placeholder="07xxxxxxxxx" required value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} className="pr-10" dir="ltr"/>
-                                </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-5 md:gap-8 items-start">
+            {/* Login Card */}
+            <Card className="md:col-span-2">
+                <CardHeader>
+                    <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>
+                    <CardDescription>لديك حساب بالفعل؟ سجل دخولك الآن.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={handleLogin} className="space-y-4">
+                         <div className="space-y-2">
+                            <Label htmlFor="login-phone">رقم الهاتف</Label>
+                            <div className="relative">
+                                <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                <Input id="login-phone" type="tel" placeholder="07xxxxxxxxx" required value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} className="pr-10" dir="ltr"/>
                             </div>
-                             <div className="space-y-2">
-                                <Label htmlFor="login-password">كلمة المرور</Label>
-                                <div className="relative">
-                                    <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                                    <Input id="login-password" type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="pr-10" dir="ltr"/>
-                                </div>
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="login-password">كلمة المرور</Label>
+                            <div className="relative">
+                                <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                <Input id="login-password" type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="pr-10" dir="ltr"/>
                             </div>
-                            <Button type="submit" className="w-full h-11 text-lg" disabled={isSubmittingLogin}>
-                                {isSubmittingLogin ? <Loader2 className="h-6 w-6 animate-spin" /> : 'تسجيل الدخول'}
+                        </div>
+                        <Button type="submit" className="w-full h-11 text-lg" disabled={isSubmittingLogin}>
+                            {isSubmittingLogin ? <Loader2 className="h-6 w-6 animate-spin" /> : 'تسجيل الدخول'}
+                        </Button>
+                    </form>
+                </CardContent>
+            </Card>
+
+            <div className="relative md:col-span-1 flex items-center justify-center my-4 md:my-0 h-full">
+                <Separator orientation="vertical" className="hidden md:block h-3/4" />
+                <Separator orientation="horizontal" className="block md:hidden"/>
+                <span className="absolute bg-background px-2 text-muted-foreground font-medium">أو</span>
+            </div>
+
+            {/* Signup Card */}
+            <Card className="md:col-span-2">
+                <CardHeader>
+                    <CardTitle className="text-2xl">إنشاء حساب جديد</CardTitle>
+                    <CardDescription>انضم إلينا واستمتع بخدماتنا.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <form onSubmit={handleSignup} className="space-y-4">
+                         <div className="space-y-2">
+                            <Label htmlFor="signup-name">الاسم الكامل</Label>
+                            <div className="relative">
+                                <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                <Input id="signup-name" type="text" placeholder="مثال: علي محمد" required value={signupName} onChange={(e) => setSignupName(e.target.value)} className="pr-10" />
+                            </div>
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="signup-phone">رقم الهاتف</Label>
+                            <div className="relative">
+                                <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                <Input id="signup-phone" type="tel" placeholder="07xxxxxxxxx" required value={signupPhone} onChange={(e) => setSignupPhone(e.target.value)} className="pr-10" dir="ltr"/>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="signup-password">كلمة المرور</Label>
+                            <div className="relative">
+                                <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                <Input id="signup-password" type="password" required value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} className="pr-10" dir="ltr"/>
+                            </div>
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="deliveryZone">منطقة التوصيل</Label>
+                            <div className="relative">
+                                <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                <Select onValueChange={setDeliveryZoneName} value={deliveryZoneName} required>
+                                    <SelectTrigger className="pr-10">
+                                        <SelectValue placeholder="اختر منطقتك" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {deliveryZones.map(zone => (
+                                            <SelectItem key={zone.name} value={zone.name}>
+                                                {zone.name} - {zone.fee} د.ع
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>الموقع الجغرافي</Label>
+                            <Button type="button" variant="outline" className="w-full" onClick={handleGetLocation} disabled={locationStatus === 'loading'}>
+                            {locationStatus === 'loading' && <Loader2 className="ml-2 h-4 w-4 animate-spin"/>}
+                            {locationStatus === 'success' ? 'تم تحديد الموقع بنجاح' : 'تحديد الموقع على الخريطة (مطلوب)'}
                             </Button>
-                        </form>
-                    </CardContent>
-                </Card>
-            </TabsContent>
-            <TabsContent value="signup">
-                 <Card>
-                    <CardHeader>
-                        <CardTitle className="text-2xl">إنشاء حساب جديد</CardTitle>
-                        <CardDescription>أدخل بياناتك للانضمام إلينا.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                         <form onSubmit={handleSignup} className="space-y-4">
-                             <div className="space-y-2">
-                                <Label htmlFor="signup-name">الاسم الكامل</Label>
-                                <div className="relative">
-                                    <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                                    <Input id="signup-name" type="text" placeholder="مثال: علي محمد" required value={signupName} onChange={(e) => setSignupName(e.target.value)} className="pr-10" />
-                                </div>
-                            </div>
-                             <div className="space-y-2">
-                                <Label htmlFor="signup-phone">رقم الهاتف</Label>
-                                <div className="relative">
-                                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                                    <Input id="signup-phone" type="tel" placeholder="07xxxxxxxxx" required value={signupPhone} onChange={(e) => setSignupPhone(e.target.value)} className="pr-10" dir="ltr"/>
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="signup-password">كلمة المرور</Label>
-                                <div className="relative">
-                                    <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                                    <Input id="signup-password" type="password" required value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} className="pr-10" dir="ltr"/>
-                                </div>
-                            </div>
-                             <div className="space-y-2">
-                                <Label htmlFor="deliveryZone">منطقة التوصيل</Label>
-                                <div className="relative">
-                                    <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                                    <Select onValueChange={setDeliveryZoneName} value={deliveryZoneName} required>
-                                        <SelectTrigger className="pr-10">
-                                            <SelectValue placeholder="اختر منطقتك" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {deliveryZones.map(zone => (
-                                                <SelectItem key={zone.name} value={zone.name}>
-                                                    {zone.name} - {zone.fee} د.ع
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>الموقع الجغرافي</Label>
-                                <Button type="button" variant="outline" className="w-full" onClick={handleGetLocation} disabled={locationStatus === 'loading'}>
-                                {locationStatus === 'loading' && <Loader2 className="ml-2 h-4 w-4 animate-spin"/>}
-                                {locationStatus === 'success' ? 'تم تحديد الموقع بنجاح' : 'تحديد الموقع على الخريطة (مطلوب)'}
-                                </Button>
-                                {locationStatus === 'error' && <p className="text-sm text-destructive">مشاركة موقعك مطلوب لإكمال التسجيل.</p>}
-                            </div>
-                            <Button type="submit" className="w-full h-11 text-lg" disabled={isSignupDisabled}>
-                                {isSubmittingSignup ? <Loader2 className="h-6 w-6 animate-spin" /> : 'إنشاء حساب'}
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
-            </TabsContent>
-        </Tabs>
+                            {locationStatus === 'error' && <p className="text-sm text-destructive">مشاركة موقعك مطلوب لإكمال التسجيل.</p>}
+                        </div>
+                        <Button type="submit" className="w-full h-11 text-lg" disabled={isSignupDisabled}>
+                            {isSubmittingSignup ? <Loader2 className="h-6 w-6 animate-spin" /> : 'إنشاء حساب'}
+                        </Button>
+                    </form>
+                </CardContent>
+            </Card>
+        </div>
       </div>
     </div>
   );
 }
+
+    
