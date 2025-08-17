@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect } from "react";
@@ -5,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 // This page's only job is to redirect to a protected route.
 // The actual logic of whether to show the page or redirect to login
-// is handled by the protector layout.
+// is handled by the protector layout in (main)/layout.tsx.
 export default function LandingPage() {
   const router = useRouter();
 
@@ -14,5 +15,6 @@ export default function LandingPage() {
   }, [router]);
 
   // Nothing is rendered here, as the layout will handle the redirect.
+  // A loading screen can be shown in the (main) layout.
   return null;
 }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useContext, useEffect } from 'react';
@@ -18,6 +19,7 @@ export default function MainAppLayout({
   const router = useRouter();
   
   useEffect(() => {
+    // Only redirect when auth is no longer loading and there is definitely no user.
     if (context && !context.isAuthLoading && !context.firebaseUser) {
       router.replace('/login');
     }
