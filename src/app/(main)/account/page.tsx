@@ -35,6 +35,25 @@ export default function AccountPage() {
     );
   }
 
+  // If loading is finished and there's no user, show login prompt.
+  if (!context.firebaseUser) {
+    return (
+      <div className="flex h-[calc(100vh-8rem)] w-full flex-col items-center justify-center p-4 text-center">
+        <User className="h-20 w-20 text-muted-foreground/50" />
+        <h2 className="mt-4 text-xl font-bold">صفحة حسابي</h2>
+        <p className="mt-2 text-muted-foreground">
+          الرجاء تسجيل الدخول لعرض معلومات حسابك.
+        </p>
+        <Button asChild className="mt-4">
+          <Link href="/login">
+            <LogIn className="ml-2 h-4 w-4" />
+            تسجيل الدخول
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
   // This should only be reachable if context.user is available.
   const { user, logout, addAddress } = context;
   const userInitial = user.name ? user.name.charAt(0).toUpperCase() : '?';

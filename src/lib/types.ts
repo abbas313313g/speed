@@ -2,7 +2,7 @@
 export interface User {
   id: string; // This will be the Firebase Auth UID
   name: string;
-  email: string;
+  email: string; // This will be a "fake" email generated from the phone number
   phone: string;
   // password should not be stored here
   deliveryZone: DeliveryZone;
@@ -79,7 +79,3 @@ export interface Order {
     revenue?: number;
     userId: string;
 }
-
-    
-
-    

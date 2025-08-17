@@ -49,8 +49,8 @@ interface AppContextType {
   banners: Banner[];
   isAuthLoading: boolean;
   isLoading: boolean;
-  signup: (email: string, password: string, name: string, phone: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => Promise<boolean>;
-  login: (email: string, password: string) => Promise<boolean>;
+  signup: (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => Promise<boolean>;
+  login: (phone: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
@@ -77,6 +77,9 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
+// Helper to create a fake email from a phone number
+const createEmailFromPhone = (phone: string) => `${phone}@speed.shop`;
+
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const router = useRouter();
     const { toast } = useToast();
@@ -99,73 +102,43 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     // --- Auth & Data Listener ---
     useEffect(() => {
-        let userSub: Unsubscribe | undefined;
-        let adminSubs: Unsubscribe[] = [];
-
-        const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
-            setIsAuthLoading(true);
-            
-            // Cleanup old subscriptions
-            if (userSub) userSub();
-            adminSubs.forEach(sub => sub());
-            adminSubs = [];
-            
+        setIsAuthLoading(true);
+        const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
             if (fbUser) {
                 setFirebaseUser(fbUser);
                 const userDocRef = doc(db, 'users', fbUser.uid);
-                
-                userSub = onSnapshot(userDocRef, (userDocSnap) => {
-                    if (userDocSnap.exists()) {
-                        const currentUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
-                        setUser(currentUser);
-                        
-                        if (currentUser.isAdmin) {
-                            const qOrders = query(collection(db, "orders"));
-                            const qUsers = query(collection(db, "users"));
-                            adminSubs.push(onSnapshot(qOrders, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
-                            adminSubs.push(onSnapshot(qUsers, snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))));
-                        } else {
-                            setAllUsers([]); // Non-admins shouldn't see all users
-                            const q = query(collection(db, "orders"), where("userId", "==", currentUser.id));
-                            adminSubs.push(onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
-                        }
-                    } else {
-                        // This case happens briefly during user creation
-                        setUser(null);
-                    }
-                    // Mark loading as false only after we've processed the user doc
-                    setIsAuthLoading(false);
-                }, (error) => {
-                    console.error("Error listening to user document:", error);
-                    setUser(null);
-                    setFirebaseUser(null);
-                    setIsAuthLoading(false);
-                });
+                const userDocSnap = await getDoc(userDocRef);
 
+                if (userDocSnap.exists()) {
+                    const currentUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
+                    setUser(currentUser);
+
+                     if (currentUser.isAdmin) {
+                        onSnapshot(query(collection(db, "orders")), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
+                        onSnapshot(query(collection(db, "users")), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User))));
+                    } else {
+                        onSnapshot(query(collection(db, "orders"), where("userId", "==", currentUser.id)), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
+                    }
+                }
             } else {
                 setFirebaseUser(null);
                 setUser(null);
                 setAllOrders([]);
                 setAllUsers([]);
                 setCart([]);
-                setDiscount(0);
-                setIsAuthLoading(false); // Mark loading as false when no user is found
             }
+            setIsAuthLoading(false);
         });
 
-        // Public data that everyone can see
         const unsubsPublic = [
             onSnapshot(collection(db, "products"), snap => setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)))),
             onSnapshot(collection(db, "categories"), snap => setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)))),
             onSnapshot(collection(db, "restaurants"), snap => setRestaurants(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant)))),
             onSnapshot(collection(db, "banners"), snap => setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)))),
         ];
-        
-        // Cleanup all subscriptions on component unmount
+
         return () => {
-            unsubscribeAuth();
-            if (userSub) userSub();
-            adminSubs.forEach(sub => sub());
+            unsubscribe();
             unsubsPublic.forEach(unsub => unsub());
         };
     }, []);
@@ -203,7 +176,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }, [categories]);
 
     // --- AUTH ACTIONS ---
-    const signup = async (email: string, password: string, name: string, phone: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>): Promise<boolean> => {
+    const signup = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>): Promise<boolean> => {
+        const email = createEmailFromPhone(phone);
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const fbUser = userCredential.user;
@@ -231,7 +205,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
         } catch (error: any) {
             if (error.code === 'auth/email-already-in-use') {
-                toast({ title: "فشل إنشاء الحساب", description: "البريد الإلكتروني مستخدم بالفعل.", variant: "destructive" });
+                toast({ title: "فشل إنشاء الحساب", description: "رقم الهاتف مستخدم بالفعل.", variant: "destructive" });
             } else {
                 toast({ title: "فشل إنشاء الحساب", description: "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.", variant: "destructive" });
             }
@@ -239,13 +213,14 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         }
     };
     
-    const login = async (email: string, password:string): Promise<boolean> => {
+    const login = async (phone: string, password:string): Promise<boolean> => {
+        const email = createEmailFromPhone(phone);
         try {
              await signInWithEmailAndPassword(auth, email, password);
              toast({ title: `مرحباً بعودتك` });
              return true;
         } catch(error: any) {
-            toast({ title: "فشل تسجيل الدخول", description: "الرجاء التأكد من البريد الإلكتروني وكلمة المرور.", variant: "destructive" });
+            toast({ title: "فشل تسجيل الدخول", description: "الرجاء التأكد من رقم الهاتف وكلمة المرور.", variant: "destructive" });
             return false;
         }
     };
