@@ -24,8 +24,8 @@ export default function MainAppLayout({
     }
   }, [context?.isAuthLoading, context?.firebaseUser, router]);
 
-  // While checking auth status, show a loader.
-  if (context?.isAuthLoading) {
+  // While checking auth status OR if there is no user yet, show a loader.
+  if (context?.isAuthLoading || !context?.firebaseUser) {
     return (
        <div className="flex h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
          <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
@@ -35,20 +35,10 @@ export default function MainAppLayout({
   }
   
   // If an authenticated user exists, show the main app content.
-  if (context?.firebaseUser) {
-      return (
-        <div className="mx-auto flex min-h-screen max-w-md flex-col bg-card shadow-lg">
-          <main className="flex-1 pb-20">{children}</main>
-          <BottomNav />
-        </div>
-      );
-  }
-
-  // If there's no user (and useEffect is about to redirect), show a loader.
   return (
-     <div className="flex h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
-       <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
-       <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />
-     </div>
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-card shadow-lg">
+      <main className="flex-1 pb-20">{children}</main>
+      <BottomNav />
+    </div>
   );
 }
