@@ -1,8 +1,6 @@
-
 "use client";
 
-import { useContext, useState, FormEvent, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useContext, useState, FormEvent } from "react";
 import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,23 +42,15 @@ export default function LoginPage() {
 
   
   const context = useContext(AppContext);
-  const router = useRouter();
   const { toast } = useToast();
-
-  // This effect redirects a user who is ALREADY logged in to the home page.
-  useEffect(() => {
-    if (context && !context.isAuthLoading && context.firebaseUser) {
-        router.replace('/home');
-    }
-  }, [context, context?.isAuthLoading, context?.firebaseUser, router]);
-
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     if (!context) return;
     setIsSubmittingLogin(true);
+    // The login function only needs to be called.
+    // The redirect is handled by the layout protectors when the auth state changes.
     await context.loginWithPhone(loginPhone, loginPassword);
-    // The redirect is handled by the useEffect hook above when firebaseUser changes.
     setIsSubmittingLogin(false);
   }
 
@@ -99,23 +89,13 @@ export default function LoginPage() {
     }
     
     setIsSubmittingSignup(true);
+    // The signup function only needs to be called.
+    // The redirect is handled by the layout protectors when the auth state changes.
     await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
-    // The redirect is handled by the useEffect hook when firebaseUser changes.
     setIsSubmittingSignup(false);
   }
 
   const isSignupDisabled = isSubmittingSignup || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
-
-  // Show a loading screen if we are still waiting for the initial auth state.
-  // This helps prevent a flash of the login page for an already authenticated user.
-  if (context?.isAuthLoading) {
-    return (
-      <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
-        <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
-        <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
   
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">

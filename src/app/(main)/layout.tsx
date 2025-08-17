@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useContext, useEffect } from 'react';
@@ -7,6 +6,9 @@ import { AppContext } from '@/contexts/AppContext';
 import { BottomNav } from '@/components/BottomNav';
 import { Loader2, ShoppingCart } from 'lucide-react';
 
+// This is the primary guard for all protected routes.
+// It waits until auth is resolved, then checks for a user.
+// If no user, it redirects to the login page.
 export default function MainAppLayout({
   children,
 }: {
@@ -15,9 +17,6 @@ export default function MainAppLayout({
   const context = useContext(AppContext);
   const router = useRouter();
   
-  // This is the primary guard for all protected routes.
-  // It waits until auth is resolved, then checks for a user.
-  // If no user, it redirects to the login page.
   useEffect(() => {
     if (context && !context.isAuthLoading && !context.firebaseUser) {
       router.replace('/login');
