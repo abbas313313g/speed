@@ -60,9 +60,14 @@ export default function LoginPage() {
     e.preventDefault();
     if (!context) return;
     setIsSubmittingLogin(true);
-    // The login function will trigger onAuthStateChanged in AppContext.
-    // The useEffect in (main)/layout.tsx will then handle the redirect.
-    await context.loginWithPhone(loginPhone, loginPassword);
+    
+    const result = await context.loginWithPhone(loginPhone, loginPassword);
+    
+    if (result) {
+        context.setAuthData(result);
+        router.push('/home');
+    }
+    
     setIsSubmittingLogin(false);
   }
 
@@ -101,9 +106,15 @@ export default function LoginPage() {
     }
     
     setIsSubmittingSignup(true);
-    // The signup function will trigger onAuthStateChanged in AppContext.
-    // The useEffect in (main)/layout.tsx will then handle the redirect.
-    await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
+    const success = await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
+    if (success) {
+        // After successful signup, log the user in to get their data and redirect.
+        const loginResult = await context.loginWithPhone(signupPhone, signupPassword);
+        if (loginResult) {
+            context.setAuthData(loginResult);
+            router.push('/home');
+        }
+    }
     setIsSubmittingSignup(false);
   }
 

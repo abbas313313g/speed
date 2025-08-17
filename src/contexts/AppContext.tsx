@@ -50,7 +50,8 @@ interface AppContextType {
   isAuthLoading: boolean;
   isLoading: boolean;
   signupWithPhone: (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>) => Promise<boolean>;
-  loginWithPhone: (phone: string, password: string) => Promise<boolean>;
+  loginWithPhone: (phone: string, password: string) => Promise<{ firebaseUser: FirebaseAuthUser; user: User; } | null>;
+  setAuthData: (data: { firebaseUser: FirebaseAuthUser; user: User; }) => void;
   logout: () => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
   addToCart: (product: Product, quantity?: number) => void;
@@ -199,6 +200,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         }));
     }, [categories]);
 
+    const setAuthData = useCallback((data: { firebaseUser: FirebaseAuthUser; user: User; }) => {
+        setFirebaseUser(data.firebaseUser);
+        setUser(data.user);
+    }, []);
+
     // --- AUTH ACTIONS ---
     const signupWithPhone = async (phone: string, password: string, name: string, deliveryZone: DeliveryZone, address: Omit<Address, 'id' | 'name'>): Promise<boolean> => {
         const email = `${phone}@${DUMMY_DOMAIN}`;
@@ -237,15 +243,27 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     };
     
 
-    const loginWithPhone = async (phone: string, password:string): Promise<boolean> => {
+    const loginWithPhone = async (phone: string, password:string): Promise<{ firebaseUser: FirebaseAuthUser; user: User; } | null> => {
         const email = `${phone}@${DUMMY_DOMAIN}`;
         try {
-             await signInWithEmailAndPassword(auth, email, password);
-             toast({ title: `مرحباً بعودتك` });
-             return true;
+             const userCredential = await signInWithEmailAndPassword(auth, email, password);
+             const fbUser = userCredential.user;
+
+             const userDocRef = doc(db, 'users', fbUser.uid);
+             const userDocSnap = await getDoc(userDocRef);
+
+             if (userDocSnap.exists()) {
+                 const userData = { id: userDocSnap.id, ...userDocSnap.data() } as User;
+                 toast({ title: `مرحباً بعودتك` });
+                 return { firebaseUser: fbUser, user: userData };
+             } else {
+                 toast({ title: "فشل تسجيل الدخول", description: "لم يتم العثور على بيانات المستخدم.", variant: "destructive" });
+                 await signOut(auth);
+                 return null;
+             }
         } catch(error: any) {
             toast({ title: "فشل تسجيل الدخول", description: "الرجاء التأكد من رقم الهاتف وكلمة المرور.", variant: "destructive" });
-            return false;
+            return null;
         }
     };
 
@@ -493,6 +511,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         isLoading,
         signupWithPhone,
         loginWithPhone,
+        setAuthData,
         logout,
         addAddress,
         addToCart,
