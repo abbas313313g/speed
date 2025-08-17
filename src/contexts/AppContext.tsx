@@ -257,6 +257,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     const logout = async () => {
         await signOut(auth);
+        router.push('/login');
     };
     
     const addAddress = async (address: Omit<Address, 'id'>) => {
