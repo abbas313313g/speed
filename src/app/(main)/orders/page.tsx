@@ -85,13 +85,12 @@ function PastOrderCard({ order }: { order: Order }) {
 
 export default function OrdersPage() {
     const context = useContext(AppContext);
-    const router = useRouter();
 
     if (context?.isAuthLoading) {
         return (
            <div className="flex h-[calc(100vh-8rem)] w-full flex-col items-center justify-center p-4">
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-             <p className="mt-2 text-muted-foreground">الرجاء الانتظar...</p>
+             <p className="mt-2 text-muted-foreground">الرجاء الانتظار...</p>
            </div>
         );
     }

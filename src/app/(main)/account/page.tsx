@@ -25,7 +25,8 @@ export default function AccountPage() {
   const [newAddressLocation, setNewAddressLocation] = useState<{latitude: number, longitude: number} | null>(null);
   const [isLocating, setIsLocating] = useState(false);
 
-  if (context?.isAuthLoading) {
+  // Show loader while auth state is resolving OR if we have a user but their data hasn't loaded yet.
+  if (context?.isAuthLoading || (context?.firebaseUser && !context?.user)) {
     return (
        <div className="flex h-[calc(100vh-8rem)] w-full flex-col items-center justify-center p-4">
          <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -34,7 +35,8 @@ export default function AccountPage() {
     );
   }
 
-  if (!context?.firebaseUser || !context?.user) {
+  // After loading, if there's no firebaseUser, they are truly logged out.
+  if (!context?.firebaseUser) {
     return (
         <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] text-center p-4">
             <User className="h-24 w-24 text-muted-foreground/50 mb-4" />
@@ -49,7 +51,8 @@ export default function AccountPage() {
         </div>
     )
   }
-
+  
+  // This should only be reachable if context.user is available.
   const { user, logout, addAddress } = context;
   const userInitial = user.name ? user.name.charAt(0).toUpperCase() : '?';
 
@@ -73,7 +76,7 @@ export default function AccountPage() {
   };
   
   const handleAddAddress = () => {
-      if(newAddressName && newAddressLocation){
+      if(newAddressName && newAddressLocation && addAddress){
           addAddress({
               name: newAddressName,
               ...newAddressLocation
