@@ -35,23 +35,6 @@ export default function AccountPage() {
     );
   }
 
-  // After loading, if there's no firebaseUser, they are truly logged out.
-  if (!context?.firebaseUser) {
-    return (
-        <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] text-center p-4">
-            <User className="h-24 w-24 text-muted-foreground/50 mb-4" />
-            <h2 className="text-2xl font-bold">صفحة الحساب</h2>
-            <p className="text-muted-foreground mt-2">الرجاء تسجيل الدخول لعرض معلومات حسابك وإدارة عناوينك.</p>
-            <Button asChild className="mt-6">
-                <Link href="/login">
-                    <LogIn className="ml-2 h-5 w-5" />
-                    تسجيل الدخول
-                </Link>
-            </Button>
-        </div>
-    )
-  }
-  
   // This should only be reachable if context.user is available.
   const { user, logout, addAddress } = context;
   const userInitial = user.name ? user.name.charAt(0).toUpperCase() : '?';

@@ -32,7 +32,7 @@ export default function CartPage() {
   }, [context?.user?.addresses, selectedAddressId]);
 
 
-  if (context?.isAuthLoading) {
+  if (context?.isAuthLoading || (context?.firebaseUser && !context.user)) {
     return (
        <div className="flex h-[calc(100vh-8rem)] w-full flex-col items-center justify-center p-4">
          <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -41,22 +41,6 @@ export default function CartPage() {
     );
   }
   
-  if (!context?.firebaseUser) {
-    return (
-        <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] text-center p-4">
-            <ShoppingBag className="h-24 w-24 text-muted-foreground/50 mb-4" />
-            <h2 className="text-2xl font-bold">سلّتك فارغة!</h2>
-            <p className="text-muted-foreground mt-2">الرجاء تسجيل الدخول لإضافة منتجات إلى سلتك.</p>
-            <Button asChild className="mt-6">
-                <Link href="/login">
-                    <LogIn className="ml-2 h-5 w-5" />
-                    تسجيل الدخول
-                </Link>
-            </Button>
-        </div>
-    )
-  }
-
   const { cart, updateQuantity, totalCartPrice, deliveryFee, placeOrder, applyCoupon, discount, user } = context;
 
   const handleCheckout = () => {

@@ -105,6 +105,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
             setIsAuthLoading(true);
             
+            // Cleanup old subscriptions
             if (userSub) userSub();
             adminSubs.forEach(sub => sub());
             adminSubs = [];
@@ -124,16 +125,20 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                             adminSubs.push(onSnapshot(qOrders, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
                             adminSubs.push(onSnapshot(qUsers, snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))));
                         } else {
-                            setAllUsers([]);
+                            setAllUsers([]); // Non-admins shouldn't see all users
                             const q = query(collection(db, "orders"), where("userId", "==", currentUser.id));
                             adminSubs.push(onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
                         }
                     } else {
+                        // This case happens briefly during user creation
                         setUser(null);
                     }
+                    // Mark loading as false only after we've processed the user doc
                     setIsAuthLoading(false);
                 }, (error) => {
                     console.error("Error listening to user document:", error);
+                    setUser(null);
+                    setFirebaseUser(null);
                     setIsAuthLoading(false);
                 });
 
@@ -144,10 +149,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 setAllUsers([]);
                 setCart([]);
                 setDiscount(0);
-                setIsAuthLoading(false);
+                setIsAuthLoading(false); // Mark loading as false when no user is found
             }
         });
 
+        // Public data that everyone can see
         const unsubsPublic = [
             onSnapshot(collection(db, "products"), snap => setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)))),
             onSnapshot(collection(db, "categories"), snap => setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)))),
@@ -155,6 +161,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             onSnapshot(collection(db, "banners"), snap => setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)))),
         ];
         
+        // Cleanup all subscriptions on component unmount
         return () => {
             unsubscribeAuth();
             if (userSub) userSub();

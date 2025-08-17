@@ -4,6 +4,7 @@
 import { useContext, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppContext } from '@/contexts/AppContext';
+import { Loader2 } from 'lucide-react';
 
 // This layout is for the auth pages (like /login, /signup)
 // It redirects authenticated users to the home page.
@@ -15,16 +16,19 @@ export default function AuthLayout({
   const context = useContext(AppContext);
   const router = useRouter();
 
-  // If auth is not loading and a user exists, redirect them away from auth pages.
   useEffect(() => {
     if (!context?.isAuthLoading && context?.firebaseUser) {
       router.replace('/home');
     }
   }, [context?.isAuthLoading, context?.firebaseUser, router]);
-  
-  // Prevent rendering login page if user is found and redirecting
-  if (context?.firebaseUser) {
-    return null; // Return null to prevent rendering children during redirect
+
+  // While checking auth state, show a loader.
+  if (context?.isAuthLoading || context?.firebaseUser) {
+     return (
+       <div className="flex h-screen w-full flex-col items-center justify-center bg-background p-4">
+         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+       </div>
+    );
   }
   
   // If user is not authenticated (and not loading), show the auth page (login/signup form).
