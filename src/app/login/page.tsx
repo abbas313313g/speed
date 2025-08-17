@@ -51,16 +51,14 @@ export default function LoginPage() {
     if (context && !context.isAuthLoading && context.firebaseUser) {
         router.replace('/home');
     }
-  }, [context?.isAuthLoading, context?.firebaseUser, router, context]);
+  }, [context, context?.isAuthLoading, context?.firebaseUser, router]);
 
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     if (!context) return;
     setIsSubmittingLogin(true);
-    
     await context.loginWithPhone(loginPhone, loginPassword);
-    
     setIsSubmittingLogin(false);
   }
 
@@ -99,24 +97,19 @@ export default function LoginPage() {
     }
     
     setIsSubmittingSignup(true);
-    const success = await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
-    
+    await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
     setIsSubmittingSignup(false);
   }
 
   const isSignupDisabled = isSubmittingSignup || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
 
-  if (context?.isAuthLoading) {
+  if (context?.isAuthLoading || context?.firebaseUser) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
         <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />
       </div>
     );
-  }
-
-  if (context?.firebaseUser) {
-    return null;
   }
   
   return (

@@ -101,50 +101,52 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     // --- Auth & Data Listener ---
     useEffect(() => {
-        let userOrdersUnsubscribe: Unsubscribe | null = null;
-        let adminUnsubscribe: Unsubscribe | null = null;
-    
+        let userSub: Unsubscribe | undefined;
+        let adminSubs: Unsubscribe[] = [];
+
         const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
-            setIsAuthLoading(true);
+            // Clean up previous listeners
+            if (userSub) userSub();
+            adminSubs.forEach(sub => sub());
+            adminSubs = [];
+
             if (fbUser) {
+                setFirebaseUser(fbUser);
                 const userDocRef = doc(db, 'users', fbUser.uid);
-                try {
-                    const userDocSnap = await getDoc(userDocRef);
+                
+                userSub = onSnapshot(userDocRef, async (userDocSnap) => {
                     if (userDocSnap.exists()) {
                         const currentUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
                         setUser(currentUser);
-                        setFirebaseUser(fbUser);
-    
-                        if (userOrdersUnsubscribe) userOrdersUnsubscribe();
-                        if (adminUnsubscribe) adminUnsubscribe();
-    
+                        
                         if (currentUser.isAdmin) {
                             const qOrders = query(collection(db, "orders"));
-                            adminUnsubscribe = onSnapshot(qOrders, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
                             const qUsers = query(collection(db, "users"));
-                            onSnapshot(qUsers, snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User))));
+                            adminSubs.push(onSnapshot(qOrders, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
+                            adminSubs.push(onSnapshot(qUsers, snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))));
                         } else {
                             const q = query(collection(db, "orders"), where("userId", "==", currentUser.id));
-                            userOrdersUnsubscribe = onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))));
+                            adminSubs.push(onSnapshot(q, snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))));
                         }
                     } else {
+                        // This case can happen if user is deleted from db but not auth
                         await signOut(auth);
                     }
-                } catch (error) {
-                    console.error("Error fetching user document:", error);
-                    await signOut(auth);
-                }
+                    setIsAuthLoading(false);
+                }, (error) => {
+                    console.error("Error listening to user document:", error);
+                    setIsAuthLoading(false);
+                });
+
             } else {
                 setFirebaseUser(null);
                 setUser(null);
                 setAllOrders([]);
                 setAllUsers([]);
-                if (userOrdersUnsubscribe) userOrdersUnsubscribe();
-                if (adminUnsubscribe) adminUnsubscribe();
+                setIsAuthLoading(false);
             }
-            setIsAuthLoading(false);
         });
-    
+
         const unsubsPublic = [
             onSnapshot(collection(db, "products"), snap => setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)))),
             onSnapshot(collection(db, "categories"), snap => setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)))),
@@ -154,8 +156,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         
         return () => {
             unsubscribeAuth();
-            if (userOrdersUnsubscribe) userOrdersUnsubscribe();
-            if (adminUnsubscribe) adminUnsubscribe();
+            if (userSub) userSub();
+            adminSubs.forEach(sub => sub());
             unsubsPublic.forEach(unsub => unsub());
         };
     }, []);
@@ -232,7 +234,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         }
     };
     
-
     const loginWithPhone = async (phone: string, password:string): Promise<boolean> => {
         const email = `${phone}@${DUMMY_DOMAIN}`;
         try {
@@ -247,7 +248,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     const logout = async () => {
         await signOut(auth);
-        router.push('/login');
     };
     
     const addAddress = async (address: Omit<Address, 'id'>) => {

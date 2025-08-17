@@ -1,16 +1,24 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useContext } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ShoppingCart } from "lucide-react";
+import { AppContext } from "@/contexts/AppContext";
 
 export default function LandingPage() {
   const router = useRouter();
+  const context = useContext(AppContext);
 
   useEffect(() => {
-    router.replace("/home");
-  }, [router]);
+    if (context && !context.isAuthLoading) {
+      if (context.firebaseUser) {
+        router.replace("/home");
+      } else {
+        router.replace("/login");
+      }
+    }
+  }, [context, context?.isAuthLoading, context?.firebaseUser, router]);
 
   return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
