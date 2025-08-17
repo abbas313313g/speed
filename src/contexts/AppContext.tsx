@@ -105,10 +105,13 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         let adminSubs: Unsubscribe[] = [];
 
         const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
+            setIsAuthLoading(true); // Start loading whenever auth state changes
+            
             // Clean up previous listeners
             if (userSub) userSub();
             adminSubs.forEach(sub => sub());
             adminSubs = [];
+            setUser(null); // Reset user profile
 
             if (fbUser) {
                 setFirebaseUser(fbUser);
@@ -119,6 +122,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                         const currentUser = { id: userDocSnap.id, ...userDocSnap.data() } as User;
                         setUser(currentUser);
                         
+                        // Clear old admin data if user is no longer admin
+                        if (!currentUser.isAdmin) {
+                            setAllUsers([]);
+                        }
+                        
+                        // Setup role-based listeners
                         if (currentUser.isAdmin) {
                             const qOrders = query(collection(db, "orders"));
                             const qUsers = query(collection(db, "users"));
@@ -132,7 +141,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                         // This case can happen if user is deleted from db but not auth
                         await signOut(auth);
                     }
-                    setIsAuthLoading(false);
+                    setIsAuthLoading(false); // Stop loading after all data is fetched
                 }, (error) => {
                     console.error("Error listening to user document:", error);
                     setIsAuthLoading(false);

@@ -48,6 +48,7 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   useEffect(() => {
+    // This effect redirects a user who is ALREADY logged in to the home page.
     if (context && !context.isAuthLoading && context.firebaseUser) {
         router.replace('/home');
     }
@@ -58,6 +59,8 @@ export default function LoginPage() {
     e.preventDefault();
     if (!context) return;
     setIsSubmittingLogin(true);
+    // The login function now just performs the auth and shows a toast.
+    // The redirect is handled by the useEffect hook above when firebaseUser changes.
     await context.loginWithPhone(loginPhone, loginPassword);
     setIsSubmittingLogin(false);
   }
@@ -97,13 +100,16 @@ export default function LoginPage() {
     }
     
     setIsSubmittingSignup(true);
+    // The signup function just performs the auth and shows a toast.
+    // The redirect is handled by the useEffect hook when firebaseUser changes.
     await context.signupWithPhone(signupPhone, signupPassword, signupName, selectedZone, address);
     setIsSubmittingSignup(false);
   }
 
   const isSignupDisabled = isSubmittingSignup || locationStatus !== 'success' || !signupName || !deliveryZoneName || !signupPhone || !signupPassword;
 
-  if (context?.isAuthLoading || context?.firebaseUser) {
+  // Show a loading screen if we are still waiting for the initial auth state.
+  if (context?.isAuthLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />

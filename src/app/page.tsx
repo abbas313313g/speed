@@ -11,14 +11,13 @@ export default function LandingPage() {
   const context = useContext(AppContext);
 
   useEffect(() => {
+    // This page only waits for the initial auth state to be known.
+    // The actual route protection is handled by the layout.
+    // We just redirect to a protected route and let the layout decide.
     if (context && !context.isAuthLoading) {
-      if (context.firebaseUser) {
-        router.replace("/home");
-      } else {
-        router.replace("/login");
-      }
+      router.replace("/home");
     }
-  }, [context, context?.isAuthLoading, context?.firebaseUser, router]);
+  }, [context, context?.isAuthLoading, router]);
 
   return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">

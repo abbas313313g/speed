@@ -16,12 +16,16 @@ export default function MainAppLayout({
   const router = useRouter();
   
   useEffect(() => {
+    // This is the primary guard for all protected routes.
+    // It waits until auth is resolved, then checks for a user.
+    // If no user, it redirects to the login page.
     if (context && !context.isAuthLoading && !context.firebaseUser) {
       router.replace('/login');
     }
   }, [context?.isAuthLoading, context?.firebaseUser, router, context]);
 
-  if (context?.isAuthLoading) {
+  // Show a loading screen while auth state is being determined.
+  if (context?.isAuthLoading || !context?.firebaseUser) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <ShoppingCart className="h-16 w-16 animate-pulse text-primary" />
@@ -30,14 +34,11 @@ export default function MainAppLayout({
     );
   }
 
-  if (context?.firebaseUser) {
-    return (
-      <div className="mx-auto flex min-h-screen max-w-md flex-col bg-card shadow-lg">
-        <main className="flex-1 pb-20">{children}</main>
-        <BottomNav />
-      </div>
-    );
-  }
-
-  return null;
+  // If we have a user, render the main app layout.
+  return (
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-card shadow-lg">
+      <main className="flex-1 pb-20">{children}</main>
+      <BottomNav />
+    </div>
+  );
 }
