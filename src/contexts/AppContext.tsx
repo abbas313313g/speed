@@ -77,7 +77,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(true);
         const unsubs = [
             onSnapshot(collection(db, "products"), snap => setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)))),
-            onSnapshot(collection(db, "categories"), snap => setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)))),
+            onSnapshot(collection(db, "categories"), snap => {
+                const cats = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+                setCategories(cats);
+            }),
             onSnapshot(collection(db, "restaurants"), snap => setRestaurants(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant)))),
             onSnapshot(collection(db, "banners"), snap => setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)))),
             onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))),
@@ -175,14 +178,13 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         setLocalOrderIds(prev => [...prev, docRef.id]);
         
         try {
-            const botToken = "7154261057:AAFxq136E7T5A7zZso-BeX_mRia5k5rTgtQ";
-            const chatId = "6614488972";
+            const botToken = "7601214758:AAFtkJRGqffuDLKPb8wuHm7r0pt_pDE7BSE";
+            const chatId = "6626221973";
 
             if (botToken && chatId) {
                 const itemsText = newOrderData.items.map(item => `${item.quantity}x ${item.product.name}`).join('\n');
                 const locationLink = newOrderData.address.latitude ? `https://www.google.com/maps?q=${newOrderData.address.latitude},${newOrderData.address.longitude}` : 'غير محدد';
                 const message = `
-                
 *طلب جديد* 🔥
 *رقم الطلب:* \`${docRef.id}\`
 *الزبون:* ${newOrderData.address.name}
@@ -377,3 +379,5 @@ ${itemsText}
         </AppContext.Provider>
     );
 };
+
+    
