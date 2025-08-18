@@ -4,7 +4,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone } from '@/lib/types';
-import { categories as initialCategoriesData, deliveryZones as initialDeliveryZones } from '@/lib/mock-data';
+import { categories as initialCategoriesData } from '@/lib/mock-data';
 import { ShoppingBasket } from 'lucide-react';
 import { db, storage } from '@/lib/firebase';
 import { 
@@ -40,13 +40,13 @@ interface AppContextType {
   localOrderIds: string[];
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   addProduct: (product: Omit<Product, 'id' | 'bestSeller'> & {image: string}) => Promise<void>;
-  updateProduct: (product: Partial<Product> & {id: string, image: string}) => Promise<void>;
+  updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
   addCategory: (category: Omit<Category, 'id' | 'icon'>) => Promise<void>;
   updateCategory: (category: Omit<Category, 'icon' | 'id'> & {id: string}) => Promise<void>;
   deleteCategory: (categoryId: string) => Promise<void>;
   addRestaurant: (restaurant: Omit<Restaurant, 'id'> & {image: string}) => Promise<void>;
-  updateRestaurant: (restaurant: Partial<Restaurant> & {id: string, image: string}) => Promise<void>;
+  updateRestaurant: (restaurant: Restaurant) => Promise<void>;
   deleteRestaurant: (restaurantId: string) => Promise<void>;
   addBanner: (banner: Omit<Banner, 'id'> & {image: string}) => Promise<void>;
   addDeliveryZone: (zone: Omit<DeliveryZone, 'id'>) => Promise<void>;
@@ -210,7 +210,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         toast({ title: "تمت إضافة المنتج بنجاح" });
     }
 
-    const updateProduct = async (updatedProduct: Partial<Product> & {id: string, image: string}) => {
+    const updateProduct = async (updatedProduct: Product) => {
         const { id, ...productData } = updatedProduct;
         const imageUrl = await uploadImage(productData.image, `products/${id}`);
         const finalProductData = { ...productData, image: imageUrl };
@@ -247,7 +247,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         toast({ title: "تمت إضافة المتجر بنجاح" });
     }
 
-    const updateRestaurant = async (updatedRestaurant: Partial<Restaurant> & {id: string, image: string}) => {
+    const updateRestaurant = async (updatedRestaurant: Restaurant) => {
         const { id, ...restaurantData } = updatedRestaurant;
         const imageUrl = await uploadImage(restaurantData.image, `restaurants/${id}`);
         const finalRestaurantData = { ...restaurantData, image: imageUrl };
