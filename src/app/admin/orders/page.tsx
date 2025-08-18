@@ -17,19 +17,31 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, Trash2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import type { OrderStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function AdminOrdersPage() {
   const context = useContext(AppContext);
   
   if (!context || context.isLoading) return <div>جار التحميل...</div>;
 
-  const { allOrders, updateOrderStatus } = context;
+  const { allOrders, updateOrderStatus, deleteOrder } = context;
 
   const getStatusVariant = (status: OrderStatus) => {
     switch (status) {
@@ -40,7 +52,18 @@ export default function AdminOrdersPage() {
       case 'cancelled': return 'bg-red-500';
       default: return 'bg-gray-500';
     }
-  }
+  };
+
+   const getStatusText = (status: OrderStatus) => {
+        switch (status) {
+            case 'confirmed': return "تم التأكيد";
+            case 'preparing': return "تحضير الطلب";
+            case 'on_the_way': return "في الطريق";
+            case 'delivered': return "تم التوصيل";
+            case 'cancelled': return "ملغي";
+            default: return status;
+        }
+    }
 
   return (
     <div className="space-y-8">
@@ -63,36 +86,52 @@ export default function AdminOrdersPage() {
         <TableBody>
           {allOrders.map((order) => (
             <TableRow key={order.id}>
-              <TableCell className="font-medium">{order.id}</TableCell>
-              <TableCell>{order.user?.name || 'مستخدم محذوف'}</TableCell>
+              <TableCell className="font-medium">#{order.id.substring(0, 6)}</TableCell>
+              <TableCell>{order.address.name}</TableCell>
               <TableCell>{new Date(order.date).toLocaleString('ar-IQ')}</TableCell>
               <TableCell>{formatCurrency(order.total)}</TableCell>
               <TableCell>
                 <Badge className={cn("text-white", getStatusVariant(order.status))}>
-                    {order.status === "confirmed" ? "تم التأكيد" :
-                     order.status === "preparing" ? "تحضير الطلب" :
-                     order.status === "on_the_way" ? "في الطريق" :
-                     order.status === "delivered" ? "تم التوصيل" :
-                     order.status === "cancelled" ? "ملغي" :
-                     order.status
-                    }
+                    {getStatusText(order.status)}
                 </Badge>
               </TableCell>
               <TableCell>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
-                      <span className="sr-only">فتح القائمة</span>
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'preparing')}>تحضير الطلب</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'on_the_way')}>في الطريق</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'delivered')}>تم التوصيل</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'cancelled')} className="text-destructive">إلغاء الطلب</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <AlertDialog>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <span className="sr-only">فتح القائمة</span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'confirmed')}>تم التأكيد</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'preparing')}>تحضير الطلب</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'on_the_way')}>في الطريق</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'delivered')}>تم التوصيل</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'cancelled')}>إلغاء الطلب</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <AlertDialogTrigger asChild>
+                        <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            حذف الطلب
+                        </DropdownMenuItem>
+                      </AlertDialogTrigger>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <AlertDialogContent>
+                      <AlertDialogHeader>
+                          <AlertDialogTitle>هل أنت متأكد من الحذف؟</AlertDialogTitle>
+                          <AlertDialogDescription>
+                              هذا الإجراء سيقوم بحذف الطلب رقم #{order.id.substring(0, 6)} بشكل نهائي. لا يمكن التراجع عن هذا الإجراء.
+                          </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                          <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteOrder(order.id)} className="bg-destructive hover:bg-destructive/90">حذف</AlertDialogAction>
+                      </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </TableCell>
             </TableRow>
           ))}

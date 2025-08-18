@@ -15,7 +15,7 @@ import {
     collection,
     onSnapshot,
 } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL } from "firebase/storage";
+import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 import { formatCurrency } from '@/lib/utils';
 
 // --- App Context ---
@@ -34,6 +34,7 @@ interface AppContextType {
   updateCartQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   placeOrder: (address: Address) => Promise<void>;
+  deleteOrder: (orderId: string) => Promise<void>;
   addresses: Address[];
   addAddress: (address: Omit<Address, 'id'>) => void;
   deleteAddress: (addressId: string) => void;
@@ -83,7 +84,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             }),
             onSnapshot(collection(db, "restaurants"), snap => setRestaurants(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant)))),
             onSnapshot(collection(db, "banners"), snap => setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)))),
-            onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))),
+            onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()))),
             onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))),
             onSnapshot(collection(db, "deliveryZones"), snap => setDeliveryZones(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryZone)))),
         ];
@@ -186,7 +187,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 const locationLink = newOrderData.address.latitude ? `https://www.google.com/maps?q=${newOrderData.address.latitude},${newOrderData.address.longitude}` : 'غير محدد';
                 const message = `
 *طلب جديد* 🔥
-*رقم الطلب:* \`${docRef.id}\`
+*رقم الطلب:* \`${docRef.id.substring(0, 6)}\`
 *الزبون:* ${newOrderData.address.name}
 *الهاتف:* ${newOrderData.address.phone}
 *العنوان:* ${newOrderData.address.deliveryZone}
@@ -235,6 +236,12 @@ ${itemsText}
         const orderDocRef = doc(db, "orders", orderId);
         await updateDoc(orderDocRef, { status });
     };
+
+    const deleteOrder = async (orderId: string) => {
+        const orderRef = doc(db, "orders", orderId);
+        await deleteDoc(orderRef);
+        toast({ title: "تم حذف الطلب بنجاح", variant: "destructive" });
+    }
 
     // --- ADMIN ACTIONS ---
     const uploadImage = useCallback(async (dataUrl: string, path: string): Promise<string> => {
@@ -346,6 +353,7 @@ ${itemsText}
         allUsers,
         isLoading,
         updateOrderStatus,
+        deleteOrder,
         addProduct,
         updateProduct,
         deleteProduct,
@@ -379,5 +387,3 @@ ${itemsText}
         </AppContext.Provider>
     );
 };
-
-    

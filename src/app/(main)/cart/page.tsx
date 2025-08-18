@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useContext, useState } from "react";
+import { useContext, useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AppContext } from "@/contexts/AppContext";
@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { Address } from "@/lib/types";
+import { Separator } from "@/components/ui/separator";
 
 export default function CartPage() {
   const context = useContext(AppContext);
@@ -39,7 +40,20 @@ export default function CartPage() {
     return <div>جار التحميل...</div>;
   }
 
-  const { cart, updateCartQuantity, removeFromCart, clearCart, cartTotal, addresses, placeOrder } = context;
+  const { cart, updateCartQuantity, removeFromCart, clearCart, cartTotal, addresses, placeOrder, deliveryZones } = context;
+
+  const { deliveryFee, finalTotal } = useMemo(() => {
+    if (!selectedAddressId) return { deliveryFee: 0, finalTotal: cartTotal };
+    
+    const address = addresses.find(a => a.id === selectedAddressId);
+    if (!address) return { deliveryFee: 0, finalTotal: cartTotal };
+
+    const zone = deliveryZones.find(z => z.name === address.deliveryZone);
+    const fee = zone ? zone.fee : 0;
+    
+    return { deliveryFee: fee, finalTotal: cartTotal + fee };
+  }, [selectedAddressId, cartTotal, addresses, deliveryZones]);
+
 
   const handlePlaceOrder = async () => {
     if (!selectedAddressId) {
@@ -137,17 +151,7 @@ export default function CartPage() {
           </div>
         ))}
       </div>
-
-      <div className="border-t pt-4 space-y-2">
-        <div className="flex justify-between font-bold text-lg">
-          <span>المجموع:</span>
-          <span>{formatCurrency(cartTotal)}</span>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          سيتم إضافة رسوم التوصيل بناءً على المنطقة.
-        </p>
-      </div>
-
+      
        <div className="space-y-4">
           <h2 className="text-xl font-semibold">اختر عنوان التوصيل</h2>
           {addresses.length > 0 ? (
@@ -175,6 +179,22 @@ export default function CartPage() {
               </div>
           )}
        </div>
+
+      <div className="border-t pt-4 space-y-2">
+        <div className="flex justify-between">
+          <span>المجموع الفرعي:</span>
+          <span>{formatCurrency(cartTotal)}</span>
+        </div>
+         <div className="flex justify-between">
+          <span>سعر التوصيل:</span>
+          <span>{formatCurrency(deliveryFee)}</span>
+        </div>
+        <Separator className="my-2"/>
+        <div className="flex justify-between font-bold text-lg">
+          <span>المجموع الكلي:</span>
+          <span>{formatCurrency(finalTotal)}</span>
+        </div>
+      </div>
 
       <div className="flex gap-2">
         <AlertDialog>
