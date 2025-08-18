@@ -16,6 +16,7 @@ import {
     onSnapshot,
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
+import { formatCurrency } from '@/lib/utils';
 
 // --- App Context ---
 interface AppContextType {
@@ -40,13 +41,13 @@ interface AppContextType {
   localOrderIds: string[];
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   addProduct: (product: Omit<Product, 'id' | 'bestSeller'> & {image: string}) => Promise<void>;
-  updateProduct: (product: Product) => Promise<void>;
+  updateProduct: (product: Partial<Product> & {id: string; image:string;}) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
   addCategory: (category: Omit<Category, 'id' | 'icon'>) => Promise<void>;
   updateCategory: (category: Omit<Category, 'icon' | 'id'> & {id: string}) => Promise<void>;
   deleteCategory: (categoryId: string) => Promise<void>;
   addRestaurant: (restaurant: Omit<Restaurant, 'id'> & {image: string}) => Promise<void>;
-  updateRestaurant: (restaurant: Restaurant) => Promise<void>;
+  updateRestaurant: (restaurant: Partial<Restaurant> & {id: string; image:string;}) => Promise<void>;
   deleteRestaurant: (restaurantId: string) => Promise<void>;
   addBanner: (banner: Omit<Banner, 'id'> & {image: string}) => Promise<void>;
   addDeliveryZone: (zone: Omit<DeliveryZone, 'id'>) => Promise<void>;
@@ -160,7 +161,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const deliveryFee = deliveryZoneDetails ? deliveryZoneDetails.fee : 0;
         const total = cartTotal + deliveryFee;
 
-        const newOrder: Omit<Order, 'id' | 'userId'> = {
+        const newOrderData: Omit<Order, 'id' | 'userId'> = {
             items: cart,
             total,
             date: new Date().toISOString(),
@@ -170,8 +171,48 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             revenue: cartTotal,
         };
         
-        const docRef = await addDoc(collection(db, "orders"), newOrder);
+        const docRef = await addDoc(collection(db, "orders"), newOrderData);
         setLocalOrderIds(prev => [...prev, docRef.id]);
+        
+        try {
+            const botToken = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
+            const chatId = process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID;
+
+            if (botToken && chatId) {
+                const itemsText = newOrderData.items.map(item => `${item.quantity}x ${item.product.name}`).join('\n');
+                const locationLink = newOrderData.address.latitude ? `https://www.google.com/maps?q=${newOrderData.address.latitude},${newOrderData.address.longitude}` : 'غير محدد';
+                const message = `
+                
+*طلب جديد* 🔥
+*رقم الطلب:* \`${docRef.id}\`
+*الزبون:* ${newOrderData.address.name}
+*الهاتف:* ${newOrderData.address.phone}
+*العنوان:* ${newOrderData.address.deliveryZone}
+*تفاصيل:* ${newOrderData.address.details || 'لا يوجد'}
+*الموقع:* ${locationLink}
+---
+*المنتجات:*
+${itemsText}
+---
+*المجموع:* ${formatCurrency(newOrderData.total)}
+                `;
+
+                await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        text: message,
+                        parse_mode: 'Markdown',
+                    }),
+                });
+            }
+        } catch (error) {
+            console.error("Failed to send Telegram notification:", error);
+        }
+
         clearCart();
     }
 
@@ -210,7 +251,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         toast({ title: "تمت إضافة المنتج بنجاح" });
     }
 
-    const updateProduct = async (updatedProduct: Product) => {
+    const updateProduct = async (updatedProduct: Partial<Product> & {id: string; image:string;}) => {
         const { id, ...productData } = updatedProduct;
         const imageUrl = await uploadImage(productData.image, `products/${id}`);
         const finalProductData = { ...productData, image: imageUrl };
@@ -247,7 +288,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         toast({ title: "تمت إضافة المتجر بنجاح" });
     }
 
-    const updateRestaurant = async (updatedRestaurant: Restaurant) => {
+    const updateRestaurant = async (updatedRestaurant: Partial<Restaurant> & {id: string; image:string;}) => {
         const { id, ...restaurantData } = updatedRestaurant;
         const imageUrl = await uploadImage(restaurantData.image, `restaurants/${id}`);
         const finalRestaurantData = { ...restaurantData, image: imageUrl };

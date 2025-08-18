@@ -49,7 +49,7 @@ export default function AdminBannersPage() {
   const handleSave = async () => {
     if (context && newBanner.image) {
         setIsSaving(true);
-        await context.addBanner(newBanner);
+        await context.addBanner(newBanner as Omit<Banner, 'id'> & {image: string});
         setIsSaving(false);
         setOpen(false);
         setNewBanner({ image: '', link: '#' });

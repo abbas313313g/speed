@@ -93,7 +93,7 @@ export default function AdminProductsPage() {
         setIsSaving(true);
         if (isEditing && currentProduct.id && currentProduct.image) {
             await updateProduct(currentProduct as {id: string; image:string} & Partial<Product>);
-        } else if (currentProduct.image){
+        } else if (!isEditing && currentProduct.image){
             await addProduct({
                 ...currentProduct,
                 image: currentProduct.image,

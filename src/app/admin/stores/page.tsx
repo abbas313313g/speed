@@ -79,7 +79,7 @@ export default function AdminStoresPage() {
         setIsSaving(true);
         if (isEditing && currentStore.id) {
             await updateRestaurant(currentStore as Partial<Restaurant> & {id: string, image: string});
-        } else {
+        } else if (!isEditing) {
             await addRestaurant({
                 ...currentStore,
                 image: currentStore.image,
