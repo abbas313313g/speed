@@ -37,7 +37,7 @@ import { Star, Edit, Trash2, Loader2 } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
-const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
+const EMPTY_STORE: Omit<Restaurant, 'id'> = {
     name: '',
     image: '',
     rating: 0,
@@ -48,28 +48,13 @@ export default function AdminStoresPage() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentStore, setCurrentStore] = useState<Partial<Restaurant> & {image?:string}>({ ...EMPTY_STORE });
+  const [currentStore, setCurrentStore] = useState<Partial<Restaurant>>({ ...EMPTY_STORE });
   const [isSaving, setIsSaving] = useState(false);
-  const [newImageFile, setNewImageFile] = useState<string | null>(null);
 
   if (!context || context.isLoading) return <div>جار التحميل...</div>;
   const { restaurants, addRestaurant, updateRestaurant, deleteRestaurant } = context;
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setCurrentStore({ ...currentStore, image: result });
-        setNewImageFile(result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-  
   const handleOpenDialog = (store?: Restaurant) => {
-    setNewImageFile(null);
     if (store) {
         setIsEditing(true);
         setCurrentStore(store);
@@ -81,28 +66,17 @@ export default function AdminStoresPage() {
   };
 
   const handleSave = async () => {
-    if (!currentStore.name) {
-        toast({ title: "بيانات غير مكتملة", description: "اسم المتجر مطلوب.", variant: "destructive" });
+    if (!currentStore.name || !currentStore.image) {
+        toast({ title: "بيانات غير مكتملة", description: "اسم المتجر ورابط صورته مطلوبان.", variant: "destructive" });
         return;
     }
 
     setIsSaving(true);
     try {
         if (isEditing && currentStore.id) {
-            const storeToUpdate: Partial<Restaurant> & {id: string; image?:string;} = { ...currentStore };
-             if (newImageFile) {
-                storeToUpdate.image = newImageFile;
-            } else {
-                delete storeToUpdate.image;
-            }
-            await updateRestaurant(storeToUpdate);
+            await updateRestaurant(currentStore as Restaurant);
         } else {
-             if (!currentStore.image) {
-                toast({ title: "صورة المتجر مطلوبة", description: "الرجاء رفع صورة للمتجر.", variant: "destructive" });
-                setIsSaving(false);
-                return;
-            }
-            await addRestaurant(currentStore as Omit<Restaurant, 'id'> & {image: string});
+            await addRestaurant(currentStore as Omit<Restaurant, 'id'>);
         }
         setOpen(false);
     } catch (error) {
@@ -138,8 +112,8 @@ export default function AdminStoresPage() {
                         <Input id="rating" type="number" step="0.1" value={currentStore.rating} onChange={(e) => setCurrentStore({...currentStore, rating: parseFloat(e.target.value) || 0})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="image" className="text-right">صورة</Label>
-                        <Input id="image" type="file" onChange={handleImageUpload} className="col-span-3" accept="image/*" />
+                        <Label htmlFor="image" className="text-right">رابط الصورة</Label>
+                        <Input id="image" value={currentStore.image} onChange={(e) => setCurrentStore({...currentStore, image: e.target.value})} className="col-span-3" />
                     </div>
                      {currentStore.image && <Image src={currentStore.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain"/>}
                 </div>

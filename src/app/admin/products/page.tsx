@@ -19,7 +19,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -48,7 +47,7 @@ import type { Product } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-const EMPTY_PRODUCT: Omit<Product, 'id' | 'bestSeller'> & {image: string} = {
+const EMPTY_PRODUCT: Omit<Product, 'id' | 'bestSeller'> = {
   name: '',
   price: 0,
   description: '',
@@ -62,28 +61,13 @@ export default function AdminProductsPage() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState<Partial<Product> & {image?: string}>({ ...EMPTY_PRODUCT });
+  const [currentProduct, setCurrentProduct] = useState<Partial<Product>>({ ...EMPTY_PRODUCT });
   const [isSaving, setIsSaving] = useState(false);
-  const [newImageFile, setNewImageFile] = useState<string | null>(null);
 
   if (!context || context.isLoading) return <div>جار التحميل...</div>;
   const { products, categories, restaurants, addProduct, updateProduct, deleteProduct } = context;
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setCurrentProduct({ ...currentProduct, image: result });
-        setNewImageFile(result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleOpenDialog = (product?: Product) => {
-    setNewImageFile(null);
     if (product) {
         setIsEditing(true);
         setCurrentProduct(product);
@@ -95,7 +79,7 @@ export default function AdminProductsPage() {
   }
 
   const handleSaveProduct = async () => {
-    if (!currentProduct.name || !currentProduct.price || !currentProduct.categoryId || !currentProduct.restaurantId) {
+    if (!currentProduct.name || !currentProduct.price || !currentProduct.categoryId || !currentProduct.restaurantId || !currentProduct.image) {
         toast({ title: "بيانات غير مكتملة", description: "الرجاء ملء جميع الحقول المطلوبة.", variant: "destructive" });
         return;
     }
@@ -103,21 +87,9 @@ export default function AdminProductsPage() {
     setIsSaving(true);
     try {
         if (isEditing && currentProduct.id) {
-            const productToUpdate: Partial<Product> & {id: string; image?:string;} = { ...currentProduct };
-            if (newImageFile) {
-                productToUpdate.image = newImageFile;
-            } else {
-                // Do not send the old image URL if no new image is selected
-                delete productToUpdate.image;
-            }
-            await updateProduct(productToUpdate);
+            await updateProduct(currentProduct as Product);
         } else {
-             if (!currentProduct.image) {
-                toast({ title: "صورة المنتج مطلوبة", description: "الرجاء رفع صورة للمنتج.", variant: "destructive" });
-                setIsSaving(false);
-                return;
-            }
-            await addProduct(currentProduct as Omit<Product, 'id' | 'bestSeller'> & { image: string });
+            await addProduct(currentProduct as Omit<Product, 'id' | 'bestSeller'>);
         }
         setOpen(false);
     } catch (error) {
@@ -160,8 +132,8 @@ export default function AdminProductsPage() {
                         <Input id="description" value={currentProduct.description} onChange={(e) => setCurrentProduct({...currentProduct, description: e.target.value})} className="col-span-3" />
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
-                         <Label htmlFor="image" className="text-right">صورة</Label>
-                         <Input id="image" type="file" onChange={handleImageUpload} className="col-span-3" accept="image/*" />
+                         <Label htmlFor="image" className="text-right">رابط الصورة</Label>
+                         <Input id="image" value={currentProduct.image} onChange={(e) => setCurrentProduct({...currentProduct, image: e.target.value})} className="col-span-3" />
                     </div>
                     {currentProduct.image && <Image src={currentProduct.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain"/>}
 

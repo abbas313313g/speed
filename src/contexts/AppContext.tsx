@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone } from '@/lib/types';
 import { categories as initialCategoriesData } from '@/lib/mock-data';
 import { ShoppingBasket } from 'lucide-react';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { 
     doc, 
     addDoc,
@@ -15,7 +15,6 @@ import {
     collection,
     onSnapshot,
 } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 import { formatCurrency } from '@/lib/utils';
 
 // --- App Context ---
@@ -41,16 +40,16 @@ interface AppContextType {
   deliveryZones: DeliveryZone[];
   localOrderIds: string[];
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
-  addProduct: (product: Omit<Product, 'id' | 'bestSeller'> & {image: string}) => Promise<void>;
-  updateProduct: (product: Partial<Product> & {id: string; image?:string;}) => Promise<void>;
+  addProduct: (product: Omit<Product, 'id' | 'bestSeller'>) => Promise<void>;
+  updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
   addCategory: (category: Omit<Category, 'id' | 'icon'>) => Promise<void>;
   updateCategory: (category: Omit<Category, 'icon' | 'id'> & {id: string}) => Promise<void>;
   deleteCategory: (categoryId: string) => Promise<void>;
-  addRestaurant: (restaurant: Omit<Restaurant, 'id'> & {image: string}) => Promise<void>;
-  updateRestaurant: (restaurant: Partial<Restaurant> & {id: string; image?:string;}) => Promise<void>;
+  addRestaurant: (restaurant: Omit<Restaurant, 'id'>) => Promise<void>;
+  updateRestaurant: (restaurant: Restaurant) => Promise<void>;
   deleteRestaurant: (restaurantId: string) => Promise<void>;
-  addBanner: (banner: Omit<Banner, 'id'> & {image: string}) => Promise<void>;
+  addBanner: (banner: Omit<Banner, 'id'>) => Promise<void>;
   addDeliveryZone: (zone: Omit<DeliveryZone, 'id'>) => Promise<void>;
   updateDeliveryZone: (zone: DeliveryZone) => Promise<void>;
   deleteDeliveryZone: (zoneId: string) => Promise<void>;
@@ -244,46 +243,16 @@ ${itemsText}
     }
 
     // --- ADMIN ACTIONS ---
-    const uploadImage = useCallback(async (dataUrl: string, path: string): Promise<string> => {
-        if (!dataUrl || !dataUrl.startsWith('data:image')) {
-             console.error("Invalid data URL provided:", dataUrl);
-             throw new Error("Invalid data URL format for image upload.");
-        }
-        
-        try {
-            const storageRef = ref(storage, path);
-            const snapshot = await uploadString(storageRef, dataUrl, 'data_url');
-            const downloadURL = await getDownloadURL(snapshot.ref);
-            return downloadURL;
-        } catch (error) {
-            console.error("Image upload failed:", error);
-            toast({
-                title: "فشل رفع الصورة",
-                description: "حدث خطأ أثناء محاولة رفع الصورة. الرجاء المحاولة مرة أخرى.",
-                variant: "destructive"
-            });
-            throw error;
-        }
-    }, [toast]);
-    
-    const addProduct = async (productData: Omit<Product, 'id' | 'bestSeller'> & { image: string }) => {
-        const imageUrl = await uploadImage(productData.image, `products/${Date.now()}`);
-        const newProductData: Omit<Product, 'id'> = { ...productData, image: imageUrl, bestSeller: Math.random() < 0.2 };
+    const addProduct = async (productData: Omit<Product, 'id' | 'bestSeller'>) => {
+        const newProductData: Omit<Product, 'id'> = { ...productData, bestSeller: Math.random() < 0.2 };
         await addDoc(collection(db, "products"), newProductData);
         toast({ title: "تمت إضافة المنتج بنجاح" });
     }
 
-    const updateProduct = async (updatedProduct: Partial<Product> & {id: string; image?:string;}) => {
+    const updateProduct = async (updatedProduct: Product) => {
         const { id, ...productData } = updatedProduct;
-        let finalData: Partial<Omit<Product, 'id'>> = { ...productData };
-
-        if (productData.image && productData.image.startsWith('data:image')) {
-          const newImageUrl = await uploadImage(productData.image, `products/${id}_${Date.now()}`);
-          finalData.image = newImageUrl;
-        }
-       
         const productDocRef = doc(db, "products", id);
-        await updateDoc(productDocRef, finalData);
+        await updateDoc(productDocRef, productData);
         toast({ title: "تم تحديث المنتج بنجاح" });
     }
 
@@ -309,23 +278,15 @@ ${itemsText}
         toast({ title: "تم حذف القسم بنجاح", variant: "destructive" });
     }
 
-    const addRestaurant = async (restaurantData: Omit<Restaurant, 'id'> & {image: string}) => {
-        const imageUrl = await uploadImage(restaurantData.image, `restaurants/${Date.now()}`);
-        await addDoc(collection(db, "restaurants"), { ...restaurantData, image: imageUrl });
+    const addRestaurant = async (restaurantData: Omit<Restaurant, 'id'>) => {
+        await addDoc(collection(db, "restaurants"), restaurantData);
         toast({ title: "تمت إضافة المتجر بنجاح" });
     }
 
-    const updateRestaurant = async (updatedRestaurant: Partial<Restaurant> & {id: string; image?:string;}) => {
+    const updateRestaurant = async (updatedRestaurant: Restaurant) => {
         const { id, ...restaurantData } = updatedRestaurant;
-        let finalData: Partial<Omit<Restaurant, 'id'>> = {...restaurantData};
-        
-        if (restaurantData.image && restaurantData.image.startsWith('data:image')) {
-            const newImageUrl = await uploadImage(restaurantData.image, `restaurants/${id}_${Date.now()}`);
-            finalData.image = newImageUrl;
-        }
-
         const restaurantDocRef = doc(db, "restaurants", id);
-        await updateDoc(restaurantDocRef, finalData);
+        await updateDoc(restaurantDocRef, restaurantData);
         toast({ title: "تم تحديث المتجر بنجاح" });
     }
 
@@ -334,9 +295,8 @@ ${itemsText}
         toast({ title: "تم حذف المتجر بنجاح", variant: "destructive" });
     }
   
-    const addBanner = async (bannerData: Omit<Banner, 'id'> & {image: string}) => {
-        const imageUrl = await uploadImage(bannerData.image, `banners/${Date.now()}`);
-        await addDoc(collection(db, "banners"), { ...bannerData, image: imageUrl });
+    const addBanner = async (bannerData: Omit<Banner, 'id'>) => {
+        await addDoc(collection(db, "banners"), bannerData);
         toast({ title: "تمت إضافة البنر بنجاح" });
     }
 

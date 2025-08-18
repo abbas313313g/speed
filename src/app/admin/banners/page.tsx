@@ -37,20 +37,9 @@ export default function AdminBannersPage() {
       link: '#',
   });
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewBanner({ ...newBanner, image: reader.result as string });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleSave = async () => {
     if (!context || !newBanner.image) {
-        toast({ title: "صورة البنر مطلوبة", description: "الرجاء رفع صورة للبنر.", variant: "destructive" });
+        toast({ title: "رابط صورة البنر مطلوب", description: "الرجاء إدخال رابط صورة للبنر.", variant: "destructive" });
         return;
     }
 
@@ -61,6 +50,7 @@ export default function AdminBannersPage() {
         setNewBanner({ image: '', link: '#' });
     } catch (error) {
         console.error("Failed to save banner:", error);
+        toast({ title: "فشل حفظ البنر", description: "حدث خطأ أثناء محاولة حفظ البنر.", variant: "destructive" });
     } finally {
         setIsSaving(false);
     }
@@ -85,8 +75,8 @@ export default function AdminBannersPage() {
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="image" className="text-right">صورة البنر</Label>
-                        <Input id="image" type="file" onChange={handleImageUpload} className="col-span-3" accept="image/*" />
+                        <Label htmlFor="image" className="text-right">رابط الصورة</Label>
+                        <Input id="image" value={newBanner.image} onChange={(e) => setNewBanner({...newBanner, image: e.target.value})} className="col-span-3" />
                     </div>
                      {newBanner.image && <Image src={newBanner.image} alt="preview" width={200} height={100} className="col-span-4 justify-self-center object-contain"/>}
                 </div>
@@ -121,5 +111,3 @@ export default function AdminBannersPage() {
     </div>
   );
 }
-
-    
