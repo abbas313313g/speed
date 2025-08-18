@@ -21,8 +21,7 @@ export default function HomePage() {
   const context = useContext(AppContext);
 
   if (!context) return null;
-  const { categories, banners, products, restaurants } = context;
-  const bestSellers = products.filter(p => p.bestSeller);
+  const { categories, banners, bestSellers, restaurants } = context;
   
   return (
     <div className="space-y-8 p-4">

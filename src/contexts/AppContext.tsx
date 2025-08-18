@@ -25,6 +25,7 @@ interface AppContextType {
   restaurants: Restaurant[];
   banners: Banner[];
   allUsers: User[];
+  bestSellers: Product[];
   isLoading: boolean;
   cart: CartItem[];
   cartTotal: number;
@@ -40,14 +41,14 @@ interface AppContextType {
   deliveryZones: DeliveryZone[];
   localOrderIds: string[];
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
-  addProduct: (product: Omit<Product, 'id' | 'bestSeller'>) => Promise<void>;
-  updateProduct: (product: Product) => Promise<void>;
+  addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
+  updateProduct: (product: Partial<Product> & {id: string}) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
   addCategory: (category: Omit<Category, 'id' | 'icon'>) => Promise<void>;
   updateCategory: (category: Omit<Category, 'icon' | 'id'> & {id: string}) => Promise<void>;
   deleteCategory: (categoryId: string) => Promise<void>;
   addRestaurant: (restaurant: Omit<Restaurant, 'id'>) => Promise<void>;
-  updateRestaurant: (restaurant: Restaurant) => Promise<void>;
+  updateRestaurant: (restaurant: Partial<Restaurant> & {id: string}) => Promise<void>;
   deleteRestaurant: (restaurantId: string) => Promise<void>;
   addBanner: (banner: Omit<Banner, 'id'>) => Promise<void>;
   addDeliveryZone: (zone: Omit<DeliveryZone, 'id'>) => Promise<void>;
@@ -102,6 +103,24 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             unsubs.forEach(unsub => unsub());
         };
     }, []);
+
+    // --- Derived State ---
+    const bestSellers = useMemo(() => {
+        const salesCount: { [productId: string]: number } = {};
+
+        allOrders.forEach(order => {
+            order.items.forEach(item => {
+                salesCount[item.product.id] = (salesCount[item.product.id] || 0) + item.quantity;
+            });
+        });
+
+        // Find product objects for the sold product IDs
+        const soldProducts = products.filter(p => salesCount[p.id] > 0);
+
+        // Sort products by sales count in descending order
+        return soldProducts.sort((a, b) => salesCount[b.id] - salesCount[a.id]);
+    }, [allOrders, products]);
+
 
     // --- Cart Management ---
     useEffect(() => {
@@ -243,13 +262,12 @@ ${itemsText}
     }
 
     // --- ADMIN ACTIONS ---
-    const addProduct = async (productData: Omit<Product, 'id' | 'bestSeller'>) => {
-        const newProductData: Omit<Product, 'id'> = { ...productData, bestSeller: Math.random() < 0.2 };
-        await addDoc(collection(db, "products"), newProductData);
+    const addProduct = async (productData: Omit<Product, 'id'>) => {
+        await addDoc(collection(db, "products"), productData);
         toast({ title: "تمت إضافة المنتج بنجاح" });
     }
 
-    const updateProduct = async (updatedProduct: Product) => {
+    const updateProduct = async (updatedProduct: Partial<Product> & {id: string}) => {
         const { id, ...productData } = updatedProduct;
         const productDocRef = doc(db, "products", id);
         await updateDoc(productDocRef, productData);
@@ -283,7 +301,7 @@ ${itemsText}
         toast({ title: "تمت إضافة المتجر بنجاح" });
     }
 
-    const updateRestaurant = async (updatedRestaurant: Restaurant) => {
+    const updateRestaurant = async (updatedRestaurant: Partial<Restaurant> & {id: string}) => {
         const { id, ...restaurantData } = updatedRestaurant;
         const restaurantDocRef = doc(db, "restaurants", id);
         await updateDoc(restaurantDocRef, restaurantData);
@@ -324,6 +342,7 @@ ${itemsText}
         restaurants,
         banners,
         allUsers,
+        bestSellers,
         isLoading,
         updateOrderStatus,
         deleteOrder,

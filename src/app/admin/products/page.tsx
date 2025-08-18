@@ -47,7 +47,7 @@ import type { Product } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-const EMPTY_PRODUCT: Omit<Product, 'id' | 'bestSeller'> = {
+const EMPTY_PRODUCT: Omit<Product, 'id'> = {
   name: '',
   price: 0,
   description: '',
@@ -87,9 +87,9 @@ export default function AdminProductsPage() {
     setIsSaving(true);
     try {
         if (isEditing && currentProduct.id) {
-            await updateProduct(currentProduct as Product);
+            await updateProduct(currentProduct as Partial<Product> & {id: string});
         } else {
-            await addProduct(currentProduct as Omit<Product, 'id' | 'bestSeller'>);
+            await addProduct(currentProduct as Omit<Product, 'id'>);
         }
         setOpen(false);
     } catch (error) {

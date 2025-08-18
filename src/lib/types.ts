@@ -25,7 +25,6 @@ export interface Product {
   image: string;
   categoryId: string;
   restaurantId: string;
-  bestSeller?: boolean;
 }
 
 export interface Category {
