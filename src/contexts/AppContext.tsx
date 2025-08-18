@@ -51,6 +51,8 @@ interface AppContextType {
   updateRestaurant: (restaurant: Partial<Restaurant> & {id: string}) => Promise<void>;
   deleteRestaurant: (restaurantId: string) => Promise<void>;
   addBanner: (banner: Omit<Banner, 'id'>) => Promise<void>;
+  updateBanner: (banner: Banner) => Promise<void>;
+  deleteBanner: (bannerId: string) => Promise<void>;
   addDeliveryZone: (zone: Omit<DeliveryZone, 'id'>) => Promise<void>;
   updateDeliveryZone: (zone: DeliveryZone) => Promise<void>;
   deleteDeliveryZone: (zoneId: string) => Promise<void>;
@@ -318,6 +320,19 @@ ${itemsText}
         toast({ title: "تمت إضافة البنر بنجاح" });
     }
 
+    const updateBanner = async (updatedBanner: Banner) => {
+        const { id, ...bannerData } = updatedBanner;
+        const bannerRef = doc(db, "banners", id);
+        await updateDoc(bannerRef, bannerData);
+        toast({ title: "تم تحديث البنر بنجاح" });
+    };
+
+    const deleteBanner = async (bannerId: string) => {
+        const bannerRef = doc(db, "banners", bannerId);
+        await deleteDoc(bannerRef);
+        toast({ title: "تم حذف البنر بنجاح" });
+    };
+
     const addDeliveryZone = async (zone: Omit<DeliveryZone, 'id'>) => {
         await addDoc(collection(db, "deliveryZones"), zone);
         toast({ title: "تمت إضافة المنطقة بنجاح" });
@@ -356,6 +371,8 @@ ${itemsText}
         updateRestaurant,
         deleteRestaurant,
         addBanner,
+        updateBanner,
+        deleteBanner,
         addDeliveryZone,
         updateDeliveryZone,
         deleteDeliveryZone,

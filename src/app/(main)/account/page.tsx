@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useContext, useState } from "react";
+import { useContext } from "react";
 import Link from "next/link";
 import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Home, PlusCircle, Trash2 } from "lucide-react";
-import type { Address } from "@/lib/types";
+import { Home, PlusCircle, Trash2, MessageSquareHeart } from "lucide-react";
 
 export default function AccountPage() {
   const context = useContext(AppContext);
@@ -27,20 +26,30 @@ export default function AccountPage() {
   return (
     <div className="p-4 space-y-6">
       <header>
-        <h1 className="text-3xl font-bold">عناويني</h1>
+        <h1 className="text-3xl font-bold">حسابي</h1>
         <p className="text-muted-foreground">
-          إدارة عناوين التوصيل الخاصة بك.
+          إدارة عناوينك والتواصل مع الدعم.
         </p>
       </header>
 
-      <Button asChild className="w-full">
-        <Link href="/account/add-address">
-          <PlusCircle className="ml-2 h-5 w-5" />
-          إضافة عنوان جديد
-        </Link>
-      </Button>
+      <div className="grid grid-cols-2 gap-4">
+         <Button asChild>
+            <Link href="/account/add-address">
+            <PlusCircle className="ml-2 h-5 w-5" />
+            إضافة عنوان
+            </Link>
+        </Button>
+         <Button asChild variant="outline">
+            <Link href="/support">
+            <MessageSquareHeart className="ml-2 h-5 w-5" />
+            الدعم الذكي
+            </Link>
+        </Button>
+      </div>
+      
 
       <div className="space-y-4">
+        <h2 className="text-2xl font-bold">عناويني</h2>
         {addresses.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">
             لم تقم بإضافة أي عناوين بعد.

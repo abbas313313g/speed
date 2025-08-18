@@ -44,6 +44,7 @@ export interface Restaurant {
 export interface Banner {
   id: string;
   image: string;
+  linkType?: 'none' | 'product' | 'restaurant';
   link: string;
 }
 
