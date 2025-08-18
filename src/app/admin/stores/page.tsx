@@ -35,6 +35,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Star, Edit, Trash2, Loader2 } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     name: '',
@@ -44,6 +45,7 @@ const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
 
 export default function AdminStoresPage() {
   const context = useContext(AppContext);
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentStore, setCurrentStore] = useState<Partial<Restaurant> & {image?:string}>({ ...EMPTY_STORE });
@@ -75,16 +77,22 @@ export default function AdminStoresPage() {
   };
 
   const handleSave = async () => {
-    if (currentStore.name && currentStore.image) {
-        setIsSaving(true);
+    if (!currentStore.name || !currentStore.image) {
+        toast({ title: "بيانات غير مكتملة", description: "اسم المتجر وصورته مطلوبان.", variant: "destructive" });
+        return;
+    }
+
+    setIsSaving(true);
+    try {
         if (isEditing && currentStore.id) {
-            await updateRestaurant(currentStore as Partial<Restaurant> & {id: string, image: string});
-        } else if (!isEditing) {
-            await addRestaurant({
-                ...currentStore,
-                image: currentStore.image,
-            } as Omit<Restaurant, 'id'> & {image: string});
+            await updateRestaurant(currentStore as Partial<Restaurant> & {id: string});
+        } else {
+            await addRestaurant(currentStore as Omit<Restaurant, 'id'> & {image: string});
         }
+    } catch (error) {
+        console.error("Failed to save store:", error);
+        toast({ title: "فشل حفظ المتجر", description: "حدث خطأ أثناء محاولة حفظ المتجر.", variant: "destructive" });
+    } finally {
         setIsSaving(false);
         setOpen(false);
     }
@@ -182,3 +190,5 @@ export default function AdminStoresPage() {
     </div>
   );
 }
+
+    

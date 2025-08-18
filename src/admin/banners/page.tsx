@@ -25,9 +25,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import type { Banner } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminBannersPage() {
   const context = useContext(AppContext);
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [newBanner, setNewBanner] = useState({
@@ -47,9 +49,18 @@ export default function AdminBannersPage() {
   };
 
   const handleSave = async () => {
-    if (context && newBanner.image) {
-        setIsSaving(true);
+    if (!context || !newBanner.image) {
+        toast({ title: "صورة البنر مطلوبة", description: "الرجاء رفع صورة للبنر.", variant: "destructive" });
+        return;
+    }
+
+    setIsSaving(true);
+    try {
         await context.addBanner(newBanner as Omit<Banner, 'id'> & {image: string});
+    } catch (error) {
+        console.error("Failed to save banner:", error);
+        toast({ title: "فشل حفظ البنر", description: "حدث خطأ أثناء محاولة حفظ البنر.", variant: "destructive" });
+    } finally {
         setIsSaving(false);
         setOpen(false);
         setNewBanner({ image: '', link: '#' });
@@ -111,3 +122,5 @@ export default function AdminBannersPage() {
     </div>
   );
 }
+
+    

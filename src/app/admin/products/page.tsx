@@ -46,6 +46,7 @@ import Image from 'next/image';
 import { Edit, Trash2 } from 'lucide-react';
 import type { Product } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const EMPTY_PRODUCT: Omit<Product, 'id' | 'bestSeller'> & {image: string} = {
   name: '',
@@ -58,6 +59,7 @@ const EMPTY_PRODUCT: Omit<Product, 'id' | 'bestSeller'> & {image: string} = {
 
 export default function AdminProductsPage() {
   const context = useContext(AppContext);
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Partial<Product> & {image?: string}>({ ...EMPTY_PRODUCT });
@@ -89,16 +91,26 @@ export default function AdminProductsPage() {
   }
 
   const handleSaveProduct = async () => {
-    if (currentProduct.name && currentProduct.price && currentProduct.categoryId && currentProduct.restaurantId) {
-        setIsSaving(true);
-        if (isEditing && currentProduct.id && currentProduct.image) {
-            await updateProduct(currentProduct as {id: string; image:string} & Partial<Product>);
-        } else if (!isEditing && currentProduct.image){
-            await addProduct({
-                ...currentProduct,
-                image: currentProduct.image,
-            } as any);
+    if (!currentProduct.name || !currentProduct.price || !currentProduct.categoryId || !currentProduct.restaurantId) {
+        toast({ title: "بيانات غير مكتملة", description: "الرجاء ملء جميع الحقول المطلوبة.", variant: "destructive" });
+        return;
+    }
+    if (!currentProduct.image) {
+        toast({ title: "صورة المنتج مطلوبة", description: "الرجاء رفع صورة للمنتج.", variant: "destructive" });
+        return;
+    }
+
+    setIsSaving(true);
+    try {
+        if (isEditing && currentProduct.id) {
+            await updateProduct(currentProduct as Partial<Product> & {id: string});
+        } else {
+            await addProduct(currentProduct as Omit<Product, 'id' | 'bestSeller'> & { image: string });
         }
+    } catch (error) {
+        console.error("Failed to save product:", error);
+        toast({ title: "فشل حفظ المنتج", description: "حدث خطأ أثناء محاولة حفظ المنتج.", variant: "destructive" });
+    } finally {
         setIsSaving(false);
         setOpen(false);
     }
@@ -227,3 +239,5 @@ export default function AdminProductsPage() {
     </div>
   );
 }
+
+    
