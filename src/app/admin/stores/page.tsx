@@ -77,7 +77,7 @@ export default function AdminStoresPage() {
   };
 
   const handleSave = async () => {
-    if (!currentStore.name || !currentStore.image) {
+    if (!currentStore.name || (!isEditing && !currentStore.image)) {
         toast({ title: "بيانات غير مكتملة", description: "اسم المتجر وصورته مطلوبان.", variant: "destructive" });
         return;
     }
@@ -89,12 +89,11 @@ export default function AdminStoresPage() {
         } else {
             await addRestaurant(currentStore as Omit<Restaurant, 'id'> & {image: string});
         }
+        setOpen(false);
     } catch (error) {
         console.error("Failed to save store:", error);
-        toast({ title: "فشل حفظ المتجر", description: "حدث خطأ أثناء محاولة حفظ المتجر.", variant: "destructive" });
     } finally {
         setIsSaving(false);
-        setOpen(false);
     }
   };
 

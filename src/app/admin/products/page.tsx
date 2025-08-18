@@ -95,7 +95,7 @@ export default function AdminProductsPage() {
         toast({ title: "بيانات غير مكتملة", description: "الرجاء ملء جميع الحقول المطلوبة.", variant: "destructive" });
         return;
     }
-    if (!currentProduct.image) {
+    if (!isEditing && !currentProduct.image) {
         toast({ title: "صورة المنتج مطلوبة", description: "الرجاء رفع صورة للمنتج.", variant: "destructive" });
         return;
     }
@@ -107,12 +107,11 @@ export default function AdminProductsPage() {
         } else {
             await addProduct(currentProduct as Omit<Product, 'id' | 'bestSeller'> & { image: string });
         }
+        setOpen(false);
     } catch (error) {
         console.error("Failed to save product:", error);
-        toast({ title: "فشل حفظ المنتج", description: "حدث خطأ أثناء محاولة حفظ المنتج.", variant: "destructive" });
     } finally {
         setIsSaving(false);
-        setOpen(false);
     }
   };
 

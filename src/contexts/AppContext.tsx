@@ -15,7 +15,7 @@ import {
     collection,
     onSnapshot,
 } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { formatCurrency } from '@/lib/utils';
 
 // --- App Context ---
@@ -246,12 +246,28 @@ ${itemsText}
     // --- ADMIN ACTIONS ---
     const uploadImage = useCallback(async (dataUrl: string, path: string): Promise<string> => {
         if (!dataUrl || !dataUrl.startsWith('data:')) {
-            return dataUrl; // It's already a URL or empty, no need to upload.
+            return dataUrl; // It's already a URL.
         }
-        const storageRef = ref(storage, path);
-        const snapshot = await uploadString(storageRef, dataUrl, 'data_url');
-        return await getDownloadURL(snapshot.ref);
-    }, []);
+        
+        try {
+            // Convert base64 to blob
+            const response = await fetch(dataUrl);
+            const blob = await response.blob();
+
+            const storageRef = ref(storage, path);
+            const snapshot = await uploadBytes(storageRef, blob);
+            const downloadURL = await getDownloadURL(snapshot.ref);
+            return downloadURL;
+        } catch (error) {
+            console.error("Image upload failed:", error);
+            toast({
+                title: "فشل رفع الصورة",
+                description: "حدث خطأ أثناء محاولة رفع الصورة. الرجاء المحاولة مرة أخرى.",
+                variant: "destructive"
+            });
+            throw error; // Propagate the error to stop the save process
+        }
+    }, [toast]);
     
     const addProduct = async (productData: Omit<Product, 'id' | 'bestSeller'> & { image: string }) => {
         const imageUrl = await uploadImage(productData.image, `products/${Date.now()}`);
@@ -262,10 +278,11 @@ ${itemsText}
 
     const updateProduct = async (updatedProduct: Partial<Product> & {id: string; image?:string;}) => {
         const { id, ...productData } = updatedProduct;
-        const finalData = { ...productData };
+        let finalData = { ...productData };
 
-        if (finalData.image && finalData.image.startsWith('data:')) {
-          finalData.image = await uploadImage(finalData.image, `products/${id}_${Date.now()}`);
+        if (productData.image && productData.image.startsWith('data:')) {
+          const newImageUrl = await uploadImage(productData.image, `products/${id}_${Date.now()}`);
+          finalData = { ...finalData, image: newImageUrl };
         }
        
         const productDocRef = doc(db, "products", id);
@@ -303,10 +320,11 @@ ${itemsText}
 
     const updateRestaurant = async (updatedRestaurant: Partial<Restaurant> & {id: string; image?:string;}) => {
         const { id, ...restaurantData } = updatedRestaurant;
-        const finalData = {...restaurantData};
+        let finalData = {...restaurantData};
         
-        if (finalData.image && finalData.image.startsWith('data:')) {
-            finalData.image = await uploadImage(finalData.image, `restaurants/${id}_${Date.now()}`);
+        if (restaurantData.image && restaurantData.image.startsWith('data:')) {
+            const newImageUrl = await uploadImage(restaurantData.image, `restaurants/${id}_${Date.now()}`);
+            finalData = { ...finalData, image: newImageUrl };
         }
 
         const restaurantDocRef = doc(db, "restaurants", id);
@@ -385,3 +403,5 @@ ${itemsText}
         </AppContext.Provider>
     );
 };
+
+    

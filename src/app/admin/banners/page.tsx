@@ -57,13 +57,12 @@ export default function AdminBannersPage() {
     setIsSaving(true);
     try {
         await context.addBanner(newBanner as Omit<Banner, 'id'> & {image: string});
-    } catch (error) {
-        console.error("Failed to save banner:", error);
-        toast({ title: "فشل حفظ البنر", description: "حدث خطأ أثناء محاولة حفظ البنر.", variant: "destructive" });
-    } finally {
-        setIsSaving(false);
         setOpen(false);
         setNewBanner({ image: '', link: '#' });
+    } catch (error) {
+        console.error("Failed to save banner:", error);
+    } finally {
+        setIsSaving(false);
     }
   };
 
