@@ -42,13 +42,13 @@ interface AppContextType {
   localOrderIds: string[];
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   addProduct: (product: Omit<Product, 'id' | 'bestSeller'> & {image: string}) => Promise<void>;
-  updateProduct: (product: Partial<Product> & {id: string; image:string;}) => Promise<void>;
+  updateProduct: (product: Partial<Product> & {id: string; image?:string;}) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
   addCategory: (category: Omit<Category, 'id' | 'icon'>) => Promise<void>;
   updateCategory: (category: Omit<Category, 'icon' | 'id'> & {id: string}) => Promise<void>;
   deleteCategory: (categoryId: string) => Promise<void>;
   addRestaurant: (restaurant: Omit<Restaurant, 'id'> & {image: string}) => Promise<void>;
-  updateRestaurant: (restaurant: Partial<Restaurant> & {id: string; image:string;}) => Promise<void>;
+  updateRestaurant: (restaurant: Partial<Restaurant> & {id: string; image?:string;}) => Promise<void>;
   deleteRestaurant: (restaurantId: string) => Promise<void>;
   addBanner: (banner: Omit<Banner, 'id'> & {image: string}) => Promise<void>;
   addDeliveryZone: (zone: Omit<DeliveryZone, 'id'>) => Promise<void>;
@@ -245,8 +245,8 @@ ${itemsText}
 
     // --- ADMIN ACTIONS ---
     const uploadImage = useCallback(async (dataUrl: string, path: string): Promise<string> => {
-        if (!dataUrl.startsWith('data:')) {
-            return dataUrl; // It's already a URL, no need to upload.
+        if (!dataUrl || !dataUrl.startsWith('data:')) {
+            return dataUrl; // It's already a URL or empty, no need to upload.
         }
         const storageRef = ref(storage, path);
         const snapshot = await uploadString(storageRef, dataUrl, 'data_url');
@@ -260,17 +260,16 @@ ${itemsText}
         toast({ title: "تمت إضافة المنتج بنجاح" });
     }
 
-    const updateProduct = async (updatedProduct: Partial<Product> & {id: string; image:string;}) => {
+    const updateProduct = async (updatedProduct: Partial<Product> & {id: string; image?:string;}) => {
         const { id, ...productData } = updatedProduct;
-        let finalProductData:any = {...productData};
+        const finalData = { ...productData };
 
-        if (productData.image && productData.image.startsWith('data:')) {
-          const imageUrl = await uploadImage(productData.image, `products/${id}`);
-          finalProductData = { ...productData, image: imageUrl };
+        if (finalData.image && finalData.image.startsWith('data:')) {
+          finalData.image = await uploadImage(finalData.image, `products/${id}_${Date.now()}`);
         }
        
         const productDocRef = doc(db, "products", id);
-        await updateDoc(productDocRef, finalProductData);
+        await updateDoc(productDocRef, finalData);
         toast({ title: "تم تحديث المنتج بنجاح" });
     }
 
@@ -302,17 +301,16 @@ ${itemsText}
         toast({ title: "تمت إضافة المتجر بنجاح" });
     }
 
-    const updateRestaurant = async (updatedRestaurant: Partial<Restaurant> & {id: string; image:string;}) => {
+    const updateRestaurant = async (updatedRestaurant: Partial<Restaurant> & {id: string; image?:string;}) => {
         const { id, ...restaurantData } = updatedRestaurant;
-        let finalRestaurantData: any = {...restaurantData};
+        const finalData = {...restaurantData};
         
-        if (restaurantData.image && restaurantData.image.startsWith('data:')) {
-            const imageUrl = await uploadImage(restaurantData.image, `restaurants/${id}`);
-            finalRestaurantData = { ...restaurantData, image: imageUrl };
+        if (finalData.image && finalData.image.startsWith('data:')) {
+            finalData.image = await uploadImage(finalData.image, `restaurants/${id}_${Date.now()}`);
         }
 
         const restaurantDocRef = doc(db, "restaurants", id);
-        await updateDoc(restaurantDocRef, finalRestaurantData);
+        await updateDoc(restaurantDocRef, finalData);
         toast({ title: "تم تحديث المتجر بنجاح" });
     }
 

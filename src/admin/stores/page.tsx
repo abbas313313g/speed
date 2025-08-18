@@ -78,11 +78,11 @@ export default function AdminStoresPage() {
     if (currentStore.name && currentStore.image) {
         setIsSaving(true);
         if (isEditing && currentStore.id) {
-            await updateRestaurant(currentStore as Restaurant);
+            await updateRestaurant(currentStore as Partial<Restaurant> & {id: string});
         } else {
             await addRestaurant({
                 ...currentStore,
-                image: currentStore.image || 'https://placehold.co/400x300.png',
+                image: currentStore.image,
             } as Omit<Restaurant, 'id'> & {image: string});
         }
         setIsSaving(false);

@@ -92,11 +92,11 @@ export default function AdminProductsPage() {
     if (currentProduct.name && currentProduct.price && currentProduct.categoryId && currentProduct.restaurantId) {
         setIsSaving(true);
         if (isEditing && currentProduct.id) {
-            await updateProduct(currentProduct as Product);
+            await updateProduct(currentProduct as Partial<Product> & {id: string});
         } else {
             await addProduct({
                 ...currentProduct,
-                image: currentProduct.image || 'https://placehold.co/600x400.png',
+                image: currentProduct.image || '',
             } as any);
         }
         setIsSaving(false);
