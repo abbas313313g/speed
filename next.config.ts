@@ -20,6 +20,12 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'firebasestorage.googleapis.com',
+      },
+       {
+        protocol: 'https',
+        hostname: '*.top4top.io',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
