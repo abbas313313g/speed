@@ -64,6 +64,7 @@ export default function AdminProductsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Partial<Product> & {image?: string}>({ ...EMPTY_PRODUCT });
   const [isSaving, setIsSaving] = useState(false);
+  const [newImageFile, setNewImageFile] = useState<string | null>(null);
 
   if (!context || context.isLoading) return <div>جار التحميل...</div>;
   const { products, categories, restaurants, addProduct, updateProduct, deleteProduct } = context;
@@ -73,13 +74,16 @@ export default function AdminProductsPage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setCurrentProduct({ ...currentProduct, image: reader.result as string });
+        const result = reader.result as string;
+        setCurrentProduct({ ...currentProduct, image: result });
+        setNewImageFile(result);
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleOpenDialog = (product?: Product) => {
+    setNewImageFile(null);
     if (product) {
         setIsEditing(true);
         setCurrentProduct(product);
@@ -95,21 +99,30 @@ export default function AdminProductsPage() {
         toast({ title: "بيانات غير مكتملة", description: "الرجاء ملء جميع الحقول المطلوبة.", variant: "destructive" });
         return;
     }
-    if (!isEditing && !currentProduct.image) {
-        toast({ title: "صورة المنتج مطلوبة", description: "الرجاء رفع صورة للمنتج.", variant: "destructive" });
-        return;
-    }
-
+    
     setIsSaving(true);
     try {
         if (isEditing && currentProduct.id) {
-            await updateProduct(currentProduct as Partial<Product> & {id: string});
+            const productToUpdate: Partial<Product> & {id: string; image?:string;} = { ...currentProduct };
+            if (newImageFile) {
+                productToUpdate.image = newImageFile;
+            } else {
+                // Do not send the old image URL if no new image is selected
+                delete productToUpdate.image;
+            }
+            await updateProduct(productToUpdate);
         } else {
+             if (!currentProduct.image) {
+                toast({ title: "صورة المنتج مطلوبة", description: "الرجاء رفع صورة للمنتج.", variant: "destructive" });
+                setIsSaving(false);
+                return;
+            }
             await addProduct(currentProduct as Omit<Product, 'id' | 'bestSeller'> & { image: string });
         }
         setOpen(false);
     } catch (error) {
         console.error("Failed to save product:", error);
+        toast({ title: "فشل حفظ المنتج", description: "حدث خطأ أثناء محاولة حفظ المنتج.", variant: "destructive" });
     } finally {
         setIsSaving(false);
     }
@@ -238,5 +251,3 @@ export default function AdminProductsPage() {
     </div>
   );
 }
-
-    

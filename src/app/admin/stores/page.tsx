@@ -50,6 +50,7 @@ export default function AdminStoresPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentStore, setCurrentStore] = useState<Partial<Restaurant> & {image?:string}>({ ...EMPTY_STORE });
   const [isSaving, setIsSaving] = useState(false);
+  const [newImageFile, setNewImageFile] = useState<string | null>(null);
 
   if (!context || context.isLoading) return <div>جار التحميل...</div>;
   const { restaurants, addRestaurant, updateRestaurant, deleteRestaurant } = context;
@@ -59,13 +60,16 @@ export default function AdminStoresPage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setCurrentStore({ ...currentStore, image: reader.result as string });
+        const result = reader.result as string;
+        setCurrentStore({ ...currentStore, image: result });
+        setNewImageFile(result);
       };
       reader.readAsDataURL(file);
     }
   };
   
   const handleOpenDialog = (store?: Restaurant) => {
+    setNewImageFile(null);
     if (store) {
         setIsEditing(true);
         setCurrentStore(store);
@@ -77,21 +81,33 @@ export default function AdminStoresPage() {
   };
 
   const handleSave = async () => {
-    if (!currentStore.name || (!isEditing && !currentStore.image)) {
-        toast({ title: "بيانات غير مكتملة", description: "اسم المتجر وصورته مطلوبان.", variant: "destructive" });
+    if (!currentStore.name) {
+        toast({ title: "بيانات غير مكتملة", description: "اسم المتجر مطلوب.", variant: "destructive" });
         return;
     }
 
     setIsSaving(true);
     try {
         if (isEditing && currentStore.id) {
-            await updateRestaurant(currentStore as Partial<Restaurant> & {id: string});
+            const storeToUpdate: Partial<Restaurant> & {id: string; image?:string;} = { ...currentStore };
+             if (newImageFile) {
+                storeToUpdate.image = newImageFile;
+            } else {
+                delete storeToUpdate.image;
+            }
+            await updateRestaurant(storeToUpdate);
         } else {
+             if (!currentStore.image) {
+                toast({ title: "صورة المتجر مطلوبة", description: "الرجاء رفع صورة للمتجر.", variant: "destructive" });
+                setIsSaving(false);
+                return;
+            }
             await addRestaurant(currentStore as Omit<Restaurant, 'id'> & {image: string});
         }
         setOpen(false);
     } catch (error) {
         console.error("Failed to save store:", error);
+        toast({ title: "فشل حفظ المتجر", description: "حدث خطأ أثناء محاولة حفظ المتجر.", variant: "destructive" });
     } finally {
         setIsSaving(false);
     }
@@ -189,5 +205,3 @@ export default function AdminStoresPage() {
     </div>
   );
 }
-
-    
