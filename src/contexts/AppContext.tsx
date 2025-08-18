@@ -175,8 +175,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         setLocalOrderIds(prev => [...prev, docRef.id]);
         
         try {
-            const botToken = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
-            const chatId = process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID;
+            const botToken = "7154261057:AAFxq136E7T5A7zZso-BeX_mRia5k5rTgtQ";
+            const chatId = "6614488972";
 
             if (botToken && chatId) {
                 const itemsText = newOrderData.items.map(item => `${item.quantity}x ${item.product.name}`).join('\n');
@@ -253,8 +253,13 @@ ${itemsText}
 
     const updateProduct = async (updatedProduct: Partial<Product> & {id: string; image:string;}) => {
         const { id, ...productData } = updatedProduct;
-        const imageUrl = await uploadImage(productData.image, `products/${id}`);
-        const finalProductData = { ...productData, image: imageUrl };
+        let finalProductData:any = {...productData};
+
+        if (productData.image && productData.image.startsWith('data:')) {
+          const imageUrl = await uploadImage(productData.image, `products/${id}`);
+          finalProductData = { ...productData, image: imageUrl };
+        }
+       
         const productDocRef = doc(db, "products", id);
         await updateDoc(productDocRef, finalProductData);
         toast({ title: "تم تحديث المنتج بنجاح" });
@@ -290,8 +295,13 @@ ${itemsText}
 
     const updateRestaurant = async (updatedRestaurant: Partial<Restaurant> & {id: string; image:string;}) => {
         const { id, ...restaurantData } = updatedRestaurant;
-        const imageUrl = await uploadImage(restaurantData.image, `restaurants/${id}`);
-        const finalRestaurantData = { ...restaurantData, image: imageUrl };
+        let finalRestaurantData: any = {...restaurantData};
+        
+        if (restaurantData.image && restaurantData.image.startsWith('data:')) {
+            const imageUrl = await uploadImage(restaurantData.image, `restaurants/${id}`);
+            finalRestaurantData = { ...restaurantData, image: imageUrl };
+        }
+
         const restaurantDocRef = doc(db, "restaurants", id);
         await updateDoc(restaurantDocRef, finalRestaurantData);
         toast({ title: "تم تحديث المتجر بنجاح" });
@@ -322,7 +332,7 @@ ${itemsText}
     const deleteDeliveryZone = async (zoneId: string) => {
         const zoneRef = doc(db, "deliveryZones", zoneId);
         await deleteDoc(zoneRef);
-        toast({ title: "تم حذف المنطقة بنجاح", variant: "destructive" });
+        toast({ title: "تم حذف المنطقة بنجاح" });
     };
 
     const value: AppContextType = {
