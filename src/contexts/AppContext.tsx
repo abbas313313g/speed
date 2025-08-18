@@ -3,9 +3,8 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address } from '@/lib/types';
-import { categories as initialCategoriesData } from '@/lib/mock-data';
-import { deliveryZones as initialDeliveryZones } from '@/lib/mock-data';
+import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone } from '@/lib/types';
+import { categories as initialCategoriesData, deliveryZones as initialDeliveryZones } from '@/lib/mock-data';
 import { ShoppingBasket } from 'lucide-react';
 import { db, storage } from '@/lib/firebase';
 import { 
@@ -37,19 +36,22 @@ interface AppContextType {
   addresses: Address[];
   addAddress: (address: Omit<Address, 'id'>) => void;
   deleteAddress: (addressId: string) => void;
-  deliveryZones: typeof initialDeliveryZones;
+  deliveryZones: DeliveryZone[];
   localOrderIds: string[];
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   addProduct: (product: Omit<Product, 'id' | 'bestSeller'> & {image: string}) => Promise<void>;
-  updateProduct: (product: Product) => Promise<void>;
+  updateProduct: (product: Partial<Product> & {id: string, image: string}) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
   addCategory: (category: Omit<Category, 'id' | 'icon'>) => Promise<void>;
   updateCategory: (category: Omit<Category, 'icon' | 'id'> & {id: string}) => Promise<void>;
   deleteCategory: (categoryId: string) => Promise<void>;
   addRestaurant: (restaurant: Omit<Restaurant, 'id'> & {image: string}) => Promise<void>;
-  updateRestaurant: (restaurant: Restaurant) => Promise<void>;
+  updateRestaurant: (restaurant: Partial<Restaurant> & {id: string, image: string}) => Promise<void>;
   deleteRestaurant: (restaurantId: string) => Promise<void>;
   addBanner: (banner: Omit<Banner, 'id'> & {image: string}) => Promise<void>;
+  addDeliveryZone: (zone: Omit<DeliveryZone, 'id'>) => Promise<void>;
+  updateDeliveryZone: (zone: DeliveryZone) => Promise<void>;
+  deleteDeliveryZone: (zoneId: string) => Promise<void>;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -64,6 +66,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const [banners, setBanners] = useState<Banner[]>([]);
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [allOrders, setAllOrders] = useState<Order[]>([]);
+    const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [localOrderIds, setLocalOrderIds] = useState<string[]>([]);
@@ -78,6 +81,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             onSnapshot(collection(db, "banners"), snap => setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)))),
             onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)))),
             onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))),
+            onSnapshot(collection(db, "deliveryZones"), snap => setDeliveryZones(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryZone)))),
         ];
         
         // Load cart, addresses, and order IDs from localStorage
@@ -152,7 +156,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const placeOrder = async (address: Address) => {
         if (cart.length === 0) return;
         
-        const deliveryZoneDetails = initialDeliveryZones.find(z => z.name === address.deliveryZone);
+        const deliveryZoneDetails = deliveryZones.find(z => z.name === address.deliveryZone);
         const deliveryFee = deliveryZoneDetails ? deliveryZoneDetails.fee : 0;
         const total = cartTotal + deliveryFee;
 
@@ -206,7 +210,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         toast({ title: "تمت إضافة المنتج بنجاح" });
     }
 
-    const updateProduct = async (updatedProduct: Product) => {
+    const updateProduct = async (updatedProduct: Partial<Product> & {id: string, image: string}) => {
         const { id, ...productData } = updatedProduct;
         const imageUrl = await uploadImage(productData.image, `products/${id}`);
         const finalProductData = { ...productData, image: imageUrl };
@@ -243,7 +247,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         toast({ title: "تمت إضافة المتجر بنجاح" });
     }
 
-    const updateRestaurant = async (updatedRestaurant: Restaurant) => {
+    const updateRestaurant = async (updatedRestaurant: Partial<Restaurant> & {id: string, image: string}) => {
         const { id, ...restaurantData } = updatedRestaurant;
         const imageUrl = await uploadImage(restaurantData.image, `restaurants/${id}`);
         const finalRestaurantData = { ...restaurantData, image: imageUrl };
@@ -262,6 +266,23 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         await addDoc(collection(db, "banners"), { ...bannerData, image: imageUrl });
         toast({ title: "تمت إضافة البنر بنجاح" });
     }
+
+    const addDeliveryZone = async (zone: Omit<DeliveryZone, 'id'>) => {
+        await addDoc(collection(db, "deliveryZones"), zone);
+        toast({ title: "تمت إضافة المنطقة بنجاح" });
+    };
+
+    const updateDeliveryZone = async (zone: DeliveryZone) => {
+        const zoneRef = doc(db, "deliveryZones", zone.id);
+        await updateDoc(zoneRef, { name: zone.name, fee: zone.fee });
+        toast({ title: "تم تحديث المنطقة بنجاح" });
+    };
+
+    const deleteDeliveryZone = async (zoneId: string) => {
+        const zoneRef = doc(db, "deliveryZones", zoneId);
+        await deleteDoc(zoneRef);
+        toast({ title: "تم حذف المنطقة بنجاح", variant: "destructive" });
+    };
 
     const value: AppContextType = {
         products,
@@ -282,6 +303,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         updateRestaurant,
         deleteRestaurant,
         addBanner,
+        addDeliveryZone,
+        updateDeliveryZone,
+        deleteDeliveryZone,
         cart,
         cartTotal,
         addToCart,
@@ -292,7 +316,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         addresses,
         addAddress,
         deleteAddress,
-        deliveryZones: initialDeliveryZones,
+        deliveryZones: deliveryZones,
         localOrderIds,
     };
 

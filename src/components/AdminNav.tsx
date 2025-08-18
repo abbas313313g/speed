@@ -19,6 +19,7 @@ import {
   LayoutGrid,
   Store,
   GalleryHorizontal,
+  Map,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useContext } from "react";
@@ -31,6 +32,7 @@ const navItems = [
   { href: "/admin/categories", label: "الأقسام", icon: LayoutGrid },
   { href: "/admin/stores", label: "المتاجر", icon: Store },
   { href: "/admin/banners", label: "البنرات", icon: GalleryHorizontal },
+  { href: "/admin/delivery-zones", label: "مناطق التوصيل", icon: Map },
 ];
 
 export function AdminNav() {

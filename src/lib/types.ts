@@ -54,6 +54,7 @@ export interface CartItem {
 }
 
 export interface DeliveryZone {
+  id: string;
   name: string;
   fee: number;
 }
@@ -69,5 +70,5 @@ export interface Order {
     estimatedDelivery: string;
     address: Address;
     revenue?: number;
-    userId: string;
+    userId?: string; // Optional now
 }

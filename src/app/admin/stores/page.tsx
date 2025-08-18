@@ -36,7 +36,7 @@ import { Label } from '@/components/ui/label';
 import { Star, Edit, Trash2, Loader2 } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 
-const EMPTY_STORE: Omit<Restaurant, 'id'> = {
+const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     name: '',
     image: '',
     rating: 0,
@@ -46,7 +46,7 @@ export default function AdminStoresPage() {
   const context = useContext(AppContext);
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentStore, setCurrentStore] = useState<Partial<Restaurant>>({ ...EMPTY_STORE });
+  const [currentStore, setCurrentStore] = useState<Partial<Restaurant> & {image?:string}>({ ...EMPTY_STORE });
   const [isSaving, setIsSaving] = useState(false);
 
   if (!context || context.isLoading) return <div>جار التحميل...</div>;
@@ -75,15 +75,15 @@ export default function AdminStoresPage() {
   };
 
   const handleSave = async () => {
-    if (currentStore.name) {
+    if (currentStore.name && currentStore.image) {
         setIsSaving(true);
-        if (isEditing) {
-            await updateRestaurant(currentStore as Restaurant);
+        if (isEditing && currentStore.id) {
+            await updateRestaurant(currentStore as Partial<Restaurant> & {id: string, image: string});
         } else {
             await addRestaurant({
                 ...currentStore,
-                image: currentStore.image || 'https://placehold.co/400x300.png',
-            } as Omit<Restaurant, 'id'>);
+                image: currentStore.image,
+            } as Omit<Restaurant, 'id'> & {image: string});
         }
         setIsSaving(false);
         setOpen(false);
@@ -112,13 +112,13 @@ export default function AdminStoresPage() {
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="rating" className="text-right">التقييم</Label>
-                        <Input id="rating" type="number" value={currentStore.rating} onChange={(e) => setCurrentStore({...currentStore, rating: parseFloat(e.target.value) || 0})} className="col-span-3" />
+                        <Input id="rating" type="number" step="0.1" value={currentStore.rating} onChange={(e) => setCurrentStore({...currentStore, rating: parseFloat(e.target.value) || 0})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="image" className="text-right">صورة</Label>
                         <Input id="image" type="file" onChange={handleImageUpload} className="col-span-3" accept="image/*" />
                     </div>
-                     {currentStore.image && <Image src={currentStore.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center"/>}
+                     {currentStore.image && <Image src={currentStore.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain"/>}
                 </div>
                 <DialogFooter>
                     <Button type="submit" onClick={handleSave} disabled={isSaving}>
@@ -147,7 +147,7 @@ export default function AdminStoresPage() {
               <TableCell className="font-medium">{store.name}</TableCell>
               <TableCell className="flex items-center gap-1">
                 <Star className="h-5 w-5 fill-amber-500 text-amber-500" />
-                {store.rating}
+                {store.rating.toFixed(1)}
               </TableCell>
               <TableCell>
                   <div className="flex items-center gap-2">

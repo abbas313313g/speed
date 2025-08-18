@@ -47,7 +47,7 @@ import { Edit, Trash2 } from 'lucide-react';
 import type { Product } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 
-const EMPTY_PRODUCT: Omit<Product, 'id' | 'bestSeller'> = {
+const EMPTY_PRODUCT: Omit<Product, 'id' | 'bestSeller'> & {image: string} = {
   name: '',
   price: 0,
   description: '',
@@ -60,7 +60,7 @@ export default function AdminProductsPage() {
   const context = useContext(AppContext);
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState<Partial<Product>>({ ...EMPTY_PRODUCT });
+  const [currentProduct, setCurrentProduct] = useState<Partial<Product> & {image?: string}>({ ...EMPTY_PRODUCT });
   const [isSaving, setIsSaving] = useState(false);
 
   if (!context || context.isLoading) return <div>جار التحميل...</div>;
@@ -91,12 +91,12 @@ export default function AdminProductsPage() {
   const handleSaveProduct = async () => {
     if (currentProduct.name && currentProduct.price && currentProduct.categoryId && currentProduct.restaurantId) {
         setIsSaving(true);
-        if (isEditing) {
-            await updateProduct(currentProduct as Product);
-        } else {
+        if (isEditing && currentProduct.id && currentProduct.image) {
+            await updateProduct(currentProduct as {id: string; image:string} & Partial<Product>);
+        } else if (currentProduct.image){
             await addProduct({
                 ...currentProduct,
-                image: currentProduct.image || 'https://placehold.co/600x400.png',
+                image: currentProduct.image,
             } as any);
         }
         setIsSaving(false);
@@ -139,7 +139,7 @@ export default function AdminProductsPage() {
                          <Label htmlFor="image" className="text-right">صورة</Label>
                          <Input id="image" type="file" onChange={handleImageUpload} className="col-span-3" accept="image/*" />
                     </div>
-                    {currentProduct.image && <Image src={currentProduct.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center"/>}
+                    {currentProduct.image && <Image src={currentProduct.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain"/>}
 
                     <div className="grid grid-cols-4 items-center gap-4">
                          <Label htmlFor="category" className="text-right">القسم</Label>
