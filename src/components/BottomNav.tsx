@@ -3,15 +3,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, User, ShoppingCart, ClipboardList, MessageSquareHeart } from "lucide-react";
+import { Home, User, ShoppingCart, ClipboardList, MessageSquareHeart, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 import React from "react";
 
 const navItems = [
   { href: "/home", label: "الرئيسية", icon: Home },
-  { href: "/orders", label: "الطلبات", icon: ClipboardList },
+  { href: "/restaurants", label: "المتاجر", icon: Store },
   { href: "/cart", label: "السلة", icon: ShoppingCart, isCart: true },
-  { href: "/support", label: "الدعم", icon: MessageSquareHeart },
+  { href: "/orders", label: "الطلبات", icon: ClipboardList },
   { href: "/account", label: "حسابي", icon: User },
 ];
 

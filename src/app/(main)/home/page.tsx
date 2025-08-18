@@ -1,9 +1,11 @@
 
 "use client";
 
-import { useContext } from "react";
+import { useContext, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import Autoplay from "embla-carousel-autoplay"
+
 import { AppContext } from "@/contexts/AppContext";
 import { ProductCard } from "@/components/ProductCard";
 import { RestaurantCard } from "@/components/RestaurantCard";
@@ -19,6 +21,9 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 export default function HomePage() {
   const context = useContext(AppContext);
+  const plugin = useRef(
+    Autoplay({ delay: 3000, stopOnInteraction: true })
+  )
 
   if (!context) return null;
   const { categories, banners, bestSellers, restaurants } = context;
@@ -31,7 +36,13 @@ export default function HomePage() {
       </header>
 
       <section>
-        <Carousel className="w-full" opts={{ loop: true, direction: 'rtl' }}>
+        <Carousel 
+            className="w-full" 
+            opts={{ loop: true, direction: 'rtl' }}
+            plugins={[plugin.current]}
+            onMouseEnter={plugin.current.stop}
+            onMouseLeave={plugin.current.reset}
+        >
           <CarouselContent>
             {(banners.length > 0 ? banners : [{id: 'placeholder', image: 'https://placehold.co/600x300.png', link: '#'}]).map((banner, index) => (
               <CarouselItem key={banner.id}>
@@ -89,7 +100,12 @@ export default function HomePage() {
       </section>
 
       <section>
-        <h2 className="text-xl font-bold mb-4">أشهر المتاجر</h2>
+         <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">أشهر المتاجر</h2>
+             <Link href="/restaurants" className="text-sm font-semibold text-primary">
+                عرض الكل
+            </Link>
+        </div>
         <div className="space-y-4">
           {restaurants.map((restaurant) => (
             <RestaurantCard key={restaurant.id} restaurant={restaurant} />

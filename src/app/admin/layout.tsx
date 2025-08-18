@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 
-const ADMIN_PIN = "12345";
+const ADMIN_PIN = "31344313";
 
 export default function AdminLayout({
   children,
