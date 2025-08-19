@@ -1,7 +1,8 @@
 
+
 "use client";
 
-import { useState, useRef, useEffect, FormEvent } from "react";
+import { useState, useRef, useEffect, FormEvent, useContext } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,20 +10,26 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Bot, Loader2, Send, User } from "lucide-react";
 import { askAiSupport } from "@/ai/flows/ai-support";
+import { useToast } from "@/hooks/use-toast";
+import { AppContext } from "@/contexts/AppContext";
+
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+  isEscalation?: boolean;
 }
 
 export default function SupportPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [lastUserQuestion, setLastUserQuestion] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+  const context = useContext(AppContext);
 
   useEffect(() => {
-    // Scroll to bottom when new message is added
     if (scrollAreaRef.current) {
         const viewport = scrollAreaRef.current.querySelector('div[data-radix-scroll-area-viewport]');
         if (viewport) {
@@ -40,23 +47,39 @@ export default function SupportPage() {
     ])
   }, []);
 
+  const handleEscalate = async () => {
+      if (!context || !lastUserQuestion) return;
+      setIsLoading(true);
+      await context.addSupportTicket(lastUserQuestion);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'تم إرسال سؤالك بنجاح إلى فريق الدعم.'}]);
+      setIsLoading(false);
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
     const userMessage: Message = { role: "user", content: input };
     setMessages((prev) => [...prev, userMessage]);
+    setLastUserQuestion(input);
     setInput("");
     setIsLoading(true);
 
     try {
       const result = await askAiSupport({ question: input });
-      const assistantMessage: Message = { role: "assistant", content: result.answer };
+      
+      const assistantMessage: Message = { 
+          role: "assistant", 
+          content: result.answer,
+          isEscalation: result.shouldEscalate
+      };
       setMessages((prev) => [...prev, assistantMessage]);
+
     } catch (error) {
       const errorMessage: Message = {
         role: "assistant",
-        content: "عذراً، حدث خطأ ما. الرجاء المحاولة مرة أخرى.",
+        content: "عذراً، حدث خطأ ما. هل تود إرسال سؤالك لفريق الدعم البشري؟",
+        isEscalation: true
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -95,6 +118,12 @@ export default function SupportPage() {
                 )}
               >
                 <p>{message.content}</p>
+                {message.isEscalation && (
+                    <div className="mt-2 flex gap-2">
+                        <Button size="sm" onClick={handleEscalate}>نعم، أرسل السؤال</Button>
+                        <Button size="sm" variant="outline" onClick={() => setMessages(prev => [...prev, {role: 'assistant', content: 'تمام، كيف يمكنني مساعدتك أيضاً؟'}])}>لا، شكراً</Button>
+                    </div>
+                )}
               </div>
                {message.role === "user" && (
                 <Avatar className="h-8 w-8">

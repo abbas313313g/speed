@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import Link from "next/link";
@@ -20,6 +21,9 @@ import {
   Store,
   GalleryHorizontal,
   Map,
+  AreaChart,
+  MessageSquareWarning,
+  Bike
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useContext } from "react";
@@ -33,6 +37,8 @@ const navItems = [
   { href: "/admin/stores", label: "المتاجر", icon: Store },
   { href: "/admin/banners", label: "البنرات", icon: GalleryHorizontal },
   { href: "/admin/delivery-zones", label: "مناطق التوصيل", icon: Map },
+  { href: "/admin/reports", label: "التقارير", icon: AreaChart },
+  { href: "/admin/support-tickets", label: "تذاكر الدعم", icon: MessageSquareWarning },
 ];
 
 export function AdminNav() {
@@ -72,6 +78,18 @@ export function AdminNav() {
           })}
         </nav>
         <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
+           <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href="/delivery"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8"
+                  >
+                    <Bike className="h-5 w-5" />
+                    <span className="sr-only">بوابة التوصيل</span>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="right">بوابة التوصيل</TooltipContent>
+            </Tooltip>
            <Tooltip>
                 <TooltipTrigger asChild>
                   <Link

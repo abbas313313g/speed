@@ -1,4 +1,5 @@
 
+
 export interface User {
   id: string; // This will be the Firebase Auth UID
   name: string;
@@ -22,6 +23,7 @@ export interface Product {
   name:string;
   description: string;
   price: number;
+  wholesalePrice?: number;
   image: string;
   categoryId: string;
   restaurantId: string;
@@ -59,7 +61,12 @@ export interface DeliveryZone {
   fee: number;
 }
 
-export type OrderStatus = 'confirmed' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled';
+export interface DeliveryWorker {
+    id: string; // phone number
+    name: string;
+}
+
+export type OrderStatus = 'confirmed' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled' | 'unassigned';
 
 export interface Order {
     id: string;
@@ -69,6 +76,17 @@ export interface Order {
     status: OrderStatus;
     estimatedDelivery: string;
     address: Address;
-    revenue?: number;
+    profit?: number;
+    deliveryFee: number;
+    deliveryWorkerId?: string;
+    deliveryWorker?: DeliveryWorker;
     userId?: string; // Optional now
 }
+
+export interface SupportTicket {
+    id: string;
+    question: string;
+    createdAt: string;
+    isResolved: boolean;
+}
+

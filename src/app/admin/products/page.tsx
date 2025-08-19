@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useContext, useState } from 'react';
@@ -50,6 +51,7 @@ import { useToast } from '@/hooks/use-toast';
 const EMPTY_PRODUCT: Omit<Product, 'id'> = {
   name: '',
   price: 0,
+  wholesalePrice: 0,
   description: '',
   image: '',
   categoryId: '',
@@ -124,8 +126,12 @@ export default function AdminProductsPage() {
                         <Input id="name" value={currentProduct.name} onChange={(e) => setCurrentProduct({...currentProduct, name: e.target.value})} className="col-span-3" />
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="price" className="text-right">السعر</Label>
+                        <Label htmlFor="price" className="text-right">سعر البيع</Label>
                         <Input id="price" type="number" value={currentProduct.price} onChange={(e) => setCurrentProduct({...currentProduct, price: parseFloat(e.target.value) || 0})} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="wholesalePrice" className="text-right">سعر الجملة</Label>
+                        <Input id="wholesalePrice" type="number" value={currentProduct.wholesalePrice} onChange={(e) => setCurrentProduct({...currentProduct, wholesalePrice: parseFloat(e.target.value) || 0})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="description" className="text-right">الوصف</Label>
@@ -174,7 +180,8 @@ export default function AdminProductsPage() {
           <TableRow>
             <TableHead>صورة</TableHead>
             <TableHead>اسم المنتج</TableHead>
-            <TableHead>السعر</TableHead>
+            <TableHead>سعر البيع</TableHead>
+            <TableHead>سعر الجملة</TableHead>
             <TableHead>القسم</TableHead>
             <TableHead>المتجر</TableHead>
             <TableHead>إجراءات</TableHead>
@@ -188,6 +195,7 @@ export default function AdminProductsPage() {
               </TableCell>
               <TableCell className="font-medium">{product.name}</TableCell>
               <TableCell>{formatCurrency(product.price)}</TableCell>
+              <TableCell>{formatCurrency(product.wholesalePrice || 0)}</TableCell>
               <TableCell>{categories.find(c => c.id === product.categoryId)?.name || 'غير معروف'}</TableCell>
               <TableCell>{restaurants.find(r => r.id === product.restaurantId)?.name || 'غير معروف'}</TableCell>
               <TableCell>

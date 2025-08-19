@@ -1,11 +1,12 @@
 
+
 "use client";
 
 import { useContext, useMemo } from 'react';
 import Link from 'next/link';
 import { AppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
-import { ShoppingBag, Package } from 'lucide-react';
+import { ShoppingBag, Package, User } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -27,6 +28,7 @@ export default function OrdersPage() {
 
     const getStatusVariant = (status: OrderStatus) => {
         switch (status) {
+            case 'unassigned': return 'bg-gray-400';
             case 'confirmed': return 'bg-blue-500';
             case 'preparing': return 'bg-yellow-500';
             case 'on_the_way': return 'bg-orange-500';
@@ -37,6 +39,7 @@ export default function OrdersPage() {
     }
      const getStatusText = (status: OrderStatus) => {
         switch (status) {
+            case 'unassigned': return "بانتظار سائق";
             case 'confirmed': return "تم التأكيد";
             case 'preparing': return "تحضير الطلب";
             case 'on_the_way': return "في الطريق";
@@ -70,7 +73,7 @@ export default function OrdersPage() {
                 {myOrders.map(order => (
                     <Card key={order.id}>
                         <CardHeader>
-                            <div className="flex justify-between items-center">
+                            <div className="flex justify-between items-start">
                                 <div>
                                     <CardTitle>طلب #{order.id.substring(0, 6)}</CardTitle>
                                     <CardDescription>{new Date(order.date).toLocaleString('ar-IQ')}</CardDescription>
@@ -80,13 +83,21 @@ export default function OrdersPage() {
                                 </Badge>
                             </div>
                         </CardHeader>
-                        <CardContent className="space-y-2">
+                        <CardContent className="space-y-4">
                            <div className="flex flex-wrap gap-2">
                              {order.items.slice(0,3).map(item => (
                                  <Image key={item.product.id} src={item.product.image} alt={item.product.name} width={40} height={40} className="rounded-md object-cover"/>
                              ))}
                              {order.items.length > 3 && <div className="flex items-center justify-center w-10 h-10 bg-muted rounded-md text-xs">+{order.items.length-3}</div>}
                            </div>
+                           {order.deliveryWorker && (
+                            <div className="flex items-center gap-2 pt-2 border-t text-sm">
+                                <User className="h-4 w-4 text-muted-foreground"/>
+                                <span>مندوب التوصيل:</span>
+                                <span className="font-semibold">{order.deliveryWorker.name}</span>
+                                <a href={`tel:${order.deliveryWorker.id}`} className="font-semibold text-primary">{order.deliveryWorker.id}</a>
+                            </div>
+                           )}
                         </CardContent>
                         <CardFooter className="flex justify-between items-center">
                             <span className="font-bold">{order.items.length} منتجات</span>

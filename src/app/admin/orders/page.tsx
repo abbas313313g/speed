@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useContext } from 'react';
@@ -45,6 +46,7 @@ export default function AdminOrdersPage() {
 
   const getStatusVariant = (status: OrderStatus) => {
     switch (status) {
+      case 'unassigned': return 'bg-gray-400';
       case 'confirmed': return 'bg-blue-500';
       case 'preparing': return 'bg-yellow-500';
       case 'on_the_way': return 'bg-orange-500';
@@ -56,6 +58,7 @@ export default function AdminOrdersPage() {
 
    const getStatusText = (status: OrderStatus) => {
         switch (status) {
+            case 'unassigned': return "بانتظار سائق";
             case 'confirmed': return "تم التأكيد";
             case 'preparing': return "تحضير الطلب";
             case 'on_the_way': return "في الطريق";
@@ -77,6 +80,7 @@ export default function AdminOrdersPage() {
           <TableRow>
             <TableHead>رقم الطلب</TableHead>
             <TableHead>العميل</TableHead>
+            <TableHead>السائق</TableHead>
             <TableHead>التاريخ</TableHead>
             <TableHead>المبلغ</TableHead>
             <TableHead>الحالة</TableHead>
@@ -88,6 +92,7 @@ export default function AdminOrdersPage() {
             <TableRow key={order.id}>
               <TableCell className="font-medium">#{order.id.substring(0, 6)}</TableCell>
               <TableCell>{order.address.name}</TableCell>
+              <TableCell>{order.deliveryWorker?.name || 'لم يعين'}</TableCell>
               <TableCell>{new Date(order.date).toLocaleString('ar-IQ')}</TableCell>
               <TableCell>{formatCurrency(order.total)}</TableCell>
               <TableCell>
@@ -105,6 +110,7 @@ export default function AdminOrdersPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'unassigned')}>بانتظار سائق</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'confirmed')}>تم التأكيد</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'preparing')}>تحضير الطلب</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'on_the_way')}>في الطريق</DropdownMenuItem>

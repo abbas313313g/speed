@@ -1,10 +1,11 @@
 
+
 "use client";
 
 import { useContext } from 'react';
 import { AppContext } from '@/contexts/AppContext';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { DollarSign, ShoppingCart, Users, Activity } from 'lucide-react';
+import { DollarSign, ShoppingCart, Users, Activity, TrendingUp } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
@@ -15,24 +16,29 @@ export default function AdminDashboard() {
   const context = useContext(AppContext);
 
   const stats = useMemo(() => {
-    if (!context?.allOrders) return { totalRevenue: 0, totalOrders: 0, newCustomers: 0, avgOrderValue: 0 };
+    if (!context?.allOrders) return { totalRevenue: 0, totalOrders: 0, newCustomers: 0, avgOrderValue: 0, totalProfit: 0 };
     
-    const totalRevenue = context.allOrders.reduce((acc, order) => acc + (order.revenue || 0), 0);
+    const totalRevenue = context.allOrders.reduce((acc, order) => acc + (order.total || 0), 0);
+    const totalProfit = context.allOrders.reduce((acc, order) => acc + (order.profit || 0), 0);
     const totalOrders = context.allOrders.length;
     const newCustomers = context.allUsers.filter(u => !u.isAdmin).length;
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
     
-    return { totalRevenue, totalOrders, newCustomers, avgOrderValue };
+    return { totalRevenue, totalOrders, newCustomers, avgOrderValue, totalProfit };
   }, [context?.allOrders, context?.allUsers]);
 
   const chartData = useMemo(() => {
      if (!context?.allOrders) return [];
-     const monthlyRevenue: {[key: string]: number} = {};
+     const monthlyData: {[key: string]: { revenue: number, profit: number }} = {};
      context.allOrders.forEach(order => {
         const month = new Date(order.date).toLocaleString('default', { month: 'short' });
-        monthlyRevenue[month] = (monthlyRevenue[month] || 0) + (order.revenue || 0);
+        if (!monthlyData[month]) {
+            monthlyData[month] = { revenue: 0, profit: 0 };
+        }
+        monthlyData[month].revenue += order.total || 0;
+        monthlyData[month].profit += order.profit || 0;
      });
-     return Object.keys(monthlyRevenue).map(month => ({ month, revenue: monthlyRevenue[month] }));
+     return Object.keys(monthlyData).map(month => ({ month, ...monthlyData[month] }));
   }, [context?.allOrders]);
 
   const chartConfig = {
@@ -40,6 +46,10 @@ export default function AdminDashboard() {
       label: "الإيرادات",
       color: "hsl(var(--primary))",
     },
+    profit: {
+      label: "الأرباح",
+      color: "hsl(var(--chart-2))",
+    }
   } satisfies ChartConfig
 
   return (
@@ -49,7 +59,7 @@ export default function AdminDashboard() {
         <p className="text-muted-foreground">نظرة عامة على أداء تطبيقك.</p>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">إجمالي الإيرادات</CardTitle>
@@ -58,6 +68,16 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div>
             <p className="text-xs text-muted-foreground">من جميع الطلبات</p>
+          </CardContent>
+        </Card>
+         <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">إجمالي الأرباح</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(stats.totalProfit)}</div>
+            <p className="text-xs text-muted-foreground">بعد خصم سعر الجملة</p>
           </CardContent>
         </Card>
         <Card>
@@ -94,7 +114,7 @@ export default function AdminDashboard() {
 
        <Card>
         <CardHeader>
-          <CardTitle>أداء الإيرادات الشهري</CardTitle>
+          <CardTitle>أداء الإيرادات والأرباح الشهري</CardTitle>
         </CardHeader>
         <CardContent className="pl-2">
           <ChartContainer config={chartConfig} className="h-[300px] w-full">
@@ -116,6 +136,15 @@ export default function AdminDashboard() {
                 fill="var(--color-revenue)"
                 fillOpacity={0.4}
                 stroke="var(--color-revenue)"
+                stackId="a"
+                />
+                <Area
+                dataKey="profit"
+                type="natural"
+                fill="var(--color-profit)"
+                fillOpacity={0.4}
+                stroke="var(--color-profit)"
+                stackId="a"
                 />
             </AreaChart>
           </ChartContainer>

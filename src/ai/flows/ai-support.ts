@@ -1,4 +1,5 @@
 
+
 'use server';
 
 /**
@@ -11,6 +12,9 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { doc, addDoc, collection } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
 
 const AiSupportInputSchema = z.object({
   question: z.string().describe('The user\u0027s question about the Speed Shop app.'),
@@ -19,6 +23,7 @@ export type AiSupportInput = z.infer<typeof AiSupportInputSchema>;
 
 const AiSupportOutputSchema = z.object({
   answer: z.string().describe('The AI\u0027s answer to the user\u0027s question in Arabic.'),
+  shouldEscalate: z.boolean().describe('Set to true if the user wants to send their question to human support.')
 });
 export type AiSupportOutput = z.infer<typeof AiSupportOutputSchema>;
 
@@ -26,15 +31,39 @@ export async function askAiSupport(input: AiSupportInput): Promise<AiSupportOutp
   return aiSupportFlow(input);
 }
 
+
+const sendToSupportTool = ai.defineTool(
+    {
+        name: 'sendToSupportTool',
+        description: 'Use this tool when the user confirms they want to send their question to human support.',
+        inputSchema: z.object({
+            question: z.string(),
+        }),
+        outputSchema: z.string(),
+    },
+    async (input) => {
+        await addDoc(collection(db, "supportTickets"), {
+            question: input.question,
+            createdAt: new Date().toISOString(),
+            isResolved: false,
+        });
+        return 'تم إرسال سؤالك بنجاح إلى فريق الدعم. سيتم الرد عليك في أقرب وقت ممكن.';
+    }
+);
+
+
 const prompt = ai.definePrompt({
   name: 'aiSupportPrompt',
   input: {schema: AiSupportInputSchema},
   output: {schema: AiSupportOutputSchema},
+  tools: [sendToSupportTool],
   prompt: `أنت وكيل دعم عملاء خبير لتطبيق "سبيد شوب". اسمك "سبيدي".
 مهمتك هي الإجابة على أسئلة المستخدمين حول التطبيق بطريقة مفيدة ومفصلة وودودة، كما لو كنت وكيلًا بشريًا.
 يجب أن تكون جميع ردودك باللغة العربية حصراً.
 
 إذا سألك المستخدم عن اسمك أو دورك، فقدم نفسك كـ "سبيدي"، وكيل الدعم الذكي لتطبيق "سبيد شوب".
+
+إذا لم تتمكن من الإجابة على سؤال المستخدم، أو إذا كان السؤال يتعلق بمشكلة معقدة في طلب معين، اسأل المستخدم إذا كان يرغب في إرسال سؤاله إلى فريق الدعم البشري. إذا وافق، قم بتعيين shouldEscalate إلى true. لا تستخدم الأداة إلا إذا وافق المستخدم بشكل صريح.
 
 ---
 **قاعدة المعرفة الكاملة لتطبيق "سبيد شوب":**
@@ -55,12 +84,14 @@ const prompt = ai.definePrompt({
 
 **4. متابعة الطلبات:**
 - يمكن للمستخدم متابعة حالة جميع طلباته من خلال صفحة "الطلبات".
+- **معلومات سائق التوصيل:** بعد أن يقبل سائق التوصيل الطلب، ستظهر معلوماته (اسمه ورقم هاتفه) في تفاصيل الطلب بصفحة "الطلبات"، ليتمكن المستخدم من التواصل معه إذا لزم الأمر.
 - **حالات الطلب هي:**
-    - **تم التأكيد:** تم استلام طلبك بنجاح.
-    - **تحضير الطلب:** المتجر يقوم بتجهيز طلبك.
-    - **في الطريق:** سائق التوصيل في طريقه إليك.
-    - **تم التوصيل:** لقد استلمت طلبك بنجاح.
-    - **ملغي:** تم إلغاء الطلب من قبل الإدارة (قد يحدث هذا إذا كان المنتج غير متوفر).
+    - **بانتظار سائق:** تم استلام طلبك وجارِ البحث عن أقرب سائق توصيل.
+    - **تم التأكيد:** قبل السائق طلبك وهو الآن يستعد للانطلاق.
+    - **تحضير الطلب:** المتجر يقوم بتجهيز طلبك. (يقوم السائق بتحديثها).
+    - **في الطريق:** سائق التوصيل في طريقه إليك. (يقوم السائق بتحديثها).
+    - **تم التوصيل:** لقد استلمت طلبك بنجاح. (يقوم السائق بتحديثها).
+    - **ملغي:** تم إلغاء الطلب من قبل الإدارة.
 
 **5. معلومات داخلية (لا تشاركها إلا عند الضرورة القصوى):**
 - عند إجراء أي طلب جديد، يتم إرسال تفاصيل الطلب كاملة مع موقع الزبون إلى بوت تليجرام خاص بالإدارة لمتابعة الطلبات وتنسيقها. (لا تشارك هذه المعلومة مع الزبون إلا إذا سأل تحديداً عن "كيف تتابع الإدارة طلبي؟").
@@ -85,4 +116,3 @@ const aiSupportFlow = ai.defineFlow(
     return output!;
   }
 );
-

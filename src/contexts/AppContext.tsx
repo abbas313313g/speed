@@ -1,9 +1,10 @@
 
+
 "use client";
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone } from '@/lib/types';
+import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker } from '@/lib/types';
 import { categories as initialCategoriesData } from '@/lib/mock-data';
 import { ShoppingBasket } from 'lucide-react';
 import { db } from '@/lib/firebase';
@@ -40,7 +41,7 @@ interface AppContextType {
   deleteAddress: (addressId: string) => void;
   deliveryZones: DeliveryZone[];
   localOrderIds: string[];
-  updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
+  updateOrderStatus: (orderId: string, status: OrderStatus, workerId?: string) => Promise<void>;
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (product: Partial<Product> & {id: string}) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
@@ -56,6 +57,11 @@ interface AppContextType {
   addDeliveryZone: (zone: Omit<DeliveryZone, 'id'>) => Promise<void>;
   updateDeliveryZone: (zone: DeliveryZone) => Promise<void>;
   deleteDeliveryZone: (zoneId: string) => Promise<void>;
+  supportTickets: SupportTicket[];
+  addSupportTicket: (question: string) => Promise<void>;
+  resolveSupportTicket: (ticketId: string) => Promise<void>;
+  deliveryWorkers: DeliveryWorker[];
+  addDeliveryWorker: (worker: DeliveryWorker) => Promise<void>;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -74,24 +80,30 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const [cart, setCart] = useState<CartItem[]>([]);
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [localOrderIds, setLocalOrderIds] = useState<string[]>([]);
+    const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+    const [deliveryWorkers, setDeliveryWorkers] = useState<DeliveryWorker[]>([]);
+
     
     // --- Data Listeners ---
     useEffect(() => {
         setIsLoading(true);
         const unsubs = [
             onSnapshot(collection(db, "products"), snap => setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)))),
-            onSnapshot(collection(db, "categories"), snap => {
-                const cats = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
-                setCategories(cats);
-            }),
+            onSnapshot(collection(db, "categories"), snap => setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)))),
             onSnapshot(collection(db, "restaurants"), snap => setRestaurants(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant)))),
             onSnapshot(collection(db, "banners"), snap => setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)))),
-            onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()))),
+            onSnapshot(collection(db, "orders"), snap => {
+                const orders = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))
+                                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                setAllOrders(orders);
+            }),
             onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))),
             onSnapshot(collection(db, "deliveryZones"), snap => setDeliveryZones(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryZone)))),
+            onSnapshot(collection(db, "supportTickets"), snap => setSupportTickets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket)))),
+            onSnapshot(collection(db, "deliveryWorkers"), snap => setDeliveryWorkers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker)))),
         ];
         
-        // Load cart, addresses, and order IDs from localStorage
+        // Load from localStorage
         const savedCart = localStorage.getItem('speedShopCart');
         const savedAddresses = localStorage.getItem('speedShopAddresses');
         const savedOrderIds = localStorage.getItem('speedShopOrderIds');
@@ -183,16 +195,24 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         
         const deliveryZoneDetails = deliveryZones.find(z => z.name === address.deliveryZone);
         const deliveryFee = deliveryZoneDetails ? deliveryZoneDetails.fee : 0;
-        const total = cartTotal + deliveryFee;
+        const subTotal = cartTotal;
+        const total = subTotal + deliveryFee;
+
+        const profit = cart.reduce((acc, item) => {
+            const itemProfit = (item.product.price - (item.product.wholesalePrice || item.product.price)) * item.quantity;
+            return acc + itemProfit;
+        }, 0);
+
 
         const newOrderData: Omit<Order, 'id' | 'userId'> = {
             items: cart,
             total,
             date: new Date().toISOString(),
-            status: 'confirmed',
+            status: 'unassigned',
             estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
             address,
-            revenue: cartTotal,
+            profit,
+            deliveryFee,
         };
         
         const docRef = await addDoc(collection(db, "orders"), newOrderData);
@@ -252,15 +272,44 @@ ${itemsText}
         }));
     }, [categories]);
     
-    const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
+    const updateOrderStatus = async (orderId: string, status: OrderStatus, workerId?: string) => {
         const orderDocRef = doc(db, "orders", orderId);
-        await updateDoc(orderDocRef, { status });
+        const updateData: any = { status };
+        if (status === 'confirmed' && workerId) {
+            const worker = deliveryWorkers.find(w => w.id === workerId);
+            if (worker) {
+                updateData.deliveryWorkerId = workerId;
+                updateData.deliveryWorker = worker;
+            }
+        }
+        await updateDoc(orderDocRef, updateData);
     };
 
     const deleteOrder = async (orderId: string) => {
         const orderRef = doc(db, "orders", orderId);
         await deleteDoc(orderRef);
         toast({ title: "تم حذف الطلب بنجاح", variant: "destructive" });
+    }
+
+    // --- Support Ticket Management ---
+    const addSupportTicket = async (question: string) => {
+        const ticket: Omit<SupportTicket, 'id'> = {
+            question,
+            createdAt: new Date().toISOString(),
+            isResolved: false,
+        };
+        await addDoc(collection(db, "supportTickets"), ticket);
+    };
+
+    const resolveSupportTicket = async (ticketId: string) => {
+        await updateDoc(doc(db, "supportTickets", ticketId), { isResolved: true });
+        toast({ title: "تم حل المشكلة" });
+    }
+
+    // --- Delivery Worker Management ---
+    const addDeliveryWorker = async (worker: DeliveryWorker) => {
+        await addDoc(collection(db, "deliveryWorkers"), worker);
+        toast({ title: "تم إضافة عامل التوصيل" });
     }
 
     // --- ADMIN ACTIONS ---
@@ -388,6 +437,11 @@ ${itemsText}
         deleteAddress,
         deliveryZones: deliveryZones,
         localOrderIds,
+        supportTickets,
+        addSupportTicket,
+        resolveSupportTicket,
+        deliveryWorkers,
+        addDeliveryWorker,
     };
 
     return (
