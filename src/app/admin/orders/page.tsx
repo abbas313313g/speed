@@ -47,6 +47,7 @@ export default function AdminOrdersPage() {
   const getStatusVariant = (status: OrderStatus) => {
     switch (status) {
       case 'unassigned': return 'bg-gray-400';
+      case 'pending_assignment': return 'bg-purple-500';
       case 'confirmed': return 'bg-blue-500';
       case 'preparing': return 'bg-yellow-500';
       case 'on_the_way': return 'bg-orange-500';
@@ -59,6 +60,7 @@ export default function AdminOrdersPage() {
    const getStatusText = (status: OrderStatus) => {
         switch (status) {
             case 'unassigned': return "بانتظار سائق";
+            case 'pending_assignment': return "جارِ التعيين...";
             case 'confirmed': return "تم التأكيد";
             case 'preparing': return "تحضير الطلب";
             case 'on_the_way': return "في الطريق";

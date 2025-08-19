@@ -10,12 +10,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogOut, MapPin, Package, RefreshCw } from 'lucide-react';
+import { LogOut, MapPin, Package, RefreshCw, BarChart3, Clock } from 'lucide-react';
 import type { Order } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 export default function DeliveryPage() {
     const context = useContext(AppContext);
     const router = useRouter();
+    const { toast } = useToast();
     const [workerId, setWorkerId] = useState<string | null>(null);
 
     useEffect(() => {
@@ -29,11 +31,11 @@ export default function DeliveryPage() {
     
     const { allOrders, updateOrderStatus } = context || {};
 
-    const { unassignedOrders, myOrders } = useMemo(() => {
-        if (!allOrders) return { unassignedOrders: [], myOrders: [] };
+    const { availableOrders, myOrders } = useMemo(() => {
+        if (!allOrders || !workerId) return { availableOrders: [], myOrders: [] };
         return {
-            unassignedOrders: allOrders.filter(o => o.status === 'unassigned'),
-            myOrders: allOrders.filter(o => o.deliveryWorkerId === workerId)
+            availableOrders: allOrders.filter(o => o.status === 'pending_assignment' && o.assignedToWorkerId === workerId),
+            myOrders: allOrders.filter(o => o.deliveryWorkerId === workerId && o.status !== 'delivered' && o.status !== 'cancelled')
         }
     }, [allOrders, workerId]);
 
@@ -41,6 +43,15 @@ export default function DeliveryPage() {
     const handleAcceptOrder = (orderId: string) => {
         if (workerId && updateOrderStatus) {
             updateOrderStatus(orderId, 'confirmed', workerId);
+            toast({title: "تم قبول الطلب بنجاح!"})
+        }
+    };
+
+     const handleRejectOrder = (orderId: string) => {
+        if (workerId && updateOrderStatus) {
+            // This is a simplified rejection. A full implementation would re-trigger assignment.
+            updateOrderStatus(orderId, 'unassigned', undefined);
+             toast({title: "تم رفض الطلب", variant: 'destructive'})
         }
     };
     
@@ -73,13 +84,18 @@ export default function DeliveryPage() {
                 </div>
             </CardContent>
             <CardFooter className="flex gap-2">
-                <a href={`https://www.google.com/maps?q=${order.address.latitude},${order.address.longitude}`} target="_blank" rel="noopener noreferrer" className="flex-1">
+                 <a href={`https://www.google.com/maps?q=${order.address.latitude},${order.address.longitude}`} target="_blank" rel="noopener noreferrer" className="flex-1">
                     <Button variant="outline" className="w-full">
                         <MapPin className="ml-2 h-4 w-4"/>
                         عرض على الخريطة
                     </Button>
                 </a>
-                {!isMyOrder && <Button className="flex-1" onClick={() => handleAcceptOrder(order.id)}>قبول الطلب</Button>}
+                {!isMyOrder && (
+                    <>
+                        <Button variant="destructive" className="flex-1" onClick={() => handleRejectOrder(order.id)}>رفض</Button>
+                        <Button className="flex-1" onClick={() => handleAcceptOrder(order.id)}>قبول</Button>
+                    </>
+                )}
                  {isMyOrder && (
                     <Link href={`/delivery/order/${order.id}`} className="flex-1">
                        <Button className="w-full">
@@ -99,28 +115,42 @@ export default function DeliveryPage() {
                     <h1 className="text-2xl font-bold">مرحباً {worker?.name}</h1>
                     <p className="text-muted-foreground">بوابة عمال التوصيل</p>
                  </div>
-                 <Button variant="ghost" size="icon" onClick={handleLogout}>
-                    <LogOut className="h-5 w-5"/>
-                 </Button>
+                 <div className="flex gap-2">
+                    <Button variant="ghost" size="icon" asChild>
+                        <Link href="/delivery/stats">
+                            <BarChart3 className="h-5 w-5"/>
+                        </Link>
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={handleLogout}>
+                        <LogOut className="h-5 w-5"/>
+                    </Button>
+                 </div>
             </header>
 
             <Tabs defaultValue="available">
                 <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="available">طلبات متاحة ({unassignedOrders.length})</TabsTrigger>
-                    <TabsTrigger value="my-orders">طلباتي ({myOrders.length})</TabsTrigger>
+                    <TabsTrigger value="available">طلبات جديدة ({availableOrders.length})</TabsTrigger>
+                    <TabsTrigger value="my-orders">طلباتي الحالية ({myOrders.length})</TabsTrigger>
                 </TabsList>
                 <TabsContent value="available" className="space-y-4 pt-4">
-                    {unassignedOrders.length > 0 ? (
-                        unassignedOrders.map(order => <OrderCard key={order.id} order={order} isMyOrder={false} />)
+                    {availableOrders.length > 0 ? (
+                        availableOrders.map(order => <OrderCard key={order.id} order={order} isMyOrder={false} />)
                     ) : (
-                        <p className="text-center text-muted-foreground py-10">لا توجد طلبات متاحة حالياً.</p>
+                        <div className="text-center py-10 text-muted-foreground">
+                            <Clock className="mx-auto h-12 w-12 mb-4"/>
+                            <p className="font-semibold">لا توجد طلبات جديدة في انتظارك حالياً.</p>
+                            <p className="text-sm">سيتم إشعارك عند توفر طلب جديد.</p>
+                        </div>
                     )}
                 </TabsContent>
                 <TabsContent value="my-orders" className="space-y-4 pt-4">
                     {myOrders.length > 0 ? (
                         myOrders.map(order => <OrderCard key={order.id} order={order} isMyOrder={true}/>)
                     ) : (
-                        <p className="text-center text-muted-foreground py-10">ليس لديك أي طلبات حالياً.</p>
+                        <div className="text-center py-10 text-muted-foreground">
+                            <Package className="mx-auto h-12 w-12 mb-4"/>
+                            <p className="font-semibold">ليس لديك أي طلبات قيد التوصيل حالياً.</p>
+                        </div>
                     )}
                 </TabsContent>
             </Tabs>

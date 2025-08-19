@@ -23,7 +23,9 @@ import {
   Map,
   AreaChart,
   MessageSquareWarning,
-  Bike
+  Bike,
+  TicketPercent,
+  UserCog
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useContext } from "react";
@@ -37,7 +39,9 @@ const navItems = [
   { href: "/admin/stores", label: "المتاجر", icon: Store },
   { href: "/admin/banners", label: "البنرات", icon: GalleryHorizontal },
   { href: "/admin/delivery-zones", label: "مناطق التوصيل", icon: Map },
-  { href: "/admin/reports", label: "التقارير", icon: AreaChart },
+  { href: "/admin/reports", label: "تقارير المتاجر", icon: AreaChart },
+  { href: "/admin/coupons", label: "أكواد الخصم", icon: TicketPercent },
+  { href: "/admin/delivery-workers", label: "عمال التوصيل", icon: UserCog },
   { href: "/admin/support-tickets", label: "تذاكر الدعم", icon: MessageSquareWarning },
 ];
 

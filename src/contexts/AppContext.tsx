@@ -4,7 +4,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker } from '@/lib/types';
+import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker, Coupon } from '@/lib/types';
 import { categories as initialCategoriesData } from '@/lib/mock-data';
 import { ShoppingBasket } from 'lucide-react';
 import { db } from '@/lib/firebase';
@@ -15,6 +15,10 @@ import {
     deleteDoc,
     collection,
     onSnapshot,
+    runTransaction,
+    query,
+    where,
+    getDocs,
 } from 'firebase/firestore';
 import { formatCurrency } from '@/lib/utils';
 
@@ -34,7 +38,7 @@ interface AppContextType {
   removeFromCart: (productId: string) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
-  placeOrder: (address: Address) => Promise<void>;
+  placeOrder: (address: Address, couponCode?: string) => Promise<void>;
   deleteOrder: (orderId: string) => Promise<void>;
   addresses: Address[];
   addAddress: (address: Omit<Address, 'id'>) => void;
@@ -62,9 +66,15 @@ interface AppContextType {
   resolveSupportTicket: (ticketId: string) => Promise<void>;
   deliveryWorkers: DeliveryWorker[];
   addDeliveryWorker: (worker: DeliveryWorker) => Promise<void>;
+  coupons: Coupon[];
+  addCoupon: (coupon: Omit<Coupon, 'id'|'usedCount'|'usedBy'>) => Promise<void>;
+  deleteCoupon: (couponId: string) => Promise<void>;
+  validateAndApplyCoupon: (couponCode: string) => Promise<{success: boolean; discount: number; message: string}>;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
+
+const ASSIGNMENT_TIMEOUT = 60000; // 60 seconds
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const { toast } = useToast();
@@ -82,6 +92,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const [localOrderIds, setLocalOrderIds] = useState<string[]>([]);
     const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
     const [deliveryWorkers, setDeliveryWorkers] = useState<DeliveryWorker[]>([]);
+    const [coupons, setCoupons] = useState<Coupon[]>([]);
 
     
     // --- Data Listeners ---
@@ -101,6 +112,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             onSnapshot(collection(db, "deliveryZones"), snap => setDeliveryZones(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryZone)))),
             onSnapshot(collection(db, "supportTickets"), snap => setSupportTickets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket)))),
             onSnapshot(collection(db, "deliveryWorkers"), snap => setDeliveryWorkers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker)))),
+            onSnapshot(collection(db, "coupons"), snap => setCoupons(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)))),
         ];
         
         // Load from localStorage
@@ -185,18 +197,60 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         setAddresses(prev => prev.filter(addr => addr.id !== addressId));
     };
 
+     // --- Coupon Management ---
+    const validateAndApplyCoupon = async (couponCode: string): Promise<{success: boolean; discount: number; message: string}> => {
+        const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
+        const querySnapshot = await getDocs(couponQuery);
+
+        if (querySnapshot.empty) {
+            return { success: false, discount: 0, message: "كود الخصم غير صحيح." };
+        }
+
+        const couponDoc = querySnapshot.docs[0];
+        const coupon = { id: couponDoc.id, ...couponDoc.data() } as Coupon;
+
+        if (coupon.usedCount >= coupon.maxUses) {
+            return { success: false, discount: 0, message: "تم استخدام هذا الكود بالكامل." };
+        }
+        
+        // This is a simplified check. A real app would use the logged-in user's ID.
+        const userId = "localUser"; // Placeholder for actual user ID
+        if (coupon.usedBy?.includes(userId)) {
+             return { success: false, discount: 0, message: "لقد استخدمت هذا الكود من قبل." };
+        }
+
+        return { success: true, discount: coupon.discountValue, message: `تم تطبيق خصم بقيمة ${formatCurrency(coupon.discountValue)}!` };
+    };
+
+
     // --- Order Management ---
      useEffect(() => {
         localStorage.setItem('speedShopOrderIds', JSON.stringify(localOrderIds));
     }, [localOrderIds]);
 
-    const placeOrder = async (address: Address) => {
+    const placeOrder = async (address: Address, couponCode?: string) => {
         if (cart.length === 0) return;
         
+        let finalTotal = cartTotal;
+        let discountAmount = 0;
+        let appliedCouponInfo;
+
+        if (couponCode) {
+            const couponResult = await validateAndApplyCoupon(couponCode);
+            if (couponResult.success) {
+                discountAmount = couponResult.discount;
+                finalTotal -= discountAmount;
+                appliedCouponInfo = { code: couponCode, discountAmount };
+            } else {
+                toast({ title: "فشل تطبيق الكود", description: couponResult.message, variant: "destructive"});
+                return;
+            }
+        }
+
         const deliveryZoneDetails = deliveryZones.find(z => z.name === address.deliveryZone);
         const deliveryFee = deliveryZoneDetails ? deliveryZoneDetails.fee : 0;
-        const subTotal = cartTotal;
-        const total = subTotal + deliveryFee;
+        finalTotal += deliveryFee;
+
 
         const profit = cart.reduce((acc, item) => {
             const itemProfit = (item.product.price - (item.product.wholesalePrice || item.product.price)) * item.quantity;
@@ -206,17 +260,30 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
         const newOrderData: Omit<Order, 'id' | 'userId'> = {
             items: cart,
-            total,
+            total: finalTotal,
             date: new Date().toISOString(),
             status: 'unassigned',
             estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
             address,
             profit,
             deliveryFee,
+            ...(appliedCouponInfo && { appliedCoupon: appliedCouponInfo })
         };
         
         const docRef = await addDoc(collection(db, "orders"), newOrderData);
         setLocalOrderIds(prev => [...prev, docRef.id]);
+
+        if (couponCode) {
+             const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode));
+             const snapshot = await getDocs(couponQuery);
+             if (!snapshot.empty) {
+                 const couponDoc = snapshot.docs[0];
+                 await updateDoc(couponDoc.ref, {
+                     usedCount: couponDoc.data().usedCount + 1,
+                     usedBy: [...(couponDoc.data().usedBy || []), "localUser"]
+                 });
+             }
+        }
         
         try {
             const botToken = "7601214758:AAFtkJRGqffuDLKPb8wuHm7r0pt_pDE7BSE";
@@ -272,6 +339,58 @@ ${itemsText}
         }));
     }, [categories]);
     
+    // --- Intelligent Order Assignment ---
+    const assignOrderToNextWorker = async (orderId: string, excludedWorkerIds: string[] = []) => {
+        const completedOrdersByWorker: {[workerId: string]: number} = {};
+        allOrders.forEach(o => {
+            if (o.status === 'delivered' && o.deliveryWorkerId) {
+                completedOrdersByWorker[o.deliveryWorkerId] = (completedOrdersByWorker[o.deliveryWorkerId] || 0) + 1;
+            }
+        });
+
+        const availableWorkers = deliveryWorkers.filter(w => !excludedWorkerIds.includes(w.id));
+
+        if (availableWorkers.length === 0) {
+            console.log("No available workers to assign the order to.");
+            await updateDoc(doc(db, "orders", orderId), { status: 'unassigned', assignedToWorkerId: null });
+            return;
+        }
+
+        availableWorkers.sort((a,b) => (completedOrdersByWorker[a.id] || 0) - (completedOrdersByWorker[b.id] || 0));
+        
+        const nextWorker = availableWorkers[0];
+
+        await updateDoc(doc(db, "orders", orderId), {
+            status: 'pending_assignment',
+            assignedToWorkerId: nextWorker.id,
+            assignmentTimestamp: new Date().toISOString()
+        });
+        console.log(`Order ${orderId} assigned to ${nextWorker.name}`);
+    };
+
+    useEffect(() => {
+        const unassignedOrders = allOrders.filter(o => o.status === 'unassigned');
+        unassignedOrders.forEach(order => {
+            assignOrderToNextWorker(order.id);
+        });
+
+        const interval = setInterval(() => {
+            const pendingOrders = allOrders.filter(o => o.status === 'pending_assignment');
+            pendingOrders.forEach(order => {
+                const timestamp = new Date(order.assignmentTimestamp!).getTime();
+                if (Date.now() - timestamp > ASSIGNMENT_TIMEOUT) {
+                    console.log(`Order ${order.id} timed out for worker ${order.assignedToWorkerId}. Reassigning...`);
+                    const previouslyAssigned = allOrders
+                        .filter(o => o.id === order.id && o.assignedToWorkerId)
+                        .map(o => o.assignedToWorkerId!);
+                     assignOrderToNextWorker(order.id, previouslyAssigned);
+                }
+            });
+        }, 10000); // Check every 10 seconds
+
+        return () => clearInterval(interval);
+    }, [allOrders, deliveryWorkers]);
+
     const updateOrderStatus = async (orderId: string, status: OrderStatus, workerId?: string) => {
         const orderDocRef = doc(db, "orders", orderId);
         const updateData: any = { status };
@@ -280,6 +399,7 @@ ${itemsText}
             if (worker) {
                 updateData.deliveryWorkerId = workerId;
                 updateData.deliveryWorker = worker;
+                updateData.assignedToWorkerId = null; // Clear assignment
             }
         }
         await updateDoc(orderDocRef, updateData);
@@ -399,6 +519,16 @@ ${itemsText}
         toast({ title: "تم حذف المنطقة بنجاح" });
     };
 
+    const addCoupon = async (couponData: Omit<Coupon, 'id' | 'usedCount'|'usedBy'>) => {
+        await addDoc(collection(db, "coupons"), { ...couponData, usedCount: 0, usedBy: [] });
+        toast({ title: "تمت إضافة الكود بنجاح" });
+    };
+
+    const deleteCoupon = async (couponId: string) => {
+        await deleteDoc(doc(db, "coupons", couponId));
+        toast({ title: "تم حذف الكود بنجاح" });
+    };
+
     const value: AppContextType = {
         products,
         allOrders,
@@ -442,6 +572,10 @@ ${itemsText}
         resolveSupportTicket,
         deliveryWorkers,
         addDeliveryWorker,
+        coupons,
+        addCoupon,
+        deleteCoupon,
+        validateAndApplyCoupon,
     };
 
     return (

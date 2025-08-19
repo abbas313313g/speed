@@ -66,7 +66,7 @@ export interface DeliveryWorker {
     name: string;
 }
 
-export type OrderStatus = 'confirmed' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled' | 'unassigned';
+export type OrderStatus = 'unassigned' | 'pending_assignment' | 'confirmed' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled';
 
 export interface Order {
     id: string;
@@ -81,6 +81,12 @@ export interface Order {
     deliveryWorkerId?: string;
     deliveryWorker?: DeliveryWorker;
     userId?: string; // Optional now
+    assignedToWorkerId?: string;
+    assignmentTimestamp?: string;
+    appliedCoupon?: {
+      code: string;
+      discountAmount: number;
+    };
 }
 
 export interface SupportTicket {
@@ -90,3 +96,12 @@ export interface SupportTicket {
     isResolved: boolean;
 }
 
+export interface Coupon {
+    id: string;
+    code: string;
+    discountType: 'fixed'; // Can be expanded to 'percentage'
+    discountValue: number;
+    maxUses: number;
+    usedCount: number;
+    usedBy: string[]; // Array of user IDs who have used this coupon
+}

@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Minus, Plus, Trash2, Home } from "lucide-react";
+import { ShoppingBag, Minus, Plus, Trash2, Home, TicketPercent, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import {
   AlertDialog,
@@ -27,33 +27,50 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { Address } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 
 export default function CartPage() {
   const context = useContext(AppContext);
   const { toast } = useToast();
   const [selectedAddressId, setSelectedAddressId] = useState<string | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [isCouponLoading, setIsCouponLoading] = useState(false);
 
   if (!context) {
     return <div>جار التحميل...</div>;
   }
 
-  const { cart, updateCartQuantity, removeFromCart, clearCart, cartTotal, addresses, placeOrder, deliveryZones } = context;
+  const { cart, updateCartQuantity, removeFromCart, clearCart, cartTotal, addresses, placeOrder, deliveryZones, validateAndApplyCoupon } = context;
 
   const { deliveryFee, finalTotal } = useMemo(() => {
-    if (!selectedAddressId) return { deliveryFee: 0, finalTotal: cartTotal };
+    const subTotalWithDiscount = cartTotal - couponDiscount;
+    if (!selectedAddressId) return { deliveryFee: 0, finalTotal: subTotalWithDiscount };
     
     const address = addresses.find(a => a.id === selectedAddressId);
-    if (!address) return { deliveryFee: 0, finalTotal: cartTotal };
+    if (!address) return { deliveryFee: 0, finalTotal: subTotalWithDiscount };
 
     const zone = deliveryZones.find(z => z.name === address.deliveryZone);
     const fee = zone ? zone.fee : 0;
     
-    return { deliveryFee: fee, finalTotal: cartTotal + fee };
-  }, [selectedAddressId, cartTotal, addresses, deliveryZones]);
+    return { deliveryFee: fee, finalTotal: subTotalWithDiscount + fee };
+  }, [selectedAddressId, cartTotal, addresses, deliveryZones, couponDiscount]);
 
+  const handleApplyCoupon = async () => {
+    if (!couponCode) return;
+    setIsCouponLoading(true);
+    const result = await validateAndApplyCoupon(couponCode);
+    if (result.success) {
+        setCouponDiscount(result.discount);
+        toast({ title: "تم تطبيق الكود", description: result.message});
+    } else {
+        setCouponDiscount(0);
+        toast({ title: "خطأ في الكود", description: result.message, variant: "destructive"});
+    }
+    setIsCouponLoading(false);
+  }
 
   const handlePlaceOrder = async () => {
     if (!selectedAddressId) {
@@ -69,11 +86,14 @@ export default function CartPage() {
 
     setIsSubmitting(true);
     try {
-      await placeOrder(selectedAddress);
+      await placeOrder(selectedAddress, couponDiscount > 0 ? couponCode : undefined);
       toast({
         title: "تم استلام طلبك بنجاح!",
         description: "يمكنك متابعة حالة طلبك من صفحة الطلبات.",
       });
+      setCouponCode("");
+      setCouponDiscount(0);
+
     } catch (error) {
        toast({
         title: "حدث خطأ",
@@ -180,11 +200,32 @@ export default function CartPage() {
           )}
        </div>
 
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">كود الخصم</h2>
+        <div className="flex gap-2">
+            <Input 
+                placeholder="أدخل كود الخصم" 
+                value={couponCode} 
+                onChange={(e) => setCouponCode(e.target.value)}
+                disabled={couponDiscount > 0}
+            />
+            <Button onClick={handleApplyCoupon} disabled={!couponCode || isCouponLoading || couponDiscount > 0}>
+                {isCouponLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : <TicketPercent />}
+            </Button>
+        </div>
+      </div>
+
       <div className="border-t pt-4 space-y-2">
         <div className="flex justify-between">
           <span>المجموع الفرعي:</span>
           <span>{formatCurrency(cartTotal)}</span>
         </div>
+        {couponDiscount > 0 && (
+           <div className="flex justify-between text-green-600">
+             <span>الخصم:</span>
+             <span>-{formatCurrency(couponDiscount)}</span>
+           </div>
+        )}
          <div className="flex justify-between">
           <span>سعر التوصيل:</span>
           <span>{formatCurrency(deliveryFee)}</span>
@@ -213,7 +254,11 @@ export default function CartPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>إلغاء</AlertDialogCancel>
-              <AlertDialogAction onClick={clearCart}>
+              <AlertDialogAction onClick={() => {
+                  clearCart();
+                  setCouponDiscount(0);
+                  setCouponCode("");
+              }}>
                 نعم، قم بالحذف
               </AlertDialogAction>
             </AlertDialogFooter>
