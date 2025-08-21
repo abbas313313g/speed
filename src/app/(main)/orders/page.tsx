@@ -11,6 +11,9 @@ import { Badge } from '@/components/ui/badge';
 import { cn, formatCurrency } from '@/lib/utils';
 import type { OrderStatus } from '@/lib/types';
 import Image from 'next/image';
+import { getWorkerLevel } from '@/lib/workerLevels';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
 
 export default function OrdersPage() {
     const context = useContext(AppContext);
@@ -19,11 +22,20 @@ export default function OrdersPage() {
         return <div>جار التحميل...</div>;
     }
 
-    const { allOrders, localOrderIds } = context;
+    const { allOrders, localOrderIds, deliveryWorkers } = context;
 
     const myOrders = useMemo(() => {
         return allOrders.filter(order => localOrderIds.includes(order.id)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [allOrders, localOrderIds]);
+
+    const workerLevels = useMemo(() => {
+        const levels = new Map<string, ReturnType<typeof getWorkerLevel>>();
+        deliveryWorkers.forEach(worker => {
+            const deliveredCount = allOrders.filter(o => o.deliveryWorkerId === worker.id && o.status === 'delivered').length;
+            levels.set(worker.id, getWorkerLevel(worker, deliveredCount, new Date()));
+        });
+        return levels;
+    }, [deliveryWorkers, allOrders]);
 
     const getStatusVariant = (status: OrderStatus) => {
         switch (status) {
@@ -62,49 +74,67 @@ export default function OrdersPage() {
     }
     
     return (
-        <div className="p-4 space-y-6">
-            <header>
-                <h1 className="text-3xl font-bold">متابعة طلباتك</h1>
-                <p className="text-muted-foreground">تتبع طلباتك الحالية واطلع على طلباتك السابقة.</p>
-            </header>
+        <TooltipProvider>
+            <div className="p-4 space-y-6">
+                <header>
+                    <h1 className="text-3xl font-bold">متابعة طلباتك</h1>
+                    <p className="text-muted-foreground">تتبع طلباتك الحالية واطلع على طلباتك السابقة.</p>
+                </header>
 
-            <div className="space-y-4">
-                {myOrders.map(order => (
-                    <Card key={order.id}>
-                        <CardHeader>
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <CardTitle>طلب #{order.id.substring(0, 6)}</CardTitle>
-                                    <CardDescription>{new Date(order.date).toLocaleString('ar-IQ')}</CardDescription>
+                <div className="space-y-4">
+                    {myOrders.map(order => {
+                        const workerLevelData = order.deliveryWorkerId ? workerLevels.get(order.deliveryWorkerId) : null;
+                        const LevelIcon = workerLevelData?.level?.icon;
+
+                        return (
+                            <Card key={order.id}>
+                                <CardHeader>
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <CardTitle>طلب #{order.id.substring(0, 6)}</CardTitle>
+                                            <CardDescription>{new Date(order.date).toLocaleString('ar-IQ')}</CardDescription>
+                                        </div>
+                                        <Badge className={cn("text-white", getStatusVariant(order.status))}>
+                                            {getStatusText(order.status)}
+                                        </Badge>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                <div className="flex flex-wrap gap-2">
+                                    {order.items.slice(0,3).map(item => (
+                                        <Image key={item.product.id} src={item.product.image} alt={item.product.name} width={40} height={40} className="rounded-md object-cover"/>
+                                    ))}
+                                    {order.items.length > 3 && <div className="flex items-center justify-center w-10 h-10 bg-muted rounded-md text-xs">+{order.items.length-3}</div>}
                                 </div>
-                                <Badge className={cn("text-white", getStatusVariant(order.status))}>
-                                    {getStatusText(order.status)}
-                                </Badge>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                           <div className="flex flex-wrap gap-2">
-                             {order.items.slice(0,3).map(item => (
-                                 <Image key={item.product.id} src={item.product.image} alt={item.product.name} width={40} height={40} className="rounded-md object-cover"/>
-                             ))}
-                             {order.items.length > 3 && <div className="flex items-center justify-center w-10 h-10 bg-muted rounded-md text-xs">+{order.items.length-3}</div>}
-                           </div>
-                           {order.deliveryWorker && (
-                            <div className="flex items-center gap-2 pt-2 border-t text-sm">
-                                <User className="h-4 w-4 text-muted-foreground"/>
-                                <span>مندوب التوصيل:</span>
-                                <span className="font-semibold">{order.deliveryWorker.name}</span>
-                                <a href={`tel:${order.deliveryWorker.id}`} className="font-semibold text-primary">{order.deliveryWorker.id}</a>
-                            </div>
-                           )}
-                        </CardContent>
-                        <CardFooter className="flex justify-between items-center">
-                            <span className="font-bold">{order.items.length} منتجات</span>
-                            <span className="text-lg font-bold text-primary">{formatCurrency(order.total)}</span>
-                        </CardFooter>
-                    </Card>
-                ))}
+                                {order.deliveryWorker && (
+                                    <div className="flex items-center gap-2 pt-2 border-t text-sm">
+                                        <User className="h-4 w-4 text-muted-foreground"/>
+                                        <span>مندوب التوصيل:</span>
+                                        <span className="font-semibold">{order.deliveryWorker.name}</span>
+                                        {LevelIcon && workerLevelData?.level && (
+                                             <Tooltip>
+                                                <TooltipTrigger>
+                                                    <LevelIcon className="h-5 w-5" />
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>المستوى: {workerLevelData.level.name}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        )}
+                                        <a href={`tel:${order.deliveryWorker.id}`} className="font-semibold text-primary mr-auto">{order.deliveryWorker.id}</a>
+                                    </div>
+                                )}
+                                </CardContent>
+                                <CardFooter className="flex justify-between items-center">
+                                    <span className="font-bold">{order.items.length} منتجات</span>
+                                    <span className="text-lg font-bold text-primary">{formatCurrency(order.total)}</span>
+                                </CardFooter>
+                            </Card>
+                        )
+                    })}
+                </div>
             </div>
-        </div>
+        </TooltipProvider>
     );
 }
+

@@ -6,11 +6,12 @@ import { useContext, useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppContext } from '@/contexts/AppContext';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { DollarSign, ShoppingCart, ArrowRight, ShieldAlert, Award, Star } from 'lucide-react';
+import { DollarSign, ShoppingCart, ArrowRight, ShieldAlert } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { getWorkerLevel, BronzeIcon, SilverIcon, GoldIcon, DiamondIcon } from '@/lib/workerLevels';
+import { getWorkerLevel } from '@/lib/workerLevels';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DeliveryStatsPage() {
   const context = useContext(AppContext);
@@ -46,8 +47,26 @@ export default function DeliveryStatsPage() {
   }, [context, workerId]);
 
 
-  const LevelIcon = level?.icon || Star;
+  if (!context || !workerId || context.isLoading) {
+      return (
+          <div className="p-4 space-y-6">
+              <div className="flex items-center gap-4">
+                  <Skeleton className="h-10 w-10" />
+                  <div className="space-y-2">
+                     <Skeleton className="h-6 w-48" />
+                     <Skeleton className="h-4 w-32" />
+                  </div>
+              </div>
+              <Skeleton className="h-48 w-full" />
+              <div className="grid grid-cols-2 gap-4">
+                  <Skeleton className="h-24 w-full" />
+                  <Skeleton className="h-24 w-full" />
+              </div>
+          </div>
+      )
+  }
 
+  const LevelIcon = level?.icon;
 
   return (
     <div className="p-4 space-y-6">
@@ -57,11 +76,11 @@ export default function DeliveryStatsPage() {
          </Button>
          <div>
             <h1 className="text-2xl font-bold">إحصائيات الأداء</h1>
-            <p className="text-muted-foreground">نظرة عامة على أرباحك ومستواك.</p>
+            <p className="text-muted-foreground">مرحباً {worker?.name}، هذه أرباحك ومستواك.</p>
          </div>
       </header>
 
-       {level && (
+       {level && LevelIcon && (
         <Card className="bg-gradient-to-tr from-primary/10 to-transparent">
             <CardHeader>
                 <div className="flex justify-between items-center">
