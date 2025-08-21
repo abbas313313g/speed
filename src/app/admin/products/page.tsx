@@ -127,11 +127,11 @@ export default function AdminProductsPage() {
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="price" className="text-right">سعر البيع</Label>
-                        <Input id="price" type="number" value={currentProduct.price} onChange={(e) => setCurrentProduct({...currentProduct, price: parseFloat(e.target.value) || 0})} className="col-span-3" />
+                        <Input id="price" type="number" value={currentProduct.price || ''} onChange={(e) => setCurrentProduct({...currentProduct, price: e.target.value === '' ? 0 : parseFloat(e.target.value)})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="wholesalePrice" className="text-right">سعر الجملة</Label>
-                        <Input id="wholesalePrice" type="number" value={currentProduct.wholesalePrice ?? 0} onChange={(e) => setCurrentProduct({...currentProduct, wholesalePrice: parseFloat(e.target.value) || 0})} className="col-span-3" />
+                        <Input id="wholesalePrice" type="number" value={currentProduct.wholesalePrice || ''} onChange={(e) => setCurrentProduct({...currentProduct, wholesalePrice: e.target.value === '' ? 0 : parseFloat(e.target.value)})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="description" className="text-right">الوصف</Label>

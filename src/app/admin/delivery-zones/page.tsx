@@ -97,7 +97,7 @@ export default function AdminDeliveryZonesPage() {
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="fee" className="text-right">سعر التوصيل</Label>
-                        <Input id="fee" type="number" value={currentZone.fee} onChange={(e) => setCurrentZone({...currentZone, fee: parseFloat(e.target.value) || 0})} className="col-span-3" />
+                        <Input id="fee" type="number" value={currentZone.fee || ''} onChange={(e) => setCurrentZone({...currentZone, fee: e.target.value === '' ? 0 : parseFloat(e.target.value)})} className="col-span-3" />
                     </div>
                 </div>
                 <DialogFooter>
