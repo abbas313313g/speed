@@ -3,13 +3,12 @@
 
 import { useState } from 'react';
 import { AdminNav } from '@/components/AdminNav';
-import { Shield, KeyRound, PanelLeft, Bike, Home } from 'lucide-react';
+import { Shield, KeyRound, PanelLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import Link from 'next/link';
 
 const ADMIN_PIN = "31344313";
 
@@ -63,9 +62,9 @@ export default function AdminLayout({
   }
   
   return (
-    <div className="flex min-h-screen w-full bg-muted/40">
+    <div className="flex min-h-screen w-full justify-center bg-muted/40">
       <AdminNav />
-      <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14 flex-grow">
+      <div className="flex w-full max-w-screen-xl flex-col sm:gap-4 sm:py-4 sm:pl-14">
          <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
           <Sheet>
             <SheetTrigger asChild>
@@ -82,7 +81,7 @@ export default function AdminLayout({
             </SheetContent>
           </Sheet>
         </header>
-        <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8 bg-background overflow-auto">
+        <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8 bg-background sm:bg-transparent overflow-auto">
           {children}
         </main>
       </div>

@@ -108,3 +108,11 @@ export interface Coupon {
     usedBy: string[]; // Array of user IDs who have used this coupon
 }
 
+export interface TelegramConfig {
+    id: string;
+    chatId: string;
+    type: 'owner' | 'worker';
+    workerId?: string; // only if type is 'worker'
+    name: string; // For display purposes (e.g., "Owner 1", "Ahmed's Phone")
+}
+

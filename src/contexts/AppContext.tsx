@@ -4,7 +4,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker, Coupon } from '@/lib/types';
+import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker, Coupon, TelegramConfig } from '@/lib/types';
 import { categories as initialCategoriesData } from '@/lib/mock-data';
 import { ShoppingBasket } from 'lucide-react';
 import { db } from '@/lib/firebase';
@@ -22,6 +22,22 @@ import {
     writeBatch
 } from 'firebase/firestore';
 import { formatCurrency } from '@/lib/utils';
+
+// --- Telegram Bot Helper ---
+const sendTelegramMessage = async (chatId: string, message: string) => {
+    try {
+        const botToken = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
+        if (!botToken || !chatId) return;
+
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'Markdown' }),
+        });
+    } catch (error) {
+        console.error(`Failed to send Telegram message to ${chatId}:`, error);
+    }
+};
 
 // --- App Context ---
 interface AppContextType {
@@ -71,6 +87,9 @@ interface AppContextType {
   addCoupon: (coupon: Omit<Coupon, 'id'|'usedCount'|'usedBy'>) => Promise<void>;
   deleteCoupon: (couponId: string) => Promise<void>;
   validateAndApplyCoupon: (couponCode: string) => Promise<{success: boolean; discount: number; message: string}>;
+  telegramConfigs: TelegramConfig[];
+  addTelegramConfig: (config: Omit<TelegramConfig, 'id'>) => Promise<void>;
+  deleteTelegramConfig: (configId: string) => Promise<void>;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -94,7 +113,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
     const [deliveryWorkers, setDeliveryWorkers] = useState<DeliveryWorker[]>([]);
     const [coupons, setCoupons] = useState<Coupon[]>([]);
-
+    const [telegramConfigs, setTelegramConfigs] = useState<TelegramConfig[]>([]);
     
     // --- Data Listeners ---
     useEffect(() => {
@@ -114,6 +133,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             onSnapshot(collection(db, "supportTickets"), snap => setSupportTickets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket)))),
             onSnapshot(collection(db, "deliveryWorkers"), snap => setDeliveryWorkers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker)))),
             onSnapshot(collection(db, "coupons"), snap => setCoupons(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)))),
+            onSnapshot(collection(db, "telegramConfigs"), snap => setTelegramConfigs(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TelegramConfig)))),
         ];
         
         // Load from localStorage
@@ -286,14 +306,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
              }
         }
         
-        try {
-            const botToken = "7601214758:AAFtkJRGqffuDLKPb8wuHm7r0pt_pDE7BSE";
-            const chatId = "6626221973";
-
-            if (botToken && chatId) {
-                const itemsText = newOrderData.items.map(item => `${item.quantity}x ${item.product.name}`).join('\n');
-                const locationLink = newOrderData.address.latitude ? `https://www.google.com/maps?q=${newOrderData.address.latitude},${newOrderData.address.longitude}` : 'غير محدد';
-                const message = `
+        // --- Telegram Notification for Owners ---
+        const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
+        if (ownerConfigs.length > 0) {
+            const itemsText = newOrderData.items.map(item => `${item.quantity}x ${item.product.name}`).join('\\n');
+            const locationLink = newOrderData.address.latitude ? `https://www.google.com/maps?q=${newOrderData.address.latitude},${newOrderData.address.longitude}` : 'غير محدد';
+            const message = `
 *طلب جديد* 🔥
 *رقم الطلب:* \`${docRef.id.substring(0, 6)}\`
 *الزبون:* ${newOrderData.address.name}
@@ -306,22 +324,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 ${itemsText}
 ---
 *المجموع:* ${formatCurrency(newOrderData.total)}
-                `;
-
-                await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        chat_id: chatId,
-                        text: message,
-                        parse_mode: 'Markdown',
-                    }),
-                });
-            }
-        } catch (error) {
-            console.error("Failed to send Telegram notification:", error);
+            `;
+            ownerConfigs.forEach(config => sendTelegramMessage(config.chatId, message));
         }
 
         clearCart();
@@ -394,6 +398,7 @@ ${itemsText}
 
     const updateOrderStatus = async (orderId: string, status: OrderStatus, workerId?: string) => {
         const orderDocRef = doc(db, "orders", orderId);
+        const orderData = allOrders.find(o => o.id === orderId);
         const updateData: any = { status };
         
         if (status === 'confirmed' && workerId) {
@@ -402,6 +407,21 @@ ${itemsText}
                 updateData.deliveryWorkerId = workerId;
                 updateData.deliveryWorker = { id: worker.id, name: worker.name };
                 updateData.assignedToWorkerId = null; // Clear assignment
+
+                // --- Telegram Notification for Worker ---
+                const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === workerId);
+                if (workerConfig && orderData) {
+                    const message = `
+*تم تعيين طلب جديد لك* 🛵
+*رقم الطلب:* \`${orderId.substring(0, 6)}\`
+*الزبون:* ${orderData.address.name}
+*المنطقة:* ${orderData.address.deliveryZone}
+*المبلغ المستلم:* ${formatCurrency(orderData.total)}
+
+الرجاء مراجعة التطبيق لقبول الطلب.
+                    `;
+                    sendTelegramMessage(workerConfig.chatId, message);
+                }
             }
         }
         
@@ -470,6 +490,18 @@ ${itemsText}
             }
         });
     };
+
+    // --- Telegram Config Management ---
+    const addTelegramConfig = async (configData: Omit<TelegramConfig, 'id'>) => {
+        await addDoc(collection(db, "telegramConfigs"), configData);
+        toast({ title: "تمت إضافة معرف تليجرام بنجاح" });
+    };
+
+    const deleteTelegramConfig = async (configId: string) => {
+        await deleteDoc(doc(db, "telegramConfigs", configId));
+        toast({ title: "تم حذف معرف تليجرام بنجاح" });
+    };
+
 
     // --- ADMIN ACTIONS ---
     const addProduct = async (productData: Omit<Product, 'id'>) => {
@@ -615,6 +647,9 @@ ${itemsText}
         addCoupon,
         deleteCoupon,
         validateAndApplyCoupon,
+        telegramConfigs,
+        addTelegramConfig,
+        deleteTelegramConfig,
     };
 
     return (
