@@ -9,6 +9,21 @@ interface Level {
   nextLevelThreshold?: number;
 }
 
+export const RookieIcon = ({className}: {className?: string}) => (
+    <svg className={className} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+         <defs>
+            <radialGradient id="rookie-gradient" cx="0.5" cy="0.5" r="0.5">
+                <stop offset="0%" stopColor="#e0e0e0" />
+                <stop offset="50%" stopColor="#b0b0b0" />
+                <stop offset="100%" stopColor="#8d8d8d" />
+            </radialGradient>
+        </defs>
+        <circle cx="50" cy="50" r="45" fill="url(#rookie-gradient)" stroke="#707070" strokeWidth="2" />
+        <text x="50" y="62" fontFamily="Arial, sans-serif" fontSize="40" fill="#ffffff" textAnchor="middle" fontWeight="bold">N</text>
+    </svg>
+);
+
+
 export const BronzeIcon = ({className}: {className?: string}) => (
     <svg className={className} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
         <defs>
@@ -64,13 +79,14 @@ export const DiamondIcon = ({className}: {className?: string}) => (
 
 
 const levels: Omit<Level, 'nextLevelThreshold'>[] = [
+    { name: "جديد", threshold: 0, icon: RookieIcon },
     { name: "برونزي", threshold: 25, icon: BronzeIcon },
     { name: "فضي", threshold: 55, icon: SilverIcon },
     { name: "ذهبي", threshold: 100, icon: GoldIcon },
     { name: "ماسي", threshold: 200, icon: DiamondIcon },
 ];
 
-export const getWorkerLevel = (worker: DeliveryWorker, deliveredOrdersCount: number, now: Date): { level: Level | null, isFrozen: boolean } => {
+export const getWorkerLevel = (worker: DeliveryWorker, deliveredOrdersCount: number, now: Date): { level: Level, isFrozen: boolean } => {
     const sortedLevels = [...levels].sort((a, b) => b.threshold - a.threshold);
     let currentLevel: Omit<Level, 'nextLevelThreshold'> | null = null;
     
@@ -81,8 +97,9 @@ export const getWorkerLevel = (worker: DeliveryWorker, deliveredOrdersCount: num
         }
     }
 
+    // Default to the first level (Rookie) if no other level is met
     if (!currentLevel) {
-        return { level: null, isFrozen: false };
+        currentLevel = levels[0];
     }
     
     // Freeze logic

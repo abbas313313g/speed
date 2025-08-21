@@ -5,7 +5,7 @@ import { useContext, useMemo } from 'react';
 import Link from 'next/link';
 import { AppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
-import { ShoppingBag, Package, User } from 'lucide-react';
+import { ShoppingBag, User } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -118,6 +118,7 @@ export default function OrdersPage() {
                                                 </TooltipTrigger>
                                                 <TooltipContent>
                                                     <p>المستوى: {workerLevelData.level.name}</p>
+                                                    {workerLevelData.isFrozen && <p className="text-destructive"> (مجمد)</p>}
                                                 </TooltipContent>
                                             </Tooltip>
                                         )}
@@ -137,4 +138,3 @@ export default function OrdersPage() {
         </TooltipProvider>
     );
 }
-
