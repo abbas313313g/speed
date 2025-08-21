@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, User, ShoppingCart, ClipboardList, MessageSquareHeart, Store } from "lucide-react";
+import { Home, User, ShoppingCart, ClipboardList, MessageSquareHeart, Store, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import React from "react";
 
@@ -12,6 +12,7 @@ const navItems = [
   { href: "/restaurants", label: "المتاجر", icon: Store },
   { href: "/cart", label: "السلة", icon: ShoppingCart, isCart: true },
   { href: "/orders", label: "الطلبات", icon: ClipboardList },
+  { href: "/reviews", label: "الآراء", icon: Star },
   { href: "/account", label: "حسابي", icon: User },
 ];
 
@@ -20,7 +21,7 @@ function BottomNavComponent() {
 
   return (
     <nav className="fixed bottom-0 right-0 z-50 w-full border-t bg-card shadow-t-lg">
-      <div className="mx-auto flex h-16 max-w-md items-center justify-around">
+      <div className="mx-auto grid h-16 max-w-md grid-cols-6 items-center justify-around">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (

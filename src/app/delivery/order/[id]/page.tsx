@@ -11,14 +11,27 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { MapPin, Phone, ArrowRight } from 'lucide-react';
+import { MapPin, Phone, ArrowRight, XCircle } from 'lucide-react';
 import type { OrderStatus } from '@/lib/types';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 
 export default function DeliveryOrderDetailPage() {
   const { id } = useParams();
   const context = useContext(AppContext);
   const router = useRouter();
+  const { toast } = useToast();
 
   const order = useMemo(() => context?.allOrders.find(o => o.id === id), [id, context?.allOrders]);
 
@@ -66,6 +79,13 @@ export default function DeliveryOrderDetailPage() {
       if(next) {
           updateOrderStatus(order.id, next);
       }
+  }
+
+  const handleCancelOrder = () => {
+      if (order.status === 'delivered' || order.status === 'cancelled') return;
+      updateOrderStatus(order.id, 'cancelled');
+      toast({title: "تم إلغاء الطلب", variant: 'destructive'});
+      router.back();
   }
 
 
@@ -130,15 +150,41 @@ export default function DeliveryOrderDetailPage() {
         </Card>
         
         {nextStatus[order.status] && (
-            <Button size="lg" className="w-full" onClick={handleUpdateStatus}>
-                تغيير الحالة إلى "{getStatusText(nextStatus[order.status]!)}"
-            </Button>
+            <div className="grid grid-cols-1 gap-2">
+                <Button size="lg" className="w-full" onClick={handleUpdateStatus}>
+                    تغيير الحالة إلى "{getStatusText(nextStatus[order.status]!)}"
+                </Button>
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button size="lg" variant="destructive" className="w-full">
+                            <XCircle className="ml-2 h-5 w-5" />
+                            إلغاء الطلب
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>هل أنت متأكد من الإلغاء؟</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                هذا الإجراء سيقوم بإلغاء الطلب بشكل نهائي. هل تريد المتابعة؟
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>تراجع</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleCancelOrder} className="bg-destructive hover:bg-destructive/90">نعم، قم بالإلغاء</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </div>
         )}
 
         {order.status === 'delivered' && (
             <p className="text-center font-semibold text-green-600 p-4 bg-green-100 rounded-lg">تم توصيل هذا الطلب بنجاح.</p>
         )}
+        {order.status === 'cancelled' && (
+            <p className="text-center font-semibold text-red-600 p-4 bg-red-100 rounded-lg">تم إلغاء هذا الطلب.</p>
+        )}
 
     </div>
   );
 }
+
