@@ -75,7 +75,7 @@ export default function DeliveryStatsPage() {
             <ArrowRight className="h-5 w-5"/>
          </Button>
          <div>
-            <h1 className="text-2xl font-bold">إحصائيات الأداء</h1>
+            <h1 className="text-2xl font-bold">المستويات والإحصائيات</h1>
             <p className="text-muted-foreground">مرحباً {worker?.name}، هذه أرباحك ومستواك.</p>
          </div>
       </header>

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogOut, MapPin, Package, RefreshCw, BarChart3, Clock } from 'lucide-react';
+import { LogOut, MapPin, Package, RefreshCw, BarChart3, Clock, Shield } from 'lucide-react';
 import type { Order } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -115,6 +115,11 @@ export default function DeliveryPage() {
                     <p className="text-muted-foreground">بوابة عمال التوصيل</p>
                  </div>
                  <div className="flex gap-2">
+                     <Button variant="ghost" size="icon" asChild>
+                        <Link href="/delivery/stats">
+                            <Shield className="h-5 w-5"/>
+                        </Link>
+                    </Button>
                     <Button variant="ghost" size="icon" asChild>
                         <Link href="/delivery/stats">
                             <BarChart3 className="h-5 w-5"/>
