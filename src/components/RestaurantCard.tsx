@@ -13,12 +13,13 @@ interface RestaurantCardProps {
 }
 
 function RestaurantCardComponent({ restaurant }: RestaurantCardProps) {
+  const imageUrl = restaurant.image && restaurant.image.startsWith('http') ? restaurant.image : 'https://placehold.co/100x100.png';
   return (
     <Link href={`/restaurants/${restaurant.id}`} className="group block">
       <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex items-center gap-4 p-4">
         <div className="relative h-20 w-20 flex-shrink-0">
           <Image
-            src={restaurant.image}
+            src={imageUrl}
             alt={restaurant.name}
             fill
             className="object-cover rounded-md"
