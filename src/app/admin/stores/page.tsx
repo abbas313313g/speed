@@ -109,7 +109,7 @@ export default function AdminStoresPage() {
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="rating" className="text-right">التقييم</Label>
-                        <Input id="rating" type="number" step="0.1" value={currentStore.rating} onChange={(e) => setCurrentStore({...currentStore, rating: parseFloat(e.target.value) || 0})} className="col-span-3" />
+                        <Input id="rating" type="text" inputMode="decimal" step="0.1" value={currentStore.rating} onChange={(e) => setCurrentStore({...currentStore, rating: parseFloat(e.target.value.replace(/[^0-9.]/g, '')) || 0})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="image" className="text-right">رابط الصورة</Label>
@@ -142,9 +142,11 @@ export default function AdminStoresPage() {
                 <Image src={store.image} alt={store.name} width={40} height={40} className="rounded-md object-cover" />
               </TableCell>
               <TableCell className="font-medium">{store.name}</TableCell>
-              <TableCell className="flex items-center gap-1">
-                <Star className="h-5 w-5 fill-amber-500 text-amber-500" />
-                {store.rating.toFixed(1)}
+              <TableCell>
+                <div className="flex items-center gap-1">
+                    <Star className="h-5 w-5 fill-amber-500 text-amber-500" />
+                    {store.rating.toFixed(1)}
+                </div>
               </TableCell>
               <TableCell>
                   <div className="flex items-center gap-2">

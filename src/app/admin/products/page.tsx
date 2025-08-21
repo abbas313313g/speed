@@ -113,7 +113,7 @@ export default function AdminProductsPage() {
       </header>
 
       <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'تعديل المنتج' : 'إضافة منتج جديد'}</DialogTitle>
                     <DialogDescription>
@@ -178,26 +178,26 @@ export default function AdminProductsPage() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>صورة</TableHead>
+            <TableHead className="hidden sm:table-cell">صورة</TableHead>
             <TableHead>اسم المنتج</TableHead>
             <TableHead>سعر البيع</TableHead>
-            <TableHead>سعر الجملة</TableHead>
-            <TableHead>القسم</TableHead>
-            <TableHead>المتجر</TableHead>
+            <TableHead className="hidden md:table-cell">سعر الجملة</TableHead>
+            <TableHead className="hidden lg:table-cell">القسم</TableHead>
+            <TableHead className="hidden lg:table-cell">المتجر</TableHead>
             <TableHead>إجراءات</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {products.map((product) => (
             <TableRow key={product.id}>
-              <TableCell>
+              <TableCell className="hidden sm:table-cell">
                 <Image src={product.image} alt={product.name} width={40} height={40} className="rounded-md object-cover" />
               </TableCell>
               <TableCell className="font-medium">{product.name}</TableCell>
               <TableCell>{formatCurrency(product.price)}</TableCell>
-              <TableCell>{formatCurrency(product.wholesalePrice || 0)}</TableCell>
-              <TableCell>{categories.find(c => c.id === product.categoryId)?.name || 'غير معروف'}</TableCell>
-              <TableCell>{restaurants.find(r => r.id === product.restaurantId)?.name || 'غير معروف'}</TableCell>
+              <TableCell className="hidden md:table-cell">{formatCurrency(product.wholesalePrice || 0)}</TableCell>
+              <TableCell className="hidden lg:table-cell">{categories.find(c => c.id === product.categoryId)?.name || 'غير معروف'}</TableCell>
+              <TableCell className="hidden lg:table-cell">{restaurants.find(r => r.id === product.restaurantId)?.name || 'غير معروف'}</TableCell>
               <TableCell>
                   <div className="flex items-center gap-2">
                       <Button variant="outline" size="icon" onClick={() => handleOpenDialog(product)}>
@@ -231,4 +231,3 @@ export default function AdminProductsPage() {
     </div>
   );
 }
-
