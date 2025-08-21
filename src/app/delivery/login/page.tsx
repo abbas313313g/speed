@@ -42,17 +42,22 @@ export default function DeliveryLoginPage() {
     
     const handleRegister = async (e: FormEvent) => {
         e.preventDefault();
-        if (!name.trim()) {
-            toast({ title: 'الرجاء إدخال الاسم', variant: 'destructive'});
+        if (!name.trim() || !phone.trim()) {
+            toast({ title: 'الرجاء إدخال الاسم ورقم الهاتف', variant: 'destructive'});
             return;
         }
         setIsLoading(true);
-        const newWorker: DeliveryWorker = { id: phone, name };
-        await addDeliveryWorker(newWorker);
-        localStorage.setItem('deliveryWorkerId', newWorker.id);
-        toast({ title: `أهلاً بك ${name}!`});
-        router.push('/delivery');
-        setIsLoading(false);
+        try {
+            await addDeliveryWorker({ id: phone, name });
+            localStorage.setItem('deliveryWorkerId', phone);
+            toast({ title: `أهلاً بك ${name}!`});
+            router.push('/delivery');
+        } catch (error) {
+            console.error("Registration failed:", error);
+            toast({ title: "فشل التسجيل", description: "حدث خطأ ما، الرجاء المحاولة مرة أخرى", variant: "destructive" });
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (

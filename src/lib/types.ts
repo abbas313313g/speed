@@ -64,6 +64,8 @@ export interface DeliveryZone {
 export interface DeliveryWorker {
     id: string; // phone number
     name: string;
+    lastDeliveredAt?: string; // ISO String
+    unfreezeProgress?: number;
 }
 
 export type OrderStatus = 'unassigned' | 'pending_assignment' | 'confirmed' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled';
@@ -105,3 +107,4 @@ export interface Coupon {
     usedCount: number;
     usedBy: string[]; // Array of user IDs who have used this coupon
 }
+

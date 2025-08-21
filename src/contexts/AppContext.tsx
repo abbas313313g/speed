@@ -19,6 +19,7 @@ import {
     query,
     where,
     getDocs,
+    writeBatch
 } from 'firebase/firestore';
 import { formatCurrency } from '@/lib/utils';
 
@@ -394,14 +395,44 @@ ${itemsText}
     const updateOrderStatus = async (orderId: string, status: OrderStatus, workerId?: string) => {
         const orderDocRef = doc(db, "orders", orderId);
         const updateData: any = { status };
+        
         if (status === 'confirmed' && workerId) {
             const worker = deliveryWorkers.find(w => w.id === workerId);
             if (worker) {
                 updateData.deliveryWorkerId = workerId;
-                updateData.deliveryWorker = worker;
+                updateData.deliveryWorker = { id: worker.id, name: worker.name };
                 updateData.assignedToWorkerId = null; // Clear assignment
             }
         }
+        
+        if (status === 'delivered' && workerId) {
+            const workerDocRef = doc(db, "deliveryWorkers", workerId);
+            const worker = deliveryWorkers.find(w => w.id === workerId);
+            const now = new Date();
+            let unfreezeProgress = worker?.unfreezeProgress || 0;
+
+            const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered').length;
+            const lastDeliveredDate = worker?.lastDeliveredAt ? new Date(worker.lastDeliveredAt) : null;
+            const isFrozen = lastDeliveredDate ? (now.getTime() - lastDeliveredDate.getTime()) > (48 * 60 * 60 * 1000) : false;
+
+            if (isFrozen) {
+                unfreezeProgress += 1;
+                if (unfreezeProgress >= 10) {
+                    await updateDoc(workerDocRef, {
+                        lastDeliveredAt: now.toISOString(),
+                        unfreezeProgress: 0
+                    });
+                } else {
+                    await updateDoc(workerDocRef, { unfreezeProgress });
+                }
+            } else {
+                 await updateDoc(workerDocRef, {
+                    lastDeliveredAt: now.toISOString(),
+                    unfreezeProgress: 0
+                });
+            }
+        }
+        
         await updateDoc(orderDocRef, updateData);
     };
 
@@ -427,10 +458,18 @@ ${itemsText}
     }
 
     // --- Delivery Worker Management ---
-    const addDeliveryWorker = async (worker: DeliveryWorker) => {
-        await addDoc(collection(db, "deliveryWorkers"), worker);
-        toast({ title: "تم إضافة عامل التوصيل" });
-    }
+    const addDeliveryWorker = async (workerData: Omit<DeliveryWorker, 'id'> & {id: string}) => {
+        const workerRef = doc(db, 'deliveryWorkers', workerData.id);
+        await runTransaction(db, async (transaction) => {
+            const workerDoc = await transaction.get(workerRef);
+            if (!workerDoc.exists()) {
+                transaction.set(workerRef, { name: workerData.name, lastDeliveredAt: new Date().toISOString(), unfreezeProgress: 0 });
+                toast({ title: `تم تسجيل العامل ${workerData.name} بنجاح` });
+            } else {
+                 toast({ title: "العامل موجود بالفعل" });
+            }
+        });
+    };
 
     // --- ADMIN ACTIONS ---
     const addProduct = async (productData: Omit<Product, 'id'>) => {
