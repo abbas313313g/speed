@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useContext, useMemo } from 'react';
@@ -40,6 +41,7 @@ export default function OrdersPage() {
     const getStatusVariant = (status: OrderStatus) => {
         switch (status) {
             case 'unassigned': return 'bg-gray-400';
+            case 'pending_assignment': return 'bg-purple-500';
             case 'confirmed': return 'bg-blue-500';
             case 'preparing': return 'bg-yellow-500';
             case 'on_the_way': return 'bg-orange-500';
@@ -51,6 +53,7 @@ export default function OrdersPage() {
      const getStatusText = (status: OrderStatus) => {
         switch (status) {
             case 'unassigned': return "بانتظار سائق";
+            case 'pending_assignment': return "جارِ التعيين...";
             case 'confirmed': return "تم التأكيد";
             case 'preparing': return "تحضير الطلب";
             case 'on_the_way': return "في الطريق";
@@ -102,7 +105,10 @@ export default function OrdersPage() {
                                 <CardContent className="space-y-4">
                                 <div className="flex flex-wrap gap-2">
                                     {order.items.slice(0,3).map(item => (
-                                        <Image key={item.product.id} src={item.product.image} alt={item.product.name} width={40} height={40} className="rounded-md object-cover"/>
+                                        <div key={item.product.id + (item.selectedSize?.name || '')} className="relative">
+                                            <Image src={item.product.image} alt={item.product.name} width={40} height={40} className="rounded-md object-cover"/>
+                                            <Badge className="absolute -top-2 -right-2 text-xs px-1.5 py-0.5">{item.quantity}</Badge>
+                                        </div>
                                     ))}
                                     {order.items.length > 3 && <div className="flex items-center justify-center w-10 h-10 bg-muted rounded-md text-xs">+{order.items.length-3}</div>}
                                 </div>

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useContext, useState, useMemo } from "react";
@@ -127,49 +128,53 @@ export default function CartPage() {
       </header>
 
       <div className="space-y-4">
-        {cart.map(({ product, quantity }) => (
-          <div key={product.id} className="flex items-center gap-4">
-            <Image
-              src={product.image}
-              alt={product.name}
-              width={80}
-              height={80}
-              className="rounded-lg object-cover"
-            />
-            <div className="flex-grow">
-              <h3 className="font-semibold">{product.name}</h3>
-              <p className="text-primary font-bold">
-                {formatCurrency(product.price)}
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => updateCartQuantity(product.id, quantity - 1)}
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-                <span>{quantity}</span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => updateCartQuantity(product.id, quantity + 1)}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
+        {cart.map(({ product, quantity, selectedSize }) => {
+          const itemPrice = selectedSize?.price ?? product.discountPrice ?? product.price;
+          return (
+            <div key={product.id + (selectedSize?.name || '')} className="flex items-center gap-4">
+              <Image
+                src={product.image}
+                alt={product.name}
+                width={80}
+                height={80}
+                className="rounded-lg object-cover"
+              />
+              <div className="flex-grow">
+                <h3 className="font-semibold">{product.name}</h3>
+                {selectedSize && <p className="text-sm text-muted-foreground">{selectedSize.name}</p>}
+                <p className="text-primary font-bold">
+                  {formatCurrency(itemPrice)}
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => updateCartQuantity(product.id, quantity - 1, selectedSize?.name)}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span>{quantity}</span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => updateCartQuantity(product.id, quantity + 1, selectedSize?.name)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => removeFromCart(product.id, selectedSize?.name)}
+              >
+                <Trash2 className="h-5 w-5 text-destructive" />
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => removeFromCart(product.id)}
-            >
-              <Trash2 className="h-5 w-5 text-destructive" />
-            </Button>
-          </div>
-        ))}
+          )
+        })}
       </div>
       
        <div className="space-y-4">

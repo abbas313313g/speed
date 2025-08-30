@@ -18,12 +18,19 @@ export interface Address {
     details?: string; // e.g., "الطابق الثاني، شقة 5"
 }
 
+export interface ProductSize {
+  name: string;
+  price: number;
+}
+
 export interface Product {
   id: string;
   name:string;
   description: string;
   price: number;
   wholesalePrice?: number;
+  discountPrice?: number;
+  sizes?: ProductSize[];
   image: string;
   categoryId: string;
   restaurantId: string;
@@ -53,6 +60,7 @@ export interface Banner {
 export interface CartItem {
   product: Product;
   quantity: number;
+  selectedSize?: ProductSize;
 }
 
 export interface DeliveryZone {

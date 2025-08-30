@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useContext } from "react";
@@ -8,9 +9,10 @@ import { PlusCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
-import type { Product } from "@/lib/types";
+import type { Product, ProductSize } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { AppContext } from "@/contexts/AppContext";
+import { Badge } from "@/components/ui/badge";
 
 interface ProductCardProps {
   product: Product;
@@ -23,6 +25,15 @@ function ProductCardComponent({ product }: ProductCardProps) {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     if (context) {
+        // If product has sizes, user must go to product page to select one
+        if (product.sizes && product.sizes.length > 0) {
+            toast({
+                title: "الرجاء اختيار الحجم",
+                description: `لمنتج "${product.name}" أحجام متعددة. الرجاء الدخول لصفحة المنتج لاختيار الحجم.`,
+                variant: "default",
+            })
+            return;
+        }
         context.addToCart(product, 1);
         toast({
             title: "تمت الإضافة إلى السلة",
@@ -30,6 +41,9 @@ function ProductCardComponent({ product }: ProductCardProps) {
         });
     }
   };
+
+  const hasDiscount = !!product.discountPrice;
+  const displayPrice = product.discountPrice || product.price;
 
   return (
     <Link href={`/products/${product.id}`} className="group block">
@@ -43,13 +57,21 @@ function ProductCardComponent({ product }: ProductCardProps) {
               className="object-cover"
               data-ai-hint="product item"
             />
+            {hasDiscount && <Badge variant="destructive" className="absolute top-2 right-2">خصم</Badge>}
           </div>
           <div className="p-4">
             <h3 className="truncate font-semibold text-lg">{product.name}</h3>
             <div className="mt-2 flex items-center justify-between">
-              <p className="text-xl font-bold text-primary">
-                {formatCurrency(product.price)}
-              </p>
+              <div className="flex flex-col items-start">
+                  {hasDiscount && (
+                     <p className="text-sm text-muted-foreground line-through">
+                        {formatCurrency(product.price)}
+                     </p>
+                  )}
+                  <p className="text-xl font-bold text-primary">
+                    {formatCurrency(displayPrice)}
+                  </p>
+              </div>
               <Button size="icon" variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10" onClick={handleAddToCart}>
                 <PlusCircle className="h-6 w-6" />
               </Button>

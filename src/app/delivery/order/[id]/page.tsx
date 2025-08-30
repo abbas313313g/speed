@@ -59,6 +59,7 @@ export default function DeliveryOrderDetailPage() {
    const getStatusText = (status: OrderStatus) => {
         switch (status) {
             case 'unassigned': return "بانتظار سائق";
+            case 'pending_assignment': return "جارِ التعيين...";
             case 'confirmed': return "تم التأكيد";
             case 'preparing': return "تحضير الطلب";
             case 'on_the_way': return "في الطريق";
@@ -77,7 +78,7 @@ export default function DeliveryOrderDetailPage() {
   const handleUpdateStatus = () => {
       const next = nextStatus[order.status];
       if(next) {
-          updateOrderStatus(order.id, next);
+          updateOrderStatus(order.id, next, order.deliveryWorkerId);
       }
   }
 
@@ -125,23 +126,32 @@ export default function DeliveryOrderDetailPage() {
                 <CardTitle>تفاصيل الفاتورة</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-                {order.items.map(item => (
-                    <div key={item.product.id} className="flex justify-between items-center text-sm">
+                {order.items.map(item => {
+                  const itemPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
+                  return (
+                    <div key={item.product.id + (item.selectedSize?.name || '')} className="flex justify-between items-center text-sm">
                         <div className="flex items-center gap-2">
                             <Image src={item.product.image} alt={item.product.name} width={40} height={40} className="rounded-md object-cover"/>
                             <div>
-                                <p>{item.product.name}</p>
+                                <p>{item.product.name} {item.selectedSize ? `(${item.selectedSize.name})` : ''}</p>
                                 <p className="text-xs text-muted-foreground">x{item.quantity}</p>
                             </div>
                         </div>
-                        <span className="font-mono">{formatCurrency(item.product.price * item.quantity)}</span>
+                        <span className="font-mono">{formatCurrency(itemPrice * item.quantity)}</span>
                     </div>
-                ))}
+                  )
+                })}
                 <Separator className="my-2"/>
                  <div className="flex justify-between text-sm">
                     <span>سعر التوصيل:</span>
                     <span>{formatCurrency(order.deliveryFee)}</span>
                  </div>
+                 {order.appliedCoupon && (
+                     <div className="flex justify-between text-sm text-green-600">
+                        <span>الخصم ({order.appliedCoupon.code}):</span>
+                        <span>-{formatCurrency(order.appliedCoupon.discountAmount)}</span>
+                    </div>
+                 )}
                  <div className="flex justify-between font-bold text-lg">
                     <span>المبلغ الإجمالي للاستلام:</span>
                     <span>{formatCurrency(order.total)}</span>
@@ -187,4 +197,5 @@ export default function DeliveryOrderDetailPage() {
     </div>
   );
 }
+
 

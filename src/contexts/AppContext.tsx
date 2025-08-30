@@ -4,7 +4,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker, Coupon, TelegramConfig } from '@/lib/types';
+import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker, Coupon, TelegramConfig, ProductSize } from '@/lib/types';
 import { categories as initialCategoriesData } from '@/lib/mock-data';
 import { ShoppingBasket } from 'lucide-react';
 import { db } from '@/lib/firebase';
@@ -51,9 +51,9 @@ interface AppContextType {
   isLoading: boolean;
   cart: CartItem[];
   cartTotal: number;
-  addToCart: (product: Product, quantity: number) => void;
-  removeFromCart: (productId: string) => void;
-  updateCartQuantity: (productId: string, quantity: number) => void;
+  addToCart: (product: Product, quantity: number, selectedSize?: ProductSize) => void;
+  removeFromCart: (productId: string, sizeName?: string) => void;
+  updateCartQuantity: (productId: string, quantity: number, sizeName?: string) => void;
   clearCart: () => void;
   placeOrder: (address: Address, couponCode?: string) => Promise<void>;
   deleteOrder: (orderId: string) => Promise<void>;
@@ -175,31 +175,46 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     }, [cart]);
 
     const cartTotal = useMemo(() => {
-        return cart.reduce((total, item) => total + item.product.price * item.quantity, 0);
+        return cart.reduce((total, item) => {
+            const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
+            return total + price * item.quantity;
+        }, 0);
     }, [cart]);
     
-    const addToCart = (product: Product, quantity: number) => {
+    const addToCart = (product: Product, quantity: number, selectedSize?: ProductSize) => {
         setCart(prevCart => {
-            const existingItem = prevCart.find(item => item.product.id === product.id);
+            const existingItem = prevCart.find(item => 
+                item.product.id === product.id && 
+                item.selectedSize?.name === selectedSize?.name
+            );
+
             if (existingItem) {
                 return prevCart.map(item =>
-                    item.product.id === product.id ? { ...item, quantity: item.quantity + quantity } : item
+                    (item.product.id === product.id && item.selectedSize?.name === selectedSize?.name)
+                        ? { ...item, quantity: item.quantity + quantity } 
+                        : item
                 );
             }
-            return [...prevCart, { product, quantity }];
+            return [...prevCart, { product, quantity, selectedSize }];
         });
     };
 
-    const removeFromCart = (productId: string) => {
-        setCart(prevCart => prevCart.filter(item => item.product.id !== productId));
+    const removeFromCart = (productId: string, sizeName?: string) => {
+        setCart(prevCart => prevCart.filter(item => 
+            !(item.product.id === productId && item.selectedSize?.name === sizeName)
+        ));
     };
 
-    const updateCartQuantity = (productId: string, quantity: number) => {
+    const updateCartQuantity = (productId: string, quantity: number, sizeName?: string) => {
         if (quantity < 1) {
-            removeFromCart(productId);
+            removeFromCart(productId, sizeName);
             return;
         }
-        setCart(prevCart => prevCart.map(item => item.product.id === productId ? { ...item, quantity } : item));
+        setCart(prevCart => prevCart.map(item => 
+            (item.product.id === productId && item.selectedSize?.name === sizeName)
+                ? { ...item, quantity } 
+                : item
+        ));
     };
     
     const clearCart = () => setCart([]);
@@ -274,7 +289,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
 
         const profit = cart.reduce((acc, item) => {
-            const itemProfit = (item.product.price - (item.product.wholesalePrice || item.product.price)) * item.quantity;
+            const itemPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
+            const itemProfit = (itemPrice - (item.product.wholesalePrice || itemPrice)) * item.quantity;
             return acc + itemProfit;
         }, 0);
 
@@ -309,7 +325,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         // --- Telegram Notification for Owners ---
         const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
         if (ownerConfigs.length > 0) {
-            const itemsText = newOrderData.items.map(item => `${item.quantity}x ${item.product.name}`).join('\\n');
+            const itemsText = newOrderData.items.map(item => {
+                const sizeText = item.selectedSize ? ` (${item.selectedSize.name})` : '';
+                return `${item.quantity}x ${item.product.name}${sizeText}`;
+            }).join('\\n');
             const locationLink = newOrderData.address.latitude ? `https://www.google.com/maps?q=${newOrderData.address.latitude},${newOrderData.address.longitude}` : 'غير محدد';
             const message = `
 *طلب جديد* 🔥
@@ -382,7 +401,8 @@ ${itemsText}
         const interval = setInterval(() => {
             const pendingOrders = allOrders.filter(o => o.status === 'pending_assignment');
             pendingOrders.forEach(order => {
-                const timestamp = new Date(order.assignmentTimestamp!).getTime();
+                if (!order.assignmentTimestamp) return;
+                const timestamp = new Date(order.assignmentTimestamp).getTime();
                 if (Date.now() - timestamp > ASSIGNMENT_TIMEOUT) {
                     console.log(`Order ${order.id} timed out for worker ${order.assignedToWorkerId}. Reassigning...`);
                     const previouslyAssigned = allOrders
@@ -433,7 +453,14 @@ ${itemsText}
 
             const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered').length;
             const lastDeliveredDate = worker?.lastDeliveredAt ? new Date(worker.lastDeliveredAt) : null;
-            const isFrozen = lastDeliveredDate ? (now.getTime() - lastDeliveredDate.getTime()) > (48 * 60 * 60 * 1000) : false;
+            let isFrozen = false;
+            if(lastDeliveredDate) {
+                const hoursSinceLastDelivery = (now.getTime() - lastDeliveredDate.getTime()) / (1000 * 60 * 60);
+                if (hoursSinceLastDelivery > 48) {
+                    isFrozen = true;
+                }
+            }
+           
 
             if (isFrozen) {
                 unfreezeProgress += 1;

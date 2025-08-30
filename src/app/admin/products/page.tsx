@@ -43,15 +43,18 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils';
 import Image from 'next/image';
-import { Edit, Trash2 } from 'lucide-react';
-import type { Product } from '@/lib/types';
+import { Edit, Trash2, PlusCircle, X } from 'lucide-react';
+import type { Product, ProductSize } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Separator } from '@/components/ui/separator';
 
 const EMPTY_PRODUCT: Omit<Product, 'id'> = {
   name: '',
   price: 0,
   wholesalePrice: 0,
+  discountPrice: undefined,
+  sizes: [],
   description: '',
   image: '',
   categoryId: '',
@@ -86,12 +89,19 @@ export default function AdminProductsPage() {
         return;
     }
     
+    // Ensure discount price is either a number or null/undefined, not 0
+    const productToSave = {
+        ...currentProduct,
+        discountPrice: currentProduct.discountPrice || undefined,
+        sizes: currentProduct.sizes?.filter(s => s.name && s.price > 0) || [],
+    }
+
     setIsSaving(true);
     try {
         if (isEditing && currentProduct.id) {
-            await updateProduct(currentProduct as Partial<Product> & {id: string});
+            await updateProduct(productToSave as Partial<Product> & {id: string});
         } else {
-            await addProduct(currentProduct as Omit<Product, 'id'>);
+            await addProduct(productToSave as Omit<Product, 'id'>);
         }
         setOpen(false);
     } catch (error) {
@@ -101,6 +111,24 @@ export default function AdminProductsPage() {
         setIsSaving(false);
     }
   };
+
+  const handleSizeChange = (index: number, field: 'name' | 'price', value: string | number) => {
+    const newSizes = [...(currentProduct.sizes || [])];
+    newSizes[index] = { ...newSizes[index], [field]: value };
+    setCurrentProduct({ ...currentProduct, sizes: newSizes });
+  };
+
+  const addSize = () => {
+    const newSizes = [...(currentProduct.sizes || []), { name: '', price: 0 }];
+    setCurrentProduct({ ...currentProduct, sizes: newSizes });
+  };
+
+  const removeSize = (index: number) => {
+    const newSizes = [...(currentProduct.sizes || [])];
+    newSizes.splice(index, 1);
+    setCurrentProduct({ ...currentProduct, sizes: newSizes });
+  };
+
 
   return (
     <div className="space-y-8">
@@ -134,6 +162,10 @@ export default function AdminProductsPage() {
                         <Input id="wholesalePrice" type="number" value={currentProduct.wholesalePrice || ''} onChange={(e) => setCurrentProduct({...currentProduct, wholesalePrice: e.target.value === '' ? 0 : parseFloat(e.target.value)})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="discountPrice" className="text-right">السعر بعد الخصم</Label>
+                        <Input id="discountPrice" type="number" placeholder="اختياري" value={currentProduct.discountPrice || ''} onChange={(e) => setCurrentProduct({...currentProduct, discountPrice: e.target.value === '' ? undefined : parseFloat(e.target.value)})} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="description" className="text-right">الوصف</Label>
                         <Input id="description" value={currentProduct.description} onChange={(e) => setCurrentProduct({...currentProduct, description: e.target.value})} className="col-span-3" />
                     </div>
@@ -165,6 +197,23 @@ export default function AdminProductsPage() {
                             </SelectContent>
                         </Select>
                     </div>
+
+                    <Separator className="my-4" />
+                    
+                    <div>
+                        <Label>الأحجام/الكميات (اختياري)</Label>
+                        <div className="space-y-2 mt-2">
+                            {currentProduct.sizes?.map((size, index) => (
+                                <div key={index} className="flex items-center gap-2">
+                                    <Input placeholder="اسم الحجم (صغير)" value={size.name} onChange={(e) => handleSizeChange(index, 'name', e.target.value)} />
+                                    <Input type="number" placeholder="السعر" value={size.price || ''} onChange={(e) => handleSizeChange(index, 'price', e.target.value === '' ? 0 : parseFloat(e.target.value))} />
+                                    <Button variant="ghost" size="icon" onClick={() => removeSize(index)}><X className="h-4 w-4 text-destructive" /></Button>
+                                </div>
+                            ))}
+                        </div>
+                        <Button variant="outline" size="sm" className="mt-2" onClick={addSize}><PlusCircle className="ml-2 h-4 w-4" /> إضافة حجم</Button>
+                    </div>
+
                 </div>
                 <DialogFooter>
                     <Button type="submit" onClick={handleSaveProduct} disabled={isSaving}>
@@ -180,7 +229,7 @@ export default function AdminProductsPage() {
           <TableRow>
             <TableHead className="hidden sm:table-cell">صورة</TableHead>
             <TableHead>اسم المنتج</TableHead>
-            <TableHead>سعر البيع</TableHead>
+            <TableHead>السعر</TableHead>
             <TableHead className="hidden md:table-cell">سعر الجملة</TableHead>
             <TableHead className="hidden lg:table-cell">القسم</TableHead>
             <TableHead className="hidden lg:table-cell">المتجر</TableHead>
@@ -194,7 +243,18 @@ export default function AdminProductsPage() {
                 <Image src={product.image} alt={product.name} width={40} height={40} className="rounded-md object-cover" />
               </TableCell>
               <TableCell className="font-medium">{product.name}</TableCell>
-              <TableCell>{formatCurrency(product.price)}</TableCell>
+              <TableCell>
+                  <div className="flex flex-col">
+                      {product.discountPrice ? (
+                          <>
+                            <span className="text-destructive line-through">{formatCurrency(product.price)}</span>
+                            <span className="font-bold text-primary">{formatCurrency(product.discountPrice)}</span>
+                          </>
+                      ) : (
+                         <span>{formatCurrency(product.price)}</span>
+                      )}
+                  </div>
+              </TableCell>
               <TableCell className="hidden md:table-cell">{formatCurrency(product.wholesalePrice || 0)}</TableCell>
               <TableCell className="hidden lg:table-cell">{categories.find(c => c.id === product.categoryId)?.name || 'غير معروف'}</TableCell>
               <TableCell className="hidden lg:table-cell">{restaurants.find(r => r.id === product.restaurantId)?.name || 'غير معروف'}</TableCell>
@@ -231,3 +291,4 @@ export default function AdminProductsPage() {
     </div>
   );
 }
+
