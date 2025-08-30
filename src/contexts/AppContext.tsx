@@ -266,88 +266,141 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     const placeOrder = async (address: Address, couponCode?: string) => {
         if (cart.length === 0) return;
-        
-        let finalTotal = cartTotal;
-        let discountAmount = 0;
-        let appliedCouponInfo;
 
-        if (couponCode) {
-            const couponResult = await validateAndApplyCoupon(couponCode);
-            if (couponResult.success) {
-                discountAmount = couponResult.discount;
-                finalTotal -= discountAmount;
-                appliedCouponInfo = { code: couponCode, discountAmount };
-            } else {
-                toast({ title: "فشل تطبيق الكود", description: couponResult.message, variant: "destructive"});
-                return;
-            }
+        try {
+            await runTransaction(db, async (transaction) => {
+                // 1. Verify stock for all cart items
+                for (const item of cart) {
+                    const productRef = doc(db, "products", item.product.id);
+                    const productDoc = await transaction.get(productRef);
+                    if (!productDoc.exists()) {
+                        throw new Error(`منتج "${item.product.name}" لم يعد متوفرًا.`);
+                    }
+                    const productData = productDoc.data() as Product;
+
+                    if (item.selectedSize) {
+                        const sizeIndex = productData.sizes?.findIndex(s => s.name === item.selectedSize!.name);
+                        if (sizeIndex === undefined || sizeIndex === -1 || (productData.sizes?.[sizeIndex].stock ?? 0) < item.quantity) {
+                            throw new Error(`الكمية المطلوبة من "${item.product.name} (${item.selectedSize.name})" غير متوفرة.`);
+                        }
+                    } else {
+                        if ((productData.stock ?? 0) < item.quantity) {
+                            throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
+                        }
+                    }
+                }
+
+                // 2. Calculate totals and handle coupon
+                let finalTotal = cartTotal;
+                let discountAmount = 0;
+                let appliedCouponInfo;
+
+                if (couponCode) {
+                    const couponResult = await validateAndApplyCoupon(couponCode); // This can be optimized to use the transaction
+                    if (couponResult.success) {
+                        discountAmount = couponResult.discount;
+                        finalTotal -= discountAmount;
+                        appliedCouponInfo = { code: couponCode, discountAmount };
+                    } else {
+                        throw new Error(couponResult.message);
+                    }
+                }
+                
+                const deliveryZoneDetails = deliveryZones.find(z => z.name === address.deliveryZone);
+                const deliveryFee = deliveryZoneDetails ? deliveryZoneDetails.fee : 0;
+                finalTotal += deliveryFee;
+
+                const profit = cart.reduce((acc, item) => {
+                    const itemPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
+                    const itemProfit = (itemPrice - (item.product.wholesalePrice || itemPrice)) * item.quantity;
+                    return acc + itemProfit;
+                }, 0);
+
+                // 3. Create the order
+                const newOrderData: Omit<Order, 'id' | 'userId'> = {
+                    items: cart,
+                    total: finalTotal,
+                    date: new Date().toISOString(),
+                    status: 'unassigned',
+                    estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
+                    address,
+                    profit,
+                    deliveryFee,
+                    ...(appliedCouponInfo && { appliedCoupon: appliedCouponInfo })
+                };
+                const orderRef = doc(collection(db, "orders")); // Create ref beforehand
+                transaction.set(orderRef, newOrderData);
+
+                // 4. Decrement stock
+                for (const item of cart) {
+                    const productRef = doc(db, "products", item.product.id);
+                    const productDoc = await transaction.get(productRef); // Re-get within transaction
+                    const productData = productDoc.data() as Product;
+
+                    if (item.selectedSize) {
+                        const newSizes = productData.sizes?.map(s => 
+                            s.name === item.selectedSize!.name 
+                            ? { ...s, stock: s.stock - item.quantity } 
+                            : s
+                        ) ?? [];
+                        transaction.update(productRef, { sizes: newSizes });
+                    } else {
+                        transaction.update(productRef, { stock: productData.stock - item.quantity });
+                    }
+                }
+                
+                // 5. Update coupon usage
+                if (couponCode) {
+                     const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode));
+                     const snapshot = await getDocs(couponQuery); // Cannot use transaction for queries
+                     if (!snapshot.empty) {
+                         const couponDoc = snapshot.docs[0];
+                         const updatedUsedCount = couponDoc.data().usedCount + 1;
+                         const updatedUsedBy = [...(couponDoc.data().usedBy || []), "localUser"];
+                         transaction.update(couponDoc.ref, { usedCount: updatedUsedCount, usedBy: updatedUsedBy });
+                     }
+                }
+                
+                // After transaction succeeds:
+                setLocalOrderIds(prev => [...prev, orderRef.id]);
+                
+                 // --- Telegram Notification for Owners ---
+                const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
+                if (ownerConfigs.length > 0) {
+                    const itemsText = newOrderData.items.map(item => {
+                        const sizeText = item.selectedSize ? ` (${item.selectedSize.name})` : '';
+                        return `${item.quantity}x ${item.product.name}${sizeText}`;
+                    }).join('\\n');
+                    const locationLink = newOrderData.address.latitude ? `https://www.google.com/maps?q=${newOrderData.address.latitude},${newOrderData.address.longitude}` : 'غير محدد';
+                    const message = `
+        *طلب جديد* 🔥
+        *رقم الطلب:* \`${orderRef.id.substring(0, 6)}\`
+        *الزبون:* ${newOrderData.address.name}
+        *الهاتف:* ${newOrderData.address.phone}
+        *العنوان:* ${newOrderData.address.deliveryZone}
+        *تفاصيل:* ${newOrderData.address.details || 'لا يوجد'}
+        *الموقع:* ${locationLink}
+        ---
+        *المنتجات:*
+        ${itemsText}
+        ---
+        *المجموع:* ${formatCurrency(newOrderData.total)}
+                    `;
+                    ownerConfigs.forEach(config => sendTelegramMessage(config.chatId, message));
+                }
+
+                clearCart();
+            }); // End of transaction
+
+        } catch (error: any) {
+            console.error("Order placement failed:", error);
+            toast({
+                title: "فشل إرسال الطلب",
+                description: error.message || "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.",
+                variant: "destructive"
+            });
+            throw error; // Re-throw to inform the caller
         }
-
-        const deliveryZoneDetails = deliveryZones.find(z => z.name === address.deliveryZone);
-        const deliveryFee = deliveryZoneDetails ? deliveryZoneDetails.fee : 0;
-        finalTotal += deliveryFee;
-
-
-        const profit = cart.reduce((acc, item) => {
-            const itemPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
-            const itemProfit = (itemPrice - (item.product.wholesalePrice || itemPrice)) * item.quantity;
-            return acc + itemProfit;
-        }, 0);
-
-
-        const newOrderData: Omit<Order, 'id' | 'userId'> = {
-            items: cart,
-            total: finalTotal,
-            date: new Date().toISOString(),
-            status: 'unassigned',
-            estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
-            address,
-            profit,
-            deliveryFee,
-            ...(appliedCouponInfo && { appliedCoupon: appliedCouponInfo })
-        };
-        
-        const docRef = await addDoc(collection(db, "orders"), newOrderData);
-        setLocalOrderIds(prev => [...prev, docRef.id]);
-
-        if (couponCode) {
-             const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode));
-             const snapshot = await getDocs(couponQuery);
-             if (!snapshot.empty) {
-                 const couponDoc = snapshot.docs[0];
-                 await updateDoc(couponDoc.ref, {
-                     usedCount: couponDoc.data().usedCount + 1,
-                     usedBy: [...(couponDoc.data().usedBy || []), "localUser"]
-                 });
-             }
-        }
-        
-        // --- Telegram Notification for Owners ---
-        const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
-        if (ownerConfigs.length > 0) {
-            const itemsText = newOrderData.items.map(item => {
-                const sizeText = item.selectedSize ? ` (${item.selectedSize.name})` : '';
-                return `${item.quantity}x ${item.product.name}${sizeText}`;
-            }).join('\\n');
-            const locationLink = newOrderData.address.latitude ? `https://www.google.com/maps?q=${newOrderData.address.latitude},${newOrderData.address.longitude}` : 'غير محدد';
-            const message = `
-*طلب جديد* 🔥
-*رقم الطلب:* \`${docRef.id.substring(0, 6)}\`
-*الزبون:* ${newOrderData.address.name}
-*الهاتف:* ${newOrderData.address.phone}
-*العنوان:* ${newOrderData.address.deliveryZone}
-*تفاصيل:* ${newOrderData.address.details || 'لا يوجد'}
-*الموقع:* ${locationLink}
----
-*المنتجات:*
-${itemsText}
----
-*المجموع:* ${formatCurrency(newOrderData.total)}
-            `;
-            ownerConfigs.forEach(config => sendTelegramMessage(config.chatId, message));
-        }
-
-        clearCart();
     }
 
 

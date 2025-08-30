@@ -21,6 +21,7 @@ export interface Address {
 export interface ProductSize {
   name: string;
   price: number;
+  stock: number;
 }
 
 export interface Product {
@@ -31,6 +32,7 @@ export interface Product {
   wholesalePrice?: number;
   discountPrice?: number;
   sizes?: ProductSize[];
+  stock: number;
   image: string;
   categoryId: string;
   restaurantId: string;

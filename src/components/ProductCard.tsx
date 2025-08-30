@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useContext } from "react";
+import React, { useContext, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { PlusCircle } from "lucide-react";
@@ -22,10 +22,20 @@ function ProductCardComponent({ product }: ProductCardProps) {
   const { toast } = useToast();
   const context = useContext(AppContext);
 
+  const isOutOfStock = useMemo(() => {
+    if (product.sizes && product.sizes.length > 0) {
+      return product.sizes.every(size => size.stock <= 0);
+    }
+    return product.stock <= 0;
+  }, [product]);
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (isOutOfStock) {
+        toast({ title: "نفدت الكمية", description: `منتج "${product.name}" غير متوفر حالياً.`, variant: "destructive" });
+        return;
+    }
     if (context) {
-        // If product has sizes, user must go to product page to select one
         if (product.sizes && product.sizes.length > 0) {
             toast({
                 title: "الرجاء اختيار الحجم",
@@ -47,7 +57,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   return (
     <Link href={`/products/${product.id}`} className="group block">
-      <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+      <Card className={`overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${isOutOfStock ? 'opacity-60' : ''}`}>
         <CardContent className="p-0">
           <div className="relative h-40 w-full">
             <Image
@@ -57,6 +67,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
               className="object-cover"
               data-ai-hint="product item"
             />
+            {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 text-sm">نفدت الكمية</Badge>}
             {hasDiscount && <Badge variant="destructive" className="absolute top-2 right-2">خصم</Badge>}
           </div>
           <div className="p-4">
@@ -72,7 +83,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
                     {formatCurrency(displayPrice)}
                   </p>
               </div>
-              <Button size="icon" variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10" onClick={handleAddToCart}>
+              <Button size="icon" variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10" onClick={handleAddToCart} disabled={isOutOfStock}>
                 <PlusCircle className="h-6 w-6" />
               </Button>
             </div>

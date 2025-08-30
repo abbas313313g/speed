@@ -55,6 +55,7 @@ const EMPTY_PRODUCT: Omit<Product, 'id'> = {
   wholesalePrice: 0,
   discountPrice: undefined,
   sizes: [],
+  stock: 0,
   description: '',
   image: '',
   categoryId: '',
@@ -89,11 +90,11 @@ export default function AdminProductsPage() {
         return;
     }
     
-    // Ensure discount price is either a number or null/undefined, not 0
     const productToSave = {
         ...currentProduct,
         discountPrice: currentProduct.discountPrice || undefined,
         sizes: currentProduct.sizes?.filter(s => s.name && s.price > 0) || [],
+        stock: currentProduct.stock || 0,
     }
 
     setIsSaving(true);
@@ -112,14 +113,14 @@ export default function AdminProductsPage() {
     }
   };
 
-  const handleSizeChange = (index: number, field: 'name' | 'price', value: string | number) => {
+  const handleSizeChange = (index: number, field: keyof ProductSize, value: string | number) => {
     const newSizes = [...(currentProduct.sizes || [])];
     newSizes[index] = { ...newSizes[index], [field]: value };
     setCurrentProduct({ ...currentProduct, sizes: newSizes });
   };
 
   const addSize = () => {
-    const newSizes = [...(currentProduct.sizes || []), { name: '', price: 0 }];
+    const newSizes = [...(currentProduct.sizes || []), { name: '', price: 0, stock: 0 }];
     setCurrentProduct({ ...currentProduct, sizes: newSizes });
   };
 
@@ -141,7 +142,7 @@ export default function AdminProductsPage() {
       </header>
 
       <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'تعديل المنتج' : 'إضافة منتج جديد'}</DialogTitle>
                     <DialogDescription>
@@ -164,6 +165,10 @@ export default function AdminProductsPage() {
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="discountPrice" className="text-right">السعر بعد الخصم</Label>
                         <Input id="discountPrice" type="number" placeholder="اختياري" value={currentProduct.discountPrice || ''} onChange={(e) => setCurrentProduct({...currentProduct, discountPrice: e.target.value === '' ? undefined : parseFloat(e.target.value)})} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="stock" className="text-right">الكمية المتوفرة</Label>
+                        <Input id="stock" type="number" value={currentProduct.stock || ''} onChange={(e) => setCurrentProduct({...currentProduct, stock: e.target.value === '' ? 0 : parseInt(e.target.value)})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="description" className="text-right">الوصف</Label>
@@ -204,10 +209,11 @@ export default function AdminProductsPage() {
                         <Label>الأحجام/الكميات (اختياري)</Label>
                         <div className="space-y-2 mt-2">
                             {currentProduct.sizes?.map((size, index) => (
-                                <div key={index} className="flex items-center gap-2">
-                                    <Input placeholder="اسم الحجم (صغير)" value={size.name} onChange={(e) => handleSizeChange(index, 'name', e.target.value)} />
-                                    <Input type="number" placeholder="السعر" value={size.price || ''} onChange={(e) => handleSizeChange(index, 'price', e.target.value === '' ? 0 : parseFloat(e.target.value))} />
-                                    <Button variant="ghost" size="icon" onClick={() => removeSize(index)}><X className="h-4 w-4 text-destructive" /></Button>
+                                <div key={index} className="grid grid-cols-12 items-center gap-2">
+                                    <Input className="col-span-5" placeholder="اسم الحجم (صغير)" value={size.name} onChange={(e) => handleSizeChange(index, 'name', e.target.value)} />
+                                    <Input className="col-span-3" type="number" placeholder="السعر" value={size.price || ''} onChange={(e) => handleSizeChange(index, 'price', e.target.value === '' ? 0 : parseFloat(e.target.value))} />
+                                    <Input className="col-span-3" type="number" placeholder="الكمية" value={size.stock || ''} onChange={(e) => handleSizeChange(index, 'stock', e.target.value === '' ? 0 : parseInt(e.target.value))} />
+                                    <Button variant="ghost" size="icon" className="col-span-1" onClick={() => removeSize(index)}><X className="h-4 w-4 text-destructive" /></Button>
                                 </div>
                             ))}
                         </div>
@@ -230,6 +236,7 @@ export default function AdminProductsPage() {
             <TableHead className="hidden sm:table-cell">صورة</TableHead>
             <TableHead>اسم المنتج</TableHead>
             <TableHead>السعر</TableHead>
+            <TableHead>الكمية</TableHead>
             <TableHead className="hidden md:table-cell">سعر الجملة</TableHead>
             <TableHead className="hidden lg:table-cell">القسم</TableHead>
             <TableHead className="hidden lg:table-cell">المتجر</TableHead>
@@ -255,6 +262,7 @@ export default function AdminProductsPage() {
                       )}
                   </div>
               </TableCell>
+              <TableCell>{product.stock}</TableCell>
               <TableCell className="hidden md:table-cell">{formatCurrency(product.wholesalePrice || 0)}</TableCell>
               <TableCell className="hidden lg:table-cell">{categories.find(c => c.id === product.categoryId)?.name || 'غير معروف'}</TableCell>
               <TableCell className="hidden lg:table-cell">{restaurants.find(r => r.id === product.restaurantId)?.name || 'غير معروف'}</TableCell>
@@ -291,4 +299,5 @@ export default function AdminProductsPage() {
     </div>
   );
 }
+
 
