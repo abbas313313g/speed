@@ -42,6 +42,8 @@ export default function RestaurantProductsPage() {
       return <div className="text-center py-10">لم يتم العثور على المتجر.</div>
   }
 
+  const imageUrl = restaurant.image && restaurant.image.startsWith('http') ? restaurant.image : 'https://placehold.co/100x100.png';
+
   return (
     <div className="p-4 space-y-6">
        <header className="flex items-center gap-4">
@@ -54,7 +56,7 @@ export default function RestaurantProductsPage() {
       <div className="flex items-center gap-4 p-4 rounded-lg bg-card">
          <div className="relative h-24 w-24 flex-shrink-0">
           <Image
-            src={restaurant.image}
+            src={imageUrl}
             alt={restaurant.name}
             fill
             className="object-cover rounded-lg"
