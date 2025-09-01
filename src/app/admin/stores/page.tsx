@@ -138,7 +138,7 @@ export default function AdminStoresPage() {
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="rating" className="text-right">التقييم</Label>
-                        <Input id="rating" type="text" inputMode="decimal" step="0.1" value={currentStore.rating} onChange={(e) => setCurrentStore({...currentStore, rating: parseFloat(e.target.value.replace(/[^0-9.]/g, '')) || 0})} className="col-span-3" />
+                        <Input id="rating" type="text" inputMode="decimal" step="0.1" value={currentStore.rating || ''} onChange={(e) => setCurrentStore({...currentStore, rating: parseFloat(e.target.value.replace(/[^0-9.]/g, '')) || 0})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="image" className="text-right">رابط الصورة</Label>
@@ -175,50 +175,55 @@ export default function AdminStoresPage() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {restaurants.map((store) => (
-            <TableRow key={store.id}>
-              <TableCell>
-                <Image src={store.image} alt={store.name} width={40} height={40} className="rounded-md object-cover" />
-              </TableCell>
-              <TableCell className="font-medium">{store.name}</TableCell>
-              <TableCell>
-                <div className="flex items-center gap-1">
-                    <Star className="h-5 w-5 fill-amber-500 text-amber-500" />
-                    {store.rating.toFixed(1)}
-                </div>
-              </TableCell>
-              <TableCell>
-                  <div className="flex items-center gap-2">
-                      <Button variant="outline" size="icon" onClick={() => handleOpenDialog(store)}>
-                          <Edit className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                           <Button variant="destructive" size="icon">
-                                <Trash2 className="h-4 w-4" />
-                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    هذا الإجراء سيقوم بحذف المتجر "{store.name}" بشكل نهائي.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteRestaurant(store.id)}>حذف</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                  </div>
-              </TableCell>
-            </TableRow>
-          ))}
+          {restaurants.map((store) => {
+            const imageUrl = store.image && store.image.startsWith('http') ? store.image : 'https://placehold.co/40x40.png';
+            return (
+                <TableRow key={store.id}>
+                <TableCell>
+                    <Image src={imageUrl} alt={store.name} width={40} height={40} className="rounded-md object-cover" />
+                </TableCell>
+                <TableCell className="font-medium">{store.name}</TableCell>
+                <TableCell>
+                    <div className="flex items-center gap-1">
+                        <Star className="h-5 w-5 fill-amber-500 text-amber-500" />
+                        {store.rating.toFixed(1)}
+                    </div>
+                </TableCell>
+                <TableCell>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="icon" onClick={() => handleOpenDialog(store)}>
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="icon">
+                                    <Trash2 className="h-4 w-4" />
+                            </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        هذا الإجراء سيقوم بحذف المتجر "{store.name}" بشكل نهائي.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteRestaurant(store.id)}>حذف</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                </TableCell>
+                </TableRow>
+            )
+          })}
         </TableBody>
       </Table>
     </div>
   );
 }
+
+    
 
     
