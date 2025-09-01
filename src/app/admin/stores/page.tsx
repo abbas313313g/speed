@@ -144,7 +144,7 @@ export default function AdminStoresPage() {
                         <Label htmlFor="image" className="text-right">رابط الصورة</Label>
                         <Input id="image" value={currentStore.image} onChange={(e) => setCurrentStore({...currentStore, image: e.target.value})} className="col-span-3" />
                     </div>
-                     {currentStore.image && <Image src={currentStore.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain"/>}
+                     {currentStore.image && currentStore.image.startsWith('http') && <Image src={currentStore.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain"/>}
 
                     <div className="col-span-4 space-y-2">
                         <Label>موقع المتجر (خط العرض والطول)</Label>
@@ -223,7 +223,5 @@ export default function AdminStoresPage() {
     </div>
   );
 }
-
-    
 
     

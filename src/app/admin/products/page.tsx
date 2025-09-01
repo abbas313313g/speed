@@ -178,7 +178,7 @@ export default function AdminProductsPage() {
                          <Label htmlFor="image" className="text-right">رابط الصورة</Label>
                          <Input id="image" value={currentProduct.image} onChange={(e) => setCurrentProduct({...currentProduct, image: e.target.value})} className="col-span-3" />
                     </div>
-                    {currentProduct.image && <Image src={currentProduct.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain"/>}
+                    {currentProduct.image && currentProduct.image.startsWith('http') && <Image src={currentProduct.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain"/>}
 
                     <div className="grid grid-cols-4 items-center gap-4">
                          <Label htmlFor="category" className="text-right">القسم</Label>
@@ -299,5 +299,6 @@ export default function AdminProductsPage() {
     </div>
   );
 }
+
 
 

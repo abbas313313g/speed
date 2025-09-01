@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useContext, useState, useEffect } from 'react';
@@ -119,7 +120,7 @@ export default function AdminBannersPage() {
               <Label htmlFor="image" className="text-right">رابط الصورة</Label>
               <Input id="image" value={currentBanner.image} onChange={(e) => setCurrentBanner({ ...currentBanner, image: e.target.value })} className="col-span-3" />
             </div>
-            {currentBanner.image && <Image src={currentBanner.image} alt="preview" width={200} height={100} className="col-span-4 justify-self-center object-contain" />}
+            {currentBanner.image && currentBanner.image.startsWith('http') && <Image src={currentBanner.image} alt="preview" width={200} height={100} className="col-span-4 justify-self-center object-contain" />}
 
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="linkType" className="text-right">نوع الرابط</Label>
