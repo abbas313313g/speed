@@ -50,6 +50,8 @@ export interface Restaurant {
   name: string;
   image: string;
   rating: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Banner {
@@ -126,3 +128,5 @@ export interface TelegramConfig {
     name: string; // For display purposes (e.g., "Owner 1", "Ahmed's Phone")
 }
 
+
+    

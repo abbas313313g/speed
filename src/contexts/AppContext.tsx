@@ -21,7 +21,7 @@ import {
     getDocs,
     writeBatch
 } from 'firebase/firestore';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, calculateDistance, calculateDeliveryFee } from '@/lib/utils';
 
 // --- Telegram Bot Helper ---
 const sendTelegramMessage = async (chatId: string, message: string) => {
@@ -183,17 +183,30 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     
     const addToCart = (product: Product, quantity: number, selectedSize?: ProductSize) => {
         setCart(prevCart => {
-            const existingItem = prevCart.find(item => 
+            const restaurantId = product.restaurantId;
+            const cartIsFromDifferentRestaurant = prevCart.length > 0 && prevCart[0].product.restaurantId !== restaurantId;
+            
+            if(cartIsFromDifferentRestaurant) {
+                toast({
+                    title: "بدء سلة جديدة؟",
+                    description: "لديك منتجات من متجر آخر. هل تريد حذفها وبدء سلة جديدة من هذا المتجر؟",
+                    action: <button onClick={() => {
+                        const newCartItem = { product, quantity, selectedSize };
+                        setCart([newCartItem]);
+                    }} className="px-3 py-1.5 border rounded-md text-sm bg-primary text-primary-foreground">نعم، ابدأ</button>
+                });
+                return prevCart;
+            }
+
+            const existingItemIndex = prevCart.findIndex(item => 
                 item.product.id === product.id && 
                 item.selectedSize?.name === selectedSize?.name
             );
 
-            if (existingItem) {
-                return prevCart.map(item =>
-                    (item.product.id === product.id && item.selectedSize?.name === selectedSize?.name)
-                        ? { ...item, quantity: item.quantity + quantity } 
-                        : item
-                );
+            if (existingItemIndex > -1) {
+                const updatedCart = [...prevCart];
+                updatedCart[existingItemIndex].quantity += quantity;
+                return updatedCart;
             }
             return [...prevCart, { product, quantity, selectedSize }];
         });
@@ -267,6 +280,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const placeOrder = async (address: Address, couponCode?: string) => {
         if (cart.length === 0) return;
 
+        const cartRestaurant = restaurants.find(r => r.id === cart[0].product.restaurantId);
+        if (!cartRestaurant) {
+            toast({ title: "خطأ في الطلب", description: "لم يتم العثور على المتجر الخاص بالطلب.", variant: "destructive"});
+            return;
+        }
+
         try {
             await runTransaction(db, async (transaction) => {
                 // 1. Verify stock for all cart items
@@ -306,8 +325,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     }
                 }
                 
-                const deliveryZoneDetails = deliveryZones.find(z => z.name === address.deliveryZone);
-                const deliveryFee = deliveryZoneDetails ? deliveryZoneDetails.fee : 0;
+                const distance = (address.latitude && address.longitude && cartRestaurant.latitude && cartRestaurant.longitude)
+                    ? calculateDistance(address.latitude, address.longitude, cartRestaurant.latitude, cartRestaurant.longitude)
+                    : null;
+                const deliveryFee = distance !== null ? calculateDeliveryFee(distance) : 0;
+                
                 finalTotal += deliveryFee;
 
                 const profit = cart.reduce((acc, item) => {
@@ -738,3 +760,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
+
+    

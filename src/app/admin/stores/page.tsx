@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Star, Edit, Trash2, Loader2 } from 'lucide-react';
+import { Star, Edit, Trash2, Loader2, MapPin } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -41,6 +41,8 @@ const EMPTY_STORE: Omit<Restaurant, 'id'> = {
     name: '',
     image: '',
     rating: 0,
+    latitude: undefined,
+    longitude: undefined,
 };
 
 export default function AdminStoresPage() {
@@ -70,13 +72,18 @@ export default function AdminStoresPage() {
         toast({ title: "بيانات غير مكتملة", description: "اسم المتجر ورابط صورته مطلوبان.", variant: "destructive" });
         return;
     }
+    const storeToSave = {
+        ...currentStore,
+        latitude: currentStore.latitude || undefined,
+        longitude: currentStore.longitude || undefined,
+    }
 
     setIsSaving(true);
     try {
         if (isEditing && currentStore.id) {
-            await updateRestaurant(currentStore as Restaurant);
+            await updateRestaurant(storeToSave as Restaurant);
         } else {
-            await addRestaurant(currentStore as Omit<Restaurant, 'id'>);
+            await addRestaurant(storeToSave as Omit<Restaurant, 'id'>);
         }
         setOpen(false);
     } catch (error) {
@@ -86,6 +93,28 @@ export default function AdminStoresPage() {
         setIsSaving(false);
     }
   };
+
+  const handleFetchLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCurrentStore({
+            ...currentStore,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+          toast({ title: "تم تحديد الموقع بنجاح!" });
+        },
+        () => {
+          toast({
+            title: "فشل تحديد الموقع",
+            description: "الرجاء التأكد من تفعيل خدمة تحديد المواقع.",
+            variant: "destructive",
+          });
+        }
+      );
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -98,7 +127,7 @@ export default function AdminStoresPage() {
       </header>
 
       <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'تعديل المتجر' : 'إضافة متجر جديد'}</DialogTitle>
                 </DialogHeader>
@@ -116,6 +145,16 @@ export default function AdminStoresPage() {
                         <Input id="image" value={currentStore.image} onChange={(e) => setCurrentStore({...currentStore, image: e.target.value})} className="col-span-3" />
                     </div>
                      {currentStore.image && <Image src={currentStore.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain"/>}
+
+                    <div className="col-span-4 space-y-2">
+                        <Label>موقع المتجر (خط العرض والطول)</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <Input placeholder="Latitude" type="number" value={currentStore.latitude || ''} onChange={(e) => setCurrentStore({...currentStore, latitude: parseFloat(e.target.value) || undefined})} />
+                            <Input placeholder="Longitude" type="number" value={currentStore.longitude || ''} onChange={(e) => setCurrentStore({...currentStore, longitude: parseFloat(e.target.value) || undefined})} />
+                        </div>
+                        <Button variant="outline" className="w-full" onClick={handleFetchLocation}><MapPin className="ml-2 h-4 w-4"/>تحديد الموقع الحالي</Button>
+                    </div>
+
                 </div>
                 <DialogFooter>
                     <Button type="submit" onClick={handleSave} disabled={isSaving}>
@@ -181,3 +220,5 @@ export default function AdminStoresPage() {
     </div>
   );
 }
+
+    

@@ -7,8 +7,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Minus, Plus, Trash2, Home, TicketPercent, Loader2 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { ShoppingBag, Minus, Plus, Trash2, Home, TicketPercent, Loader2, MapPin } from "lucide-react";
+import { formatCurrency, calculateDistance, calculateDeliveryFee } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +30,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import type { Restaurant } from "@/lib/types";
 
 export default function CartPage() {
   const context = useContext(AppContext);
@@ -44,20 +45,30 @@ export default function CartPage() {
     return <div>جار التحميل...</div>;
   }
 
-  const { cart, updateCartQuantity, removeFromCart, clearCart, cartTotal, addresses, placeOrder, deliveryZones, validateAndApplyCoupon } = context;
+  const { cart, updateCartQuantity, removeFromCart, clearCart, cartTotal, addresses, placeOrder, restaurants, validateAndApplyCoupon } = context;
 
-  const { deliveryFee, finalTotal } = useMemo(() => {
+  const cartRestaurant = useMemo(() => {
+    if (cart.length === 0) return null;
+    const firstItemRestaurantId = cart[0].product.restaurantId;
+    return restaurants.find(r => r.id === firstItemRestaurantId);
+  }, [cart, restaurants]);
+
+
+  const { deliveryFee, distance, finalTotal } = useMemo(() => {
     const subTotalWithDiscount = cartTotal - couponDiscount;
-    if (!selectedAddressId) return { deliveryFee: 0, finalTotal: subTotalWithDiscount };
+    if (!selectedAddressId || !cartRestaurant) return { deliveryFee: 0, distance: null, finalTotal: subTotalWithDiscount };
     
     const address = addresses.find(a => a.id === selectedAddressId);
-    if (!address) return { deliveryFee: 0, finalTotal: subTotalWithDiscount };
+    if (!address || !address.latitude || !address.longitude || !cartRestaurant.latitude || !cartRestaurant.longitude) {
+       return { deliveryFee: 0, distance: null, finalTotal: subTotalWithDiscount };
+    }
 
-    const zone = deliveryZones.find(z => z.name === address.deliveryZone);
-    const fee = zone ? zone.fee : 0;
+    const dist = calculateDistance(address.latitude, address.longitude, cartRestaurant.latitude, cartRestaurant.longitude);
+    const fee = calculateDeliveryFee(dist);
     
-    return { deliveryFee: fee, finalTotal: subTotalWithDiscount + fee };
-  }, [selectedAddressId, cartTotal, addresses, deliveryZones, couponDiscount]);
+    return { deliveryFee: fee, distance: dist, finalTotal: subTotalWithDiscount + fee };
+  }, [selectedAddressId, cartTotal, addresses, couponDiscount, cartRestaurant]);
+
 
   const handleApplyCoupon = async () => {
     if (!couponCode) return;
@@ -125,6 +136,7 @@ export default function CartPage() {
     <div className="p-4 space-y-6 pb-24">
       <header>
         <h1 className="text-3xl font-bold">سلة التسوق</h1>
+        {cartRestaurant && <p className="text-muted-foreground">الطلب من متجر: {cartRestaurant.name}</p>}
       </header>
 
       <div className="space-y-4">
@@ -233,7 +245,10 @@ export default function CartPage() {
         )}
          <div className="flex justify-between">
           <span>سعر التوصيل:</span>
-          <span>{formatCurrency(deliveryFee)}</span>
+          <div className="flex flex-col items-end">
+            <span>{formatCurrency(deliveryFee)}</span>
+            {distance !== null && <span className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3"/>~{distance.toFixed(1)} كم</span>}
+          </div>
         </div>
         <Separator className="my-2"/>
         <div className="flex justify-between font-bold text-lg">
@@ -279,3 +294,5 @@ export default function CartPage() {
     </div>
   );
 }
+
+    

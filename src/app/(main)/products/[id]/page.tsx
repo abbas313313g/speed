@@ -3,12 +3,12 @@
 "use client";
 
 import { useContext, useState, useMemo, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { AppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
-import { Minus, Plus, ShoppingCart } from 'lucide-react';
+import { Minus, Plus, ShoppingCart, ArrowRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
+  const router = useRouter();
   const context = useContext(AppContext);
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
@@ -93,6 +94,11 @@ export default function ProductDetailPage() {
 
   return (
     <div className="pb-4">
+       <div className="absolute top-4 right-4 z-10">
+          <Button variant="outline" size="icon" className="bg-white/80" onClick={() => router.back()}>
+              <ArrowRight className="h-5 w-5"/>
+          </Button>
+       </div>
       <div className="relative h-64 w-full">
         <Image
           src={product.image}
@@ -173,3 +179,5 @@ export default function ProductDetailPage() {
     </div>
   );
 }
+
+    
