@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useContext, useState } from 'react';
@@ -90,11 +89,14 @@ export default function AdminProductsPage() {
         return;
     }
     
-    const productToSave = {
+    const productToSave: Partial<Product> = {
         ...currentProduct,
-        discountPrice: currentProduct.discountPrice || undefined,
         sizes: currentProduct.sizes?.filter(s => s.name && s.price > 0) || [],
         stock: currentProduct.stock || 0,
+    }
+
+    if (!productToSave.discountPrice || productToSave.discountPrice <= 0) {
+        delete productToSave.discountPrice;
     }
 
     setIsSaving(true);
@@ -300,5 +302,4 @@ export default function AdminProductsPage() {
   );
 }
 
-
-
+    
