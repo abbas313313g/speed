@@ -76,10 +76,16 @@ export default function DeliveryPage() {
     };
 
      const handleRejectOrder = (orderId: string) => {
-        if (workerId && updateOrderStatus) {
-            // This is a simplified rejection. A full implementation would re-trigger assignment.
+        if (workerId && updateOrderStatus && allOrders) {
+            const order = allOrders.find(o => o.id === orderId);
+            if (!order || !order.assignedToWorkerId) return;
+
+            const previouslyAssigned = allOrders
+                .filter(o => o.id === order.id && o.assignedToWorkerId)
+                .map(o => o.assignedToWorkerId!);
+
             updateOrderStatus(orderId, 'unassigned', undefined);
-             toast({title: "تم رفض الطلب", variant: 'destructive'})
+            toast({title: "تم رفض الطلب", variant: 'destructive'});
         }
     };
     

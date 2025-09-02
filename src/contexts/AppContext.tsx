@@ -316,12 +316,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 let couponDoc: any = null;
                 let coupon: Coupon | null = null;
                 if (couponCode) {
-                    const couponRef = doc(collection(db, "coupons"), where("code", "==", couponCode.trim()).toString()); // This isn't quite right but we'll get the real doc later.
                     const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
                     const querySnapshot = await getDocs(couponQuery); // Cannot use transaction for queries, but it's a read before writes. This is acceptable here.
                     
                     if (!querySnapshot.empty) {
-                        couponDoc = await transaction.get(querySnapshot.docs[0].ref);
+                        const couponRef = querySnapshot.docs[0].ref;
+                        couponDoc = await transaction.get(couponRef);
                          if (!couponDoc.exists()) {
                              throw new Error("كود الخصم غير صحيح أو لم يعد صالحاً.");
                          }
@@ -464,6 +464,7 @@ ${itemsText}
             allOrders
                 .filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status))
                 .map(o => o.deliveryWorkerId)
+                .filter((id): id is string => !!id)
         );
 
         // Find available workers: online, not busy, and not in the excluded list
@@ -501,7 +502,7 @@ ${itemsText}
         const interval = setInterval(() => {
             const pendingOrders = allOrders.filter(o => o.status === 'pending_assignment');
             pendingOrders.forEach(order => {
-                if (!order.assignmentTimestamp) return;
+                if (!order.assignmentTimestamp || !order.assignedToWorkerId) return;
                 const timestamp = new Date(order.assignmentTimestamp).getTime();
                 if (Date.now() - timestamp > ASSIGNMENT_TIMEOUT) {
                     console.log(`Order ${order.id} timed out for worker ${order.assignedToWorkerId}. Reassigning...`);
@@ -589,7 +590,7 @@ ${itemsText}
             }
         }
 
-        if (status === 'delivered' || status === 'cancelled') {
+        if ((status === 'delivered' || status === 'cancelled') && workerId) {
             const nextUnassignedOrder = allOrders.find(o => o.status === 'unassigned');
             if (nextUnassignedOrder) {
                 assignOrderToNextWorker(nextUnassignedOrder.id);
@@ -634,7 +635,6 @@ ${itemsText}
                 });
                 toast({ title: `تم تسجيل العامل ${workerData.name} بنجاح` });
             } else {
-                 toast({ title: "العامل موجود بالفعل" });
                  transaction.update(workerRef, { isOnline: true });
             }
         });
