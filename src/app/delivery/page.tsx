@@ -7,10 +7,10 @@ import { useRouter } from 'next/navigation';
 import { AppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, calculateDistance } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogOut, MapPin, Package, RefreshCw, BarChart3, Clock, Shield } from 'lucide-react';
-import type { Order } from '@/lib/types';
+import { LogOut, MapPin, Package, RefreshCw, BarChart3, Clock, Shield, Store } from 'lucide-react';
+import type { Order, Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
 export default function DeliveryPage() {
@@ -28,7 +28,7 @@ export default function DeliveryPage() {
         }
     }, [router]);
     
-    const { allOrders, updateOrderStatus } = context || {};
+    const { allOrders, updateOrderStatus, restaurants } = context || {};
 
     const { availableOrders, myOrders } = useMemo(() => {
         if (!allOrders || !workerId) return { availableOrders: [], myOrders: [] };
@@ -62,50 +62,78 @@ export default function DeliveryPage() {
     if (!context || context.isLoading || !workerId) return <div>جار التحميل...</div>;
     const worker = context.deliveryWorkers.find(w => w.id === workerId);
     
-    const OrderCard = ({order, isMyOrder}: {order: Order, isMyOrder: boolean}) => (
-        <Card>
-            <CardHeader>
-                <CardTitle>طلب #{order.id.substring(0, 6)}</CardTitle>
-                <CardDescription>{order.address.name} - {order.address.deliveryZone}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-                <div className="flex justify-between">
-                    <span>المنتجات:</span>
-                    <span>{order.items.length}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span>المجموع:</span>
-                    <span className="font-bold">{formatCurrency(order.total)}</span>
-                </div>
-                <div className="flex justify-between text-primary font-bold">
-                    <span>ربحك من التوصيل:</span>
-                    <span>{formatCurrency(order.deliveryFee)}</span>
-                </div>
-            </CardContent>
-            <CardFooter className="flex gap-2">
-                 <a href={`https://www.google.com/maps?q=${order.address.latitude},${order.address.longitude}`} target="_blank" rel="noopener noreferrer" className="flex-1">
-                    <Button variant="outline" className="w-full">
-                        <MapPin className="ml-2 h-4 w-4"/>
-                        عرض على الخريطة
-                    </Button>
-                </a>
-                {!isMyOrder && (
-                    <>
-                        <Button variant="destructive" className="flex-1" onClick={() => handleRejectOrder(order.id)}>رفض</Button>
-                        <Button className="flex-1" onClick={() => handleAcceptOrder(order.id)}>قبول</Button>
-                    </>
-                )}
-                 {isMyOrder && (
-                    <Link href={`/delivery/order/${order.id}`} className="flex-1">
-                       <Button className="w-full">
-                            <Package className="ml-2 h-4 w-4"/>
-                            تفاصيل الطلب
-                       </Button>
-                    </Link>
-                 )}
-            </CardFooter>
-        </Card>
-    );
+    const OrderCard = ({order, isMyOrder}: {order: Order, isMyOrder: boolean}) => {
+        const orderRestaurant = useMemo(() => {
+            if (!restaurants || order.items.length === 0) return null;
+            return restaurants.find(r => r.id === order.items[0].product.restaurantId);
+        }, [order.items, restaurants]);
+
+        const distance = useMemo(() => {
+            if (!orderRestaurant || !orderRestaurant.latitude || !orderRestaurant.longitude || !order.address.latitude || !order.address.longitude) return null;
+            return calculateDistance(order.address.latitude, order.address.longitude, orderRestaurant.latitude, orderRestaurant.longitude);
+        }, [order.address, orderRestaurant]);
+
+        return (
+            <Card>
+                <CardHeader>
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <CardTitle>طلب #{order.id.substring(0, 6)}</CardTitle>
+                            <CardDescription>{order.address.name} - {order.address.deliveryZone}</CardDescription>
+                        </div>
+                         {orderRestaurant && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Store className="h-4 w-4"/>
+                                <span>{orderRestaurant.name}</span>
+                            </div>
+                         )}
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                    <div className="flex justify-between">
+                        <span>المنتجات:</span>
+                        <span>{order.items.length}</span>
+                    </div>
+                    {distance !== null && (
+                         <div className="flex justify-between">
+                            <span>مسافة التوصيل:</span>
+                            <span className="font-bold">{distance.toFixed(1)} كم</span>
+                        </div>
+                    )}
+                    <div className="flex justify-between">
+                        <span>المجموع:</span>
+                        <span className="font-bold">{formatCurrency(order.total)}</span>
+                    </div>
+                    <div className="flex justify-between text-primary font-bold">
+                        <span>ربحك من التوصيل:</span>
+                        <span>{formatCurrency(order.deliveryFee)}</span>
+                    </div>
+                </CardContent>
+                <CardFooter className="flex gap-2">
+                     <a href={`https://www.google.com/maps?q=${order.address.latitude},${order.address.longitude}`} target="_blank" rel="noopener noreferrer" className="flex-1">
+                        <Button variant="outline" className="w-full">
+                            <MapPin className="ml-2 h-4 w-4"/>
+                            عرض على الخريطة
+                        </Button>
+                    </a>
+                    {!isMyOrder && (
+                        <>
+                            <Button variant="destructive" className="flex-1" onClick={() => handleRejectOrder(order.id)}>رفض</Button>
+                            <Button className="flex-1" onClick={() => handleAcceptOrder(order.id)}>قبول</Button>
+                        </>
+                    )}
+                     {isMyOrder && (
+                        <Link href={`/delivery/order/${order.id}`} className="flex-1">
+                           <Button className="w-full">
+                                <Package className="ml-2 h-4 w-4"/>
+                                تفاصيل الطلب
+                           </Button>
+                        </Link>
+                     )}
+                </CardFooter>
+            </Card>
+        )
+    };
 
     return (
         <div className="p-4 space-y-6">
@@ -161,3 +189,5 @@ export default function DeliveryPage() {
         </div>
     );
 }
+
+    
