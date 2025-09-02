@@ -7,14 +7,12 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const formatCurrency = (amount: number) => {
-  // Ensure the amount is a whole number before formatting.
-  const roundedAmount = Math.round(amount);
   return new Intl.NumberFormat('ar-IQ', {
     style: 'currency',
     currency: 'IQD',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(roundedAmount);
+  }).format(amount);
 };
 
 
