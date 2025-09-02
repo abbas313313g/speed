@@ -39,7 +39,7 @@ export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2
 export const calculateDeliveryFee = (distanceInKm: number) => {
     const baseFee = 1000; // 1000 IQD for the first 2km
     const feePerKm = 500; // 500 IQD for each additional km
-    const maxFee = 10000; // Max fee is 10,000 IQD
+    const maxFee = 20000; // Max fee is 20,000 IQD
     const baseDistance = 2; // The first 2 km are included in the base fee
 
     if (distanceInKm <= baseDistance) {
