@@ -26,19 +26,21 @@ export default function DeliveryLoginPage() {
 
     if (!context) return <Loader2 className="h-8 w-8 animate-spin" />;
 
-    const { deliveryWorkers, addDeliveryWorker, updateWorkerStatus } = context;
+    const { deliveryWorkers, addDeliveryWorker } = context;
 
     const handleLogin = (e: FormEvent) => {
         e.preventDefault();
+        setIsLoading(true);
         const worker = deliveryWorkers.find(w => w.id === phone);
         if (worker) {
             localStorage.setItem('deliveryWorkerId', worker.id);
-            addDeliveryWorker(worker); // This will also handle setting them to online
+            addDeliveryWorker({ id: worker.id, name: worker.name, isOnline: true });
             toast({ title: `مرحباً بعودتك ${worker.name}` });
             router.push('/delivery');
         } else {
             setStep(2); // Worker not found, move to registration step
         }
+        setIsLoading(false);
     };
     
     const handleRegister = async (e: FormEvent) => {
@@ -49,7 +51,7 @@ export default function DeliveryLoginPage() {
         }
         setIsLoading(true);
         try {
-            await addDeliveryWorker({ id: phone, name });
+            await addDeliveryWorker({ id: phone, name, isOnline: true });
             localStorage.setItem('deliveryWorkerId', phone);
             toast({ title: `أهلاً بك ${name}!`});
             router.push('/delivery');
@@ -84,7 +86,8 @@ export default function DeliveryLoginPage() {
                                     required
                                 />
                             </div>
-                            <Button type="submit" className="w-full">
+                            <Button type="submit" className="w-full" disabled={isLoading}>
+                                {isLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin"/>}
                                 دخول
                             </Button>
                         </CardContent>

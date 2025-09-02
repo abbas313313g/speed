@@ -64,7 +64,7 @@ interface AppContextType {
   deliveryZones: DeliveryZone[];
   localOrderIds: string[];
   updateOrderStatus: (orderId: string, status: OrderStatus, workerId?: string) => Promise<void>;
-  updateWorkerStatus: (workerId: string, isOnline: boolean) => Promise<void>;
+  updateWorkerStatus: (workerId: string, isOnline: boolean, name?: string) => Promise<void>;
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (product: Partial<Product> & {id: string}) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
@@ -84,7 +84,7 @@ interface AppContextType {
   addSupportTicket: (question: string) => Promise<void>;
   resolveSupportTicket: (ticketId: string) => Promise<void>;
   deliveryWorkers: DeliveryWorker[];
-  addDeliveryWorker: (worker: Pick<DeliveryWorker, 'id' | 'name'>) => Promise<void>;
+  addDeliveryWorker: (worker: Pick<DeliveryWorker, 'id' | 'name'> & { isOnline?: boolean }) => Promise<void>;
   coupons: Coupon[];
   addCoupon: (coupon: Omit<Coupon, 'id'|'usedCount'|'usedBy'>) => Promise<void>;
   deleteCoupon: (couponId: string) => Promise<void>;
@@ -519,7 +519,8 @@ ${itemsText}
 
     const updateWorkerStatus = async (workerId: string, isOnline: boolean) => {
         try {
-            await updateDoc(doc(db, "deliveryWorkers", workerId), { isOnline });
+            const workerRef = doc(db, 'deliveryWorkers', workerId);
+            await setDoc(workerRef, { isOnline }, { merge: true });
         } catch (error) {
             console.error("Failed to update worker status:", error);
         }
@@ -622,22 +623,20 @@ ${itemsText}
     }
 
     // --- Delivery Worker Management ---
-    const addDeliveryWorker = async (workerData: Pick<DeliveryWorker, 'id' | 'name'>) => {
+    const addDeliveryWorker = async (workerData: Pick<DeliveryWorker, 'id' | 'name'> & { isOnline?: boolean }) => {
         const workerRef = doc(db, 'deliveryWorkers', workerData.id);
-        await runTransaction(db, async (transaction) => {
-            const workerDoc = await transaction.get(workerRef);
-            if (!workerDoc.exists()) {
-                transaction.set(workerRef, { 
-                    name: workerData.name, 
-                    lastDeliveredAt: new Date().toISOString(), 
-                    unfreezeProgress: 0, 
-                    isOnline: true 
-                });
-            } else {
-                 transaction.update(workerRef, { isOnline: true });
-            }
-        });
+        const dataToSet: Partial<DeliveryWorker> = {
+            name: workerData.name,
+            isOnline: workerData.isOnline ?? true,
+        };
+        try {
+            await setDoc(workerRef, dataToSet, { merge: true });
+        } catch (error) {
+            console.error("Failed to add or update worker:", error);
+            // Optionally re-throw or handle the error
+        }
     };
+
 
     // --- Telegram Config Management ---
     const addTelegramConfig = async (configData: Omit<TelegramConfig, 'id'>) => {
@@ -758,7 +757,7 @@ ${itemsText}
         bestSellers,
         isLoading,
         updateOrderStatus,
-        updateWorkerStatus,
+        updateWorkerStatus: addDeliveryWorker,
         deleteOrder,
         addProduct,
         updateProduct,
