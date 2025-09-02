@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/carousel";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Layers } from "lucide-react";
 
 export default function HomePage() {
   const context = useContext(AppContext);
@@ -70,6 +71,14 @@ export default function HomePage() {
         </div>
         <ScrollArea className="w-full whitespace-nowrap rounded-md">
             <div className="flex w-max space-x-4 pb-4">
+                <Link href="/products" className="flex-shrink-0">
+                    <div className="w-24 text-center group">
+                        <div className="p-4 bg-secondary rounded-lg flex items-center justify-center aspect-square transition-colors group-hover:bg-primary">
+                            <Layers className="h-10 w-10 text-primary transition-colors group-hover:text-primary-foreground" />
+                        </div>
+                        <p className="mt-2 text-sm font-medium truncate">الكل</p>
+                    </div>
+                </Link>
                 {categories.map((category) => (
                     <Link href={`/products?category=${category.id}`} key={category.id} className="flex-shrink-0">
                         <div className="w-24 text-center group">
