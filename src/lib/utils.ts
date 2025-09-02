@@ -33,23 +33,18 @@ export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2
 // Function to calculate delivery fee based on distance
 export const calculateDeliveryFee = (distanceInKm: number) => {
     const baseFee = 1000; // Minimum fee
-    const feePerKm = 500; // 500 IQD per km (1000 IQD per 2 km)
+    const feePerKm = 500; // 500 IQD per km
 
     if (distanceInKm <= 0) {
         return baseFee;
     }
     
-    // Calculate the fee and add the base fee
     const distanceFee = distanceInKm * feePerKm;
-
-    // The total fee is the base fee plus the distance fee
     let totalFee = baseFee + distanceFee;
     
-    // Round to the nearest 250
+    // Round to the nearest 250 IQD
     totalFee = Math.round(totalFee / 250) * 250;
     
     // Ensure the fee is not less than the base fee
     return Math.max(totalFee, baseFee);
 }
-
-    
