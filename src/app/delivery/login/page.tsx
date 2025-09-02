@@ -26,15 +26,15 @@ export default function DeliveryLoginPage() {
 
     if (!context) return <Loader2 className="h-8 w-8 animate-spin" />;
 
-    const { deliveryWorkers, addDeliveryWorker } = context;
+    const { deliveryWorkers, addDeliveryWorker, updateWorkerStatus } = context;
 
-    const handleLogin = (e: FormEvent) => {
+    const handleLogin = async (e: FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         const worker = deliveryWorkers.find(w => w.id === phone);
         if (worker) {
             localStorage.setItem('deliveryWorkerId', worker.id);
-            addDeliveryWorker({ id: worker.id, name: worker.name, isOnline: true });
+            await updateWorkerStatus(worker.id, true);
             toast({ title: `مرحباً بعودتك ${worker.name}` });
             router.push('/delivery');
         } else {
@@ -51,7 +51,11 @@ export default function DeliveryLoginPage() {
         }
         setIsLoading(true);
         try {
-            await addDeliveryWorker({ id: phone, name, isOnline: true });
+            // First, create the worker record.
+            await addDeliveryWorker({ id: phone, name });
+            // Then, set them as online.
+            await updateWorkerStatus(phone, true);
+            
             localStorage.setItem('deliveryWorkerId', phone);
             toast({ title: `أهلاً بك ${name}!`});
             router.push('/delivery');

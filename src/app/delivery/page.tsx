@@ -33,11 +33,10 @@ export default function DeliveryPage() {
     useEffect(() => {
         if (!workerId || !context) return;
         
-        const worker = context.deliveryWorkers.find(w => w.id === workerId);
-        if (!worker) return;
+        const { updateWorkerStatus } = context;
 
-        const handleOnline = () => context.updateWorkerStatus(workerId, true, worker.name);
-        const handleOffline = () => context.updateWorkerStatus(workerId, false, worker.name);
+        const handleOnline = () => updateWorkerStatus(workerId, true);
+        const handleOffline = () => updateWorkerStatus(workerId, false);
 
         // Set online when component mounts
         handleOnline();
@@ -62,7 +61,7 @@ export default function DeliveryPage() {
         };
     }, [workerId, context]);
     
-    const { allOrders, updateOrderStatus, restaurants } = context || {};
+    const { allOrders, updateOrderStatus, restaurants, deliveryWorkers } = context || {};
 
     const { availableOrders, myOrders } = useMemo(() => {
         if (!allOrders || !workerId) return { availableOrders: [], myOrders: [] };
@@ -96,17 +95,14 @@ export default function DeliveryPage() {
     
     const handleLogout = () => {
         if(workerId && context) {
-            const worker = context.deliveryWorkers.find(w => w.id === workerId);
-            if (worker) {
-                context.updateWorkerStatus(workerId, false, worker.name);
-            }
+            context.updateWorkerStatus(workerId, false);
         }
         localStorage.removeItem('deliveryWorkerId');
         router.replace('/delivery/login');
     };
 
     if (!context || context.isLoading || !workerId) return <div>جار التحميل...</div>;
-    const worker = context.deliveryWorkers.find(w => w.id === workerId);
+    const worker = deliveryWorkers?.find(w => w.id === workerId);
     
     const OrderCard = ({order, isMyOrder}: {order: Order, isMyOrder: boolean}) => {
         const orderRestaurant = useMemo(() => {
