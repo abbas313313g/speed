@@ -63,6 +63,7 @@ interface AppContextType {
   deliveryZones: DeliveryZone[];
   localOrderIds: string[];
   updateOrderStatus: (orderId: string, status: OrderStatus, workerId?: string) => Promise<void>;
+  updateWorkerStatus: (workerId: string, isOnline: boolean) => Promise<void>;
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (product: Partial<Product> & {id: string}) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
@@ -94,7 +95,7 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
-const ASSIGNMENT_TIMEOUT = 120000; // 120 seconds (2 minutes)
+const ASSIGNMENT_TIMEOUT = 120000; // 2 minutes
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const { toast } = useToast();
@@ -457,7 +458,17 @@ ${itemsText}
             }
         });
 
-        const availableWorkers = deliveryWorkers.filter(w => !excludedWorkerIds.includes(w.id));
+        // Find busy workers (those with an active order)
+        const busyWorkerIds = new Set(
+            allOrders
+                .filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status))
+                .map(o => o.deliveryWorkerId)
+        );
+
+        // Find available workers: online, not busy, and not in the excluded list
+        const availableWorkers = deliveryWorkers.filter(
+            w => w.isOnline && !busyWorkerIds.has(w.id) && !excludedWorkerIds.includes(w.id)
+        );
 
         if (availableWorkers.length === 0) {
             console.log("No available workers to assign the order to.");
@@ -465,6 +476,7 @@ ${itemsText}
             return;
         }
 
+        // Sort available workers by least completed orders
         availableWorkers.sort((a,b) => (completedOrdersByWorker[a.id] || 0) - (completedOrdersByWorker[b.id] || 0));
         
         const nextWorker = availableWorkers[0];
@@ -478,11 +490,13 @@ ${itemsText}
     };
 
     useEffect(() => {
+        // Automatically assign new 'unassigned' orders
         const unassignedOrders = allOrders.filter(o => o.status === 'unassigned');
         unassignedOrders.forEach(order => {
             assignOrderToNextWorker(order.id);
         });
 
+        // Check for timed-out orders periodically
         const interval = setInterval(() => {
             const pendingOrders = allOrders.filter(o => o.status === 'pending_assignment');
             pendingOrders.forEach(order => {
@@ -500,6 +514,15 @@ ${itemsText}
 
         return () => clearInterval(interval);
     }, [allOrders, deliveryWorkers]);
+
+    const updateWorkerStatus = async (workerId: string, isOnline: boolean) => {
+        try {
+            await updateDoc(doc(db, "deliveryWorkers", workerId), { isOnline });
+        } catch (error) {
+            console.error("Failed to update worker status:", error);
+        }
+    };
+
 
     const updateOrderStatus = async (orderId: string, status: OrderStatus, workerId?: string) => {
         const orderDocRef = doc(db, "orders", orderId);
@@ -564,6 +587,13 @@ ${itemsText}
                 });
             }
         }
+
+        if (status === 'delivered' || status === 'cancelled') {
+            const nextUnassignedOrder = allOrders.find(o => o.status === 'unassigned');
+            if (nextUnassignedOrder) {
+                assignOrderToNextWorker(nextUnassignedOrder.id);
+            }
+        }
         
         await updateDoc(orderDocRef, updateData);
     };
@@ -595,10 +625,11 @@ ${itemsText}
         await runTransaction(db, async (transaction) => {
             const workerDoc = await transaction.get(workerRef);
             if (!workerDoc.exists()) {
-                transaction.set(workerRef, { name: workerData.name, lastDeliveredAt: new Date().toISOString(), unfreezeProgress: 0 });
+                transaction.set(workerRef, { name: workerData.name, lastDeliveredAt: new Date().toISOString(), unfreezeProgress: 0, isOnline: true });
                 toast({ title: `تم تسجيل العامل ${workerData.name} بنجاح` });
             } else {
                  toast({ title: "العامل موجود بالفعل" });
+                 transaction.update(workerRef, { isOnline: true });
             }
         });
     };
@@ -722,6 +753,7 @@ ${itemsText}
         bestSellers,
         isLoading,
         updateOrderStatus,
+        updateWorkerStatus,
         deleteOrder,
         addProduct,
         updateProduct,
@@ -770,5 +802,7 @@ ${itemsText}
         </AppContext.Provider>
     );
 };
+
+    
 
     

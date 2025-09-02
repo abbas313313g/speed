@@ -78,6 +78,7 @@ export interface DeliveryWorker {
     name: string;
     lastDeliveredAt?: string; // ISO String
     unfreezeProgress?: number;
+    isOnline?: boolean;
 }
 
 export type OrderStatus = 'unassigned' | 'pending_assignment' | 'confirmed' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled';
@@ -128,5 +129,7 @@ export interface TelegramConfig {
     name: string; // For display purposes (e.g., "Owner 1", "Ahmed's Phone")
 }
 
+
+    
 
     

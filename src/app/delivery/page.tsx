@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useContext, useEffect, useState, useMemo } from 'react';
@@ -9,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatCurrency, calculateDistance } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogOut, MapPin, Package, RefreshCw, BarChart3, Clock, Shield, Store } from 'lucide-react';
+import { LogOut, MapPin, Package, RefreshCw, BarChart3, Clock, Shield, Store, CircleDot } from 'lucide-react';
 import type { Order, Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -27,6 +28,34 @@ export default function DeliveryPage() {
             setWorkerId(id);
         }
     }, [router]);
+
+    // Effect for handling online/offline status
+    useEffect(() => {
+        if (!workerId || !context?.updateWorkerStatus) return;
+
+        const handleOnline = () => context.updateWorkerStatus(workerId, true);
+        const handleOffline = () => context.updateWorkerStatus(workerId, false);
+
+        // Set online when component mounts
+        handleOnline();
+
+        // Add event listeners for visibility change and unload
+        window.addEventListener('beforeunload', handleOffline);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                handleOnline();
+            } else {
+                handleOffline();
+            }
+        });
+
+        // Cleanup on component unmount
+        return () => {
+            handleOffline(); // Set offline when navigating away or closing
+            window.removeEventListener('beforeunload', handleOffline);
+            document.removeEventListener('visibilitychange', () => {});
+        };
+    }, [workerId, context?.updateWorkerStatus]);
     
     const { allOrders, updateOrderStatus, restaurants } = context || {};
 
@@ -55,6 +84,9 @@ export default function DeliveryPage() {
     };
     
     const handleLogout = () => {
+        if(workerId && context?.updateWorkerStatus) {
+            context.updateWorkerStatus(workerId, false);
+        }
         localStorage.removeItem('deliveryWorkerId');
         router.replace('/delivery/login');
     };
@@ -140,7 +172,10 @@ export default function DeliveryPage() {
             <header className="flex justify-between items-center">
                  <div>
                     <h1 className="text-2xl font-bold">مرحباً {worker?.name}</h1>
-                    <p className="text-muted-foreground">بوابة عمال التوصيل</p>
+                    <div className="flex items-center gap-2 text-sm">
+                        <CircleDot className={`h-4 w-4 ${worker?.isOnline ? 'text-green-500' : 'text-gray-400'}`} />
+                        <span className="text-muted-foreground">{worker?.isOnline ? 'أنت متصل الآن' : 'أنت غير متصل'}</span>
+                    </div>
                  </div>
                  <div className="flex gap-2">
                      <Button variant="ghost" size="icon" asChild>
@@ -189,5 +224,7 @@ export default function DeliveryPage() {
         </div>
     );
 }
+
+    
 
     
