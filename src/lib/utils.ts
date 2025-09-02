@@ -46,15 +46,12 @@ export const calculateDeliveryFee = (distanceInKm: number) => {
         return baseFee;
     }
     
-    // Calculate the fee for the distance exceeding the base distance
     const extraDistance = distanceInKm - baseDistance;
     const distanceFee = extraDistance * feePerKm;
     
     let totalFee = baseFee + distanceFee;
     
-    // Round to the nearest 250 IQD
     totalFee = Math.round(totalFee / 250) * 250;
     
-    // Clamp the fee between the base fee and the maximum fee
     return Math.min(Math.max(totalFee, baseFee), maxFee);
 }

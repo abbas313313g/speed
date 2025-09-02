@@ -119,6 +119,14 @@ export default function CartPage() {
     }
   };
 
+  const displayDistance = useMemo(() => {
+    if (distance === null) return null;
+    if (distance < 1) {
+      return `~${Math.round(distance * 1000)} متر`;
+    }
+    return `~${distance.toFixed(1)} كم`;
+  }, [distance]);
+
   if (cart.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] text-center p-4">
@@ -249,7 +257,7 @@ export default function CartPage() {
           <span>سعر التوصيل:</span>
           <div className="flex flex-col items-end">
             <span>{formatCurrency(deliveryFee)}</span>
-            {distance !== null && <span className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3"/>~{distance.toFixed(1)} كم</span>}
+            {displayDistance && <span className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3"/>{displayDistance}</span>}
           </div>
         </div>
         <Separator className="my-2"/>
