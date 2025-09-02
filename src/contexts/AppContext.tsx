@@ -4,7 +4,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker, Coupon, TelegramConfig, ProductSize } from '@/lib/types';
+import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker, Coupon, ProductSize } from '@/lib/types';
 import { categories as initialCategoriesData } from '@/lib/mock-data';
 import { ShoppingBasket } from 'lucide-react';
 import { db } from '@/lib/firebase';
@@ -310,15 +310,15 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 }
 
                 // 2. Calculate totals and handle coupon
-                let finalTotal = cartTotal;
+                let subTotal = cartTotal;
                 let discountAmount = 0;
                 let appliedCouponInfo;
 
                 if (couponCode) {
-                    const couponResult = await validateAndApplyCoupon(couponCode); // This can be optimized to use the transaction
+                    const couponResult = await validateAndApplyCoupon(couponCode);
                     if (couponResult.success) {
                         discountAmount = couponResult.discount;
-                        finalTotal -= discountAmount;
+                        subTotal -= discountAmount;
                         appliedCouponInfo = { code: couponCode, discountAmount };
                     } else {
                         throw new Error(couponResult.message);
@@ -330,7 +330,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     : null;
                 const deliveryFee = distance !== null ? calculateDeliveryFee(distance) : 0;
                 
-                finalTotal += deliveryFee;
+                const finalTotal = subTotal + deliveryFee;
 
                 const profit = cart.reduce((acc, item) => {
                     const itemPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
@@ -654,7 +654,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     const deleteRestaurant = async (restaurantId: string) => {
         await deleteDoc(doc(db, "restaurants", restaurantId));
-        toast({ title: "تم حذف المتجر بنجاح", variant: "destructive" });
+        toast({ title: "تم حذف المتجر بنجاح" });
     }
   
     const addBanner = async (bannerData: Omit<Banner, 'id'>) => {
@@ -761,4 +761,5 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     );
 };
 
+    
     
