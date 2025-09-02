@@ -1,5 +1,5 @@
 
-import { clsx, type ClassValue } from "clsx"
+import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
 export function cn(...inputs: ClassValue[]) {
@@ -18,8 +18,8 @@ export const formatCurrency = (amount: number) => {
 
 // Function to calculate distance between two lat/lng points in kilometers
 export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371; // Radius of the Earth in km
     const toRad = (value: number) => (value * Math.PI) / 180;
+    const R = 6371; // Radius of the Earth in km
 
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);

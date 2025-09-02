@@ -4,7 +4,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker, Coupon, ProductSize } from '@/lib/types';
+import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker, Coupon, ProductSize, TelegramConfig } from '@/lib/types';
 import { categories as initialCategoriesData } from '@/lib/mock-data';
 import { ShoppingBasket } from 'lucide-react';
 import { db } from '@/lib/firebase';
@@ -395,18 +395,18 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     }).join('\\n');
                     const locationLink = newOrderData.address.latitude ? `https://www.google.com/maps?q=${newOrderData.address.latitude},${newOrderData.address.longitude}` : 'غير محدد';
                     const message = `
-        *طلب جديد* 🔥
-        *رقم الطلب:* \`${orderRef.id.substring(0, 6)}\`
-        *الزبون:* ${newOrderData.address.name}
-        *الهاتف:* ${newOrderData.address.phone}
-        *العنوان:* ${newOrderData.address.deliveryZone}
-        *تفاصيل:* ${newOrderData.address.details || 'لا يوجد'}
-        *الموقع:* ${locationLink}
-        ---
-        *المنتجات:*
-        ${itemsText}
-        ---
-        *المجموع:* ${formatCurrency(newOrderData.total)}
+*طلب جديد* 🔥
+*رقم الطلب:* \`${orderRef.id.substring(0, 6)}\`
+*الزبون:* ${newOrderData.address.name}
+*الهاتف:* ${newOrderData.address.phone}
+*العنوان:* ${newOrderData.address.deliveryZone}
+*تفاصيل:* ${newOrderData.address.details || 'لا يوجد'}
+*الموقع:* ${locationLink}
+---
+*المنتجات:*
+${itemsText}
+---
+*المجموع:* ${formatCurrency(newOrderData.total)}
                     `;
                     ownerConfigs.forEach(config => sendTelegramMessage(config.chatId, message));
                 }
@@ -760,6 +760,3 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         </AppContext.Provider>
     );
 };
-
-    
-    

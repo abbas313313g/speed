@@ -56,7 +56,9 @@ export default function CartPage() {
 
   const { deliveryFee, distance, finalTotal } = useMemo(() => {
     const subTotalWithDiscount = cartTotal - couponDiscount;
-    if (!selectedAddressId || !cartRestaurant) return { deliveryFee: 0, distance: null, finalTotal: subTotalWithDiscount };
+    if (!selectedAddressId || !cartRestaurant) {
+        return { deliveryFee: 0, distance: null, finalTotal: subTotalWithDiscount };
+    }
     
     const address = addresses.find(a => a.id === selectedAddressId);
     if (!address || !address.latitude || !address.longitude || !cartRestaurant.latitude || !cartRestaurant.longitude) {
@@ -294,4 +296,3 @@ export default function CartPage() {
     </div>
   );
 }
-
