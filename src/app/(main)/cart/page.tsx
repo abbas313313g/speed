@@ -108,10 +108,10 @@ export default function CartPage() {
       setCouponCode("");
       setCouponDiscount(0);
 
-    } catch (error) {
+    } catch (error: any) {
        toast({
-        title: "حدث خطأ",
-        description: "لم نتمكن من إرسال طلبك. الرجاء المحاولة مرة أخرى.",
+        title: "حدث خطأ أثناء إرسال الطلب",
+        description: error.message || "لم نتمكن من إرسال طلبك. الرجاء المحاولة مرة أخرى.",
         variant: "destructive",
       });
     } finally {
