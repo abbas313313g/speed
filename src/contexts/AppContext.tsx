@@ -633,7 +633,6 @@ ${itemsText}
                     unfreezeProgress: 0, 
                     isOnline: true 
                 });
-                toast({ title: `تم تسجيل العامل ${workerData.name} بنجاح` });
             } else {
                  transaction.update(workerRef, { isOnline: true });
             }
@@ -808,9 +807,3 @@ ${itemsText}
         </AppContext.Provider>
     );
 };
-
-    
-
-    
-
-    

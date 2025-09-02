@@ -33,7 +33,7 @@ export default function DeliveryLoginPage() {
         const worker = deliveryWorkers.find(w => w.id === phone);
         if (worker) {
             localStorage.setItem('deliveryWorkerId', worker.id);
-            updateWorkerStatus(worker.id, true);
+            addDeliveryWorker(worker); // This will also handle setting them to online
             toast({ title: `مرحباً بعودتك ${worker.name}` });
             router.push('/delivery');
         } else {
@@ -127,5 +127,3 @@ export default function DeliveryLoginPage() {
         </div>
     )
 }
-
-    
