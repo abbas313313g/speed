@@ -19,7 +19,8 @@ import {
     query,
     where,
     getDocs,
-    writeBatch
+    writeBatch,
+    setDoc
 } from 'firebase/firestore';
 import { formatCurrency, calculateDistance, calculateDeliveryFee } from '@/lib/utils';
 
@@ -83,7 +84,7 @@ interface AppContextType {
   addSupportTicket: (question: string) => Promise<void>;
   resolveSupportTicket: (ticketId: string) => Promise<void>;
   deliveryWorkers: DeliveryWorker[];
-  addDeliveryWorker: (worker: DeliveryWorker) => Promise<void>;
+  addDeliveryWorker: (worker: Pick<DeliveryWorker, 'id' | 'name'>) => Promise<void>;
   coupons: Coupon[];
   addCoupon: (coupon: Omit<Coupon, 'id'|'usedCount'|'usedBy'>) => Promise<void>;
   deleteCoupon: (couponId: string) => Promise<void>;
@@ -182,7 +183,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         }, 0);
     }, [cart]);
     
-    const addToCart = (product: Product, quantity: number, selectedSize?: ProductSize) => {
+    const addToCart = useCallback((product: Product, quantity: number, selectedSize?: ProductSize) => {
         setCart(prevCart => {
             const restaurantId = product.restaurantId;
             const cartIsFromDifferentRestaurant = prevCart.length > 0 && prevCart[0].product.restaurantId !== restaurantId;
@@ -211,7 +212,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             }
             return [...prevCart, { product, quantity, selectedSize }];
         });
-    };
+    }, [toast]);
 
     const removeFromCart = (productId: string, sizeName?: string) => {
         setCart(prevCart => prevCart.filter(item => 
@@ -283,8 +284,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
         const cartRestaurant = restaurants.find(r => r.id === cart[0].product.restaurantId);
         if (!cartRestaurant) {
-            toast({ title: "خطأ في الطلب", description: "لم يتم العثور على المتجر الخاص بالطلب.", variant: "destructive"});
-            return;
+            throw new Error("لم يتم العثور على المتجر الخاص بالطلب.");
         }
 
         try {
@@ -316,20 +316,26 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 let couponDoc: any = null;
                 let coupon: Coupon | null = null;
                 if (couponCode) {
+                    const couponRef = doc(collection(db, "coupons"), where("code", "==", couponCode.trim()).toString()); // This isn't quite right but we'll get the real doc later.
                     const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
                     const querySnapshot = await getDocs(couponQuery); // Cannot use transaction for queries, but it's a read before writes. This is acceptable here.
-                    if (querySnapshot.empty) {
-                        throw new Error("كود الخصم غير صحيح.");
-                    }
-                    couponDoc = querySnapshot.docs[0];
-                    coupon = { id: couponDoc.id, ...couponDoc.data() } as Coupon;
+                    
+                    if (!querySnapshot.empty) {
+                        couponDoc = await transaction.get(querySnapshot.docs[0].ref);
+                         if (!couponDoc.exists()) {
+                             throw new Error("كود الخصم غير صحيح أو لم يعد صالحاً.");
+                         }
+                        coupon = { id: couponDoc.id, ...couponDoc.data() } as Coupon;
 
-                    if (coupon.usedCount >= coupon.maxUses) {
-                        throw new Error("تم استخدام هذا الكود بالكامل.");
-                    }
-                    const userId = "localUser";
-                    if (coupon.usedBy?.includes(userId)) {
-                        throw new Error("لقد استخدمت هذا الكود من قبل.");
+                        if (coupon.usedCount >= coupon.maxUses) {
+                            throw new Error("تم استخدام هذا الكود بالكامل.");
+                        }
+                        const userId = "localUser";
+                        if (coupon.usedBy?.includes(userId)) {
+                            throw new Error("لقد استخدمت هذا الكود من قبل.");
+                        }
+                    } else {
+                         throw new Error("كود الخصم غير صحيح.");
                     }
                 }
 
@@ -388,9 +394,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     }
                 }
                 
-                if (couponDoc) {
-                    const updatedUsedCount = couponDoc.data().usedCount + 1;
-                    const updatedUsedBy = [...(couponDoc.data().usedBy || []), "localUser"];
+                if (couponDoc && coupon) {
+                    const updatedUsedCount = coupon.usedCount + 1;
+                    const updatedUsedBy = [...(coupon.usedBy || []), "localUser"];
                     transaction.update(couponDoc.ref, { usedCount: updatedUsedCount, usedBy: updatedUsedBy });
                 }
                 
@@ -427,11 +433,6 @@ ${itemsText}
 
         } catch (error: any) {
             console.error("Order placement failed:", error);
-            toast({
-                title: "فشل إرسال الطلب",
-                description: error.message || "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.",
-                variant: "destructive"
-            });
             throw error; // Re-throw to inform the caller
         }
     }
@@ -620,12 +621,17 @@ ${itemsText}
     }
 
     // --- Delivery Worker Management ---
-    const addDeliveryWorker = async (workerData: Omit<DeliveryWorker, 'id'> & {id: string}) => {
+    const addDeliveryWorker = async (workerData: Pick<DeliveryWorker, 'id' | 'name'>) => {
         const workerRef = doc(db, 'deliveryWorkers', workerData.id);
         await runTransaction(db, async (transaction) => {
             const workerDoc = await transaction.get(workerRef);
             if (!workerDoc.exists()) {
-                transaction.set(workerRef, { name: workerData.name, lastDeliveredAt: new Date().toISOString(), unfreezeProgress: 0, isOnline: true });
+                transaction.set(workerRef, { 
+                    name: workerData.name, 
+                    lastDeliveredAt: new Date().toISOString(), 
+                    unfreezeProgress: 0, 
+                    isOnline: true 
+                });
                 toast({ title: `تم تسجيل العامل ${workerData.name} بنجاح` });
             } else {
                  toast({ title: "العامل موجود بالفعل" });
@@ -802,6 +808,8 @@ ${itemsText}
         </AppContext.Provider>
     );
 };
+
+    
 
     
 
