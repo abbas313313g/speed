@@ -71,11 +71,13 @@ export default function ProductDetailPage() {
         });
         return;
       }
-      context.addToCart(product, quantity, selectedSize);
-       toast({
-        title: "تمت الإضافة إلى السلة",
-        description: `${quantity}x ${product.name}${selectedSize ? ` (${selectedSize.name})` : ''}`,
-      });
+      const wasAdded = context.addToCart(product, quantity, selectedSize);
+      if (wasAdded) {
+          toast({
+            title: "تمت الإضافة إلى السلة",
+            description: `${quantity}x ${product.name}${selectedSize ? ` (${selectedSize.name})` : ''}`,
+          });
+      }
     }
   };
 
@@ -179,5 +181,3 @@ export default function ProductDetailPage() {
     </div>
   );
 }
-
-    

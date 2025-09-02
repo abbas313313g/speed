@@ -44,11 +44,13 @@ function ProductCardComponent({ product }: ProductCardProps) {
             })
             return;
         }
-        context.addToCart(product, 1);
-        toast({
-            title: "تمت الإضافة إلى السلة",
-            description: `تمت إضافة ${product.name} إلى سلتك.`,
-        });
+        const wasAdded = context.addToCart(product, 1);
+        if (wasAdded) {
+            toast({
+                title: "تمت الإضافة إلى السلة",
+                description: `تمت إضافة ${product.name} إلى سلتك.`,
+            });
+        }
     }
   };
 

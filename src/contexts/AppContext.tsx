@@ -52,7 +52,7 @@ interface AppContextType {
   isLoading: boolean;
   cart: CartItem[];
   cartTotal: number;
-  addToCart: (product: Product, quantity: number, selectedSize?: ProductSize) => void;
+  addToCart: (product: Product, quantity: number, selectedSize?: ProductSize) => boolean;
   removeFromCart: (productId: string, sizeName?: string) => void;
   updateCartQuantity: (productId: string, quantity: number, sizeName?: string) => void;
   clearCart: () => void;
@@ -183,23 +183,27 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         }, 0);
     }, [cart]);
     
-    const addToCart = useCallback((product: Product, quantity: number, selectedSize?: ProductSize) => {
-        setCart(prevCart => {
-            const restaurantId = product.restaurantId;
-            const cartIsFromDifferentRestaurant = prevCart.length > 0 && prevCart[0].product.restaurantId !== restaurantId;
-            
-            if(cartIsFromDifferentRestaurant) {
-                toast({
-                    title: "بدء سلة جديدة؟",
-                    description: "لديك منتجات من متجر آخر. هل تريد حذفها وبدء سلة جديدة من هذا المتجر؟",
-                    action: <button onClick={() => {
-                        const newCartItem = { product, quantity, selectedSize };
-                        setCart([newCartItem]);
-                    }} className="px-3 py-1.5 border rounded-md text-sm bg-primary text-primary-foreground">نعم، ابدأ</button>
-                });
-                return prevCart;
-            }
+    const addToCart = useCallback((product: Product, quantity: number, selectedSize?: ProductSize): boolean => {
+        const restaurantId = product.restaurantId;
+        const cartIsFromDifferentRestaurant = cart.length > 0 && cart[0].product.restaurantId !== restaurantId;
+        
+        if(cartIsFromDifferentRestaurant) {
+            toast({
+                title: "بدء سلة جديدة؟",
+                description: "لديك منتجات من متجر آخر. هل تريد حذفها وبدء سلة جديدة من هذا المتجر؟",
+                action: <button onClick={() => {
+                    const newCartItem = { product, quantity, selectedSize };
+                    setCart([newCartItem]);
+                    toast({
+                        title: "تمت الإضافة إلى السلة",
+                        description: `تمت إضافة ${product.name} إلى سلتك.`,
+                    });
+                }} className="px-3 py-1.5 border rounded-md text-sm bg-primary text-primary-foreground">نعم، ابدأ</button>
+            });
+            return false;
+        }
 
+        setCart(prevCart => {
             const existingItemIndex = prevCart.findIndex(item => 
                 item.product.id === product.id && 
                 item.selectedSize?.name === selectedSize?.name
@@ -212,7 +216,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             }
             return [...prevCart, { product, quantity, selectedSize }];
         });
-    }, [toast]);
+        return true;
+    }, [cart, toast]);
+
 
     const removeFromCart = (productId: string, sizeName?: string) => {
         setCart(prevCart => prevCart.filter(item => 
@@ -289,57 +295,50 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
         try {
             await runTransaction(db, async (transaction) => {
-                // --- Step 1: ALL READS ---
                 const productDocs = new Map<string, any>();
-                for (const item of cart) {
+                const productReads = cart.map(item => {
                     const productRef = doc(db, "products", item.product.id);
-                    const productDoc = await transaction.get(productRef);
-                    if (!productDoc.exists()) {
-                        throw new Error(`منتج "${item.product.name}" لم يعد متوفرًا.`);
-                    }
-                    const productData = productDoc.data() as Product;
+                    return transaction.get(productRef).then(productDoc => {
+                         if (!productDoc.exists()) {
+                            throw new Error(`منتج "${item.product.name}" لم يعد متوفرًا.`);
+                        }
+                        const productData = productDoc.data() as Product;
 
-                    // Stock validation
-                    if (item.selectedSize) {
-                        const sizeIndex = productData.sizes?.findIndex(s => s.name === item.selectedSize!.name);
-                        if (sizeIndex === undefined || sizeIndex === -1 || (productData.sizes?.[sizeIndex].stock ?? 0) < item.quantity) {
-                            throw new Error(`الكمية المطلوبة من "${item.product.name} (${item.selectedSize.name})" غير متوفرة.`);
+                        if (item.selectedSize) {
+                            const sizeIndex = productData.sizes?.findIndex(s => s.name === item.selectedSize!.name);
+                            if (sizeIndex === undefined || sizeIndex === -1 || (productData.sizes?.[sizeIndex].stock ?? 0) < item.quantity) {
+                                throw new Error(`الكمية المطلوبة من "${item.product.name} (${item.selectedSize.name})" غير متوفرة.`);
+                            }
+                        } else {
+                            if ((productData.stock ?? 0) < item.quantity) {
+                                throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
+                            }
                         }
-                    } else {
-                        if ((productData.stock ?? 0) < item.quantity) {
-                            throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
-                        }
-                    }
-                    productDocs.set(item.product.id, productData);
-                }
+                        productDocs.set(item.product.id, productData);
+                    });
+                });
 
                 let couponDoc: any = null;
                 let coupon: Coupon | null = null;
                 if (couponCode) {
                     const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
-                    const querySnapshot = await getDocs(couponQuery); // Cannot use transaction for queries, but it's a read before writes. This is acceptable here.
-                    
+                    const querySnapshot = await getDocs(couponQuery);
                     if (!querySnapshot.empty) {
-                        const couponRef = querySnapshot.docs[0].ref;
-                        couponDoc = await transaction.get(couponRef);
-                         if (!couponDoc.exists()) {
-                             throw new Error("كود الخصم غير صحيح أو لم يعد صالحاً.");
-                         }
+                        couponDoc = await transaction.get(querySnapshot.docs[0].ref);
+                        if (!couponDoc.exists()) {
+                            throw new Error("كود الخصم غير صحيح أو لم يعد صالحاً.");
+                        }
                         coupon = { id: couponDoc.id, ...couponDoc.data() } as Coupon;
-
-                        if (coupon.usedCount >= coupon.maxUses) {
-                            throw new Error("تم استخدام هذا الكود بالكامل.");
-                        }
+                        if (coupon.usedCount >= coupon.maxUses) throw new Error("تم استخدام هذا الكود بالكامل.");
                         const userId = "localUser";
-                        if (coupon.usedBy?.includes(userId)) {
-                            throw new Error("لقد استخدمت هذا الكود من قبل.");
-                        }
+                        if (coupon.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
                     } else {
-                         throw new Error("كود الخصم غير صحيح.");
+                        throw new Error("كود الخصم غير صحيح.");
                     }
                 }
+                
+                await Promise.all(productReads);
 
-                // --- Step 2: CALCULATIONS (No Reads/Writes) ---
                 let subTotal = cartTotal;
                 let discountAmount = 0;
                 let appliedCouponInfo;
@@ -363,7 +362,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     return acc + itemProfit;
                 }, 0);
                 
-                // --- Step 3: ALL WRITES ---
                 const newOrderData: Omit<Order, 'id' | 'userId'> = {
                     items: cart,
                     total: finalTotal,
@@ -400,11 +398,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     transaction.update(couponDoc.ref, { usedCount: updatedUsedCount, usedBy: updatedUsedBy });
                 }
                 
-                // After transaction succeeds:
                 setLocalOrderIds(prev => [...prev, orderRef.id]);
                 
-                 // --- Telegram Notification for Owners ---
-                const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
+                 const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
                 if (ownerConfigs.length > 0) {
                     const itemsText = newOrderData.items.map(item => {
                         const sizeText = item.selectedSize ? ` (${item.selectedSize.name})` : '';
@@ -429,11 +425,11 @@ ${itemsText}
                 }
 
                 clearCart();
-            }); // End of transaction
+            }); 
 
         } catch (error: any) {
             console.error("Order placement failed:", error);
-            throw error; // Re-throw to inform the caller
+            throw error; 
         }
     }
 
@@ -520,7 +516,6 @@ ${itemsText}
     const updateWorkerStatus = async (workerId: string, isOnline: boolean) => {
         try {
             const workerRef = doc(db, 'deliveryWorkers', workerId);
-            // Use setDoc with merge to prevent error if doc doesn't exist yet
             await setDoc(workerRef, { isOnline }, { merge: true });
         } catch (error) {
             console.error("Failed to update worker status:", error);
@@ -626,7 +621,6 @@ ${itemsText}
     // --- Delivery Worker Management ---
     const addDeliveryWorker = async (workerData: Pick<DeliveryWorker, 'id' | 'name'>) => {
         const workerRef = doc(db, 'deliveryWorkers', workerData.id);
-        // Using set with merge to create or update the document safely.
         await setDoc(workerRef, { name: workerData.name }, { merge: true });
     };
 
