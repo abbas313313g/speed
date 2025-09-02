@@ -72,11 +72,16 @@ export default function AdminStoresPage() {
         toast({ title: "بيانات غير مكتملة", description: "اسم المتجر ورابط صورته مطلوبان.", variant: "destructive" });
         return;
     }
-    const storeToSave = {
-        ...currentStore,
-        latitude: currentStore.latitude || undefined,
-        longitude: currentStore.longitude || undefined,
+    const storeToSave = { ...currentStore };
+    
+    // Ensure undefined values are not sent to Firestore
+    if (storeToSave.latitude === undefined || isNaN(storeToSave.latitude)) {
+        delete storeToSave.latitude;
     }
+    if (storeToSave.longitude === undefined || isNaN(storeToSave.longitude)) {
+        delete storeToSave.longitude;
+    }
+
 
     setIsSaving(true);
     try {
