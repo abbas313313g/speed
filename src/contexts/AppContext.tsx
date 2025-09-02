@@ -94,7 +94,7 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
-const ASSIGNMENT_TIMEOUT = 60000; // 60 seconds
+const ASSIGNMENT_TIMEOUT = 120000; // 120 seconds (2 minutes)
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const { toast } = useToast();

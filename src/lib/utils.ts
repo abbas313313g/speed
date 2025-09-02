@@ -37,21 +37,24 @@ export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2
 
 // Function to calculate delivery fee based on distance
 export const calculateDeliveryFee = (distanceInKm: number) => {
-    const feePerSegment = 1000; // 1000 IQD
-    const segmentLength = 3; // 3 km
+    const feePerThreeKm = 1000; // 1000 IQD for every 3 km
+    const feePerKm = feePerThreeKm / 3;
+    const minFee = 1000; // Min fee is 1,000 IQD
     const maxFee = 20000; // Max fee is 20,000 IQD
 
     if (distanceInKm <= 0) {
-        return feePerSegment;
+        return minFee;
     }
 
-    // Calculate how many 3km segments are in the distance
-    const segments = Math.ceil(distanceInKm / segmentLength);
-    let totalFee = segments * feePerSegment;
+    // Calculate the raw fee based on distance
+    let totalFee = distanceInKm * feePerKm;
 
-    // Ensure fee does not exceed the maximum
-    totalFee = Math.min(totalFee, maxFee);
+    // Round the fee to the nearest 250
+    totalFee = Math.round(totalFee / 250) * 250;
     
-    // Since fee is already in multiples of 1000, no need to round to 250
+    // Apply min and max fee constraints
+    totalFee = Math.max(minFee, totalFee);
+    totalFee = Math.min(totalFee, maxFee);
+
     return totalFee;
 }
