@@ -288,7 +288,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
         try {
             await runTransaction(db, async (transaction) => {
-                // 1. Verify stock for all cart items
+                // --- Step 1: ALL READS ---
+                const productDocs = new Map<string, any>();
                 for (const item of cart) {
                     const productRef = doc(db, "products", item.product.id);
                     const productDoc = await transaction.get(productRef);
@@ -297,6 +298,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     }
                     const productData = productDoc.data() as Product;
 
+                    // Stock validation
                     if (item.selectedSize) {
                         const sizeIndex = productData.sizes?.findIndex(s => s.name === item.selectedSize!.name);
                         if (sizeIndex === undefined || sizeIndex === -1 || (productData.sizes?.[sizeIndex].stock ?? 0) < item.quantity) {
@@ -307,24 +309,40 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                             throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
                         }
                     }
+                    productDocs.set(item.product.id, productData);
                 }
 
-                // 2. Calculate totals and handle coupon
+                let couponDoc: any = null;
+                let coupon: Coupon | null = null;
+                if (couponCode) {
+                    const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
+                    const querySnapshot = await getDocs(couponQuery); // Cannot use transaction for queries, but it's a read before writes. This is acceptable here.
+                    if (querySnapshot.empty) {
+                        throw new Error("كود الخصم غير صحيح.");
+                    }
+                    couponDoc = querySnapshot.docs[0];
+                    coupon = { id: couponDoc.id, ...couponDoc.data() } as Coupon;
+
+                    if (coupon.usedCount >= coupon.maxUses) {
+                        throw new Error("تم استخدام هذا الكود بالكامل.");
+                    }
+                    const userId = "localUser";
+                    if (coupon.usedBy?.includes(userId)) {
+                        throw new Error("لقد استخدمت هذا الكود من قبل.");
+                    }
+                }
+
+                // --- Step 2: CALCULATIONS (No Reads/Writes) ---
                 let subTotal = cartTotal;
                 let discountAmount = 0;
                 let appliedCouponInfo;
 
-                if (couponCode) {
-                    const couponResult = await validateAndApplyCoupon(couponCode);
-                    if (couponResult.success) {
-                        discountAmount = couponResult.discount;
-                        subTotal -= discountAmount;
-                        appliedCouponInfo = { code: couponCode, discountAmount };
-                    } else {
-                        throw new Error(couponResult.message);
-                    }
+                if (coupon) {
+                    discountAmount = coupon.discountValue;
+                    subTotal -= discountAmount;
+                    appliedCouponInfo = { code: coupon.code, discountAmount };
                 }
-                
+
                 const distance = (address.latitude && address.longitude && cartRestaurant.latitude && cartRestaurant.longitude)
                     ? calculateDistance(address.latitude, address.longitude, cartRestaurant.latitude, cartRestaurant.longitude)
                     : null;
@@ -337,8 +355,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     const itemProfit = (itemPrice - (item.product.wholesalePrice || itemPrice)) * item.quantity;
                     return acc + itemProfit;
                 }, 0);
-
-                // 3. Create the order
+                
+                // --- Step 3: ALL WRITES ---
                 const newOrderData: Omit<Order, 'id' | 'userId'> = {
                     items: cart,
                     total: finalTotal,
@@ -350,14 +368,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     deliveryFee,
                     ...(appliedCouponInfo && { appliedCoupon: appliedCouponInfo })
                 };
-                const orderRef = doc(collection(db, "orders")); // Create ref beforehand
+                const orderRef = doc(collection(db, "orders"));
                 transaction.set(orderRef, newOrderData);
 
-                // 4. Decrement stock
                 for (const item of cart) {
                     const productRef = doc(db, "products", item.product.id);
-                    const productDoc = await transaction.get(productRef); // Re-get within transaction
-                    const productData = productDoc.data() as Product;
+                    const productData = productDocs.get(item.product.id);
 
                     if (item.selectedSize) {
                         const newSizes = productData.sizes?.map(s => 
@@ -371,16 +387,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     }
                 }
                 
-                // 5. Update coupon usage
-                if (couponCode) {
-                     const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode));
-                     const snapshot = await getDocs(couponQuery); // Cannot use transaction for queries
-                     if (!snapshot.empty) {
-                         const couponDoc = snapshot.docs[0];
-                         const updatedUsedCount = couponDoc.data().usedCount + 1;
-                         const updatedUsedBy = [...(couponDoc.data().usedBy || []), "localUser"];
-                         transaction.update(couponDoc.ref, { usedCount: updatedUsedCount, usedBy: updatedUsedBy });
-                     }
+                if (couponDoc) {
+                    const updatedUsedCount = couponDoc.data().usedCount + 1;
+                    const updatedUsedBy = [...(couponDoc.data().usedBy || []), "localUser"];
+                    transaction.update(couponDoc.ref, { usedCount: updatedUsedCount, usedBy: updatedUsedBy });
                 }
                 
                 // After transaction succeeds:
@@ -760,3 +770,5 @@ ${itemsText}
         </AppContext.Provider>
     );
 };
+
+    
