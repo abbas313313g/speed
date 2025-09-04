@@ -20,9 +20,12 @@ import {
     where,
     getDocs,
     writeBatch,
-    setDoc
+    setDoc,
+    arrayUnion
 } from 'firebase/firestore';
 import { formatCurrency, calculateDistance, calculateDeliveryFee } from '@/lib/utils';
+import { v4 as uuidv4 } from 'uuid';
+
 
 // --- Telegram Bot Helper ---
 const sendTelegramMessage = async (chatId: string, message: string) => {
@@ -81,7 +84,9 @@ interface AppContextType {
   updateDeliveryZone: (zone: DeliveryZone) => Promise<void>;
   deleteDeliveryZone: (zoneId: string) => Promise<void>;
   supportTickets: SupportTicket[];
-  addSupportTicket: (question: string, history: Message[]) => Promise<void>;
+  mySupportTicket: SupportTicket | null;
+  createSupportTicket: (firstMessage: Message) => Promise<void>;
+  addMessageToTicket: (ticketId: string, message: Message) => Promise<void>;
   resolveSupportTicket: (ticketId: string) => Promise<void>;
   deliveryWorkers: DeliveryWorker[];
   addDeliveryWorker: (worker: Pick<DeliveryWorker, 'id' | 'name'>) => Promise<void>;
@@ -92,11 +97,23 @@ interface AppContextType {
   telegramConfigs: TelegramConfig[];
   addTelegramConfig: (config: Omit<TelegramConfig, 'id'>) => Promise<void>;
   deleteTelegramConfig: (configId: string) => Promise<void>;
+  userId: string;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
 
 const ASSIGNMENT_TIMEOUT = 120000; // 2 minutes
+
+// Helper to get or create a unique user ID
+const getUserId = () => {
+    let id = localStorage.getItem('speedShopUserId');
+    if (!id) {
+        id = uuidv4();
+        localStorage.setItem('speedShopUserId', id);
+    }
+    return id;
+};
+
 
 export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const { toast } = useToast();
@@ -113,9 +130,15 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [localOrderIds, setLocalOrderIds] = useState<string[]>([]);
     const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+    const [mySupportTicket, setMySupportTicket] = useState<SupportTicket | null>(null);
     const [deliveryWorkers, setDeliveryWorkers] = useState<DeliveryWorker[]>([]);
     const [coupons, setCoupons] = useState<Coupon[]>([]);
     const [telegramConfigs, setTelegramConfigs] = useState<TelegramConfig[]>([]);
+    const [userId, setUserId] = useState('');
+
+    useEffect(() => {
+        setUserId(getUserId());
+    }, []);
     
     // --- Data Listeners ---
     useEffect(() => {
@@ -152,6 +175,25 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             unsubs.forEach(unsub => unsub());
         };
     }, []);
+
+    // Listener for user-specific support ticket
+    useEffect(() => {
+        if (!userId) return;
+
+        const q = query(collection(db, "supportTickets"), where("userId", "==", userId));
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            if (!querySnapshot.empty) {
+                const ticketDoc = querySnapshot.docs[0];
+                setMySupportTicket({ id: ticketDoc.id, ...ticketDoc.data() } as SupportTicket);
+            } else {
+                setMySupportTicket(null);
+            }
+        });
+
+        return () => unsubscribe();
+
+    }, [userId]);
+
 
     // --- Derived State ---
     const bestSellers = useMemo(() => {
@@ -270,8 +312,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             return { success: false, discount: 0, message: "تم استخدام هذا الكود بالكامل." };
         }
         
-        // This is a simplified check. A real app would use the logged-in user's ID.
-        const userId = "localUser"; // Placeholder for actual user ID
         if (coupon.usedBy?.includes(userId)) {
              return { success: false, discount: 0, message: "لقد استخدمت هذا الكود من قبل." };
         }
@@ -318,30 +358,32 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                         productDocs.set(item.product.id, productData);
                     });
                 });
+
+                let couponDocSnap: any = null;
+                let coupon: Coupon | null = null;
+                if (couponCode) {
+                    const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
+                    // Use getDocs instead of transaction.get for queries within transactions
+                    const querySnapshot = await getDocs(couponQuery);
+                    if (!querySnapshot.empty) {
+                        couponDocSnap = querySnapshot.docs[0];
+                        coupon = { id: couponDocSnap.id, ...couponDocSnap.data() } as Coupon;
+                         if (coupon.usedCount >= coupon.maxUses) throw new Error("تم استخدام هذا الكود بالكامل.");
+                         if (coupon.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
+                    } else {
+                         throw new Error("كود الخصم غير صحيح.");
+                    }
+                }
                 
                 await Promise.all(productReads);
 
-                let couponDocSnap: any = null;
-                if (couponCode) {
-                    const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
-                    const querySnapshot = await getDocs(couponQuery); // Using getDocs as it's a read
-                    if (querySnapshot.empty) {
-                        throw new Error("كود الخصم غير صحيح.");
-                    }
-                    couponDocSnap = querySnapshot.docs[0];
-                    const couponData = couponDocSnap.data() as Coupon;
-                    if (couponData.usedCount >= couponData.maxUses) throw new Error("تم استخدام هذا الكود بالكامل.");
-                    const userId = "localUser";
-                    if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
-                }
 
                 // --- WRITES AFTER ---
                 let subTotal = cartTotal;
                 let discountAmount = 0;
                 let appliedCouponInfo;
 
-                if (couponDocSnap) {
-                    const coupon = { id: couponDocSnap.id, ...couponDocSnap.data() } as Coupon;
+                if (coupon) {
                     discountAmount = coupon.discountValue;
                     subTotal -= discountAmount;
                     appliedCouponInfo = { code: coupon.code, discountAmount };
@@ -360,7 +402,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     return acc + itemProfit;
                 }, 0);
                 
-                const newOrderData: Omit<Order, 'id' | 'userId'> = {
+                const newOrderData: Omit<Order, 'id'> = {
+                    userId: userId,
                     items: cart,
                     total: finalTotal,
                     date: new Date().toISOString(),
@@ -390,10 +433,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     }
                 }
                 
-                if (couponDocSnap) {
-                    const coupon = { id: couponDocSnap.id, ...couponDocSnap.data() } as Coupon;
+                if (couponDocSnap && coupon) {
                     const updatedUsedCount = coupon.usedCount + 1;
-                    const updatedUsedBy = [...(coupon.usedBy || []), "localUser"];
+                    const updatedUsedBy = [...(coupon.usedBy || []), userId];
                     transaction.update(couponDocSnap.ref, { usedCount: updatedUsedCount, usedBy: updatedUsedBy });
                 }
                 
@@ -603,14 +645,25 @@ ${itemsText}
     }
 
     // --- Support Ticket Management ---
-    const addSupportTicket = async (question: string, history: Message[]) => {
-        const ticket: Omit<SupportTicket, 'id'> = {
-            question,
-            history,
+    const createSupportTicket = async (firstMessage: Message) => {
+        if (!userId) return;
+        const userName = addresses[0]?.name || `مستخدم ${userId.substring(0, 4)}`;
+        const newTicket: Omit<SupportTicket, 'id'> = {
+            userId,
+            userName,
+            question: firstMessage.content,
+            history: [firstMessage],
             createdAt: new Date().toISOString(),
             isResolved: false,
         };
-        await addDoc(collection(db, "supportTickets"), ticket);
+        await addDoc(collection(db, "supportTickets"), newTicket);
+    };
+
+    const addMessageToTicket = async (ticketId: string, message: Message) => {
+        const ticketRef = doc(db, "supportTickets", ticketId);
+        await updateDoc(ticketRef, {
+            history: arrayUnion(message)
+        });
     };
 
     const resolveSupportTicket = async (ticketId: string) => {
@@ -621,7 +674,7 @@ ${itemsText}
     // --- Delivery Worker Management ---
     const addDeliveryWorker = async (workerData: Pick<DeliveryWorker, 'id' | 'name'>) => {
         const workerRef = doc(db, 'deliveryWorkers', workerData.id);
-        await setDoc(workerRef, { name: workerData.name, isOnline: true }, { merge: true });
+        await setDoc(workerRef, { name: workerData.name }, { merge: true });
     };
 
 
@@ -774,7 +827,9 @@ ${itemsText}
         deliveryZones: deliveryZones,
         localOrderIds,
         supportTickets,
-        addSupportTicket,
+        mySupportTicket,
+        createSupportTicket,
+        addMessageToTicket,
         resolveSupportTicket,
         deliveryWorkers,
         addDeliveryWorker,
@@ -785,6 +840,7 @@ ${itemsText}
         telegramConfigs,
         addTelegramConfig,
         deleteTelegramConfig,
+        userId,
     };
 
     return (
@@ -793,5 +849,3 @@ ${itemsText}
         </AppContext.Provider>
     );
 };
-
-    

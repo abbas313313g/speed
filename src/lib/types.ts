@@ -85,6 +85,7 @@ export type OrderStatus = 'unassigned' | 'pending_assignment' | 'confirmed' | 'p
 
 export interface Order {
     id: string;
+    userId: string;
     items: CartItem[];
     total: number;
     date: string; // Should be ISO string
@@ -95,7 +96,6 @@ export interface Order {
     deliveryFee: number;
     deliveryWorkerId?: string;
     deliveryWorker?: DeliveryWorker;
-    userId?: string; // Optional now
     assignedToWorkerId?: string;
     assignmentTimestamp?: string;
     appliedCoupon?: {
@@ -105,16 +105,19 @@ export interface Order {
 }
 
 export interface Message {
-    role: 'user' | 'assistant';
+    role: 'user' | 'assistant' | 'admin';
     content: string;
+    timestamp: string;
 }
 
 export interface SupportTicket {
     id: string;
+    userId: string;
+    userName: string;
     question: string;
     createdAt: string;
     isResolved: boolean;
-    history?: Message[];
+    history: Message[];
 }
 
 export interface Coupon {
@@ -134,10 +137,3 @@ export interface TelegramConfig {
     workerId?: string; // only if type is 'worker'
     name: string; // For display purposes (e.g., "Owner 1", "Ahmed's Phone")
 }
-
-
-    
-
-    
-
-    

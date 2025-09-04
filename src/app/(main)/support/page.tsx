@@ -8,20 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { Bot, Loader2, Send, User } from "lucide-react";
-import { askAiSupport } from "@/ai/flows/ai-support";
+import { Bot, Loader2, Send, User, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AppContext } from "@/contexts/AppContext";
-
-
-export interface Message {
-  role: "user" | "assistant";
-  content: string;
-  isEscalation?: boolean;
-}
+import type { Message } from "@/lib/types";
 
 export default function SupportPage() {
-  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -35,152 +27,123 @@ export default function SupportPage() {
             viewport.scrollTop = viewport.scrollHeight;
         }
     }
-  }, [messages]);
+  }, [context?.mySupportTicket?.history]);
 
-  useEffect(() => {
-    setMessages([
-        {
-            role: "assistant",
-            content: "مرحباً! أنا سبيدي، مساعدك الذكي في تطبيق Speed Shop. كيف يمكنني مساعدتك اليوم؟"
-        }
-    ])
-  }, []);
-
-  const handleEscalate = async () => {
-      if (!context || messages.length === 0) return;
-      setIsLoading(true);
-
-      const lastUserQuestion = messages.filter(m => m.role === 'user').pop()?.content || "لم يحدد المستخدم سؤالاً";
-      
-      await context.addSupportTicket(lastUserQuestion, messages);
-      
-      const escalationResponseMessage: Message = { role: 'assistant', content: 'تم إرسال محادثتك بنجاح إلى فريق الدعم. سيتم التواصل معك قريبًا.'};
-      
-      // Remove escalation buttons from previous message and add the final response
-      setMessages(prev => 
-        prev.map(m => ({...m, isEscalation: false}))
-            .concat(escalationResponseMessage)
-      );
-      
-      setIsLoading(false);
-  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || !context) return;
 
-    const userMessage: Message = { role: "user", content: input };
-    const newMessages: Message[] = [...messages, userMessage];
-    
-    setMessages(newMessages);
-    setInput("");
     setIsLoading(true);
+    const userMessage: Message = { 
+        role: "user", 
+        content: input,
+        timestamp: new Date().toISOString()
+    };
+    
+    setInput("");
 
     try {
-      const result = await askAiSupport({ question: input, history: newMessages });
-      
-      const assistantMessage: Message = { 
-          role: "assistant", 
-          content: result.answer,
-          isEscalation: result.shouldEscalate
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-
+      if (context.mySupportTicket) {
+        // Ticket exists, just add the new message
+        await context.addMessageToTicket(context.mySupportTicket.id, userMessage);
+      } else {
+        // No ticket exists, create a new one with the first message
+        await context.createSupportTicket(userMessage);
+      }
     } catch (error) {
-      const errorMessage: Message = {
-        role: "assistant",
-        content: "عذراً، حدث خطأ ما. هل تود إرسال سؤالك لفريق الدعم البشري؟",
-        isEscalation: true
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+       toast({
+        title: "فشل إرسال الرسالة",
+        description: "حدث خطأ ما. الرجاء المحاولة مرة أخرى.",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
   };
+
+  const ticket = context?.mySupportTicket;
   
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
        <header className="p-4 border-b">
-        <h1 className="text-xl font-bold text-center">الدعم الفني الذكي</h1>
+        <h1 className="text-xl font-bold text-center">الدعم الفني</h1>
       </header>
       <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
         <div className="space-y-6">
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={cn(
-                "flex items-start gap-3",
-                message.role === "user" ? "justify-end" : "justify-start"
-              )}
-            >
-              {message.role === "assistant" && (
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback>
-                    <Bot />
-                  </AvatarFallback>
-                </Avatar>
-              )}
-              <div
-                className={cn(
-                  "max-w-[75%] rounded-lg p-3 text-sm",
-                  message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted"
-                )}
-              >
-                <p className="whitespace-pre-wrap">{message.content}</p>
-                {message.isEscalation && (
-                    <div className="mt-2 flex gap-2 border-t pt-2">
-                        <Button size="sm" onClick={handleEscalate} disabled={isLoading}>
-                           {isLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : "نعم، أرسل المحادثة"}
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => {
-                            // Remove escalation buttons and add a clarifying question
-                             setMessages(prev => 
-                                prev.map(m => ({...m, isEscalation: false}))
-                                .concat({role: 'assistant', content: 'تمام، كيف يمكنني مساعدتك أيضاً؟'})
-                            )
-                        }}>لا، شكراً</Button>
-                    </div>
-                )}
-              </div>
-               {message.role === "user" && (
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback>
-                    <User />
-                  </AvatarFallback>
-                </Avatar>
-              )}
-            </div>
-          ))}
-          {isLoading && (
-             <div className="flex items-start gap-3 justify-start">
-                <Avatar className="h-8 w-8">
-                    <AvatarFallback><Bot /></AvatarFallback>
-                </Avatar>
-                <div className="bg-muted rounded-lg p-3 flex items-center">
-                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            {!ticket && (
+                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-8">
+                    <MessageSquareWarning className="h-16 w-16 mb-4"/>
+                    <h2 className="text-xl font-semibold">أهلاً بك في الدعم الفني</h2>
+                    <p>يمكنك طرح سؤالك هنا وسيقوم فريقنا بالرد عليك في أقرب وقت ممكن.</p>
                 </div>
-             </div>
-          )}
+            )}
+            {ticket?.history.map((message, index) => (
+                <div
+                key={index}
+                className={cn(
+                    "flex items-start gap-3",
+                    message.role === "user" ? "justify-end" : "justify-start"
+                )}
+                >
+                {message.role !== "user" && (
+                    <Avatar className="h-8 w-8">
+                    <AvatarFallback className={cn(message.role === 'admin' && 'bg-primary text-primary-foreground')}>
+                        {message.role === 'admin' ? <ShieldCheck /> : <Bot />}
+                    </AvatarFallback>
+                    </Avatar>
+                )}
+                <div
+                    className={cn(
+                    "max-w-[75%] rounded-lg p-3 text-sm",
+                    message.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted"
+                    )}
+                >
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                </div>
+                {message.role === "user" && (
+                    <Avatar className="h-8 w-8">
+                    <AvatarFallback>
+                        <User />
+                    </AvatarFallback>
+                    </Avatar>
+                )}
+                </div>
+            ))}
+            {isLoading && (
+                <div className="flex items-start gap-3 justify-end">
+                    <div className="bg-primary/80 text-primary-foreground rounded-lg p-3 flex items-center">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                    </div>
+                    <Avatar className="h-8 w-8">
+                        <AvatarFallback><User /></AvatarFallback>
+                    </Avatar>
+                </div>
+            )}
         </div>
       </ScrollArea>
       <div className="p-4 border-t bg-background">
-        <form onSubmit={handleSubmit} className="flex items-center gap-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="اكتب سؤالك هنا..."
-            className="flex-1"
-            disabled={isLoading}
-          />
-          <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
-            <Send className="h-4 w-4" />
-          </Button>
-        </form>
+         {ticket?.isResolved ? (
+             <div className="text-center text-sm text-muted-foreground p-2 bg-muted rounded-lg">
+                تم إغلاق هذه المحادثة من قبل فريق الدعم. ابدأ محادثة جديدة إذا كنت بحاجة للمزيد من المساعدة.
+             </div>
+         ) : (
+            <form onSubmit={handleSubmit} className="flex items-center gap-2">
+                <Input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="اكتب رسالتك هنا..."
+                    className="flex-1"
+                    disabled={isLoading}
+                />
+                <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
+                    <Send className="h-4 w-4" />
+                </Button>
+            </form>
+         )}
       </div>
     </div>
   );
 }
-
-    

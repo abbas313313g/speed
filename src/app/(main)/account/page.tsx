@@ -32,7 +32,7 @@ export default function AccountPage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
          <Button asChild>
             <Link href="/account/add-address">
             <PlusCircle className="ml-2 h-5 w-5" />
@@ -42,7 +42,7 @@ export default function AccountPage() {
          <Button asChild variant="outline">
             <Link href="/support">
             <MessageSquareHeart className="ml-2 h-5 w-5" />
-            الدعم الذكي
+            الدعم الفني
             </Link>
         </Button>
       </div>
