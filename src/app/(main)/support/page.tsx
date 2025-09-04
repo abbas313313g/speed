@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { Loader2, Send, User, ShieldCheck, MessageSquareWarning } from "lucide-react";
+import { Loader2, Send, User, ShieldCheck, MessageSquareWarning, PlusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AppContext } from "@/contexts/AppContext";
 import type { Message } from "@/lib/types";
@@ -65,6 +65,12 @@ export default function SupportPage() {
     }
   };
 
+  const handleStartNewConversation = () => {
+    if (context) {
+        context.startNewTicketClient();
+    }
+  }
+
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
@@ -118,8 +124,14 @@ export default function SupportPage() {
       </ScrollArea>
       <div className="p-4 border-t bg-background">
          {ticket?.isResolved ? (
-             <div className="text-center text-sm text-muted-foreground p-2 bg-muted rounded-lg">
-                تم إغلاق هذه المحادثة من قبل فريق الدعم. ابدأ محادثة جديدة إذا كنت بحاجة للمزيد من المساعدة.
+             <div className="text-center space-y-3">
+                <p className="text-sm text-muted-foreground p-2 bg-muted rounded-lg">
+                    تم إغلاق هذه المحادثة من قبل فريق الدعم.
+                </p>
+                <Button onClick={handleStartNewConversation}>
+                    <PlusCircle className="ml-2 h-4 w-4" />
+                    بدء محادثة جديدة
+                </Button>
              </div>
          ) : (
             <form onSubmit={handleSubmit} className="flex items-center gap-2">

@@ -88,6 +88,7 @@ interface AppContextType {
   createSupportTicket: (firstMessage: Message) => Promise<void>;
   addMessageToTicket: (ticketId: string, message: Message) => Promise<void>;
   resolveSupportTicket: (ticketId: string) => Promise<void>;
+  startNewTicketClient: () => void;
   deliveryWorkers: DeliveryWorker[];
   addDeliveryWorker: (worker: Pick<DeliveryWorker, 'id' | 'name'>) => Promise<void>;
   coupons: Coupon[];
@@ -646,6 +647,10 @@ ${itemsText}
     }
 
     // --- Support Ticket Management ---
+    const startNewTicketClient = () => {
+        setMySupportTicket(null);
+    }
+    
     const createSupportTicket = async (firstMessage: Message) => {
         if (!userId) return;
         if (mySupportTicket && !mySupportTicket.isResolved) {
@@ -862,6 +867,7 @@ ${itemsText}
         createSupportTicket,
         addMessageToTicket,
         resolveSupportTicket,
+        startNewTicketClient,
         deliveryWorkers,
         addDeliveryWorker,
         coupons,
