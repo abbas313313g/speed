@@ -50,7 +50,7 @@ export default function HomePage() {
                 <Link href={banner.link}>
                     <Card>
                     <CardContent className="relative flex aspect-video items-center justify-center p-0">
-                        <Image src={banner.image} fill alt={`Promotion ${index + 1}`} className="rounded-lg object-cover" data-ai-hint="shopping promotion" />
+                        <Image src={banner.image} fill alt={`Promotion ${index + 1}`} className="rounded-lg object-cover" data-ai-hint="shopping promotion" unoptimized={true}/>
                     </CardContent>
                     </Card>
                 </Link>

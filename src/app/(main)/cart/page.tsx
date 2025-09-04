@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useContext, useState, useMemo } from "react";
@@ -152,14 +151,16 @@ export default function CartPage() {
       <div className="space-y-4">
         {cart.map(({ product, quantity, selectedSize }) => {
           const itemPrice = selectedSize?.price ?? product.discountPrice ?? product.price;
+          const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/80x80.png';
           return (
             <div key={product.id + (selectedSize?.name || '')} className="flex items-center gap-4">
               <Image
-                src={product.image}
+                src={imageUrl}
                 alt={product.name}
                 width={80}
                 height={80}
                 className="rounded-lg object-cover"
+                unoptimized={true}
               />
               <div className="flex-grow">
                 <h3 className="font-semibold">{product.name}</h3>

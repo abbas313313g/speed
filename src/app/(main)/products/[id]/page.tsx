@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useContext, useState, useMemo, useEffect } from 'react';
@@ -93,6 +92,7 @@ export default function ProductDetailPage() {
 
 
   const hasDiscount = !!product.discountPrice && !selectedSize;
+  const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/600x400.png';
 
   return (
     <div className="pb-4">
@@ -103,11 +103,12 @@ export default function ProductDetailPage() {
        </div>
       <div className="relative h-64 w-full">
         <Image
-          src={product.image}
+          src={imageUrl}
           alt={product.name}
           fill
           className="object-cover"
           data-ai-hint="food meal"
+          unoptimized={true}
         />
         {hasDiscount && <Badge variant="destructive" className="absolute top-4 right-4 text-lg">خصم!</Badge>}
       </div>

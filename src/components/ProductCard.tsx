@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useContext, useMemo } from "react";
@@ -56,6 +55,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const hasDiscount = !!product.discountPrice;
   const displayPrice = product.discountPrice || product.price;
+  const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/600x400.png';
 
   return (
     <Link href={`/products/${product.id}`} className="group block">
@@ -63,11 +63,12 @@ function ProductCardComponent({ product }: ProductCardProps) {
         <CardContent className="p-0">
           <div className="relative h-40 w-full">
             <Image
-              src={product.image}
+              src={imageUrl}
               alt={product.name}
               fill
               className="object-cover"
               data-ai-hint="product item"
+              unoptimized={true}
             />
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 text-sm">نفدت الكمية</Badge>}
             {hasDiscount && <Badge variant="destructive" className="absolute top-2 right-2">خصم</Badge>}

@@ -13,7 +13,7 @@ interface RestaurantCardProps {
 }
 
 function RestaurantCardComponent({ restaurant }: RestaurantCardProps) {
-  const imageUrl = restaurant.image && restaurant.image.startsWith('http') ? restaurant.image : 'https://placehold.co/100x100.png';
+  const imageUrl = restaurant.image && (restaurant.image.startsWith('http') || restaurant.image.startsWith('data:')) ? restaurant.image : 'https://placehold.co/100x100.png';
   return (
     <Link href={`/restaurants/${restaurant.id}`} className="group block">
       <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex items-center gap-4 p-4">
@@ -24,6 +24,7 @@ function RestaurantCardComponent({ restaurant }: RestaurantCardProps) {
             fill
             className="object-cover rounded-md"
             data-ai-hint="store logo"
+            unoptimized={true}
           />
         </div>
         <div className="flex-grow">

@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Star, Edit, Trash2, Loader2 } from 'lucide-react';
+import { Star, Edit, Trash2, Loader2, MapPin } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -41,6 +41,8 @@ const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     name: '',
     image: '',
     rating: 0,
+    latitude: undefined,
+    longitude: undefined,
 };
 
 export default function AdminStoresPage() {
@@ -53,7 +55,7 @@ export default function AdminStoresPage() {
 
   if (!context || context.isLoading) return <div>جار التحميل...</div>;
   const { restaurants, addRestaurant, updateRestaurant, deleteRestaurant } = context;
-
+  
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -64,7 +66,7 @@ export default function AdminStoresPage() {
       reader.readAsDataURL(file);
     }
   };
-  
+
   const handleOpenDialog = (store?: Restaurant) => {
     if (store) {
         setIsEditing(true);
@@ -98,6 +100,28 @@ export default function AdminStoresPage() {
     }
   };
 
+  const handleFetchLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCurrentStore({
+            ...currentStore,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+          toast({ title: "تم تحديد الموقع بنجاح!" });
+        },
+        () => {
+          toast({
+            title: "فشل تحديد الموقع",
+            description: "الرجاء التأكد من تفعيل خدمة تحديد المواقع.",
+            variant: "destructive",
+          });
+        }
+      );
+    }
+  }
+
   return (
     <div className="space-y-8">
       <header className="flex justify-between items-center">
@@ -109,7 +133,7 @@ export default function AdminStoresPage() {
       </header>
 
       <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'تعديل المتجر' : 'إضافة متجر جديد'}</DialogTitle>
                 </DialogHeader>
@@ -120,13 +144,23 @@ export default function AdminStoresPage() {
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="rating" className="text-right">التقييم</Label>
-                        <Input id="rating" type="number" step="0.1" value={currentStore.rating} onChange={(e) => setCurrentStore({...currentStore, rating: parseFloat(e.target.value) || 0})} className="col-span-3" />
+                        <Input id="rating" type="text" inputMode="decimal" step="0.1" value={currentStore.rating || ''} onChange={(e) => setCurrentStore({...currentStore, rating: parseFloat(e.target.value.replace(/[^0-9.]/g, '')) || 0})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="image" className="text-right">صورة</Label>
-                        <Input id="image" type="file" onChange={handleImageUpload} className="col-span-3" accept="image/*" />
+                         <Input id="image" type="file" onChange={handleImageUpload} className="col-span-3" accept="image/*" />
                     </div>
-                     {currentStore.image && <Image src={currentStore.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain"/>}
+                     {currentStore.image && <Image src={currentStore.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain" unoptimized={true} />}
+
+                    <div className="col-span-4 space-y-2">
+                        <Label>موقع المتجر (خط العرض والطول)</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <Input placeholder="Latitude" type="number" value={currentStore.latitude || ''} onChange={(e) => setCurrentStore({...currentStore, latitude: parseFloat(e.target.value) || undefined})} />
+                            <Input placeholder="Longitude" type="number" value={currentStore.longitude || ''} onChange={(e) => setCurrentStore({...currentStore, longitude: parseFloat(e.target.value) || undefined})} />
+                        </div>
+                        <Button variant="outline" className="w-full" onClick={handleFetchLocation}><MapPin className="ml-2 h-4 w-4"/>تحديد الموقع الحالي</Button>
+                    </div>
+
                 </div>
                 <DialogFooter>
                     <Button type="submit" onClick={handleSave} disabled={isSaving}>
@@ -147,48 +181,51 @@ export default function AdminStoresPage() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {restaurants.map((store) => (
-            <TableRow key={store.id}>
-              <TableCell>
-                <Image src={store.image} alt={store.name} width={40} height={40} className="rounded-md object-cover" />
-              </TableCell>
-              <TableCell className="font-medium">{store.name}</TableCell>
-              <TableCell className="flex items-center gap-1">
-                <Star className="h-5 w-5 fill-amber-500 text-amber-500" />
-                {store.rating.toFixed(1)}
-              </TableCell>
-              <TableCell>
-                  <div className="flex items-center gap-2">
-                      <Button variant="outline" size="icon" onClick={() => handleOpenDialog(store)}>
-                          <Edit className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                           <Button variant="destructive" size="icon">
-                                <Trash2 className="h-4 w-4" />
-                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    هذا الإجراء سيقوم بحذف المتجر "{store.name}" بشكل نهائي.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteRestaurant(store.id)}>حذف</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                  </div>
-              </TableCell>
-            </TableRow>
-          ))}
+          {restaurants.map((store) => {
+            const imageUrl = store.image && (store.image.startsWith('http') || store.image.startsWith('data:')) ? store.image : 'https://placehold.co/40x40.png';
+            return (
+                <TableRow key={store.id}>
+                <TableCell>
+                    <Image src={imageUrl} alt={store.name} width={40} height={40} className="rounded-md object-cover" unoptimized={true} />
+                </TableCell>
+                <TableCell className="font-medium">{store.name}</TableCell>
+                <TableCell>
+                    <div className="flex items-center gap-1">
+                        <Star className="h-5 w-5 fill-amber-500 text-amber-500" />
+                        {store.rating.toFixed(1)}
+                    </div>
+                </TableCell>
+                <TableCell>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="icon" onClick={() => handleOpenDialog(store)}>
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="icon">
+                                    <Trash2 className="h-4 w-4" />
+                            </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        هذا الإجراء سيقوم بحذف المتجر "{store.name}" بشكل نهائي.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteRestaurant(store.id)}>حذف</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                </TableCell>
+                </TableRow>
+            )
+          })}
         </TableBody>
       </Table>
     </div>
   );
 }
-
-    

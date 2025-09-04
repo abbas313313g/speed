@@ -42,7 +42,7 @@ export default function RestaurantProductsPage() {
       return <div className="text-center py-10">لم يتم العثور على المتجر.</div>
   }
 
-  const imageUrl = restaurant.image && restaurant.image.startsWith('http') ? restaurant.image : 'https://placehold.co/100x100.png';
+  const imageUrl = restaurant.image && (restaurant.image.startsWith('http') || restaurant.image.startsWith('data:')) ? restaurant.image : 'https://placehold.co/100x100.png';
 
   return (
     <div className="p-4 space-y-6">
@@ -61,6 +61,7 @@ export default function RestaurantProductsPage() {
             fill
             className="object-cover rounded-lg"
             data-ai-hint="store logo"
+            unoptimized={true}
           />
         </div>
         <div className="space-y-2">
@@ -95,6 +96,3 @@ export default function RestaurantProductsPage() {
     </div>
   );
 }
-
-
-    

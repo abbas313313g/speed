@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useContext, useMemo } from 'react';
@@ -104,12 +103,14 @@ export default function OrdersPage() {
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                 <div className="flex flex-wrap gap-2">
-                                    {order.items.slice(0,3).map(item => (
+                                    {order.items.slice(0,3).map(item => {
+                                        const imageUrl = item.product.image && (item.product.image.startsWith('http') || item.product.image.startsWith('data:')) ? item.product.image : 'https://placehold.co/40x40.png';
+                                        return (
                                         <div key={item.product.id + (item.selectedSize?.name || '')} className="relative">
-                                            <Image src={item.product.image} alt={item.product.name} width={40} height={40} className="rounded-md object-cover"/>
+                                            <Image src={imageUrl} alt={item.product.name} width={40} height={40} className="rounded-md object-cover" unoptimized={true}/>
                                             <Badge className="absolute -top-2 -right-2 text-xs px-1.5 py-0.5">{item.quantity}</Badge>
                                         </div>
-                                    ))}
+                                    )})}
                                     {order.items.length > 3 && <div className="flex items-center justify-center w-10 h-10 bg-muted rounded-md text-xs">+{order.items.length-3}</div>}
                                 </div>
                                 {order.deliveryWorker && (

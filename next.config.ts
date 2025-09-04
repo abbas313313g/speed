@@ -16,26 +16,8 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
+        hostname: '**',
       },
-      {
-        protocol: 'https',
-        hostname: 'firebasestorage.googleapis.com',
-      },
-       {
-        protocol: 'https',
-        hostname: '*.top4top.io',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'up6.cc',
-        port: '',
-        pathname: '/**',
-      }
     ],
   },
 };

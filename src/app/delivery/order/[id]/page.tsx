@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useContext, useMemo } from 'react';
@@ -128,10 +127,11 @@ export default function DeliveryOrderDetailPage() {
             <CardContent className="space-y-2">
                 {order.items.map(item => {
                   const itemPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
+                  const imageUrl = item.product.image && (item.product.image.startsWith('http') || item.product.image.startsWith('data:')) ? item.product.image : 'https://placehold.co/40x40.png';
                   return (
                     <div key={item.product.id + (item.selectedSize?.name || '')} className="flex justify-between items-center text-sm">
                         <div className="flex items-center gap-2">
-                            <Image src={item.product.image} alt={item.product.name} width={40} height={40} className="rounded-md object-cover"/>
+                            <Image src={imageUrl} alt={item.product.name} width={40} height={40} className="rounded-md object-cover" unoptimized={true}/>
                             <div>
                                 <p>{item.product.name} {item.selectedSize ? `(${item.selectedSize.name})` : ''}</p>
                                 <p className="text-xs text-muted-foreground">x{item.quantity}</p>
@@ -197,5 +197,3 @@ export default function DeliveryOrderDetailPage() {
     </div>
   );
 }
-
-
