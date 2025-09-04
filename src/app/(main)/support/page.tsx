@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { Bot, Loader2, Send, User, ShieldCheck } from "lucide-react";
+import { Bot, Loader2, Send, User, ShieldCheck, MessageSquareWarning } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AppContext } from "@/contexts/AppContext";
 import type { Message } from "@/lib/types";
