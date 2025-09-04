@@ -29,6 +29,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import React, { useContext } from "react";
+import { AppContext } from "@/contexts/AppContext";
+import { Badge } from "@/components/ui/badge";
 
 
 const navItems = [
@@ -42,12 +45,14 @@ const navItems = [
   { href: "/admin/reports", label: "تقارير المتاجر", icon: AreaChart },
   { href: "/admin/coupons", label: "أكواد الخصم", icon: TicketPercent },
   { href: "/admin/delivery-workers", label: "عمال التوصيل", icon: UserCog },
-  { href: "/admin/support-tickets", label: "تذاكر الدعم", icon: MessageSquareWarning },
+  { href: "/admin/support-tickets", label: "تذاكر الدعم", icon: MessageSquareWarning, notificationKey: 'openTickets' },
   { href: "/admin/telegram", label: "إشعارات تليجرام", icon: Send },
 ];
 
 export function AdminNav({ isSheet = false }: { isSheet?: boolean }) {
   const pathname = usePathname();
+  const context = useContext(AppContext);
+  const openTicketsCount = context?.supportTickets.filter(t => !t.isResolved).length || 0;
 
   const navContent = (
     <nav className={cn("flex flex-col items-center gap-4 px-2 sm:py-5", isSheet && "items-stretch text-lg font-medium px-4")}>
@@ -60,18 +65,23 @@ export function AdminNav({ isSheet = false }: { isSheet?: boolean }) {
       </Link>
       {navItems.map((item) => {
         const isActive = item.href === '/admin' ? pathname === item.href : pathname.startsWith(item.href);
+        const hasNotification = item.notificationKey === 'openTickets' && openTicketsCount > 0;
+        
         if (isSheet) {
           return (
              <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground",
+                "flex items-center justify-between gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground",
                 isActive && "bg-accent text-accent-foreground"
               )}
             >
-              <item.icon className="h-5 w-5" />
-              {item.label}
+              <div className="flex items-center gap-4">
+                <item.icon className="h-5 w-5" />
+                {item.label}
+              </div>
+              {hasNotification && <Badge variant="destructive">{openTicketsCount}</Badge>}
             </Link>
           )
         }
@@ -81,11 +91,14 @@ export function AdminNav({ isSheet = false }: { isSheet?: boolean }) {
               <Link
                 href={item.href}
                 className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8",
+                  "relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8",
                   isActive && "bg-accent text-accent-foreground"
                 )}
               >
                 <item.icon className="h-5 w-5" />
+                {hasNotification && (
+                  <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs">{openTicketsCount}</Badge>
+                )}
                 <span className="sr-only">{item.label}</span>
               </Link>
             </TooltipTrigger>

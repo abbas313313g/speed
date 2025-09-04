@@ -85,7 +85,7 @@ interface AppContextType {
   deleteDeliveryZone: (zoneId: string) => Promise<void>;
   supportTickets: SupportTicket[];
   mySupportTicket: SupportTicket | null;
-  createSupportTicket: (history: Message[]) => Promise<void>;
+  createSupportTicket: (firstMessage: Message) => Promise<void>;
   addMessageToTicket: (ticketId: string, message: Message) => Promise<void>;
   resolveSupportTicket: (ticketId: string) => Promise<void>;
   deliveryWorkers: DeliveryWorker[];
@@ -646,11 +646,10 @@ ${itemsText}
     }
 
     // --- Support Ticket Management ---
-    const createSupportTicket = async (history: Message[]) => {
+    const createSupportTicket = async (firstMessage: Message) => {
         if (!userId) return;
-        // Don't create a ticket if one already exists for this user and is not resolved
         if (mySupportTicket && !mySupportTicket.isResolved) {
-             toast({ title: "لديك تذكرة مفتوحة بالفعل", variant: "default" });
+             await addMessageToTicket(mySupportTicket.id, firstMessage);
              return;
         }
 
@@ -658,12 +657,25 @@ ${itemsText}
         const newTicket: Omit<SupportTicket, 'id'> = {
             userId,
             userName,
-            question: history.find(m => m.role === 'user')?.content || 'No question provided',
-            history: history,
+            question: firstMessage.content,
+            history: [firstMessage],
             createdAt: new Date().toISOString(),
             isResolved: false,
         };
-        await addDoc(collection(db, "supportTickets"), newTicket);
+        const ticketDoc = await addDoc(collection(db, "supportTickets"), newTicket);
+        
+        const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
+        if (ownerConfigs.length > 0) {
+            const notificationMsg = `
+*تذكرة دعم جديدة* 📩
+*من:* ${userName} (${userId.substring(0,4)})
+*المشكلة:* ${firstMessage.content}
+
+الرجاء المتابعة من لوحة التحكم.
+`;
+            ownerConfigs.forEach(config => sendTelegramMessage(config.chatId, notificationMsg));
+        }
+
     };
 
     const addMessageToTicket = async (ticketId: string, message: Message) => {
@@ -672,7 +684,6 @@ ${itemsText}
             history: arrayUnion(message)
         });
 
-        // Send a telegram notification to admins if a user replies to a ticket
         if (message.role === 'user') {
             const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
              if (ownerConfigs.length > 0) {
