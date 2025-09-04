@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AppContext } from "@/contexts/AppContext";
 
 
-interface Message {
+export interface Message {
   role: "user" | "assistant";
   content: string;
   isEscalation?: boolean;
@@ -24,7 +24,6 @@ export default function SupportPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [lastUserQuestion, setLastUserQuestion] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const context = useContext(AppContext);
@@ -48,10 +47,21 @@ export default function SupportPage() {
   }, []);
 
   const handleEscalate = async () => {
-      if (!context || !lastUserQuestion) return;
+      if (!context || messages.length === 0) return;
       setIsLoading(true);
-      await context.addSupportTicket(lastUserQuestion);
-      setMessages(prev => [...prev, { role: 'assistant', content: 'تم إرسال سؤالك بنجاح إلى فريق الدعم.'}]);
+
+      const lastUserQuestion = messages.filter(m => m.role === 'user').pop()?.content || "لم يحدد المستخدم سؤالاً";
+      
+      await context.addSupportTicket(lastUserQuestion, messages);
+      
+      const escalationResponseMessage: Message = { role: 'assistant', content: 'تم إرسال محادثتك بنجاح إلى فريق الدعم. سيتم التواصل معك قريبًا.'};
+      
+      // Remove escalation buttons from previous message and add the final response
+      setMessages(prev => 
+        prev.map(m => ({...m, isEscalation: false}))
+            .concat(escalationResponseMessage)
+      );
+      
       setIsLoading(false);
   }
 
@@ -60,13 +70,14 @@ export default function SupportPage() {
     if (!input.trim() || isLoading) return;
 
     const userMessage: Message = { role: "user", content: input };
-    setMessages((prev) => [...prev, userMessage]);
-    setLastUserQuestion(input);
+    const newMessages: Message[] = [...messages, userMessage];
+    
+    setMessages(newMessages);
     setInput("");
     setIsLoading(true);
 
     try {
-      const result = await askAiSupport({ question: input });
+      const result = await askAiSupport({ question: input, history: newMessages });
       
       const assistantMessage: Message = { 
           role: "assistant", 
@@ -117,11 +128,19 @@ export default function SupportPage() {
                     : "bg-muted"
                 )}
               >
-                <p>{message.content}</p>
+                <p className="whitespace-pre-wrap">{message.content}</p>
                 {message.isEscalation && (
-                    <div className="mt-2 flex gap-2">
-                        <Button size="sm" onClick={handleEscalate}>نعم، أرسل السؤال</Button>
-                        <Button size="sm" variant="outline" onClick={() => setMessages(prev => [...prev, {role: 'assistant', content: 'تمام، كيف يمكنني مساعدتك أيضاً؟'}])}>لا، شكراً</Button>
+                    <div className="mt-2 flex gap-2 border-t pt-2">
+                        <Button size="sm" onClick={handleEscalate} disabled={isLoading}>
+                           {isLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : "نعم، أرسل المحادثة"}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => {
+                            // Remove escalation buttons and add a clarifying question
+                             setMessages(prev => 
+                                prev.map(m => ({...m, isEscalation: false}))
+                                .concat({role: 'assistant', content: 'تمام، كيف يمكنني مساعدتك أيضاً؟'})
+                            )
+                        }}>لا، شكراً</Button>
                     </div>
                 )}
               </div>
@@ -163,3 +182,5 @@ export default function SupportPage() {
     </div>
   );
 }
+
+    

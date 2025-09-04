@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Minus, Plus, Trash2, Home, TicketPercent, Loader2, MapPin } from "lucide-react";
+import { ShoppingBag, Minus, Plus, Trash2, Home, TicketPercent, Loader2, MapPin, AlertCircle } from "lucide-react";
 import { formatCurrency, calculateDistance, calculateDeliveryFee } from "@/lib/utils";
 import {
   AlertDialog,
@@ -30,6 +30,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import type { Restaurant } from "@/lib/types";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
+const MAX_DELIVERY_DISTANCE = 25; // 25 km
 
 export default function CartPage() {
   const context = useContext(AppContext);
@@ -53,21 +56,22 @@ export default function CartPage() {
   }, [cart, restaurants]);
 
 
-  const { deliveryFee, distance, finalTotal } = useMemo(() => {
+  const { deliveryFee, distance, finalTotal, isDistanceTooFar } = useMemo(() => {
     const subTotalWithDiscount = cartTotal - couponDiscount;
     if (!selectedAddressId || !cartRestaurant) {
-        return { deliveryFee: 0, distance: null, finalTotal: subTotalWithDiscount };
+        return { deliveryFee: 0, distance: null, finalTotal: subTotalWithDiscount, isDistanceTooFar: false };
     }
     
     const address = addresses.find(a => a.id === selectedAddressId);
     if (!address || !address.latitude || !address.longitude || !cartRestaurant.latitude || !cartRestaurant.longitude) {
-       return { deliveryFee: 0, distance: null, finalTotal: subTotalWithDiscount };
+       return { deliveryFee: 0, distance: null, finalTotal: subTotalWithDiscount, isDistanceTooFar: false };
     }
 
     const dist = calculateDistance(address.latitude, address.longitude, cartRestaurant.latitude, cartRestaurant.longitude);
     const fee = calculateDeliveryFee(dist);
+    const tooFar = dist > MAX_DELIVERY_DISTANCE;
     
-    return { deliveryFee: fee, distance: dist, finalTotal: subTotalWithDiscount + fee };
+    return { deliveryFee: fee, distance: dist, finalTotal: subTotalWithDiscount + fee, isDistanceTooFar: tooFar };
   }, [selectedAddressId, cartTotal, addresses, couponDiscount, cartRestaurant]);
 
 
@@ -90,6 +94,14 @@ export default function CartPage() {
       toast({
         title: "الرجاء اختيار عنوان",
         description: "يجب اختيار عنوان توصيل لإكمال الطلب.",
+        variant: "destructive",
+      });
+      return;
+    }
+     if (isDistanceTooFar) {
+      toast({
+        title: "مسافة بعيدة جداً",
+        description: `لا يمكن توصيل الطلب لأن المسافة تزيد عن ${MAX_DELIVERY_DISTANCE} كم.`,
         variant: "destructive",
       });
       return;
@@ -257,7 +269,7 @@ export default function CartPage() {
          <div className="flex justify-between">
           <span>سعر التوصيل:</span>
           <div className="flex flex-col items-end">
-            <span>{formatCurrency(deliveryFee)}</span>
+            <span className={isDistanceTooFar ? 'text-destructive' : ''}>{formatCurrency(deliveryFee)}</span>
             {displayDistance && <span className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3"/>{displayDistance}</span>}
           </div>
         </div>
@@ -267,6 +279,16 @@ export default function CartPage() {
           <span>{formatCurrency(finalTotal)}</span>
         </div>
       </div>
+
+       {isDistanceTooFar && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>مسافة التوصيل بعيدة جداً</AlertTitle>
+          <AlertDescription>
+            عذراً، هذا المتجر يبعد أكثر من {MAX_DELIVERY_DISTANCE} كم عن عنوانك المختار. لا يمكننا توصيل الطلب.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="flex gap-2">
         <AlertDialog>
@@ -298,10 +320,12 @@ export default function CartPage() {
         <Button 
             className="flex-1" 
             onClick={handlePlaceOrder} 
-            disabled={isSubmitting || addresses.length === 0 || !selectedAddressId}>
+            disabled={isSubmitting || addresses.length === 0 || !selectedAddressId || isDistanceTooFar}>
           {isSubmitting ? "جارِ إرسال الطلب..." : "إكمال الطلب"}
         </Button>
       </div>
     </div>
   );
 }
+
+    

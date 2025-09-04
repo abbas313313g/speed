@@ -16,8 +16,14 @@ import { doc, addDoc, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 
+const MessageSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string(),
+});
+
 const AiSupportInputSchema = z.object({
   question: z.string().describe('The user\u0027s question about the Speed Shop app.'),
+  history: z.array(MessageSchema).describe('The conversation history so far.')
 });
 export type AiSupportInput = z.infer<typeof AiSupportInputSchema>;
 
@@ -35,15 +41,17 @@ export async function askAiSupport(input: AiSupportInput): Promise<AiSupportOutp
 const sendToSupportTool = ai.defineTool(
     {
         name: 'sendToSupportTool',
-        description: 'Use this tool when the user confirms they want to send their question to human support.',
+        description: 'Use this tool when the user confirms they want to send their question to human support. Include the full conversation history.',
         inputSchema: z.object({
-            question: z.string(),
+            question: z.string().describe('The last user question that triggered the escalation.'),
+            history: z.array(MessageSchema).describe('The entire conversation history.'),
         }),
         outputSchema: z.string(),
     },
     async (input) => {
         await addDoc(collection(db, "supportTickets"), {
             question: input.question,
+            history: input.history,
             createdAt: new Date().toISOString(),
             isResolved: false,
         });
@@ -63,9 +71,15 @@ const prompt = ai.definePrompt({
 
 إذا سألك المستخدم عن اسمك أو دورك، فقدم نفسك كـ "سبيدي"، وكيل الدعم الذكي لتطبيق "سبيد شوب".
 
-إذا لم تتمكن من الإجابة على سؤال المستخدم، أو إذا كان السؤال يتعلق بمشكلة معقدة في طلب معين، اسأل المستخدم إذا كان يرغب في إرسال سؤاله إلى فريق الدعم البشري. إذا وافق، قم بتعيين shouldEscalate إلى true. لا تستخدم الأداة إلا إذا وافق المستخدم بشكل صريح.
+إذا لم تتمكن من الإجابة على سؤال المستخدم، أو إذا كان السؤال يتعلق بمشكلة معقدة في طلب معين، اسأل المستخدم إذا كان يرغب في إرسال سؤاله إلى فريق الدعم البشري. إذا وافق، قم بتعيين shouldEscalate إلى true واستخدم أداة sendToSupportTool لإرسال المحادثة كاملة. لا تستخدم الأداة إلا إذا وافق المستخدم بشكل صريح.
 
 ---
+**سجل المحادثة حتى الآن:**
+{{#each history}}
+- **{{role}}**: {{content}}
+{{/each}}
+---
+
 **قاعدة المعرفة الكاملة لتطبيق "سبيد شوب":**
 
 **1. آلية عمل التطبيق:**
@@ -111,7 +125,7 @@ const prompt = ai.definePrompt({
 - قسم "الأكثر مبيعًا" في الصفحة الرئيسية يعرض المنتجات التي تم طلبها بالفعل أكثر من غيرها بناءً على سجل الطلبات الحقيقي، مما يساعد المستخدمين على اكتشاف المنتجات الأكثر شعبية.
 ---
 
-الآن، أجب على السؤال التالي باللغة العربية بناءً على قاعدة المعرفة الشاملة أعلاه. كن ودودًا ومتعاونًا.
+الآن، أجب على السؤال التالي باللغة العربية بناءً على قاعدة المعرفة الشاملة وسجل المحادثة أعلاه. كن ودودًا ومتعاونًا.
 
 {{question}}`,
 });
@@ -127,3 +141,5 @@ const aiSupportFlow = ai.defineFlow(
     return output!;
   }
 );
+
+    

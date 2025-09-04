@@ -104,11 +104,17 @@ export interface Order {
     };
 }
 
+export interface Message {
+    role: 'user' | 'assistant';
+    content: string;
+}
+
 export interface SupportTicket {
     id: string;
     question: string;
     createdAt: string;
     isResolved: boolean;
+    history?: Message[];
 }
 
 export interface Coupon {
@@ -129,6 +135,8 @@ export interface TelegramConfig {
     name: string; // For display purposes (e.g., "Owner 1", "Ahmed's Phone")
 }
 
+
+    
 
     
 

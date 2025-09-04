@@ -4,7 +4,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker, Coupon, ProductSize, TelegramConfig } from '@/lib/types';
+import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker, Coupon, ProductSize, TelegramConfig, Message } from '@/lib/types';
 import { categories as initialCategoriesData } from '@/lib/mock-data';
 import { ShoppingBasket } from 'lucide-react';
 import { db } from '@/lib/firebase';
@@ -65,23 +65,23 @@ interface AppContextType {
   localOrderIds: string[];
   updateOrderStatus: (orderId: string, status: OrderStatus, workerId?: string) => Promise<void>;
   updateWorkerStatus: (workerId: string, isOnline: boolean) => Promise<void>;
-  addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
+  addProduct: (product: Omit<Product, 'id'> & { image: string }) => Promise<void>;
   updateProduct: (product: Partial<Product> & {id: string}) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
   addCategory: (category: Omit<Category, 'id' | 'icon'>) => Promise<void>;
   updateCategory: (category: Omit<Category, 'icon' | 'id'> & {id: string}) => Promise<void>;
   deleteCategory: (categoryId: string) => Promise<void>;
-  addRestaurant: (restaurant: Omit<Restaurant, 'id'>) => Promise<void>;
+  addRestaurant: (restaurant: Omit<Restaurant, 'id'> & {image: string}) => Promise<void>;
   updateRestaurant: (restaurant: Partial<Restaurant> & {id: string}) => Promise<void>;
   deleteRestaurant: (restaurantId: string) => Promise<void>;
-  addBanner: (banner: Omit<Banner, 'id'>) => Promise<void>;
+  addBanner: (banner: Omit<Banner, 'id'> & {image: string}) => Promise<void>;
   updateBanner: (banner: Banner) => Promise<void>;
   deleteBanner: (bannerId: string) => Promise<void>;
   addDeliveryZone: (zone: Omit<DeliveryZone, 'id'>) => Promise<void>;
   updateDeliveryZone: (zone: DeliveryZone) => Promise<void>;
   deleteDeliveryZone: (zoneId: string) => Promise<void>;
   supportTickets: SupportTicket[];
-  addSupportTicket: (question: string) => Promise<void>;
+  addSupportTicket: (question: string, history: Message[]) => Promise<void>;
   resolveSupportTicket: (ticketId: string) => Promise<void>;
   deliveryWorkers: DeliveryWorker[];
   addDeliveryWorker: (worker: Pick<DeliveryWorker, 'id' | 'name'>) => Promise<void>;
@@ -295,6 +295,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
         try {
             await runTransaction(db, async (transaction) => {
+                // --- READS FIRST ---
                 const productDocs = new Map<string, any>();
                 const productReads = cart.map(item => {
                     const productRef = doc(db, "products", item.product.id);
@@ -317,33 +318,30 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                         productDocs.set(item.product.id, productData);
                     });
                 });
-
-                let couponDoc: any = null;
-                let coupon: Coupon | null = null;
-                if (couponCode) {
-                    const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
-                    const querySnapshot = await getDocs(couponQuery);
-                    if (!querySnapshot.empty) {
-                        couponDoc = await transaction.get(querySnapshot.docs[0].ref);
-                        if (!couponDoc.exists()) {
-                            throw new Error("كود الخصم غير صحيح أو لم يعد صالحاً.");
-                        }
-                        coupon = { id: couponDoc.id, ...couponDoc.data() } as Coupon;
-                        if (coupon.usedCount >= coupon.maxUses) throw new Error("تم استخدام هذا الكود بالكامل.");
-                        const userId = "localUser";
-                        if (coupon.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
-                    } else {
-                        throw new Error("كود الخصم غير صحيح.");
-                    }
-                }
                 
                 await Promise.all(productReads);
 
+                let couponDocSnap: any = null;
+                if (couponCode) {
+                    const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
+                    const querySnapshot = await getDocs(couponQuery); // Using getDocs as it's a read
+                    if (querySnapshot.empty) {
+                        throw new Error("كود الخصم غير صحيح.");
+                    }
+                    couponDocSnap = querySnapshot.docs[0];
+                    const couponData = couponDocSnap.data() as Coupon;
+                    if (couponData.usedCount >= couponData.maxUses) throw new Error("تم استخدام هذا الكود بالكامل.");
+                    const userId = "localUser";
+                    if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
+                }
+
+                // --- WRITES AFTER ---
                 let subTotal = cartTotal;
                 let discountAmount = 0;
                 let appliedCouponInfo;
 
-                if (coupon) {
+                if (couponDocSnap) {
+                    const coupon = { id: couponDocSnap.id, ...couponDocSnap.data() } as Coupon;
                     discountAmount = coupon.discountValue;
                     subTotal -= discountAmount;
                     appliedCouponInfo = { code: coupon.code, discountAmount };
@@ -381,7 +379,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     const productData = productDocs.get(item.product.id);
 
                     if (item.selectedSize) {
-                        const newSizes = productData.sizes?.map(s => 
+                        const newSizes = productData.sizes?.map((s: ProductSize) => 
                             s.name === item.selectedSize!.name 
                             ? { ...s, stock: s.stock - item.quantity } 
                             : s
@@ -392,10 +390,11 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     }
                 }
                 
-                if (couponDoc && coupon) {
+                if (couponDocSnap) {
+                    const coupon = { id: couponDocSnap.id, ...couponDocSnap.data() } as Coupon;
                     const updatedUsedCount = coupon.usedCount + 1;
                     const updatedUsedBy = [...(coupon.usedBy || []), "localUser"];
-                    transaction.update(couponDoc.ref, { usedCount: updatedUsedCount, usedBy: updatedUsedBy });
+                    transaction.update(couponDocSnap.ref, { usedCount: updatedUsedCount, usedBy: updatedUsedBy });
                 }
                 
                 setLocalOrderIds(prev => [...prev, orderRef.id]);
@@ -604,9 +603,10 @@ ${itemsText}
     }
 
     // --- Support Ticket Management ---
-    const addSupportTicket = async (question: string) => {
+    const addSupportTicket = async (question: string, history: Message[]) => {
         const ticket: Omit<SupportTicket, 'id'> = {
             question,
+            history,
             createdAt: new Date().toISOString(),
             isResolved: false,
         };
@@ -621,7 +621,7 @@ ${itemsText}
     // --- Delivery Worker Management ---
     const addDeliveryWorker = async (workerData: Pick<DeliveryWorker, 'id' | 'name'>) => {
         const workerRef = doc(db, 'deliveryWorkers', workerData.id);
-        await setDoc(workerRef, { name: workerData.name }, { merge: true });
+        await setDoc(workerRef, { name: workerData.name, isOnline: true }, { merge: true });
     };
 
 
@@ -638,7 +638,7 @@ ${itemsText}
 
 
     // --- ADMIN ACTIONS ---
-    const addProduct = async (productData: Omit<Product, 'id'>) => {
+    const addProduct = async (productData: Omit<Product, 'id'> & { image: string }) => {
         await addDoc(collection(db, "products"), productData);
         toast({ title: "تمت إضافة المنتج بنجاح" });
     }
@@ -672,7 +672,7 @@ ${itemsText}
         toast({ title: "تم حذف القسم بنجاح", variant: "destructive" });
     }
 
-    const addRestaurant = async (restaurantData: Omit<Restaurant, 'id'>) => {
+    const addRestaurant = async (restaurantData: Omit<Restaurant, 'id'> & {image: string}) => {
         await addDoc(collection(db, "restaurants"), restaurantData);
         toast({ title: "تمت إضافة المتجر بنجاح" });
     }
@@ -689,7 +689,7 @@ ${itemsText}
         toast({ title: "تم حذف المتجر بنجاح" });
     }
   
-    const addBanner = async (bannerData: Omit<Banner, 'id'>) => {
+    const addBanner = async (bannerData: Omit<Banner, 'id'> & {image: string}) => {
         await addDoc(collection(db, "banners"), bannerData);
         toast({ title: "تمت إضافة البنر بنجاح" });
     }
@@ -793,3 +793,5 @@ ${itemsText}
         </AppContext.Provider>
     );
 };
+
+    
