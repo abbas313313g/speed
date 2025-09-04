@@ -25,6 +25,7 @@ import {
 } from 'firebase/firestore';
 import { formatCurrency, calculateDistance, calculateDeliveryFee } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
+import { askAiSupport } from '@/ai/flows/ai-support';
 
 
 // --- Telegram Bot Helper ---
@@ -85,7 +86,7 @@ interface AppContextType {
   deleteDeliveryZone: (zoneId: string) => Promise<void>;
   supportTickets: SupportTicket[];
   mySupportTicket: SupportTicket | null;
-  createSupportTicket: (firstMessage: Message) => Promise<void>;
+  createSupportTicket: (history: Message[]) => Promise<void>;
   addMessageToTicket: (ticketId: string, message: Message) => Promise<void>;
   resolveSupportTicket: (ticketId: string) => Promise<void>;
   deliveryWorkers: DeliveryWorker[];
@@ -183,7 +184,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const q = query(collection(db, "supportTickets"), where("userId", "==", userId));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             if (!querySnapshot.empty) {
-                const ticketDoc = querySnapshot.docs[0];
+                // Usually there should only be one active ticket per user.
+                const ticketDoc = querySnapshot.docs.find(doc => !doc.data().isResolved) || querySnapshot.docs[0];
                 setMySupportTicket({ id: ticketDoc.id, ...ticketDoc.data() } as SupportTicket);
             } else {
                 setMySupportTicket(null);
@@ -645,14 +647,20 @@ ${itemsText}
     }
 
     // --- Support Ticket Management ---
-    const createSupportTicket = async (firstMessage: Message) => {
+    const createSupportTicket = async (history: Message[]) => {
         if (!userId) return;
+        // Don't create a ticket if one already exists for this user and is not resolved
+        if (mySupportTicket && !mySupportTicket.isResolved) {
+             toast({ title: "لديك تذكرة مفتوحة بالفعل", variant: "default" });
+             return;
+        }
+
         const userName = addresses[0]?.name || `مستخدم ${userId.substring(0, 4)}`;
         const newTicket: Omit<SupportTicket, 'id'> = {
             userId,
             userName,
-            question: firstMessage.content,
-            history: [firstMessage],
+            question: history.find(m => m.role === 'user')?.content || 'No question provided',
+            history: history,
             createdAt: new Date().toISOString(),
             isResolved: false,
         };
@@ -664,17 +672,30 @@ ${itemsText}
         await updateDoc(ticketRef, {
             history: arrayUnion(message)
         });
+
+        // Send a telegram notification to admins if a user replies to a ticket
+        if (message.role === 'user') {
+            const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
+             if (ownerConfigs.length > 0) {
+                 const ticket = supportTickets.find(t => t.id === ticketId);
+                 const notificationMsg = `
+*رد جديد على تذكرة دعم* 💬
+*من:* ${ticket?.userName || 'غير معروف'}
+*الرسالة:* ${message.content}
+`;
+                 ownerConfigs.forEach(config => sendTelegramMessage(config.chatId, notificationMsg));
+             }
+        }
     };
 
     const resolveSupportTicket = async (ticketId: string) => {
         await updateDoc(doc(db, "supportTickets", ticketId), { isResolved: true });
-        toast({ title: "تم حل المشكلة" });
     }
 
     // --- Delivery Worker Management ---
     const addDeliveryWorker = async (workerData: Pick<DeliveryWorker, 'id' | 'name'>) => {
         const workerRef = doc(db, 'deliveryWorkers', workerData.id);
-        await setDoc(workerRef, { name: workerData.name }, { merge: true });
+        await setDoc(workerRef, { name: workerData.name, isOnline: true }, { merge: true });
     };
 
 

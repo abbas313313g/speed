@@ -14,14 +14,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Check, MessageSquare, Send, ShieldCheck, User } from 'lucide-react';
+import { Check, MessageSquare, Send, ShieldCheck, User, Bot, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -35,12 +29,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminSupportTicketsPage() {
   const context = useContext(AppContext);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [reply, setReply] = useState("");
   const [isReplying, setIsReplying] = useState(false);
+  const { toast } = useToast();
 
   if (!context || context.isLoading) return <div>جار التحميل...</div>;
 
@@ -66,8 +62,21 @@ export default function AdminSupportTicketsPage() {
     
     await addMessageToTicket(selectedTicket.id, adminMessage);
     
+    // Update the selected ticket in state to reflect the new message instantly
+    setSelectedTicket(prev => prev ? ({
+        ...prev,
+        history: [...prev.history, adminMessage]
+    }) : null);
+    
     setReply("");
     setIsReplying(false);
+  }
+
+  const handleResolveTicket = async () => {
+    if (!selectedTicket) return;
+    await resolveSupportTicket(selectedTicket.id);
+    setSelectedTicket(prev => prev ? {...prev, isResolved: true} : null);
+    toast({ title: "تم إغلاق التذكرة" });
   }
 
   const handleOpenDialog = (ticket: SupportTicket) => {
@@ -83,13 +92,13 @@ export default function AdminSupportTicketsPage() {
         <p className="text-muted-foreground">مراجعة والرد على مشاكل الزبائن.</p>
       </header>
 
-      <Card>
+      <div className="border rounded-lg overflow-hidden">
         <Table>
             <TableHeader>
             <TableRow>
                 <TableHead>العميل</TableHead>
                 <TableHead className="w-[40%]">آخر رسالة</TableHead>
-                <TableHead>تاريخ الإرسال</TableHead>
+                <TableHead>تاريخ الإنشاء</TableHead>
                 <TableHead>الحالة</TableHead>
                 <TableHead>إجراء</TableHead>
             </TableRow>
@@ -115,7 +124,7 @@ export default function AdminSupportTicketsPage() {
             ))}
             </TableBody>
         </Table>
-      </Card>
+      </div>
       {supportTickets.length === 0 && <p className="text-center text-muted-foreground py-8">لا توجد تذاكر دعم حالياً.</p>}
 
       <Dialog open={!!selectedTicket} onOpenChange={(isOpen) => !isOpen && setSelectedTicket(null)}>
@@ -126,29 +135,27 @@ export default function AdminSupportTicketsPage() {
                     هذا هو سجل المحادثة الكامل. يمكنك الرد على المستخدم من هنا.
                 </DialogDescription>
             </DialogHeader>
-            <ScrollArea className="flex-grow border rounded-md p-4">
+            <ScrollArea className="flex-grow border rounded-md p-4 bg-muted/20">
                 <div className="space-y-6">
                 {selectedTicket?.history?.map((message: Message, index: number) => (
                     <div
                     key={index}
                     className={cn(
                         "flex items-start gap-3",
-                        message.role === "admin" ? "justify-end" : "justify-start"
+                        message.role === "admin" ? "justify-end" : (message.role === 'user' ? 'justify-end' : 'justify-start')
                     )}
                     >
-                    {message.role !== "admin" && (
-                        <Avatar className="h-8 w-8">
-                        <AvatarFallback>
-                            <User />
-                        </AvatarFallback>
-                        </Avatar>
+                    {message.role === 'assistant' && (
+                       <Avatar className="h-8 w-8">
+                        <AvatarFallback className="bg-secondary"><Bot /></AvatarFallback>
+                       </Avatar>
                     )}
                     <div
                         className={cn(
                         "max-w-[85%] rounded-lg p-3 text-sm",
                         message.role === "admin"
                             ? "bg-primary text-primary-foreground"
-                            : "bg-muted"
+                            : (message.role === 'user' ? 'bg-card border' : 'bg-muted')
                         )}
                     >
                         <p className="whitespace-pre-wrap">{message.content}</p>
@@ -160,11 +167,16 @@ export default function AdminSupportTicketsPage() {
                             </AvatarFallback>
                         </Avatar>
                     )}
+                     {message.role === 'user' && (
+                       <Avatar className="h-8 w-8">
+                        <AvatarFallback><User /></AvatarFallback>
+                       </Avatar>
+                    )}
                     </div>
                 ))}
                 </div>
             </ScrollArea>
-            <DialogFooter className="flex-col gap-4">
+            <DialogFooter className="flex-col gap-4 pt-4">
                  {!selectedTicket?.isResolved && (
                     <form onSubmit={handleReply} className="flex w-full items-center gap-2">
                         <Input 
@@ -174,7 +186,7 @@ export default function AdminSupportTicketsPage() {
                             disabled={isReplying}
                         />
                         <Button type="submit" size="icon" disabled={isReplying || !reply.trim()}>
-                            <Send className="h-4 w-4"/>
+                            {isReplying ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4"/>}
                         </Button>
                     </form>
                  )}
@@ -183,7 +195,7 @@ export default function AdminSupportTicketsPage() {
                         <Button variant="outline">إغلاق النافذة</Button>
                     </DialogClose>
                     {!selectedTicket?.isResolved && (
-                         <Button variant="secondary" onClick={() => selectedTicket && resolveSupportTicket(selectedTicket.id)}>
+                         <Button variant="secondary" onClick={handleResolveTicket}>
                             <Check className="ml-2 h-4 w-4"/>
                             وضع علامة "تم الحل"
                          </Button>
