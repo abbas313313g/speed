@@ -98,7 +98,7 @@ export default function AdminSupportTicketsPage() {
             {sortedTickets.map((ticket) => (
                 <TableRow key={ticket.id}>
                 <TableCell className="font-medium">{ticket.userName || 'غير معروف'}<br/>{ticket.userId && <span className="text-xs text-muted-foreground">{ticket.userId.substring(0,8)}</span>}</TableCell>
-                <TableCell className="text-muted-foreground">{ticket.history[ticket.history.length-1]?.content}</TableCell>
+                <TableCell className="text-muted-foreground">{ticket.history?.[ticket.history.length-1]?.content}</TableCell>
                 <TableCell>{new Date(ticket.createdAt).toLocaleString('ar-IQ')}</TableCell>
                 <TableCell>
                     <Badge variant={ticket.isResolved ? "secondary" : "destructive"}>
