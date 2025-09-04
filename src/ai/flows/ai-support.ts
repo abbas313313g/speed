@@ -10,23 +10,7 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-import type { Message } from '@/lib/types';
-
-
-export const AiSupportInputSchema = z.object({
-  history: z.array(z.object({
-    role: z.enum(['user', 'assistant', 'admin']),
-    content: z.string(),
-  })).describe("The conversation history."),
-});
-export type AiSupportInput = z.infer<typeof AiSupportInputSchema>;
-
-
-export const AiSupportOutputSchema = z.object({
-  response: z.string().describe("The AI's response to the user."),
-});
-export type AiSupportOutput = z.infer<typeof AiSupportOutputSchema>;
+import { AiSupportInputSchema, AiSupportOutputSchema, type AiSupportInput, type AiSupportOutput } from '@/lib/types';
 
 
 const prompt = ai.definePrompt({

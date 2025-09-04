@@ -1,4 +1,5 @@
 
+import { z } from 'zod';
 
 export interface User {
   id: string; // This will be the Firebase Auth UID
@@ -137,3 +138,18 @@ export interface TelegramConfig {
     workerId?: string; // only if type is 'worker'
     name: string; // For display purposes (e.g., "Owner 1", "Ahmed's Phone")
 }
+
+// AI Support Schemas
+export const AiSupportInputSchema = z.object({
+  history: z.array(z.object({
+    role: z.enum(['user', 'assistant', 'admin']),
+    content: z.string(),
+  })).describe("The conversation history."),
+});
+export type AiSupportInput = z.infer<typeof AiSupportInputSchema>;
+
+
+export const AiSupportOutputSchema = z.object({
+  response: z.string().describe("The AI's response to the user."),
+});
+export type AiSupportOutput = z.infer<typeof AiSupportOutputSchema>;
