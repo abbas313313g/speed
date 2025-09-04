@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef, useEffect, FormEvent, useContext, useCallback } from "react";
+import { useState, useRef, useEffect, FormEvent, useContext } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,8 +27,6 @@ export default function SupportPage() {
   const hasAdminReplied = conversationHistory.some(m => m.role === 'admin');
 
   useEffect(() => {
-    // If there is a ticket, we don't need the local history anymore.
-    // The AppContext will provide the history from Firestore.
     if (ticket) {
       setLocalHistory([]);
     }
@@ -48,36 +46,41 @@ export default function SupportPage() {
     e.preventDefault();
     if (!input.trim() || isLoading || !context) return;
     
-    setIsLoading(true);
-
     const userMessage: Message = { 
         role: "user", 
         content: input,
         timestamp: new Date().toISOString()
     };
     
-    // If there's an existing ticket and it's not resolved, just add the message.
+    // Clear input immediately
+    const currentInput = input;
+    setInput("");
+
+    // If there's an existing ticket, just add the message to it.
     if (ticket && !ticket.isResolved) {
-        setInput(""); // Clear input immediately for user message
+        setIsLoading(true);
         await context.addMessageToTicket(ticket.id, userMessage);
         setIsLoading(false);
         return;
     }
 
-    // If no ticket, manage conversation locally and talk to AI
-    const currentInput = input;
-    setInput(""); // Clear input immediately
-    const currentLocalHistory = [...localHistory, userMessage];
-    setLocalHistory(currentLocalHistory);
+    // If no ticket, manage conversation with AI locally.
+    setIsLoading(true);
+    const updatedLocalHistory = [...localHistory, userMessage];
+    setLocalHistory(updatedLocalHistory);
 
     try {
-      const aiResponse = await askAiSupport({ history: currentLocalHistory.map(({role, content}) => ({role: role as 'user' | 'assistant' | 'admin', content})) });
+      const aiResponse = await askAiSupport({ 
+          history: updatedLocalHistory.map(({role, content}) => ({role, content})) 
+      });
+
       const assistantMessage: Message = {
         role: 'assistant',
         content: aiResponse.response,
         timestamp: new Date().toISOString(),
       };
       setLocalHistory(prev => [...prev, assistantMessage]);
+
     } catch (error) {
        toast({
         title: "فشل الاتصال بالمساعد الذكي",
@@ -154,7 +157,7 @@ export default function SupportPage() {
                 )}
                 </div>
             ))}
-            {isLoading && !hasAdminReplied && ( // Show temporary message only for AI response
+            {isLoading && (
                 <div className="flex items-start gap-3 justify-start">
                      <Avatar className="h-8 w-8">
                         <AvatarFallback className="bg-secondary"><Loader2 className="h-5 w-5 animate-spin" /></AvatarFallback>
@@ -174,7 +177,7 @@ export default function SupportPage() {
          ) : (
             <div className="space-y-2">
               {localHistory.length > 0 && !ticket && (
-                  <Button variant="outline" className="w-full" onClick={handleCreateTicket} disabled={isCreatingTicket}>
+                  <Button variant="outline" className="w-full" onClick={handleCreateTicket} disabled={isCreatingTicket || isLoading}>
                       {isCreatingTicket ? <Loader2 className="ml-2 h-4 w-4 animate-spin"/> : <MessageSquarePlus className="ml-2 h-4 w-4"/>}
                       لم يتم حل مشكلتي، أريد التحدث مع فريق الدعم.
                   </Button>
