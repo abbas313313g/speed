@@ -25,7 +25,6 @@ import {
 } from 'firebase/firestore';
 import { formatCurrency, calculateDistance, calculateDeliveryFee } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
-import { askAiSupport } from '@/ai/flows/ai-support';
 
 
 // --- Telegram Bot Helper ---

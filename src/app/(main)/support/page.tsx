@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useRef, useEffect, FormEvent, useContext, useCallback } from "react";
@@ -25,6 +24,7 @@ export default function SupportPage() {
 
   const ticket = context?.mySupportTicket;
   const conversationHistory = ticket?.history || localHistory;
+  const hasAdminReplied = conversationHistory.some(m => m.role === 'admin');
 
   useEffect(() => {
     // If there is a ticket, we don't need the local history anymore.
@@ -49,7 +49,6 @@ export default function SupportPage() {
     if (!input.trim() || isLoading || !context) return;
     
     setIsLoading(true);
-    setInput("");
 
     const userMessage: Message = { 
         role: "user", 
@@ -57,19 +56,22 @@ export default function SupportPage() {
         timestamp: new Date().toISOString()
     };
     
-    // If there's an existing ticket, just add the message.
+    // If there's an existing ticket and it's not resolved, just add the message.
     if (ticket && !ticket.isResolved) {
+        setInput(""); // Clear input immediately for user message
         await context.addMessageToTicket(ticket.id, userMessage);
         setIsLoading(false);
         return;
     }
 
     // If no ticket, manage conversation locally and talk to AI
+    const currentInput = input;
+    setInput(""); // Clear input immediately
     const currentLocalHistory = [...localHistory, userMessage];
     setLocalHistory(currentLocalHistory);
 
     try {
-      const aiResponse = await askAiSupport({ history: currentLocalHistory.map(({role, content}) => ({role: role as 'user' | 'assistant', content})) });
+      const aiResponse = await askAiSupport({ history: currentLocalHistory.map(({role, content}) => ({role: role as 'user' | 'assistant' | 'admin', content})) });
       const assistantMessage: Message = {
         role: 'assistant',
         content: aiResponse.response,
@@ -84,6 +86,7 @@ export default function SupportPage() {
       });
       // remove the user message if AI fails
       setLocalHistory(prev => prev.slice(0, -1));
+      setInput(currentInput); // Restore user input on failure
     } finally {
       setIsLoading(false);
     }
@@ -102,8 +105,6 @@ export default function SupportPage() {
         setIsCreatingTicket(false);
     }
   }
-  
-  const hasAdminReplied = conversationHistory.some(m => m.role === 'admin');
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
@@ -112,7 +113,7 @@ export default function SupportPage() {
       </header>
       <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
         <div className="space-y-6">
-            {conversationHistory.length === 0 && (
+            {conversationHistory.length === 0 && !ticket && (
                  <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-8">
                     <MessageSquareWarning className="h-16 w-16 mb-4"/>
                     <h2 className="text-xl font-semibold">أهلاً بك في الدعم الفني</h2>
@@ -153,7 +154,7 @@ export default function SupportPage() {
                 )}
                 </div>
             ))}
-            {isLoading && !ticket && ( // Show temporary message only for AI response
+            {isLoading && !hasAdminReplied && ( // Show temporary message only for AI response
                 <div className="flex items-start gap-3 justify-start">
                      <Avatar className="h-8 w-8">
                         <AvatarFallback className="bg-secondary"><Loader2 className="h-5 w-5 animate-spin" /></AvatarFallback>
@@ -182,11 +183,11 @@ export default function SupportPage() {
                   <Input
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
-                      placeholder={hasAdminReplied ? "اكتب ردك هنا..." : "اسأل سبيدي..."}
+                      placeholder={hasAdminReplied || ticket ? "اكتب ردك هنا..." : "اسأل سبيدي..."}
                       className="flex-1"
-                      disabled={isLoading || isCreatingTicket}
+                      disabled={isLoading || isCreatingTicket || (!!ticket && ticket.isResolved)}
                   />
-                  <Button type="submit" size="icon" disabled={isLoading || isCreatingTicket || !input.trim()}>
+                  <Button type="submit" size="icon" disabled={isLoading || isCreatingTicket || !input.trim() || (!!ticket && ticket.isResolved)}>
                       <Send className="h-4 w-4" />
                   </Button>
               </form>
