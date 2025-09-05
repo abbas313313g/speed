@@ -12,7 +12,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Home, PlusCircle, Trash2, MessageSquareHeart } from "lucide-react";
+import { Home, PlusCircle, Trash2, MessageSquareHeart, Shield } from "lucide-react";
 
 export default function AccountPage() {
   const context = useContext(AppContext);
@@ -43,6 +43,12 @@ export default function AccountPage() {
             <Link href="/support">
             <MessageSquareHeart className="ml-2 h-5 w-5" />
             الدعم الفني
+            </Link>
+        </Button>
+         <Button asChild variant="outline">
+            <Link href="/privacy-policy">
+            <Shield className="ml-2 h-5 w-5" />
+            الشروط وسياسة الخصوصية
             </Link>
         </Button>
       </div>

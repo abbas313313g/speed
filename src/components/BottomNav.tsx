@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, User, ShoppingCart, ClipboardList, MessageSquareHeart, Store, Star } from "lucide-react";
+import { Home, User, ShoppingCart, ClipboardList, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 import React from "react";
 
@@ -22,7 +22,7 @@ function BottomNavComponent() {
     <nav className="fixed bottom-0 right-0 z-50 w-full border-t bg-card shadow-t-lg">
       <div className="mx-auto grid h-16 max-w-md grid-cols-5 items-center justify-around">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname.startsWith(item.href) && (item.href !== '/home' || pathname === '/home');
           return (
             <Link
               key={item.href}
