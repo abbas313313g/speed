@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker, Coupon, ProductSize, TelegramConfig, Message } from '@/lib/types';
 import { categories as initialCategoriesData } from '@/lib/mock-data';
 import { ShoppingBasket } from 'lucide-react';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
 import { 
     doc, 
     addDoc,
@@ -23,6 +23,7 @@ import {
     setDoc,
     arrayUnion
 } from 'firebase/firestore';
+import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 import { formatCurrency, calculateDistance, calculateDeliveryFee } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -42,6 +43,14 @@ const sendTelegramMessage = async (chatId: string, message: string) => {
         console.error(`Failed to send Telegram message to ${chatId}:`, error);
     }
 };
+
+// --- Storage Helper ---
+const uploadImage = async (base64: string, path: string): Promise<string> => {
+    const storageRef = ref(storage, path);
+    const snapshot = await uploadString(storageRef, base64, 'data_url');
+    return getDownloadURL(snapshot.ref);
+};
+
 
 // --- App Context ---
 interface AppContextType {
@@ -728,19 +737,26 @@ ${itemsText}
 
     // --- ADMIN ACTIONS ---
     const addProduct = async (productData: Omit<Product, 'id'> & { image: string }) => {
-        await addDoc(collection(db, "products"), productData);
+        const imageUrl = await uploadImage(productData.image, `products/${uuidv4()}`);
+        await addDoc(collection(db, "products"), { ...productData, image: imageUrl });
         toast({ title: "تمت إضافة المنتج بنجاح" });
     }
 
     const updateProduct = async (updatedProduct: Partial<Product> & {id: string}) => {
-        const { id, ...productData } = updatedProduct;
+        const { id, image, ...productData } = updatedProduct;
+        let imageUrl = image;
+        // Check if image is a new base64 upload
+        if (image && image.startsWith('data:image')) {
+            imageUrl = await uploadImage(image, `products/${id}`);
+        }
         const productDocRef = doc(db, "products", id);
-        await updateDoc(productDocRef, productData);
+        await updateDoc(productDocRef, { ...productData, image: imageUrl });
         toast({ title: "تم تحديث المنتج بنجاح" });
     }
 
     const deleteProduct = async (productId: string) => {
         await deleteDoc(doc(db, "products", productId));
+        // Note: Deleting image from storage is optional to prevent broken links if image is reused.
         toast({ title: "تم حذف المنتج بنجاح", variant: "destructive" });
     }
 
@@ -762,14 +778,19 @@ ${itemsText}
     }
 
     const addRestaurant = async (restaurantData: Omit<Restaurant, 'id'> & {image: string}) => {
-        await addDoc(collection(db, "restaurants"), restaurantData);
+        const imageUrl = await uploadImage(restaurantData.image, `restaurants/${uuidv4()}`);
+        await addDoc(collection(db, "restaurants"), { ...restaurantData, image: imageUrl });
         toast({ title: "تمت إضافة المتجر بنجاح" });
     }
 
     const updateRestaurant = async (updatedRestaurant: Partial<Restaurant> & {id: string}) => {
-        const { id, ...restaurantData } = updatedRestaurant;
+        const { id, image, ...restaurantData } = updatedRestaurant;
+        let imageUrl = image;
+        if (image && image.startsWith('data:image')) {
+            imageUrl = await uploadImage(image, `restaurants/${id}`);
+        }
         const restaurantDocRef = doc(db, "restaurants", id);
-        await updateDoc(restaurantDocRef, restaurantData);
+        await updateDoc(restaurantDocRef, { ...restaurantData, image: imageUrl });
         toast({ title: "تم تحديث المتجر بنجاح" });
     }
 
@@ -779,14 +800,19 @@ ${itemsText}
     }
   
     const addBanner = async (bannerData: Omit<Banner, 'id'> & {image: string}) => {
-        await addDoc(collection(db, "banners"), bannerData);
+        const imageUrl = await uploadImage(bannerData.image, `banners/${uuidv4()}`);
+        await addDoc(collection(db, "banners"), { ...bannerData, image: imageUrl });
         toast({ title: "تمت إضافة البنر بنجاح" });
     }
 
     const updateBanner = async (updatedBanner: Banner) => {
-        const { id, ...bannerData } = updatedBanner;
+        const { id, image, ...bannerData } = updatedBanner;
+        let imageUrl = image;
+        if (image && image.startsWith('data:image')) {
+            imageUrl = await uploadImage(image, `banners/${id}`);
+        }
         const bannerRef = doc(db, "banners", id);
-        await updateDoc(bannerRef, bannerData);
+        await updateDoc(bannerRef, { ...bannerData, image: imageUrl });
         toast({ title: "تم تحديث البنر بنجاح" });
     };
 
