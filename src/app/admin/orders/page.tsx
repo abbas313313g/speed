@@ -2,8 +2,10 @@
 
 "use client";
 
-import { useContext } from 'react';
-import { AppContext } from '@/contexts/AppContext';
+import React, { useState, useEffect } from 'react';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import type { Order, OrderStatus } from '@/lib/types';
 import {
   Table,
   TableBody,
@@ -22,9 +24,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, Trash2 } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
-import type { OrderStatus } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,13 +36,42 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminOrdersPage() {
-  const context = useContext(AppContext);
-  
-  if (!context || context.isLoading) return <div>جار التحميل...</div>;
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
-  const { allOrders, updateOrderStatus, deleteOrder } = context;
+  useEffect(() => {
+    const q = collection(db, "orders");
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const ordersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+      ordersData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setAllOrders(ordersData);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching orders: ", error);
+      toast({ title: "خطأ في جلب الطلبات", variant: "destructive" });
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [toast]);
+
+  const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
+    const orderDocRef = doc(db, "orders", orderId);
+    await updateDoc(orderDocRef, { status });
+    toast({ title: `تم تحديث حالة الطلب إلى: ${getStatusText(status)}` });
+  };
+
+  const deleteOrder = async (orderId: string) => {
+    const orderRef = doc(db, "orders", orderId);
+    await deleteDoc(orderRef);
+    toast({ title: "تم حذف الطلب بنجاح", variant: "destructive" });
+  };
+  
+  if (isLoading) return <div>جار تحميل الطلبات...</div>;
 
   const getStatusVariant = (status: OrderStatus) => {
     switch (status) {

@@ -54,11 +54,11 @@ const uploadImage = async (base64: string, path: string): Promise<string> => {
 // --- App Context ---
 interface AppContextType {
   products: Product[];
-  allOrders: Order[];
   categories: Category[];
   restaurants: Restaurant[];
   banners: Banner[];
   allUsers: User[];
+  allOrders: Order[]; // Will be populated by specific pages now
   bestSellers: Product[];
   isLoading: boolean;
   cart: CartItem[];
@@ -163,6 +163,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     deliveryZonesSnap,
                     couponsSnap,
                     telegramConfigsSnap,
+                    ordersSnap, // Fetch orders once on load
                 ] = await Promise.all([
                     getDocs(collection(db, "products")),
                     getDocs(collection(db, "categories")),
@@ -172,6 +173,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     getDocs(collection(db, "deliveryZones")),
                     getDocs(collection(db, "coupons")),
                     getDocs(collection(db, "telegramConfigs")),
+                    getDocs(collection(db, "orders")), // Fetch orders once
                 ]);
 
                 setProducts(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
@@ -182,6 +184,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 setDeliveryZones(deliveryZonesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryZone)));
                 setCoupons(couponsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
                 setTelegramConfigs(telegramConfigsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TelegramConfig)));
+                setAllOrders(ordersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Order)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+
 
             } catch (error) {
                 console.error("Error fetching initial data:", error);
@@ -193,13 +197,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
         fetchData();
 
-        // Keep real-time listeners for dynamic data
+        // Keep real-time listeners for dynamic data that changes frequently and has a smaller document count
         const unsubs = [
-            onSnapshot(collection(db, "orders"), snap => {
-                const orders = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))
-                                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                setAllOrders(orders);
-            }),
             onSnapshot(collection(db, "supportTickets"), snap => setSupportTickets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket)))),
             onSnapshot(collection(db, "deliveryWorkers"), snap => setDeliveryWorkers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker)))),
         ];
@@ -220,6 +219,20 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     // Listener for user-specific support ticket
     useEffect(() => {
         if (!userId) return;
+
+        // Fetch user's orders once
+        const fetchUserOrders = async () => {
+            const q = query(collection(db, "orders"), where("userId", "==", userId));
+            const querySnapshot = await getDocs(q);
+            const userOrders = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+            // Merge with existing orders to avoid duplicates but add new ones
+            setAllOrders(prevOrders => {
+                const existingOrderIds = new Set(prevOrders.map(o => o.id));
+                const newOrders = userOrders.filter(o => !existingOrderIds.has(o.id));
+                return [...prevOrders, ...newOrders].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            });
+        };
+        fetchUserOrders();
 
         const q = query(collection(db, "supportTickets"), where("userId", "==", userId));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -438,10 +451,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 
                 const finalTotal = subTotal + deliveryFee;
 
-                const profit = cart.reduce((acc, item) => {
+                 const profit = cart.reduce((acc, item) => {
                     const itemPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
                     const wholesalePrice = item.product.wholesalePrice ?? 0;
-                    return acc + (itemPrice - wholesalePrice) * item.quantity;
+                    return acc + ((itemPrice - wholesalePrice) * item.quantity);
                 }, 0);
                 
                 const newOrderData: Omit<Order, 'id'> = {
@@ -470,6 +483,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
                 const orderRef = doc(collection(db, "orders"));
                 transaction.set(orderRef, newOrderData);
+
+                // Add the new order to the local state immediately
+                setAllOrders(prev => [{ id: orderRef.id, ...newOrderData }, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+
 
                 for (const item of cart) {
                     const productRef = doc(db, "products", item.product.id);
@@ -574,11 +591,13 @@ ${itemsText}
         
         const nextWorker = availableWorkers[0];
 
-        await updateDoc(doc(db, "orders", orderId), {
+        const updateData = {
             status: 'pending_assignment',
             assignedToWorkerId: nextWorker.id,
             assignmentTimestamp: new Date().toISOString()
-        });
+        };
+        await updateDoc(doc(db, "orders", orderId), updateData);
+        setAllOrders(prev => prev.map(o => o.id === orderId ? {...o, ...updateData} : o));
         console.log(`Order ${orderId} assigned to ${nextWorker.name}`);
 
         const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
@@ -708,11 +727,13 @@ ${itemsText}
         }
         
         await updateDoc(orderDocRef, updateData);
+        setAllOrders(prev => prev.map(o => o.id === orderId ? {...o, ...updateData} : o));
     };
 
     const deleteOrder = async (orderId: string) => {
         const orderRef = doc(db, "orders", orderId);
         await deleteDoc(orderRef);
+        setAllOrders(prev => prev.filter(o => o.id !== orderId));
         toast({ title: "تم حذف الطلب بنجاح", variant: "destructive" });
     }
 
@@ -736,7 +757,7 @@ ${itemsText}
             isResolved: false,
             history: [firstMessage],
         };
-        const ticketDoc = await addDoc(collection(db, "supportTickets"), newTicket);
+        await addDoc(collection(db, "supportTickets"), newTicket);
         
         const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
         if (ownerConfigs.length > 0) {
@@ -1001,3 +1022,4 @@ ${itemsText}
         </AppContext.Provider>
     );
 };
+

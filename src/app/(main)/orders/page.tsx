@@ -1,7 +1,8 @@
 
+
 "use client";
 
-import { useContext, useMemo } from 'react';
+import { useContext, useMemo, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
@@ -9,24 +10,37 @@ import { ShoppingBag, User } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatCurrency } from '@/lib/utils';
-import type { OrderStatus } from '@/lib/types';
+import type { Order, OrderStatus } from '@/lib/types';
 import Image from 'next/image';
 import { getWorkerLevel } from '@/lib/workerLevels';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { db } from '@/lib/firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 
 export default function OrdersPage() {
     const context = useContext(AppContext);
+    const [myOrders, setMyOrders] = useState<Order[]>([]);
+    
+    useEffect(() => {
+        if (!context?.userId) return;
+
+        const q = query(collection(db, "orders"), where("userId", "==", context.userId));
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const ordersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+            ordersData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            setMyOrders(ordersData);
+        });
+
+        return () => unsubscribe();
+    }, [context?.userId]);
+
 
     if (!context) {
         return <div>جار التحميل...</div>;
     }
 
-    const { allOrders, localOrderIds, deliveryWorkers } = context;
-
-    const myOrders = useMemo(() => {
-        return allOrders.filter(order => localOrderIds.includes(order.id)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [allOrders, localOrderIds]);
+    const { allOrders, deliveryWorkers } = context;
 
     const workerLevels = useMemo(() => {
         const levels = new Map<string, ReturnType<typeof getWorkerLevel>>();
@@ -62,7 +76,7 @@ export default function OrdersPage() {
         }
     }
 
-    if (myOrders.length === 0) {
+    if (myOrders.length === 0 && !context.isLoading) {
         return (
             <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] text-center p-4">
                 <ShoppingBag className="h-24 w-24 text-muted-foreground/50 mb-4" />
