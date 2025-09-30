@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatCurrency, calculateDistance } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogOut, MapPin, Package, RefreshCw, BarChart3, Clock, Shield, Store, CircleDot } from 'lucide-react';
+import { LogOut, MapPin, Package, RefreshCw, BarChart3, Clock, Shield, Store, CircleDot, Loader2 } from 'lucide-react';
 import type { Order, Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -19,6 +19,7 @@ export default function DeliveryPage() {
     const router = useRouter();
     const { toast } = useToast();
     const [workerId, setWorkerId] = useState<string | null>(null);
+    const [isProcessing, setIsProcessing] = useState<string | null>(null); // orderId being processed
 
     useEffect(() => {
         const id = localStorage.getItem('deliveryWorkerId');
@@ -72,24 +73,24 @@ export default function DeliveryPage() {
     }, [allOrders, workerId]);
 
 
-    const handleAcceptOrder = (orderId: string) => {
+    const handleAcceptOrder = async (orderId: string) => {
         if (workerId && updateOrderStatus) {
-            updateOrderStatus(orderId, 'confirmed', workerId);
+            setIsProcessing(orderId);
+            await updateOrderStatus(orderId, 'confirmed', workerId);
             toast({title: "تم قبول الطلب بنجاح!"})
+            setIsProcessing(null);
         }
     };
 
-     const handleRejectOrder = (orderId: string) => {
+     const handleRejectOrder = async (orderId: string) => {
         if (workerId && updateOrderStatus && allOrders) {
             const order = allOrders.find(o => o.id === orderId);
             if (!order || !order.assignedToWorkerId) return;
 
-            const previouslyAssigned = allOrders
-                .filter(o => o.id === order.id && o.assignedToWorkerId)
-                .map(o => o.assignedToWorkerId!);
-
-            updateOrderStatus(orderId, 'unassigned', undefined);
+            setIsProcessing(orderId);
+            await updateOrderStatus(orderId, 'unassigned');
             toast({title: "تم رفض الطلب", variant: 'destructive'});
+            setIsProcessing(null);
         }
     };
     
@@ -114,6 +115,8 @@ export default function DeliveryPage() {
             if (!orderRestaurant || !orderRestaurant.latitude || !orderRestaurant.longitude || !order.address.latitude || !order.address.longitude) return null;
             return calculateDistance(order.address.latitude, order.address.longitude, orderRestaurant.latitude, orderRestaurant.longitude);
         }, [order.address, orderRestaurant]);
+        
+        const isThisCardProcessing = isProcessing === order.id;
 
         return (
             <Card>
@@ -153,15 +156,19 @@ export default function DeliveryPage() {
                 </CardContent>
                 <CardFooter className="flex gap-2">
                      <a href={`https://www.google.com/maps?q=${order.address.latitude},${order.address.longitude}`} target="_blank" rel="noopener noreferrer" className="flex-1">
-                        <Button variant="outline" className="w-full">
+                        <Button variant="outline" className="w-full" disabled={isThisCardProcessing}>
                             <MapPin className="ml-2 h-4 w-4"/>
                             عرض على الخريطة
                         </Button>
                     </a>
                     {!isMyOrder && (
                         <>
-                            <Button variant="destructive" className="flex-1" onClick={() => handleRejectOrder(order.id)}>رفض</Button>
-                            <Button className="flex-1" onClick={() => handleAcceptOrder(order.id)}>قبول</Button>
+                            <Button variant="destructive" className="flex-1" onClick={() => handleRejectOrder(order.id)} disabled={isThisCardProcessing}>
+                                {isThisCardProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : 'رفض'}
+                            </Button>
+                            <Button className="flex-1" onClick={() => handleAcceptOrder(order.id)} disabled={isThisCardProcessing}>
+                                {isThisCardProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : 'قبول'}
+                            </Button>
                         </>
                     )}
                      {isMyOrder && (

@@ -4,9 +4,9 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker, Coupon, ProductSize, TelegramConfig, Message } from '@/lib/types';
+import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker, Coupon, ProductSize, TelegramConfig, Message, AiSupportInput, AiSupportOutput } from '@/lib/types';
 import { categories as initialCategoriesData } from '@/lib/mock-data';
-import { ShoppingBasket } from 'lucide-react';
+import { ShoppingBasket, HelpCircle } from 'lucide-react';
 import { db, storage } from '@/lib/firebase';
 import { 
     doc, 
@@ -411,8 +411,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     const itemPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
                     // Ensure wholesalePrice is a number, default to itemPrice if not present for profit calculation
                     const wholesalePrice = item.product.wholesalePrice ?? itemPrice;
-                    const itemProfit = (itemPrice - wholesalePrice) * item.quantity;
-                    return acc + itemProfit;
+                    return acc + (itemPrice - wholesalePrice) * item.quantity;
                 }, 0);
                 
                 const newOrderData: Omit<Order, 'id'> = {
@@ -423,7 +422,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     status: 'unassigned',
                     estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
                     address,
-                    profit,
+                    profit: profit,
                     deliveryFee,
                     ...(appliedCouponInfo && { appliedCoupon: appliedCouponInfo })
                 };
@@ -593,19 +592,23 @@ ${itemsText}
                 const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === workerId);
                 if (workerConfig && orderData) {
                     const message = `
-*تم تعيين طلب جديد لك* 🛵
+*تم قبول الطلب الجديد* 🛵
 *رقم الطلب:* \`${orderId.substring(0, 6)}\`
 *الزبون:* ${orderData.address.name}
 *المنطقة:* ${orderData.address.deliveryZone}
 *المبلغ المستلم:* ${formatCurrency(orderData.total)}
 
-الرجاء مراجعة التطبيق لقبول الطلب.
+الرجاء مراجعة التطبيق لبدء التوصيل.
                     `;
                     sendTelegramMessage(workerConfig.chatId, message);
                 }
             }
         }
         
+        if (status === 'unassigned') {
+            updateData.assignedToWorkerId = null;
+        }
+
         if (status === 'delivered' && workerId) {
             const workerDocRef = doc(db, "deliveryWorkers", workerId);
             const worker = deliveryWorkers.find(w => w.id === workerId);
@@ -673,10 +676,9 @@ ${itemsText}
         const newTicket: Omit<SupportTicket, 'id'> = {
             userId,
             userName,
-            question: firstMessage.content,
-            history: [firstMessage],
             createdAt: new Date().toISOString(),
             isResolved: false,
+            history: [firstMessage],
         };
         const ticketDoc = await addDoc(collection(db, "supportTickets"), newTicket);
         
