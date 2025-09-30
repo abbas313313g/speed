@@ -4,9 +4,9 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker, Coupon, ProductSize, TelegramConfig, Message, AiSupportInput, AiSupportOutput } from '@/lib/types';
+import type { User, Product, Order, OrderStatus, Category, Restaurant, Banner, CartItem, Address, DeliveryZone, SupportTicket, DeliveryWorker, Coupon, ProductSize, TelegramConfig, Message } from '@/lib/types';
 import { categories as initialCategoriesData } from '@/lib/mock-data';
-import { ShoppingBasket, HelpCircle } from 'lucide-react';
+import { ShoppingBasket } from 'lucide-react';
 import { db, storage } from '@/lib/firebase';
 import { 
     doc, 
@@ -19,11 +19,10 @@ import {
     query,
     where,
     getDocs,
-    writeBatch,
     setDoc,
     arrayUnion
 } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { formatCurrency, calculateDistance, calculateDeliveryFee } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -152,23 +151,57 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     
     // --- Data Listeners ---
     useEffect(() => {
-        setIsLoading(true);
+        const fetchData = async () => {
+            setIsLoading(true);
+            try {
+                const [
+                    productsSnap,
+                    categoriesSnap,
+                    restaurantsSnap,
+                    bannersSnap,
+                    usersSnap,
+                    deliveryZonesSnap,
+                    couponsSnap,
+                    telegramConfigsSnap,
+                ] = await Promise.all([
+                    getDocs(collection(db, "products")),
+                    getDocs(collection(db, "categories")),
+                    getDocs(collection(db, "restaurants")),
+                    getDocs(collection(db, "banners")),
+                    getDocs(collection(db, "users")),
+                    getDocs(collection(db, "deliveryZones")),
+                    getDocs(collection(db, "coupons")),
+                    getDocs(collection(db, "telegramConfigs")),
+                ]);
+
+                setProducts(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+                setCategories(categoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)));
+                setRestaurants(restaurantsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant)));
+                setBanners(bannersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
+                setAllUsers(usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
+                setDeliveryZones(deliveryZonesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryZone)));
+                setCoupons(couponsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
+                setTelegramConfigs(telegramConfigsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TelegramConfig)));
+
+            } catch (error) {
+                console.error("Error fetching initial data:", error);
+                toast({ title: "فشل تحميل البيانات", description: "حدث خطأ أثناء جلب بيانات التطبيق.", variant: "destructive" });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchData();
+
+        // Keep real-time listeners for dynamic data
         const unsubs = [
-            onSnapshot(collection(db, "products"), snap => setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)))),
-            onSnapshot(collection(db, "categories"), snap => setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)))),
-            onSnapshot(collection(db, "restaurants"), snap => setRestaurants(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant)))),
-            onSnapshot(collection(db, "banners"), snap => setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)))),
             onSnapshot(collection(db, "orders"), snap => {
                 const orders = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order))
                                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 setAllOrders(orders);
             }),
-            onSnapshot(collection(db, "users"), snap => setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)))),
-            onSnapshot(collection(db, "deliveryZones"), snap => setDeliveryZones(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryZone)))),
             onSnapshot(collection(db, "supportTickets"), snap => setSupportTickets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket)))),
             onSnapshot(collection(db, "deliveryWorkers"), snap => setDeliveryWorkers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker)))),
-            onSnapshot(collection(db, "coupons"), snap => setCoupons(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)))),
-            onSnapshot(collection(db, "telegramConfigs"), snap => setTelegramConfigs(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TelegramConfig)))),
         ];
         
         // Load from localStorage
@@ -179,12 +212,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         if (savedAddresses) setAddresses(JSON.parse(savedAddresses));
         if (savedOrderIds) setLocalOrderIds(JSON.parse(savedOrderIds));
 
-        setIsLoading(false);
-
         return () => {
             unsubs.forEach(unsub => unsub());
         };
-    }, []);
+    }, [toast]);
 
     // Listener for user-specific support ticket
     useEffect(() => {
@@ -421,7 +452,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     status: 'unassigned',
                     estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
                     address,
-                    profit: profit,
+                    profit: profit || 0,
                     deliveryFee,
                     deliveryWorkerId: null,
                     deliveryWorker: null,
@@ -589,7 +620,7 @@ ${itemsText}
         }, 10000); // Check every 10 seconds
 
         return () => clearInterval(interval);
-    }, [allOrders, deliveryWorkers]);
+    }, [allOrders, deliveryWorkers, telegramConfigs]);
 
     const updateWorkerStatus = async (workerId: string, isOnline: boolean) => {
         try {
@@ -749,17 +780,26 @@ ${itemsText}
     const addDeliveryWorker = async (workerData: Pick<DeliveryWorker, 'id' | 'name'>) => {
         const workerRef = doc(db, 'deliveryWorkers', workerData.id);
         await setDoc(workerRef, { name: workerData.name, isOnline: true }, { merge: true });
+        setDeliveryWorkers(prev => {
+            const existing = prev.find(w => w.id === workerData.id);
+            if (existing) {
+                return prev.map(w => w.id === workerData.id ? {...w, ...workerData, isOnline: true} : w);
+            }
+            return [...prev, {...workerData, isOnline: true}];
+        })
     };
 
 
     // --- Telegram Config Management ---
     const addTelegramConfig = async (configData: Omit<TelegramConfig, 'id'>) => {
-        await addDoc(collection(db, "telegramConfigs"), configData);
+        const docRef = await addDoc(collection(db, "telegramConfigs"), configData);
+        setTelegramConfigs(prev => [...prev, {id: docRef.id, ...configData}]);
         toast({ title: "تمت إضافة معرف تليجرام بنجاح" });
     };
 
     const deleteTelegramConfig = async (configId: string) => {
         await deleteDoc(doc(db, "telegramConfigs", configId));
+        setTelegramConfigs(prev => prev.filter(c => c.id !== configId));
         toast({ title: "تم حذف معرف تليجرام بنجاح" });
     };
 
@@ -767,7 +807,8 @@ ${itemsText}
     // --- ADMIN ACTIONS ---
     const addProduct = async (productData: Omit<Product, 'id'> & { image: string }) => {
         const imageUrl = await uploadImage(productData.image, `products/${uuidv4()}`);
-        await addDoc(collection(db, "products"), { ...productData, image: imageUrl });
+        const docRef = await addDoc(collection(db, "products"), { ...productData, image: imageUrl });
+        setProducts(prev => [...prev, {id: docRef.id, ...productData, image: imageUrl}]);
         toast({ title: "تمت إضافة المنتج بنجاح" });
     }
 
@@ -779,18 +820,22 @@ ${itemsText}
             imageUrl = await uploadImage(image, `products/${id}`);
         }
         const productDocRef = doc(db, "products", id);
-        await updateDoc(productDocRef, { ...productData, image: imageUrl });
+        const finalData = { ...productData, image: imageUrl };
+        await updateDoc(productDocRef, finalData);
+        setProducts(prev => prev.map(p => p.id === id ? {...p, ...finalData} as Product : p));
         toast({ title: "تم تحديث المنتج بنجاح" });
     }
 
     const deleteProduct = async (productId: string) => {
         await deleteDoc(doc(db, "products", productId));
+        setProducts(prev => prev.filter(p => p.id !== productId));
         // Note: Deleting image from storage is optional to prevent broken links if image is reused.
         toast({ title: "تم حذف المنتج بنجاح", variant: "destructive" });
     }
 
     const addCategory = async (categoryData: Omit<Category, 'id' | 'icon'>) => {
-        await addDoc(collection(db, "categories"), categoryData);
+        const docRef = await addDoc(collection(db, "categories"), categoryData);
+        setCategories(prev => [...prev, {id: docRef.id, ...categoryData}]);
         toast({ title: "تمت إضافة القسم بنجاح" });
     }
 
@@ -798,17 +843,20 @@ ${itemsText}
         const { id, ...categoryData } = updatedCategory;
         const categoryDocRef = doc(db, "categories", id);
         await updateDoc(categoryDocRef, categoryData);
+        setCategories(prev => prev.map(c => c.id === id ? { ...c, ...categoryData } : c));
         toast({ title: "تم تحديث القسم بنجاح" });
     }
 
     const deleteCategory = async (categoryId: string) => {
         await deleteDoc(doc(db, "categories", categoryId));
+        setCategories(prev => prev.filter(c => c.id !== categoryId));
         toast({ title: "تم حذف القسم بنجاح", variant: "destructive" });
     }
 
     const addRestaurant = async (restaurantData: Omit<Restaurant, 'id'> & {image: string}) => {
         const imageUrl = await uploadImage(restaurantData.image, `restaurants/${uuidv4()}`);
-        await addDoc(collection(db, "restaurants"), { ...restaurantData, image: imageUrl });
+        const docRef = await addDoc(collection(db, "restaurants"), { ...restaurantData, image: imageUrl });
+        setRestaurants(prev => [...prev, {id: docRef.id, ...restaurantData, image: imageUrl}]);
         toast({ title: "تمت إضافة المتجر بنجاح" });
     }
 
@@ -819,18 +867,22 @@ ${itemsText}
             imageUrl = await uploadImage(image, `restaurants/${id}`);
         }
         const restaurantDocRef = doc(db, "restaurants", id);
-        await updateDoc(restaurantDocRef, { ...restaurantData, image: imageUrl });
+        const finalData = { ...restaurantData, image: imageUrl };
+        await updateDoc(restaurantDocRef, finalData);
+        setRestaurants(prev => prev.map(r => r.id === id ? {...r, ...finalData} as Restaurant : r));
         toast({ title: "تم تحديث المتجر بنجاح" });
     }
 
     const deleteRestaurant = async (restaurantId: string) => {
         await deleteDoc(doc(db, "restaurants", restaurantId));
+        setRestaurants(prev => prev.filter(r => r.id !== restaurantId));
         toast({ title: "تم حذف المتجر بنجاح" });
     }
   
     const addBanner = async (bannerData: Omit<Banner, 'id'> & {image: string}) => {
         const imageUrl = await uploadImage(bannerData.image, `banners/${uuidv4()}`);
-        await addDoc(collection(db, "banners"), { ...bannerData, image: imageUrl });
+        const docRef = await addDoc(collection(db, "banners"), { ...bannerData, image: imageUrl });
+        setBanners(prev => [...prev, {id: docRef.id, ...bannerData, image: imageUrl}]);
         toast({ title: "تمت إضافة البنر بنجاح" });
     }
 
@@ -842,39 +894,47 @@ ${itemsText}
         }
         const bannerRef = doc(db, "banners", id);
         await updateDoc(bannerRef, { ...bannerData, image: imageUrl });
+        setBanners(prev => prev.map(b => b.id === id ? {...b, ...bannerData, image: imageUrl } as Banner : b));
         toast({ title: "تم تحديث البنر بنجاح" });
     };
 
     const deleteBanner = async (bannerId: string) => {
         const bannerRef = doc(db, "banners", bannerId);
         await deleteDoc(bannerRef);
+        setBanners(prev => prev.filter(b => b.id !== bannerId));
         toast({ title: "تم حذف البنر بنجاح" });
     };
 
     const addDeliveryZone = async (zone: Omit<DeliveryZone, 'id'>) => {
-        await addDoc(collection(db, "deliveryZones"), zone);
+        const docRef = await addDoc(collection(db, "deliveryZones"), zone);
+        setDeliveryZones(prev => [...prev, {id: docRef.id, ...zone}]);
         toast({ title: "تمت إضافة المنطقة بنجاح" });
     };
 
     const updateDeliveryZone = async (zone: DeliveryZone) => {
         const zoneRef = doc(db, "deliveryZones", zone.id);
         await updateDoc(zoneRef, { name: zone.name, fee: zone.fee });
+        setDeliveryZones(prev => prev.map(z => z.id === zone.id ? zone : z));
         toast({ title: "تم تحديث المنطقة بنجاح" });
     };
 
     const deleteDeliveryZone = async (zoneId: string) => {
         const zoneRef = doc(db, "deliveryZones", zoneId);
         await deleteDoc(zoneRef);
+        setDeliveryZones(prev => prev.filter(z => z.id !== zoneId));
         toast({ title: "تم حذف المنطقة بنجاح" });
     };
 
     const addCoupon = async (couponData: Omit<Coupon, 'id' | 'usedCount'|'usedBy'>) => {
-        await addDoc(collection(db, "coupons"), { ...couponData, usedCount: 0, usedBy: [] });
+        const finalData = { ...couponData, usedCount: 0, usedBy: [] };
+        const docRef = await addDoc(collection(db, "coupons"), finalData);
+        setCoupons(prev => [...prev, {id: docRef.id, ...finalData}]);
         toast({ title: "تمت إضافة الكود بنجاح" });
     };
 
     const deleteCoupon = async (couponId: string) => {
         await deleteDoc(doc(db, "coupons", couponId));
+        setCoupons(prev => prev.filter(c => c.id !== couponId));
         toast({ title: "تم حذف الكود بنجاح" });
     };
 
@@ -915,7 +975,7 @@ ${itemsText}
         addresses,
         addAddress,
         deleteAddress,
-        deliveryZones: deliveryZones,
+        deliveryZones,
         localOrderIds,
         supportTickets,
         mySupportTicket,
