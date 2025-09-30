@@ -409,7 +409,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
                 const profit = cart.reduce((acc, item) => {
                     const itemPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
-                    const itemProfit = (itemPrice - (item.product.wholesalePrice || itemPrice)) * item.quantity;
+                    // Ensure wholesalePrice is a number, default to itemPrice if not present for profit calculation
+                    const wholesalePrice = item.product.wholesalePrice ?? itemPrice;
+                    const itemProfit = (itemPrice - wholesalePrice) * item.quantity;
                     return acc + itemProfit;
                 }, 0);
                 
