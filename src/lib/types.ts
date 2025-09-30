@@ -93,16 +93,16 @@ export interface Order {
     status: OrderStatus;
     estimatedDelivery: string;
     address: Address;
-    profit?: number;
+    profit: number | null;
     deliveryFee: number;
-    deliveryWorkerId?: string;
-    deliveryWorker?: DeliveryWorker;
-    assignedToWorkerId?: string;
-    assignmentTimestamp?: string;
-    appliedCoupon?: {
+    deliveryWorkerId: string | null;
+    deliveryWorker: DeliveryWorker | null;
+    assignedToWorkerId: string | null;
+    assignmentTimestamp: string | null;
+    appliedCoupon: {
       code: string;
       discountAmount: number;
-    };
+    } | null;
 }
 
 export interface Message {
@@ -115,7 +115,6 @@ export interface SupportTicket {
     id: string;
     userId: string;
     userName: string;
-    question: string;
     createdAt: string;
     isResolved: boolean;
     history: Message[];

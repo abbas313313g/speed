@@ -409,8 +409,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
                 const profit = cart.reduce((acc, item) => {
                     const itemPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
-                    // Ensure wholesalePrice is a number, default to itemPrice if not present for profit calculation
-                    const wholesalePrice = item.product.wholesalePrice ?? itemPrice;
+                    const wholesalePrice = item.product.wholesalePrice ?? 0;
                     return acc + (itemPrice - wholesalePrice) * item.quantity;
                 }, 0);
                 
@@ -424,8 +423,20 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     address,
                     profit: profit,
                     deliveryFee,
-                    ...(appliedCouponInfo && { appliedCoupon: appliedCouponInfo })
+                    deliveryWorkerId: null,
+                    deliveryWorker: null,
+                    assignedToWorkerId: null,
+                    assignmentTimestamp: null,
+                    appliedCoupon: appliedCouponInfo || null,
                 };
+                
+                // Sanitize newOrderData to remove undefined values
+                Object.keys(newOrderData).forEach(key => {
+                    if ((newOrderData as any)[key] === undefined) {
+                        (newOrderData as any)[key] = null;
+                    }
+                });
+
                 const orderRef = doc(collection(db, "orders"));
                 transaction.set(orderRef, newOrderData);
 
@@ -538,6 +549,20 @@ ${itemsText}
             assignmentTimestamp: new Date().toISOString()
         });
         console.log(`Order ${orderId} assigned to ${nextWorker.name}`);
+
+        const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
+        const orderData = allOrders.find(o => o.id === orderId);
+        if (workerConfig && orderData) {
+            const message = `
+*لديك طلب جديد في الانتظار* 🛵
+*رقم الطلب:* \`${orderId.substring(0, 6)}\`
+*المنطقة:* ${orderData.address.deliveryZone}
+*ربحك من التوصيل:* ${formatCurrency(orderData.deliveryFee)}
+
+الرجاء مراجعة التطبيق لقبول أو رفض الطلب.
+            `;
+            sendTelegramMessage(workerConfig.chatId, message);
+        }
     };
 
     useEffect(() => {
@@ -809,8 +834,8 @@ ${itemsText}
         toast({ title: "تمت إضافة البنر بنجاح" });
     }
 
-    const updateBanner = async (updatedBanner: Banner) => {
-        const { id, image, ...bannerData } = updatedBanner;
+    const updateBanner = async (banner: Banner) => {
+        const { id, image, ...bannerData } = banner;
         let imageUrl = image;
         if (image && image.startsWith('data:image')) {
             imageUrl = await uploadImage(image, `banners/${id}`);
