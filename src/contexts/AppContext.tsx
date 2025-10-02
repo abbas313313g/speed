@@ -20,7 +20,8 @@ import {
     where,
     getDocs,
     setDoc,
-    arrayUnion
+    arrayUnion,
+    getDoc
 } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { formatCurrency, calculateDistance, calculateDeliveryFee } from '@/lib/utils';
@@ -195,10 +196,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         fetchData();
 
         const unsubs = [
-            onSnapshot(collection(db, "orders"), 
-                (snap) => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())),
-                (error) => console.error("Orders snapshot error: ", error)
-            ),
             onSnapshot(collection(db, "supportTickets"), 
                 (snap) => setSupportTickets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket))),
                 (error) => console.error("Support tickets snapshot error: ", error)
@@ -206,6 +203,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             onSnapshot(collection(db, "deliveryWorkers"), 
                 (snap) => setDeliveryWorkers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker))),
                 (error) => console.error("Delivery workers snapshot error: ", error)
+            ),
+             onSnapshot(collection(db, "orders"), 
+                (snap) => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())),
+                (error) => console.error("Orders snapshot error: ", error)
             ),
         ];
         
@@ -374,73 +375,73 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     const placeOrder = async (address: Address, couponCode?: string) => {
         if (cart.length === 0) return;
-
+    
         const cartRestaurant = restaurants.find(r => r.id === cart[0].product.restaurantId);
         if (!cartRestaurant) {
             throw new Error("لم يتم العثور على المتجر الخاص بالطلب.");
         }
-
+    
         try {
+            // Step 1: Pre-fetch product and coupon data to validate outside the transaction
+            const productDocs = new Map<string, Product>();
+            for (const item of cart) {
+                const productRef = doc(db, "products", item.product.id);
+                const productDoc = await getDoc(productRef);
+                if (!productDoc.exists()) {
+                    throw new Error(`منتج "${item.product.name}" لم يعد متوفرًا.`);
+                }
+                const productData = productDoc.data() as Product;
+    
+                if (item.selectedSize) {
+                    const size = productData.sizes?.find(s => s.name === item.selectedSize!.name);
+                    if (!size || size.stock < item.quantity) {
+                        throw new Error(`الكمية المطلوبة من "${item.product.name} (${item.selectedSize.name})" غير متوفرة.`);
+                    }
+                } else {
+                    if ((productData.stock ?? 0) < item.quantity) {
+                        throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
+                    }
+                }
+                productDocs.set(item.product.id, productData);
+            }
+    
+            let coupon: (Coupon & {id: string}) | null = null;
+            let couponDocRef: any = null;
+            if (couponCode) {
+                const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
+                const querySnapshot = await getDocs(couponQuery);
+                if (querySnapshot.empty) {
+                    throw new Error("كود الخصم غير صحيح.");
+                }
+                const couponDoc = querySnapshot.docs[0];
+                couponDocRef = couponDoc.ref;
+                coupon = { id: couponDoc.id, ...couponDoc.data() } as (Coupon & {id: string});
+    
+                if (coupon.usedCount >= coupon.maxUses) throw new Error("تم استخدام هذا الكود بالكامل.");
+                if (coupon.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
+            }
+    
+            // Step 2: Calculate all order values before the transaction
+            const discountAmount = coupon?.discountValue || 0;
+            const appliedCouponInfo = coupon ? { code: coupon.code, discountAmount: discountAmount } : null;
+    
+            const distance = (address.latitude && address.longitude && cartRestaurant.latitude && cartRestaurant.longitude)
+                ? calculateDistance(address.latitude, address.longitude, cartRestaurant.latitude, cartRestaurant.longitude)
+                : 0;
+            const deliveryFee = calculateDeliveryFee(distance);
+    
+            const finalTotal = Math.max(0, cartTotal - discountAmount) + deliveryFee;
+    
+            const profit = cart.reduce((acc, item) => {
+                const productData = productDocs.get(item.product.id);
+                if (!productData) return acc;
+                const itemPrice = item.selectedSize?.price ?? productData.discountPrice ?? productData.price;
+                const wholesalePrice = productData.wholesalePrice ?? 0;
+                return acc + ((itemPrice - wholesalePrice) * item.quantity);
+            }, 0);
+    
+            // Step 3: Run the simplified transaction
             await runTransaction(db, async (transaction) => {
-                // Pre-fetch product data within the transaction to ensure atomicity
-                const productDocs = new Map<string, any>();
-                for (const item of cart) {
-                    const productRef = doc(db, "products", item.product.id);
-                    const productDoc = await transaction.get(productRef);
-                    if (!productDoc.exists()) {
-                        throw new Error(`منتج "${item.product.name}" لم يعد متوفرًا.`);
-                    }
-                    const productData = productDoc.data() as Product;
-
-                    if (item.selectedSize) {
-                        const sizeIndex = productData.sizes?.findIndex(s => s.name === item.selectedSize!.name);
-                        if (sizeIndex === undefined || sizeIndex === -1 || (productData.sizes?.[sizeIndex].stock ?? 0) < item.quantity) {
-                            throw new Error(`الكمية المطلوبة من "${item.product.name} (${item.selectedSize.name})" غير متوفرة.`);
-                        }
-                    } else {
-                        if ((productData.stock ?? 0) < item.quantity) {
-                            throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
-                        }
-                    }
-                    productDocs.set(item.product.id, productData);
-                }
-
-                // Handle coupon logic
-                let coupon: Coupon | null = null;
-                let couponDocSnap: any = null;
-                let discountAmount = 0;
-                let appliedCouponInfo: { code: string; discountAmount: number } | null = null;
-
-                if (couponCode) {
-                    const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
-                    const querySnapshot = await getDocs(couponQuery); // getDocs is fine here as coupons don't change mid-transaction
-                    if (!querySnapshot.empty) {
-                        couponDocSnap = querySnapshot.docs[0];
-                        coupon = { id: couponDocSnap.id, ...couponDocSnap.data() } as Coupon;
-                        if (coupon.usedCount >= coupon.maxUses) throw new Error("تم استخدام هذا الكود بالكامل.");
-                        if (coupon.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
-                        
-                        discountAmount = coupon.discountValue || 0;
-                        appliedCouponInfo = { code: coupon.code, discountAmount };
-                    } else {
-                        throw new Error("كود الخصم غير صحيح.");
-                    }
-                }
-                
-                const distance = (address.latitude && address.longitude && cartRestaurant.latitude && cartRestaurant.longitude)
-                    ? calculateDistance(address.latitude, address.longitude, cartRestaurant.latitude, cartRestaurant.longitude)
-                    : 0; // Default to 0 if no location data
-                const deliveryFee = calculateDeliveryFee(distance);
-                
-                const finalTotal = Math.max(0, cartTotal - discountAmount) + deliveryFee;
-
-                const profit = cart.reduce((acc, item) => {
-                    const productData = productDocs.get(item.product.id);
-                    const itemPrice = item.selectedSize?.price ?? productData.discountPrice ?? productData.price;
-                    const wholesalePrice = productData.wholesalePrice ?? 0;
-                    return acc + ((itemPrice - wholesalePrice) * item.quantity);
-                }, 0);
-                
                 const newOrderData: Omit<Order, 'id'> = {
                     userId: userId,
                     items: cart,
@@ -450,7 +451,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
                     address,
                     profit: profit,
-                    deliveryFee,
+                    deliveryFee: deliveryFee,
                     deliveryWorkerId: null,
                     deliveryWorker: null,
                     assignedToWorkerId: null,
@@ -458,23 +459,23 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     appliedCoupon: appliedCouponInfo,
                     rejectedBy: [],
                 };
-                
-                // Sanitize the final object to remove undefined values
+    
                 const sanitizedOrderData = Object.fromEntries(
                     Object.entries(newOrderData).map(([key, value]) => [key, value === undefined ? null : value])
                 );
-
+    
                 const orderRef = doc(collection(db, "orders"));
                 transaction.set(orderRef, sanitizedOrderData);
-
-                // Update product stock
+    
                 for (const item of cart) {
                     const productRef = doc(db, "products", item.product.id);
                     const productData = productDocs.get(item.product.id);
+                    if (!productData) continue; // Should not happen due to pre-fetch
+    
                     if (item.selectedSize) {
-                        const newSizes = productData.sizes?.map((s: ProductSize) => 
-                            s.name === item.selectedSize!.name 
-                            ? { ...s, stock: s.stock - item.quantity } 
+                        const newSizes = productData.sizes?.map((s: ProductSize) =>
+                            s.name === item.selectedSize!.name
+                            ? { ...s, stock: s.stock - item.quantity }
                             : s
                         ) ?? [];
                         transaction.update(productRef, { sizes: newSizes });
@@ -482,14 +483,15 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                         transaction.update(productRef, { stock: productData.stock - item.quantity });
                     }
                 }
-                
-                // Update coupon usage
-                if (couponDocSnap && coupon) {
-                    const updatedUsedCount = coupon.usedCount + 1;
-                    const updatedUsedBy = [...(coupon.usedBy || []), userId];
-                    transaction.update(couponDocSnap.ref, { usedCount: updatedUsedCount, usedBy: updatedUsedBy });
+    
+                if (couponDocRef && coupon) {
+                    transaction.update(couponDocRef, { 
+                        usedCount: coupon.usedCount + 1,
+                        usedBy: arrayUnion(userId)
+                    });
                 }
-                
+    
+                // Non-transactional side effects (can be moved out if needed)
                 setLocalOrderIds(prev => [...prev, orderRef.id]);
                 
                 const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
@@ -515,15 +517,16 @@ ${itemsText}
                     `;
                     ownerConfigs.forEach(config => sendTelegramMessage(config.chatId, message));
                 }
-
+                
                 clearCart();
-            }); 
-
+            });
+    
         } catch (error: any) {
             console.error("Order placement failed:", error);
-            throw error; 
+            throw error; // Re-throw to be caught by the UI
         }
-    }
+    };
+    
 
 
     const dynamicCategories = useMemo(() => {
@@ -1026,3 +1029,4 @@ ${itemsText}
         </AppContext.Provider>
     );
 };
+
