@@ -384,7 +384,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                         // Read the coupon data from the document within the transaction
                         const couponSnap = await transaction.get(couponDocRef);
                         if (couponSnap.exists()) {
-                            couponData = couponSnap.data() as Coupon;
+                            couponData = {id: couponSnap.id, ...couponSnap.data()} as Coupon;
                         }
                     }
                 }
@@ -423,7 +423,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 const profit = localCart.reduce((acc, item) => {
                     const productData = productDocSnaps[localCart.indexOf(item)].data() as Product;
                     const itemPrice = item.selectedSize?.price ?? productData.discountPrice ?? productData.price;
-                    const wholesalePrice = productData.wholesalePrice ?? 0; // Default to 0 if undefined
+                    const wholesalePrice = productData.wholesalePrice ?? 0;
                     return acc + ((itemPrice - wholesalePrice) * item.quantity);
                 }, 0);
 
@@ -436,7 +436,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
                 // 4. Perform writes
                 const newOrderRef = doc(collection(db, "orders"));
-                const newOrderData = {
+                const newOrderData: Omit<Order, 'id'> = {
                     userId: userId,
                     items: localCart,
                     total: finalTotal,
@@ -453,7 +453,13 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     rejectedBy: [],
                     appliedCoupon: appliedCouponInfo,
                 };
-                transaction.set(newOrderRef, newOrderData);
+                
+                // Final sanitization step to prevent undefined values
+                const sanitizedOrderData = Object.fromEntries(
+                    Object.entries(newOrderData).map(([key, value]) => [key, value === undefined ? null : value])
+                );
+
+                transaction.set(newOrderRef, sanitizedOrderData);
 
                 for (let i = 0; i < localCart.length; i++) {
                     const item = localCart[i];
@@ -514,7 +520,7 @@ ${itemsText}
             console.error("Order placement transaction failed:", error);
             toast({
                 title: "فشل إرسال الطلب",
-                description: error.message || "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.",
+                description: "حدث خطأ غير متوقع. يرجى الخروج من التطبيق والمحاولة مرة أخرى.",
                 variant: "destructive"
             });
             throw error; // Re-throw to be caught by the UI component
@@ -1024,4 +1030,5 @@ ${itemsText}
 
 
     
+
 
