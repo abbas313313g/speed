@@ -103,7 +103,6 @@ interface AppContextType {
   coupons: Coupon[];
   addCoupon: (coupon: Omit<Coupon, 'id'|'usedCount'|'usedBy'>) => Promise<void>;
   deleteCoupon: (couponId: string) => Promise<void>;
-  validateAndApplyCoupon: (couponCode: string) => Promise<{success: boolean; discount: number; message: string}>;
   telegramConfigs: TelegramConfig[];
   addTelegramConfig: (config: Omit<TelegramConfig, 'id'>) => Promise<void>;
   deleteTelegramConfig: (configId: string) => Promise<void>;
@@ -227,12 +226,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         }, (error) => {
           console.error("Error fetching orders: ", error);
           if ((error as any).code !== 'resource-exhausted') {
-            toast({ title: "خطأ في جلب الطلبات", variant: "destructive" });
+            // toast({ title: "خطأ في جلب الطلبات", variant: "destructive" });
           }
         });
     
         return () => unsubscribe();
-      }, [toast]);
+      }, []);
 
 
     // Listener for user-specific support ticket
@@ -356,166 +355,139 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         setAddresses(prev => prev.filter(addr => addr.id !== addressId));
     };
 
-     // --- Coupon Management ---
-    const validateAndApplyCoupon = async (couponCode: string): Promise<{success: boolean; discount: number; message: string}> => {
-        const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
-        const querySnapshot = await getDocs(couponQuery);
-
-        if (querySnapshot.empty) {
-            return { success: false, discount: 0, message: "كود الخصم غير صحيح." };
-        }
-
-        const couponDoc = querySnapshot.docs[0];
-        const coupon = { id: couponDoc.id, ...couponDoc.data() } as Coupon;
-
-        if (coupon.usedCount >= coupon.maxUses) {
-            return { success: false, discount: 0, message: "تم استخدام هذا الكود بالكامل." };
-        }
-        
-        if (coupon.usedBy?.includes(userId)) {
-             return { success: false, discount: 0, message: "لقد استخدمت هذا الكود من قبل." };
-        }
-
-        return { success: true, discount: coupon.discountValue, message: `تم تطبيق خصم بقيمة ${formatCurrency(coupon.discountValue)}!` };
-    };
-
-
     // --- Order Management ---
      useEffect(() => {
         localStorage.setItem('speedShopOrderIds', JSON.stringify(localOrderIds));
     }, [localOrderIds]);
 
     const placeOrder = async (address: Address, couponCode?: string) => {
-        if (cart.length === 0) return;
+        if (cart.length === 0) throw new Error("السلة فارغة.");
     
         const cartRestaurant = restaurants.find(r => r.id === cart[0].product.restaurantId);
-        if (!cartRestaurant) {
-            throw new Error("لم يتم العثور على المتجر الخاص بالطلب.");
-        }
+        if (!cartRestaurant) throw new Error("لم يتم العثور على المتجر الخاص بالطلب.");
     
-        try {
-            // Step 1: Pre-fetch product and coupon data to validate outside the transaction
-            const productDocs = new Map<string, Product>();
-            for (const item of cart) {
-                const productRef = doc(db, "products", item.product.id);
-                const productDoc = await getDoc(productRef);
-                if (!productDoc.exists()) {
-                    throw new Error(`منتج "${item.product.name}" لم يعد متوفرًا.`);
+        await runTransaction(db, async (transaction) => {
+            // Step 1: Pre-fetch all necessary documents within the transaction
+            const productDocsPromises = cart.map(item => transaction.get(doc(db, "products", item.product.id)));
+            const productDocsSnaps = await Promise.all(productDocsPromises);
+    
+            let coupon: (Coupon & { id: string }) | null = null;
+            let couponDocRef: any = null;
+            if (couponCode) {
+                const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
+                const couponQuerySnapshot = await getDocs(couponQuery); // Cannot use transaction.get for queries
+                if (!couponQuerySnapshot.empty) {
+                    const couponDoc = couponQuerySnapshot.docs[0];
+                    couponDocRef = couponDoc.ref;
+                    coupon = { id: couponDoc.id, ...couponDoc.data() } as (Coupon & { id: string });
                 }
+            }
+    
+            // Step 2: Validate everything
+            const productDataMap = new Map<string, Product>();
+            for (let i = 0; i < cart.length; i++) {
+                const productDoc = productDocsSnaps[i];
+                const item = cart[i];
+                if (!productDoc.exists()) throw new Error(`منتج "${item.product.name}" لم يعد متوفرًا.`);
+                
                 const productData = productDoc.data() as Product;
+                productDataMap.set(productDoc.id, productData);
     
                 if (item.selectedSize) {
                     const size = productData.sizes?.find(s => s.name === item.selectedSize!.name);
-                    if (!size || size.stock < item.quantity) {
-                        throw new Error(`الكمية المطلوبة من "${item.product.name} (${item.selectedSize.name})" غير متوفرة.`);
-                    }
+                    if (!size || size.stock < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name} (${item.selectedSize.name})" غير متوفرة.`);
                 } else {
-                    if ((productData.stock ?? 0) < item.quantity) {
-                        throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
-                    }
+                    if ((productData.stock ?? 0) < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
                 }
-                productDocs.set(item.product.id, productData);
             }
     
-            let coupon: (Coupon & {id: string}) | null = null;
-            let couponDocRef: any = null;
             let discountAmount = 0;
-            let appliedCouponInfo = null;
-
-            if (couponCode) {
-                const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
-                const querySnapshot = await getDocs(couponQuery);
-                if (querySnapshot.empty) {
-                    throw new Error("كود الخصم غير صحيح.");
-                }
-                const couponDoc = querySnapshot.docs[0];
-                couponDocRef = couponDoc.ref;
-                coupon = { id: couponDoc.id, ...couponDoc.data() } as (Coupon & {id: string});
+            let appliedCouponInfo: Order['appliedCoupon'] = null;
     
+            if (coupon) {
                 if (coupon.usedCount >= coupon.maxUses) throw new Error("تم استخدام هذا الكود بالكامل.");
                 if (coupon.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
-
                 discountAmount = coupon.discountValue;
                 appliedCouponInfo = { code: coupon.code, discountAmount: discountAmount };
             }
     
-            // Step 2: Calculate all order values before the transaction
-            const distance = (address.latitude && address.longitude && cartRestaurant.latitude && cartRestaurant.longitude)
-                ? calculateDistance(address.latitude, address.longitude, cartRestaurant.latitude, cartRestaurant.longitude)
-                : 0;
-            const deliveryFee = calculateDeliveryFee(distance);
-    
-            const finalTotal = Math.max(0, cartTotal - discountAmount) + deliveryFee;
-    
+            // Step 3: Calculate totals
+            const subtotal = cart.reduce((acc, item) => {
+                const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
+                return acc + price * item.quantity;
+            }, 0);
+            
             const profit = cart.reduce((acc, item) => {
-                const productData = productDocs.get(item.product.id);
+                const productData = productDataMap.get(item.product.id);
                 if (!productData) return acc;
                 const itemPrice = item.selectedSize?.price ?? productData.discountPrice ?? productData.price;
                 const wholesalePrice = productData.wholesalePrice ?? 0;
                 return acc + ((itemPrice - wholesalePrice) * item.quantity);
             }, 0);
     
-            // Step 3: Run the simplified transaction
-            await runTransaction(db, async (transaction) => {
-                const newOrderData: Omit<Order, 'id'> = {
-                    userId: userId,
-                    items: cart,
-                    total: finalTotal,
-                    date: new Date().toISOString(),
-                    status: 'unassigned',
-                    estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
-                    address,
-                    profit: profit,
-                    deliveryFee: deliveryFee,
-                    deliveryWorkerId: null,
-                    deliveryWorker: null,
-                    assignedToWorkerId: null,
-                    assignmentTimestamp: null,
-                    appliedCoupon: appliedCouponInfo,
-                    rejectedBy: [],
-                };
+            const distance = (address.latitude && address.longitude && cartRestaurant.latitude && cartRestaurant.longitude)
+                ? calculateDistance(address.latitude, address.longitude, cartRestaurant.latitude, cartRestaurant.longitude)
+                : 0;
+            const deliveryFee = calculateDeliveryFee(distance);
+            const finalTotal = Math.max(0, subtotal - discountAmount) + deliveryFee;
     
-                const sanitizedOrderData = Object.fromEntries(
-                    Object.entries(newOrderData).map(([key, value]) => [key, value === undefined ? null : value])
-                );
+            // Step 4: Prepare the order object
+            const newOrderData: Omit<Order, 'id'> = {
+                userId: userId,
+                items: cart,
+                total: finalTotal,
+                date: new Date().toISOString(),
+                status: 'unassigned',
+                estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
+                address,
+                profit: profit,
+                deliveryFee: deliveryFee,
+                deliveryWorkerId: null,
+                deliveryWorker: null,
+                assignedToWorkerId: null,
+                assignmentTimestamp: null,
+                appliedCoupon: appliedCouponInfo,
+                rejectedBy: [],
+            };
     
-                const orderRef = doc(collection(db, "orders"));
-                transaction.set(orderRef, sanitizedOrderData);
+            // Step 5: Perform writes
+            const orderRef = doc(collection(db, "orders"));
+            transaction.set(orderRef, newOrderData);
     
-                for (const item of cart) {
-                    const productRef = doc(db, "products", item.product.id);
-                    const productData = productDocs.get(item.product.id);
-                    if (!productData) continue; 
+            for (const item of cart) {
+                const productRef = doc(db, "products", item.product.id);
+                const productData = productDataMap.get(item.product.id);
+                if (!productData) continue;
     
-                    if (item.selectedSize) {
-                        const newSizes = productData.sizes?.map((s: ProductSize) =>
-                            s.name === item.selectedSize!.name
-                            ? { ...s, stock: s.stock - item.quantity }
-                            : s
-                        ) ?? [];
-                        transaction.update(productRef, { sizes: newSizes });
-                    } else {
-                        transaction.update(productRef, { stock: productData.stock - item.quantity });
-                    }
+                if (item.selectedSize) {
+                    const newSizes = productData.sizes?.map((s: ProductSize) =>
+                        s.name === item.selectedSize!.name
+                        ? { ...s, stock: s.stock - item.quantity }
+                        : s
+                    ) ?? [];
+                    transaction.update(productRef, { sizes: newSizes });
+                } else {
+                    transaction.update(productRef, { stock: (productData.stock || 0) - item.quantity });
                 }
+            }
     
-                if (couponDocRef && coupon) {
-                    transaction.update(couponDocRef, { 
-                        usedCount: coupon.usedCount + 1,
-                        usedBy: arrayUnion(userId)
-                    });
-                }
+            if (couponDocRef && coupon) {
+                transaction.update(couponDocRef, {
+                    usedCount: coupon.usedCount + 1,
+                    usedBy: arrayUnion(userId)
+                });
+            }
     
-                setLocalOrderIds(prev => [...prev, orderRef.id]);
-                
-                const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
-                if (ownerConfigs.length > 0) {
-                    const itemsText = cart.map(item => {
-                        const sizeText = item.selectedSize ? ` (${item.selectedSize.name})` : '';
-                        return `${item.quantity}x ${item.product.name}${sizeText}`;
-                    }).join('\\n');
-                    const locationLink = address.latitude ? `https://www.google.com/maps?q=${address.latitude},${address.longitude}` : 'غير محدد';
-                    const message = `
+            // Step 6: Side effects (outside transaction logic, but called after success)
+            setLocalOrderIds(prev => [...prev, orderRef.id]);
+            const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
+            if (ownerConfigs.length > 0) {
+                const itemsText = cart.map(item => {
+                    const sizeText = item.selectedSize ? ` (${item.selectedSize.name})` : '';
+                    return `${item.quantity}x ${item.product.name}${sizeText}`;
+                }).join('\\n');
+                const locationLink = address.latitude ? `https://www.google.com/maps?q=${address.latitude},${address.longitude}` : 'غير محدد';
+                const message = `
 *طلب جديد* 🔥
 *رقم الطلب:* \`${orderRef.id.substring(0, 6)}\`
 *الزبون:* ${address.name}
@@ -528,20 +500,23 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 ${itemsText}
 ---
 *المجموع:* ${formatCurrency(finalTotal)}
-                    `;
-                    ownerConfigs.forEach(config => sendTelegramMessage(config.chatId, message));
-                }
-                
-                clearCart();
+                `;
+                ownerConfigs.forEach(config => sendTelegramMessage(config.chatId, message));
+            }
+            
+            clearCart();
+        }).catch(error => {
+            console.error("Order placement transaction failed:", error);
+            toast({
+                title: "فشل إرسال الطلب",
+                description: error.message || "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.",
+                variant: "destructive"
             });
-    
-        } catch (error: any) {
-            console.error("Order placement failed:", error);
+            // Re-throw to be caught by the UI if needed
             throw error;
-        }
+        });
     };
     
-
 
     const dynamicCategories = useMemo(() => {
         const iconMap = initialCategoriesData.reduce((acc, cat) => {
@@ -1029,7 +1004,6 @@ ${itemsText}
         coupons,
         addCoupon,
         deleteCoupon,
-        validateAndApplyCoupon,
         telegramConfigs,
         addTelegramConfig,
         deleteTelegramConfig,

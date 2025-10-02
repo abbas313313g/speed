@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useContext, useState, useMemo } from "react";
@@ -40,14 +41,12 @@ export default function CartPage() {
   const [selectedAddressId, setSelectedAddressId] = useState<string | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [couponCode, setCouponCode] = useState("");
-  const [couponDiscount, setCouponDiscount] = useState(0);
-  const [isCouponLoading, setIsCouponLoading] = useState(false);
 
   if (!context) {
     return <div>جار التحميل...</div>;
   }
 
-  const { cart, updateCartQuantity, removeFromCart, clearCart, cartTotal, addresses, placeOrder, restaurants, validateAndApplyCoupon } = context;
+  const { cart, updateCartQuantity, removeFromCart, clearCart, cartTotal, addresses, placeOrder, restaurants } = context;
 
   const cartRestaurant = useMemo(() => {
     if (cart.length === 0) return null;
@@ -56,38 +55,23 @@ export default function CartPage() {
   }, [cart, restaurants]);
 
 
-  const { deliveryFee, distance, finalTotal, isDistanceTooFar } = useMemo(() => {
-    const subTotalWithDiscount = cartTotal - couponDiscount;
+  const { deliveryFee, distance, isDistanceTooFar } = useMemo(() => {
     if (!selectedAddressId || !cartRestaurant) {
-        return { deliveryFee: 0, distance: null, finalTotal: subTotalWithDiscount, isDistanceTooFar: false };
+        return { deliveryFee: 0, distance: null, isDistanceTooFar: false };
     }
     
     const address = addresses.find(a => a.id === selectedAddressId);
     if (!address || !address.latitude || !address.longitude || !cartRestaurant.latitude || !cartRestaurant.longitude) {
-       return { deliveryFee: 0, distance: null, finalTotal: subTotalWithDiscount, isDistanceTooFar: false };
+       return { deliveryFee: 0, distance: null, isDistanceTooFar: false };
     }
 
     const dist = calculateDistance(address.latitude, address.longitude, cartRestaurant.latitude, cartRestaurant.longitude);
     const fee = calculateDeliveryFee(dist);
     const tooFar = dist > MAX_DELIVERY_DISTANCE;
     
-    return { deliveryFee: fee, distance: dist, finalTotal: subTotalWithDiscount + fee, isDistanceTooFar: tooFar };
-  }, [selectedAddressId, cartTotal, addresses, couponDiscount, cartRestaurant]);
+    return { deliveryFee: fee, distance: dist, isDistanceTooFar: tooFar };
+  }, [selectedAddressId, addresses, cartRestaurant]);
 
-
-  const handleApplyCoupon = async () => {
-    if (!couponCode) return;
-    setIsCouponLoading(true);
-    const result = await validateAndApplyCoupon(couponCode);
-    if (result.success) {
-        setCouponDiscount(result.discount);
-        toast({ title: "تم تطبيق الكود", description: result.message});
-    } else {
-        setCouponDiscount(0);
-        toast({ title: "خطأ في الكود", description: result.message, variant: "destructive"});
-    }
-    setIsCouponLoading(false);
-  }
 
   const handlePlaceOrder = async () => {
     if (!selectedAddressId) {
@@ -111,21 +95,16 @@ export default function CartPage() {
 
     setIsSubmitting(true);
     try {
-      await placeOrder(selectedAddress, couponDiscount > 0 ? couponCode : undefined);
+      await placeOrder(selectedAddress, couponCode);
       toast({
         title: "تم استلام طلبك بنجاح!",
         description: "يمكنك متابعة حالة طلبك من صفحة الطلبات.",
       });
-      // Reset coupon state after successful order
+      // Reset coupon code after successful order
       setCouponCode("");
-      setCouponDiscount(0);
 
     } catch (error: any) {
-       toast({
-        title: "حدث خطأ أثناء إرسال الطلب",
-        description: error.message || "لم نتمكن من إرسال طلبك. الرجاء المحاولة مرة أخرى.",
-        variant: "destructive",
-      });
+       // Error toast is handled inside placeOrder now
     } finally {
         setIsSubmitting(false);
     }
@@ -242,17 +221,13 @@ export default function CartPage() {
        </div>
 
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">كود الخصم</h2>
+        <h2 className="text-xl font-semibold">كود الخصم (اختياري)</h2>
         <div className="flex gap-2">
             <Input 
                 placeholder="أدخل كود الخصم" 
                 value={couponCode} 
                 onChange={(e) => setCouponCode(e.target.value)}
-                disabled={couponDiscount > 0}
             />
-            <Button onClick={handleApplyCoupon} disabled={!couponCode || isCouponLoading || couponDiscount > 0}>
-                {isCouponLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : <TicketPercent />}
-            </Button>
         </div>
       </div>
 
@@ -261,12 +236,6 @@ export default function CartPage() {
           <span>المجموع الفرعي:</span>
           <span>{formatCurrency(cartTotal)}</span>
         </div>
-        {couponDiscount > 0 && (
-           <div className="flex justify-between text-green-600">
-             <span>الخصم:</span>
-             <span>-{formatCurrency(couponDiscount)}</span>
-           </div>
-        )}
          <div className="flex justify-between">
           <span>سعر التوصيل:</span>
           <div className="flex flex-col items-end">
@@ -275,10 +244,7 @@ export default function CartPage() {
           </div>
         </div>
         <Separator className="my-2"/>
-        <div className="flex justify-between font-bold text-lg">
-          <span>المجموع الكلي:</span>
-          <span>{formatCurrency(finalTotal)}</span>
-        </div>
+        <p className="text-xs text-muted-foreground text-center">سيتم حساب الخصم والمجموع النهائي عند إكمال الطلب.</p>
       </div>
 
        {isDistanceTooFar && (
@@ -310,7 +276,6 @@ export default function CartPage() {
               <AlertDialogCancel>إلغاء</AlertDialogCancel>
               <AlertDialogAction onClick={() => {
                   clearCart();
-                  setCouponDiscount(0);
                   setCouponCode("");
               }}>
                 نعم، قم بالحذف
@@ -322,7 +287,7 @@ export default function CartPage() {
             className="flex-1" 
             onClick={handlePlaceOrder} 
             disabled={isSubmitting || addresses.length === 0 || !selectedAddressId || isDistanceTooFar}>
-          {isSubmitting ? "جارِ إرسال الطلب..." : "إكمال الطلب"}
+            {isSubmitting ? <><Loader2 className="ml-2 h-4 w-4 animate-spin"/> جارِ إرسال الطلب...</> : "إكمال الطلب"}
         </Button>
       </div>
     </div>
