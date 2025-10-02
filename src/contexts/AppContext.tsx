@@ -204,10 +204,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 (snap) => setDeliveryWorkers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker))),
                 (error) => console.error("Delivery workers snapshot error: ", error)
             ),
-             onSnapshot(collection(db, "orders"), 
-                (snap) => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())),
-                (error) => console.error("Orders snapshot error: ", error)
-            ),
         ];
         
         const savedCart = localStorage.getItem('speedShopCart');
@@ -221,6 +217,22 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             unsubs.forEach(unsub => unsub());
         };
     }, [toast]);
+
+    useEffect(() => {
+        const q = collection(db, "orders");
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+          const ordersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+          ordersData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          setAllOrders(ordersData);
+        }, (error) => {
+          console.error("Error fetching orders: ", error);
+          if ((error as any).code !== 'resource-exhausted') {
+            toast({ title: "خطأ في جلب الطلبات", variant: "destructive" });
+          }
+        });
+    
+        return () => unsubscribe();
+      }, [toast]);
 
 
     // Listener for user-specific support ticket
@@ -407,6 +419,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     
             let coupon: (Coupon & {id: string}) | null = null;
             let couponDocRef: any = null;
+            let discountAmount = 0;
+            let appliedCouponInfo = null;
+
             if (couponCode) {
                 const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
                 const querySnapshot = await getDocs(couponQuery);
@@ -419,12 +434,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     
                 if (coupon.usedCount >= coupon.maxUses) throw new Error("تم استخدام هذا الكود بالكامل.");
                 if (coupon.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
+
+                discountAmount = coupon.discountValue;
+                appliedCouponInfo = { code: coupon.code, discountAmount: discountAmount };
             }
     
             // Step 2: Calculate all order values before the transaction
-            const discountAmount = coupon?.discountValue || 0;
-            const appliedCouponInfo = coupon ? { code: coupon.code, discountAmount: discountAmount } : null;
-    
             const distance = (address.latitude && address.longitude && cartRestaurant.latitude && cartRestaurant.longitude)
                 ? calculateDistance(address.latitude, address.longitude, cartRestaurant.latitude, cartRestaurant.longitude)
                 : 0;
@@ -470,7 +485,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 for (const item of cart) {
                     const productRef = doc(db, "products", item.product.id);
                     const productData = productDocs.get(item.product.id);
-                    if (!productData) continue; // Should not happen due to pre-fetch
+                    if (!productData) continue; 
     
                     if (item.selectedSize) {
                         const newSizes = productData.sizes?.map((s: ProductSize) =>
@@ -491,7 +506,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     });
                 }
     
-                // Non-transactional side effects (can be moved out if needed)
                 setLocalOrderIds(prev => [...prev, orderRef.id]);
                 
                 const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
@@ -523,7 +537,7 @@ ${itemsText}
     
         } catch (error: any) {
             console.error("Order placement failed:", error);
-            throw error; // Re-throw to be caught by the UI
+            throw error;
         }
     };
     
@@ -543,8 +557,7 @@ ${itemsText}
     
     // --- Intelligent Order Assignment ---
     const assignOrderToNextWorker = async (orderId: string, excludedWorkerIds: string[] = []) => {
-        // Fetch fresh data to ensure we have the latest state
-        const currentOrders = (await getDocs(collection(db, "orders"))).docs.map(d => d.data() as Order);
+        const currentOrders = (await getDocs(collection(db, "orders"))).docs.map(d => ({ id: d.id, ...d.data() } as Order));
         const currentWorkers = (await getDocs(collection(db, "deliveryWorkers"))).docs.map(d => ({id: d.id, ...d.data()}) as DeliveryWorker);
         
         const completedOrdersByWorker: {[workerId: string]: number} = {};
@@ -1030,3 +1043,6 @@ ${itemsText}
     );
 };
 
+
+
+    
