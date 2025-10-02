@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useContext, useState } from 'react';
@@ -48,7 +49,7 @@ import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 
-const EMPTY_PRODUCT: Omit<Product, 'id'> = {
+const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
   name: '',
   price: 0,
   wholesalePrice: 0,
@@ -66,11 +67,22 @@ export default function AdminProductsPage() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState<Partial<Product>>({ ...EMPTY_PRODUCT });
+  const [currentProduct, setCurrentProduct] = useState<Partial<Product> & {image?: string}>({ ...EMPTY_PRODUCT });
   const [isSaving, setIsSaving] = useState(false);
 
   if (!context || context.isLoading) return <div>جار التحميل...</div>;
   const { products, categories, restaurants, addProduct, updateProduct, deleteProduct } = context;
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCurrentProduct({ ...currentProduct, image: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleOpenDialog = (product?: Product) => {
     if (product) {
@@ -84,13 +96,18 @@ export default function AdminProductsPage() {
   }
 
   const handleSaveProduct = async () => {
-    if (!currentProduct.name || !currentProduct.price || !currentProduct.categoryId || !currentProduct.restaurantId || !currentProduct.image) {
+    if (!currentProduct.name || !currentProduct.price || !currentProduct.categoryId || !currentProduct.restaurantId) {
         toast({ title: "بيانات غير مكتملة", description: "الرجاء ملء جميع الحقول المطلوبة.", variant: "destructive" });
         return;
     }
-    
-    const productToSave: Partial<Product> = {
+    if (!currentProduct.image) {
+        toast({ title: "صورة المنتج مطلوبة", description: "الرجاء رفع صورة للمنتج.", variant: "destructive" });
+        return;
+    }
+
+    const productToSave: Partial<Product> & {image: string} = {
         ...currentProduct,
+        image: currentProduct.image,
         sizes: currentProduct.sizes?.filter(s => s.name && s.price > 0) || [],
         stock: currentProduct.stock || 0,
     }
@@ -104,7 +121,7 @@ export default function AdminProductsPage() {
         if (isEditing && currentProduct.id) {
             await updateProduct(productToSave as Partial<Product> & {id: string});
         } else {
-            await addProduct(productToSave as Omit<Product, 'id'>);
+            await addProduct(productToSave as Omit<Product, 'id'> & { image: string });
         }
         setOpen(false);
     } catch (error) {
@@ -177,10 +194,10 @@ export default function AdminProductsPage() {
                         <Input id="description" value={currentProduct.description} onChange={(e) => setCurrentProduct({...currentProduct, description: e.target.value})} className="col-span-3" />
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
-                         <Label htmlFor="image" className="text-right">رابط الصورة</Label>
-                         <Input id="image" value={currentProduct.image} onChange={(e) => setCurrentProduct({...currentProduct, image: e.target.value})} className="col-span-3" />
+                         <Label htmlFor="image" className="text-right">صورة</Label>
+                         <Input id="image" type="file" onChange={handleImageUpload} className="col-span-3" accept="image/*" />
                     </div>
-                    {currentProduct.image && currentProduct.image.startsWith('http') && <Image src={currentProduct.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain"/>}
+                    {currentProduct.image && <Image src={currentProduct.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain" unoptimized={true}/>}
 
                     <div className="grid grid-cols-4 items-center gap-4">
                          <Label htmlFor="category" className="text-right">القسم</Label>
@@ -249,7 +266,7 @@ export default function AdminProductsPage() {
           {products.map((product) => (
             <TableRow key={product.id}>
               <TableCell className="hidden sm:table-cell">
-                <Image src={product.image} alt={product.name} width={40} height={40} className="rounded-md object-cover" />
+                <Image src={product.image} alt={product.name} width={40} height={40} className="rounded-md object-cover" unoptimized={true}/>
               </TableCell>
               <TableCell className="font-medium">{product.name}</TableCell>
               <TableCell>
@@ -301,5 +318,3 @@ export default function AdminProductsPage() {
     </div>
   );
 }
-
-    

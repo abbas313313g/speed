@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useContext, useState } from 'react';
@@ -37,7 +38,7 @@ import { Star, Edit, Trash2, Loader2, MapPin } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
-const EMPTY_STORE: Omit<Restaurant, 'id'> = {
+const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     name: '',
     image: '',
     rating: 0,
@@ -50,11 +51,22 @@ export default function AdminStoresPage() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentStore, setCurrentStore] = useState<Partial<Restaurant>>({ ...EMPTY_STORE });
+  const [currentStore, setCurrentStore] = useState<Partial<Restaurant> & {image?:string}>({ ...EMPTY_STORE });
   const [isSaving, setIsSaving] = useState(false);
 
   if (!context || context.isLoading) return <div>جار التحميل...</div>;
   const { restaurants, addRestaurant, updateRestaurant, deleteRestaurant } = context;
+  
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCurrentStore({ ...currentStore, image: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleOpenDialog = (store?: Restaurant) => {
     if (store) {
@@ -69,33 +81,23 @@ export default function AdminStoresPage() {
 
   const handleSave = async () => {
     if (!currentStore.name || !currentStore.image) {
-        toast({ title: "بيانات غير مكتملة", description: "اسم المتجر ورابط صورته مطلوبان.", variant: "destructive" });
+        toast({ title: "بيانات غير مكتملة", description: "اسم المتجر وصورته مطلوبان.", variant: "destructive" });
         return;
     }
-    const storeToSave = { ...currentStore };
-    
-    // Ensure undefined values are not sent to Firestore
-    if (storeToSave.latitude === undefined || isNaN(storeToSave.latitude)) {
-        delete storeToSave.latitude;
-    }
-    if (storeToSave.longitude === undefined || isNaN(storeToSave.longitude)) {
-        delete storeToSave.longitude;
-    }
-
 
     setIsSaving(true);
     try {
         if (isEditing && currentStore.id) {
-            await updateRestaurant(storeToSave as Restaurant);
+            await updateRestaurant(currentStore as Partial<Restaurant> & {id: string});
         } else {
-            await addRestaurant(storeToSave as Omit<Restaurant, 'id'>);
+            await addRestaurant(currentStore as Omit<Restaurant, 'id'> & {image: string});
         }
-        setOpen(false);
     } catch (error) {
         console.error("Failed to save store:", error);
         toast({ title: "فشل حفظ المتجر", description: "حدث خطأ أثناء محاولة حفظ المتجر.", variant: "destructive" });
     } finally {
         setIsSaving(false);
+        setOpen(false);
     }
   };
 
@@ -146,10 +148,10 @@ export default function AdminStoresPage() {
                         <Input id="rating" type="text" inputMode="decimal" step="0.1" value={currentStore.rating || ''} onChange={(e) => setCurrentStore({...currentStore, rating: parseFloat(e.target.value.replace(/[^0-9.]/g, '')) || 0})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="image" className="text-right">رابط الصورة</Label>
-                        <Input id="image" value={currentStore.image} onChange={(e) => setCurrentStore({...currentStore, image: e.target.value})} className="col-span-3" />
+                        <Label htmlFor="image" className="text-right">صورة</Label>
+                         <Input id="image" type="file" onChange={handleImageUpload} className="col-span-3" accept="image/*" />
                     </div>
-                     {currentStore.image && currentStore.image.startsWith('http') && <Image src={currentStore.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain"/>}
+                     {currentStore.image && <Image src={currentStore.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain" unoptimized={true} />}
 
                     <div className="col-span-4 space-y-2">
                         <Label>موقع المتجر (خط العرض والطول)</Label>
@@ -181,11 +183,11 @@ export default function AdminStoresPage() {
         </TableHeader>
         <TableBody>
           {restaurants.map((store) => {
-            const imageUrl = store.image && store.image.startsWith('http') ? store.image : 'https://placehold.co/40x40.png';
+            const imageUrl = store.image && (store.image.startsWith('http') || store.image.startsWith('data:')) ? store.image : 'https://placehold.co/40x40.png';
             return (
                 <TableRow key={store.id}>
                 <TableCell>
-                    <Image src={imageUrl} alt={store.name} width={40} height={40} className="rounded-md object-cover" />
+                    <Image src={imageUrl} alt={store.name} width={40} height={40} className="rounded-md object-cover" unoptimized={true} />
                 </TableCell>
                 <TableCell className="font-medium">{store.name}</TableCell>
                 <TableCell>
@@ -228,5 +230,3 @@ export default function AdminStoresPage() {
     </div>
   );
 }
-
-    

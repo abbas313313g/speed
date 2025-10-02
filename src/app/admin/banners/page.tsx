@@ -46,7 +46,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-const EMPTY_BANNER: Partial<Banner> = {
+const EMPTY_BANNER: Partial<Banner> & { image: string } = {
   image: '',
   linkType: 'none',
   link: '#',
@@ -58,7 +58,7 @@ export default function AdminBannersPage() {
   const [open, setOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentBanner, setCurrentBanner] = useState<Partial<Banner>>({ ...EMPTY_BANNER });
+  const [currentBanner, setCurrentBanner] = useState<Partial<Banner> & { image?: string }>({ ...EMPTY_BANNER });
 
   if (!context || context.isLoading) return <div>جار التحميل...</div>;
   const { banners, addBanner, updateBanner, deleteBanner, products, restaurants } = context;
@@ -73,13 +73,24 @@ export default function AdminBannersPage() {
     }
     setOpen(true);
   };
+  
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCurrentBanner({ ...currentBanner, image: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSave = async () => {
     if (!currentBanner.image) {
-      toast({ title: "صورة البنر مطلوبة", description: "الرجاء إدخال رابط صورة للبنر.", variant: "destructive" });
+      toast({ title: "صورة البنر مطلوبة", description: "الرجاء رفع صورة للبنر.", variant: "destructive" });
       return;
     }
-    if (currentBanner.linkType !== 'none' && currentBanner.link === '#') {
+    if (currentBanner.linkType !== 'none' && (!currentBanner.link || currentBanner.link === '#')) {
         toast({ title: "الرابط مطلوب", description: "الرجاء اختيار منتج أو متجر للربط.", variant: "destructive" });
         return;
     }
@@ -89,7 +100,7 @@ export default function AdminBannersPage() {
       if (isEditing && currentBanner.id) {
         await updateBanner(currentBanner as Banner);
       } else {
-        await addBanner(currentBanner as Omit<Banner, 'id'>);
+        await addBanner(currentBanner as Omit<Banner, 'id'> & { image: string });
       }
       setOpen(false);
     } catch (error) {
@@ -117,10 +128,10 @@ export default function AdminBannersPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="image" className="text-right">رابط الصورة</Label>
-              <Input id="image" value={currentBanner.image} onChange={(e) => setCurrentBanner({ ...currentBanner, image: e.target.value })} className="col-span-3" />
+              <Label htmlFor="image" className="text-right">صورة البنر</Label>
+              <Input id="image" type="file" onChange={handleImageUpload} className="col-span-3" accept="image/*" />
             </div>
-            {currentBanner.image && currentBanner.image.startsWith('http') && <Image src={currentBanner.image} alt="preview" width={200} height={100} className="col-span-4 justify-self-center object-contain" />}
+            {currentBanner.image && <Image src={currentBanner.image} alt="preview" width={200} height={100} className="col-span-4 justify-self-center object-contain" unoptimized={true}/>}
 
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="linkType" className="text-right">نوع الرابط</Label>
@@ -139,7 +150,7 @@ export default function AdminBannersPage() {
             {currentBanner.linkType === 'product' && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="productLink" className="text-right">المنتج</Label>
-                <Select onValueChange={(value) => setCurrentBanner({ ...currentBanner, link: `/products/${value}` })}>
+                <Select value={currentBanner.link?.split('/')[2]} onValueChange={(value) => setCurrentBanner({ ...currentBanner, link: `/products/${value}` })}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="اختر منتجًا..." />
                   </SelectTrigger>
@@ -153,7 +164,7 @@ export default function AdminBannersPage() {
             {currentBanner.linkType === 'restaurant' && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="restaurantLink" className="text-right">المتجر</Label>
-                <Select onValueChange={(value) => setCurrentBanner({ ...currentBanner, link: `/restaurants/${value}` })}>
+                <Select value={currentBanner.link?.split('/')[2]} onValueChange={(value) => setCurrentBanner({ ...currentBanner, link: `/restaurants/${value}` })}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="اختر متجرًا..." />
                   </SelectTrigger>
@@ -186,7 +197,7 @@ export default function AdminBannersPage() {
           {banners.map((banner) => (
             <TableRow key={banner.id}>
               <TableCell>
-                <Image src={banner.image} alt="Banner" width={120} height={60} className="rounded-md object-cover" />
+                <Image src={banner.image} alt="Banner" width={120} height={60} className="rounded-md object-cover" unoptimized={true}/>
               </TableCell>
               <TableCell>{banner.link}</TableCell>
               <TableCell>
