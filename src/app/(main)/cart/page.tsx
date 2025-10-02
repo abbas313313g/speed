@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useContext, useState, useMemo } from "react";
@@ -98,7 +97,8 @@ export default function CartPage() {
       await placeOrder(selectedAddress, couponCode);
       toast({
         title: "تم استلام طلبك بنجاح!",
-        description: "يمكنك متابعة حالة طلبك من صفحة الطلبات.",
+        description: "يجب الخروج والرجوع من التطبيق لكي تطلب مرة اخرى.",
+        duration: 5000,
       });
       // Reset coupon code after successful order
       setCouponCode("");
@@ -252,7 +252,7 @@ export default function CartPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>مسافة التوصيل بعيدة جداً</AlertTitle>
           <AlertDescription>
-            عذراً، هذا المتجر يبعد أكثر من {MAX_DELIVERY_DISTANCE} كم عن عنوانك المختار. لا يمكننا توصيل الطلب.
+            عذراً، هذا المتجر يبعد أكثر من ${MAX_DELIVERY_DISTANCE} كم عن عنوانك المختار. لا يمكننا توصيل الطلب.
           </AlertDescription>
         </Alert>
       )}
@@ -295,6 +295,3 @@ export default function CartPage() {
 }
 
     
-
-    
-
