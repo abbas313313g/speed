@@ -7,7 +7,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Minus, Plus, Trash2, Home, TicketPercent, Loader2, MapPin, AlertCircle } from "lucide-react";
+import { ShoppingBag, Minus, Plus, Trash2, Home, Loader2, MapPin, AlertCircle } from "lucide-react";
 import { formatCurrency, calculateDistance, calculateDeliveryFee } from "@/lib/utils";
 import {
   AlertDialog,
@@ -297,3 +297,4 @@ export default function CartPage() {
     
 
     
+

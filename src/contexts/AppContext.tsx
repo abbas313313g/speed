@@ -362,134 +362,140 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
     const placeOrder = async (address: Address, couponCode?: string) => {
         if (cart.length === 0) throw new Error("السلة فارغة.");
-    
-        const cartRestaurant = restaurants.find(r => r.id === cart[0].product.restaurantId);
+        
+        const localCart = [...cart]; // Create a local copy of the cart to work with
+        const cartRestaurant = restaurants.find(r => r.id === localCart[0].product.restaurantId);
         if (!cartRestaurant) throw new Error("لم يتم العثور على المتجر الخاص بالطلب.");
-    
-        await runTransaction(db, async (transaction) => {
-            // Step 1: Pre-fetch all necessary documents within the transaction
-            const productDocsPromises = cart.map(item => transaction.get(doc(db, "products", item.product.id)));
-            const productDocsSnaps = await Promise.all(productDocsPromises);
-    
-            let coupon: (Coupon & { id: string }) | null = null;
-            let couponDocRef: any = null;
-            if (couponCode) {
-                const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
-                const couponQuerySnapshot = await getDocs(couponQuery); // Cannot use transaction.get for queries
-                if (!couponQuerySnapshot.empty) {
-                    const couponDoc = couponQuerySnapshot.docs[0];
-                    couponDocRef = couponDoc.ref;
-                    coupon = { id: couponDoc.id, ...couponDoc.data() } as (Coupon & { id: string });
+
+        try {
+            const orderId = await runTransaction(db, async (transaction) => {
+                // 1. Fetch ALL necessary documents within the transaction for consistency
+                const productDocsPromises = localCart.map(item => transaction.get(doc(db, "products", item.product.id)));
+                const productDocSnaps = await Promise.all(productDocsPromises);
+
+                let couponDocRef: any = null;
+                let couponData: Coupon | null = null;
+                if (couponCode) {
+                    const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
+                    const couponQuerySnapshot = await getDocs(couponQuery);
+                    if (!couponQuerySnapshot.empty) {
+                        const couponDoc = couponQuerySnapshot.docs[0];
+                        couponDocRef = couponDoc.ref;
+                        // Read the coupon data from the document within the transaction
+                        const couponSnap = await transaction.get(couponDocRef);
+                        if (couponSnap.exists()) {
+                            couponData = couponSnap.data() as Coupon;
+                        }
+                    }
                 }
-            }
-    
-            // Step 2: Validate everything
-            const productDataMap = new Map<string, Product>();
-            for (let i = 0; i < cart.length; i++) {
-                const productDoc = productDocsSnaps[i];
-                const item = cart[i];
-                if (!productDoc.exists()) throw new Error(`منتج "${item.product.name}" لم يعد متوفرًا.`);
-                
-                const productData = productDoc.data() as Product;
-                productDataMap.set(productDoc.id, productData);
-    
-                if (item.selectedSize) {
-                    const size = productData.sizes?.find(s => s.name === item.selectedSize!.name);
-                    if (!size || size.stock < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name} (${item.selectedSize.name})" غير متوفرة.`);
-                } else {
-                    if ((productData.stock ?? 0) < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
+
+                // 2. Validate everything
+                for (let i = 0; i < localCart.length; i++) {
+                    const productDoc = productDocSnaps[i];
+                    const item = localCart[i];
+                    if (!productDoc.exists()) throw new Error(`منتج "${item.product.name}" لم يعد متوفرًا.`);
+                    
+                    const productData = productDoc.data() as Product;
+                    if (item.selectedSize) {
+                        const size = productData.sizes?.find(s => s.name === item.selectedSize!.name);
+                        if (!size || size.stock < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name} (${item.selectedSize.name})" غير متوفرة.`);
+                    } else {
+                        if ((productData.stock ?? 0) < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
+                    }
                 }
-            }
-    
-            let discountAmount = 0;
-            let appliedCouponInfo: Order['appliedCoupon'] = null;
-    
-            if (coupon) {
-                if (coupon.usedCount >= coupon.maxUses) throw new Error("تم استخدام هذا الكود بالكامل.");
-                if (coupon.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
-                discountAmount = coupon.discountValue;
-                appliedCouponInfo = { code: coupon.code, discountAmount: discountAmount };
-            }
-    
-            // Step 3: Calculate totals
-            const subtotal = cart.reduce((acc, item) => {
-                const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
-                return acc + price * item.quantity;
-            }, 0);
+
+                let discountAmount = 0;
+                let appliedCouponInfo: Order['appliedCoupon'] = null;
+                if (couponData && couponDocRef) {
+                    if (couponData.usedCount >= couponData.maxUses) throw new Error("تم استخدام هذا الكود بالكامل.");
+                    if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
+                    
+                    discountAmount = couponData.discountValue;
+                    appliedCouponInfo = { code: couponData.code, discountAmount: discountAmount };
+                }
+
+                // 3. Calculate totals
+                const subtotal = localCart.reduce((acc, item) => {
+                    const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
+                    return acc + (price * item.quantity);
+                }, 0);
+
+                const profit = localCart.reduce((acc, item) => {
+                    const productData = productDocSnaps[localCart.indexOf(item)].data() as Product;
+                    const itemPrice = item.selectedSize?.price ?? productData.discountPrice ?? productData.price;
+                    const wholesalePrice = productData.wholesalePrice ?? 0; // Default to 0 if undefined
+                    return acc + ((itemPrice - wholesalePrice) * item.quantity);
+                }, 0);
+
+                const distance = (address.latitude && address.longitude && cartRestaurant.latitude && cartRestaurant.longitude)
+                    ? calculateDistance(address.latitude, address.longitude, cartRestaurant.latitude, cartRestaurant.longitude)
+                    : 0;
+
+                const deliveryFee = calculateDeliveryFee(distance);
+                const finalTotal = Math.max(0, subtotal - discountAmount) + deliveryFee;
+
+                // 4. Perform writes
+                const newOrderRef = doc(collection(db, "orders"));
+                const newOrderData = {
+                    userId: userId,
+                    items: localCart,
+                    total: finalTotal,
+                    date: new Date().toISOString(),
+                    status: 'unassigned' as OrderStatus,
+                    estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
+                    address: address,
+                    profit: profit,
+                    deliveryFee: deliveryFee,
+                    deliveryWorkerId: null,
+                    deliveryWorker: null,
+                    assignedToWorkerId: null,
+                    assignmentTimestamp: null,
+                    rejectedBy: [],
+                    appliedCoupon: appliedCouponInfo,
+                };
+                transaction.set(newOrderRef, newOrderData);
+
+                for (let i = 0; i < localCart.length; i++) {
+                    const item = localCart[i];
+                    const productRef = productDocSnaps[i].ref;
+                    const productData = productDocSnaps[i].data() as Product;
+
+                    if (item.selectedSize) {
+                        const newSizes = productData.sizes?.map(s =>
+                            s.name === item.selectedSize!.name
+                            ? { ...s, stock: s.stock - item.quantity }
+                            : s
+                        ) ?? [];
+                        transaction.update(productRef, { sizes: newSizes });
+                    } else {
+                        transaction.update(productRef, { stock: (productData.stock || 0) - item.quantity });
+                    }
+                }
+
+                if (couponData && couponDocRef) {
+                    transaction.update(couponDocRef, {
+                        usedCount: couponData.usedCount + 1,
+                        usedBy: arrayUnion(userId)
+                    });
+                }
+
+                return newOrderRef.id;
+            });
             
-            const profit = cart.reduce((acc, item) => {
-                const productData = productDataMap.get(item.product.id);
-                if (!productData) return acc;
-                const itemPrice = item.selectedSize?.price ?? productData.discountPrice ?? productData.price;
-                const wholesalePrice = productData.wholesalePrice ?? 0;
-                return acc + ((itemPrice - wholesalePrice) * item.quantity);
-            }, 0);
-    
-            const distance = (address.latitude && address.longitude && cartRestaurant.latitude && cartRestaurant.longitude)
-                ? calculateDistance(address.latitude, address.longitude, cartRestaurant.latitude, cartRestaurant.longitude)
-                : 0;
-            const deliveryFee = calculateDeliveryFee(distance);
-            const finalTotal = Math.max(0, subtotal - discountAmount) + deliveryFee;
-    
-            // Step 4: Prepare the order object
-            const newOrderData: Omit<Order, 'id'> = {
-                userId: userId,
-                items: cart,
-                total: finalTotal,
-                date: new Date().toISOString(),
-                status: 'unassigned',
-                estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
-                address,
-                profit: profit,
-                deliveryFee: deliveryFee,
-                deliveryWorkerId: null,
-                deliveryWorker: null,
-                assignedToWorkerId: null,
-                assignmentTimestamp: null,
-                appliedCoupon: appliedCouponInfo,
-                rejectedBy: [],
-            };
-    
-            // Step 5: Perform writes
-            const orderRef = doc(collection(db, "orders"));
-            transaction.set(orderRef, newOrderData);
-    
-            for (const item of cart) {
-                const productRef = doc(db, "products", item.product.id);
-                const productData = productDataMap.get(item.product.id);
-                if (!productData) continue;
-    
-                if (item.selectedSize) {
-                    const newSizes = productData.sizes?.map((s: ProductSize) =>
-                        s.name === item.selectedSize!.name
-                        ? { ...s, stock: s.stock - item.quantity }
-                        : s
-                    ) ?? [];
-                    transaction.update(productRef, { sizes: newSizes });
-                } else {
-                    transaction.update(productRef, { stock: (productData.stock || 0) - item.quantity });
-                }
-            }
-    
-            if (couponDocRef && coupon) {
-                transaction.update(couponDocRef, {
-                    usedCount: coupon.usedCount + 1,
-                    usedBy: arrayUnion(userId)
-                });
-            }
-    
-            // Step 6: Side effects (outside transaction logic, but called after success)
-            setLocalOrderIds(prev => [...prev, orderRef.id]);
+            // 5. Post-transaction side effects
+            setLocalOrderIds(prev => [...prev, orderId]);
+            clearCart();
+
             const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
             if (ownerConfigs.length > 0) {
-                const itemsText = cart.map(item => {
+                 const itemsText = localCart.map(item => {
                     const sizeText = item.selectedSize ? ` (${item.selectedSize.name})` : '';
                     return `${item.quantity}x ${item.product.name}${sizeText}`;
                 }).join('\\n');
                 const locationLink = address.latitude ? `https://www.google.com/maps?q=${address.latitude},${address.longitude}` : 'غير محدد';
                 const message = `
 *طلب جديد* 🔥
-*رقم الطلب:* \`${orderRef.id.substring(0, 6)}\`
+*رقم الطلب:* \`${orderId.substring(0, 6)}\`
 *الزبون:* ${address.name}
 *الهاتف:* ${address.phone}
 *العنوان:* ${address.deliveryZone}
@@ -499,22 +505,20 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 *المنتجات:*
 ${itemsText}
 ---
-*المجموع:* ${formatCurrency(finalTotal)}
+*المجموع:* ${formatCurrency(cartTotal + calculateDeliveryFee((address.latitude && address.longitude && cartRestaurant.latitude && cartRestaurant.longitude) ? calculateDistance(address.latitude, address.longitude, cartRestaurant.latitude, cartRestaurant.longitude) : 0))}
                 `;
                 ownerConfigs.forEach(config => sendTelegramMessage(config.chatId, message));
             }
-            
-            clearCart();
-        }).catch(error => {
+
+        } catch (error: any) {
             console.error("Order placement transaction failed:", error);
             toast({
                 title: "فشل إرسال الطلب",
                 description: error.message || "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.",
                 variant: "destructive"
             });
-            // Re-throw to be caught by the UI if needed
-            throw error;
-        });
+            throw error; // Re-throw to be caught by the UI component
+        }
     };
     
 
@@ -1020,3 +1024,4 @@ ${itemsText}
 
 
     
+
