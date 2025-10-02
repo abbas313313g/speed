@@ -1,12 +1,11 @@
 
-
 "use client";
 
 import { useContext, useMemo, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
-import { ShoppingBag, User } from 'lucide-react';
+import { ShoppingBag, User, XCircle } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -16,10 +15,23 @@ import { getWorkerLevel } from '@/lib/workerLevels';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 
 export default function OrdersPage() {
     const context = useContext(AppContext);
+    const { toast } = useToast();
     const [myOrders, setMyOrders] = useState<Order[]>([]);
     
     useEffect(() => {
@@ -40,7 +52,12 @@ export default function OrdersPage() {
         return <div>جار التحميل...</div>;
     }
 
-    const { allOrders, deliveryWorkers } = context;
+    const { allOrders, deliveryWorkers, updateOrderStatus } = context;
+
+    const handleCancelOrder = (order: Order) => {
+        updateOrderStatus(order.id, 'cancelled');
+        toast({ title: "تم إلغاء طلبك بنجاح", variant: "destructive"});
+    }
 
     const workerLevels = useMemo(() => {
         const levels = new Map<string, ReturnType<typeof getWorkerLevel>>();
@@ -101,6 +118,7 @@ export default function OrdersPage() {
                     {myOrders.map(order => {
                         const workerLevelData = order.deliveryWorkerId ? workerLevels.get(order.deliveryWorkerId) : null;
                         const LevelIcon = workerLevelData?.level?.icon;
+                        const canCancel = ['unassigned', 'pending_assignment'].includes(order.status);
 
                         return (
                             <Card key={order.id}>
@@ -148,7 +166,31 @@ export default function OrdersPage() {
                                 )}
                                 </CardContent>
                                 <CardFooter className="flex justify-between items-center">
-                                    <span className="font-bold">{order.items.length} منتجات</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-bold">{order.items.length} منتجات</span>
+                                        {canCancel && (
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="destructive" size="sm">
+                                                        <XCircle className="ml-2 h-4 w-4"/>
+                                                        إلغاء
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            هل تريد بالتأكيد إلغاء هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>تراجع</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleCancelOrder(order)}>نعم، قم بالإلغاء</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        )}
+                                    </div>
                                     <span className="text-lg font-bold text-primary">{formatCurrency(order.total)}</span>
                                 </CardFooter>
                             </Card>

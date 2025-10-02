@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
@@ -57,7 +58,7 @@ interface AppContextType {
   restaurants: Restaurant[];
   banners: Banner[];
   allUsers: User[];
-  allOrders: Order[]; // Will be populated by specific pages now
+  allOrders: Order[]; // Populated by listener
   bestSellers: Product[];
   isLoading: boolean;
   cart: CartItem[];
@@ -193,14 +194,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
         fetchData();
 
-        // Keep real-time listeners for dynamic data that changes frequently and has a smaller document count
         const unsubs = [
             onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()))),
             onSnapshot(collection(db, "supportTickets"), snap => setSupportTickets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket)))),
             onSnapshot(collection(db, "deliveryWorkers"), snap => setDeliveryWorkers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker)))),
         ];
         
-        // Load from localStorage
         const savedCart = localStorage.getItem('speedShopCart');
         const savedAddresses = localStorage.getItem('speedShopAddresses');
         const savedOrderIds = localStorage.getItem('speedShopOrderIds');
@@ -220,7 +219,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         const q = query(collection(db, "supportTickets"), where("userId", "==", userId));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             if (!querySnapshot.empty) {
-                // Usually there should only be one active ticket per user.
                 const ticketDoc = querySnapshot.docs.find(doc => !doc.data().isResolved) || querySnapshot.docs[0];
                 setMySupportTicket({ id: ticketDoc.id, ...ticketDoc.data() } as SupportTicket);
             } else {
@@ -243,10 +241,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             });
         });
 
-        // Find product objects for the sold product IDs
         const soldProducts = products.filter(p => salesCount[p.id] > 0);
 
-        // Sort products by sales count in descending order
         return soldProducts.sort((a, b) => salesCount[b.id] - salesCount[a.id]);
     }, [allOrders, products]);
 
@@ -373,7 +369,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
         try {
             await runTransaction(db, async (transaction) => {
-                // --- READS FIRST ---
                 const productDocs = new Map<string, any>();
                 const productReads = cart.map(item => {
                     const productRef = doc(db, "products", item.product.id);
@@ -401,7 +396,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 let coupon: Coupon | null = null;
                 if (couponCode) {
                     const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
-                    // Use getDocs instead of transaction.get for queries within transactions
                     const querySnapshot = await getDocs(couponQuery);
                     if (!querySnapshot.empty) {
                         couponDocSnap = querySnapshot.docs[0];
@@ -415,14 +409,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 
                 await Promise.all(productReads);
 
-
-                // --- WRITES AFTER ---
                 let subTotal = cartTotal;
                 let discountAmount = 0;
                 let appliedCouponInfo;
 
                 if (coupon) {
-                    discountAmount = coupon.discountValue;
+                    discountAmount = coupon.discountValue || 0;
                     subTotal -= discountAmount;
                     appliedCouponInfo = { code: coupon.code, discountAmount };
                 }
@@ -457,10 +449,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     appliedCoupon: appliedCouponInfo || null,
                 };
                 
-                // Sanitize newOrderData to remove undefined values
                 Object.keys(newOrderData).forEach(keyStr => {
                     const key = keyStr as keyof typeof newOrderData;
-                    if (newOrderData[key] === undefined) {
+                    if ((newOrderData as any)[key] === undefined) {
                         (newOrderData as any)[key] = null;
                     }
                 });
@@ -540,33 +531,33 @@ ${itemsText}
     
     // --- Intelligent Order Assignment ---
     const assignOrderToNextWorker = async (orderId: string, excludedWorkerIds: string[] = []) => {
+        const orders = (await getDocs(collection(db, "orders"))).docs.map(d => d.data() as Order);
+        const workers = (await getDocs(collection(db, "deliveryWorkers"))).docs.map(d => ({id: d.id, ...d.data()}) as DeliveryWorker);
+        
         const completedOrdersByWorker: {[workerId: string]: number} = {};
-        allOrders.forEach(o => {
+        orders.forEach(o => {
             if (o.status === 'delivered' && o.deliveryWorkerId) {
                 completedOrdersByWorker[o.deliveryWorkerId] = (completedOrdersByWorker[o.deliveryWorkerId] || 0) + 1;
             }
         });
 
-        // Find busy workers (those with an active order)
         const busyWorkerIds = new Set(
-            allOrders
+            orders
                 .filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status))
                 .map(o => o.deliveryWorkerId)
                 .filter((id): id is string => !!id)
         );
 
-        // Find available workers: online, not busy, and not in the excluded list
-        const availableWorkers = deliveryWorkers.filter(
+        const availableWorkers = workers.filter(
             w => w.isOnline && !busyWorkerIds.has(w.id) && !excludedWorkerIds.includes(w.id)
         );
 
         if (availableWorkers.length === 0) {
             console.log("No available workers to assign the order to.");
-            await updateDoc(doc(db, "orders", orderId), { status: 'unassigned', assignedToWorkerId: null });
+            await updateDoc(doc(db, "orders", orderId), { status: 'unassigned', assignedToWorkerId: null, assignmentTimestamp: null });
             return;
         }
 
-        // Sort available workers by least completed orders
         availableWorkers.sort((a,b) => (completedOrdersByWorker[a.id] || 0) - (completedOrdersByWorker[b.id] || 0));
         
         const nextWorker = availableWorkers[0];
@@ -579,8 +570,9 @@ ${itemsText}
         await updateDoc(doc(db, "orders", orderId), updateData);
         console.log(`Order ${orderId} assigned to ${nextWorker.name}`);
 
-        const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
-        const orderData = allOrders.find(o => o.id === orderId);
+        const currentConfigs = (await getDocs(collection(db, "telegramConfigs"))).docs.map(d => d.data() as TelegramConfig);
+        const workerConfig = currentConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
+        const orderData = orders.find(o => o.id === orderId); // Re-fetch order data if needed for accuracy
         if (workerConfig && orderData) {
             const message = `
 *لديك طلب جديد في الانتظار* 🛵
@@ -595,13 +587,12 @@ ${itemsText}
     };
 
     useEffect(() => {
-        // Automatically assign new 'unassigned' orders
         const unassignedOrders = allOrders.filter(o => o.status === 'unassigned');
         unassignedOrders.forEach(order => {
-            assignOrderToNextWorker(order.id);
+            const excludedIds = order.rejectedBy || [];
+            assignOrderToNextWorker(order.id, excludedIds);
         });
 
-        // Check for timed-out orders periodically
         const interval = setInterval(() => {
             const pendingOrders = allOrders.filter(o => o.status === 'pending_assignment');
             pendingOrders.forEach(order => {
@@ -609,10 +600,8 @@ ${itemsText}
                 const timestamp = new Date(order.assignmentTimestamp).getTime();
                 if (Date.now() - timestamp > ASSIGNMENT_TIMEOUT) {
                     console.log(`Order ${order.id} timed out for worker ${order.assignedToWorkerId}. Reassigning...`);
-                    const previouslyAssigned = allOrders
-                        .filter(o => o.id === order.id && o.assignedToWorkerId)
-                        .map(o => o.assignedToWorkerId!);
-                     assignOrderToNextWorker(order.id, previouslyAssigned);
+                    const newRejectedBy = Array.from(new Set([...(order.rejectedBy || []), order.assignedToWorkerId]));
+                    assignOrderToNextWorker(order.id, newRejectedBy);
                 }
             });
         }, 10000); // Check every 10 seconds
@@ -632,7 +621,9 @@ ${itemsText}
 
     const updateOrderStatus = async (orderId: string, status: OrderStatus, workerId?: string) => {
         const orderDocRef = doc(db, "orders", orderId);
-        const orderData = allOrders.find(o => o.id === orderId);
+        const currentOrder = allOrders.find(o => o.id === orderId);
+        if (!currentOrder) return;
+
         const updateData: any = { status };
         
         if (status === 'confirmed' && workerId) {
@@ -640,17 +631,18 @@ ${itemsText}
             if (worker) {
                 updateData.deliveryWorkerId = workerId;
                 updateData.deliveryWorker = { id: worker.id, name: worker.name };
-                updateData.assignedToWorkerId = null; // Clear assignment
+                updateData.assignedToWorkerId = null;
+                updateData.assignmentTimestamp = null;
+                updateData.rejectedBy = [];
 
-                // --- Telegram Notification for Worker ---
                 const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === workerId);
-                if (workerConfig && orderData) {
+                if (workerConfig && currentOrder) {
                     const message = `
 *تم قبول الطلب الجديد* 🛵
 *رقم الطلب:* \`${orderId.substring(0, 6)}\`
-*الزبون:* ${orderData.address.name}
-*المنطقة:* ${orderData.address.deliveryZone}
-*المبلغ المستلم:* ${formatCurrency(orderData.total)}
+*الزبون:* ${currentOrder.address.name}
+*المنطقة:* ${currentOrder.address.deliveryZone}
+*المبلغ المستلم:* ${formatCurrency(currentOrder.total)}
 
 الرجاء مراجعة التطبيق لبدء التوصيل.
                     `;
@@ -659,8 +651,41 @@ ${itemsText}
             }
         }
         
-        if (status === 'unassigned') {
+        if (status === 'unassigned' && workerId) {
             updateData.assignedToWorkerId = null;
+            updateData.assignmentTimestamp = null;
+            updateData.rejectedBy = arrayUnion(workerId); // Add rejecting worker to the list
+        }
+
+        if (status === 'cancelled') {
+            try {
+                await runTransaction(db, async (transaction) => {
+                    for (const item of currentOrder.items) {
+                        const productRef = doc(db, "products", item.product.id);
+                        const productDoc = await transaction.get(productRef);
+                        if (productDoc.exists()) {
+                            const productData = productDoc.data() as Product;
+                            if (item.selectedSize) {
+                                const newSizes = productData.sizes?.map(s => 
+                                    s.name === item.selectedSize!.name 
+                                    ? { ...s, stock: s.stock + item.quantity } 
+                                    : s
+                                ) ?? [];
+                                transaction.update(productRef, { sizes: newSizes });
+                            } else {
+                                transaction.update(productRef, { stock: productData.stock + item.quantity });
+                            }
+                        }
+                    }
+                    transaction.update(orderDocRef, updateData);
+                });
+            } catch (e) {
+                console.error("Transaction failed: ", e);
+                toast({title: "فشل إلغاء الطلب", description: "حدث خطأ أثناء إعادة المنتجات للمخزون.", variant: "destructive"});
+                return; // Stop if transaction fails
+            }
+        } else {
+            await updateDoc(orderDocRef, updateData);
         }
 
         if (status === 'delivered' && workerId) {
@@ -679,7 +704,6 @@ ${itemsText}
                 }
             }
            
-
             if (isFrozen) {
                 unfreezeProgress += 1;
                 if (unfreezeProgress >= 10) {
@@ -697,15 +721,6 @@ ${itemsText}
                 });
             }
         }
-
-        if ((status === 'delivered' || status === 'cancelled') && workerId) {
-            const nextUnassignedOrder = allOrders.find(o => o.status === 'unassigned');
-            if (nextUnassignedOrder) {
-                assignOrderToNextWorker(nextUnassignedOrder.id);
-            }
-        }
-        
-        await updateDoc(orderDocRef, updateData);
     };
 
     const deleteOrder = async (orderId: string) => {
@@ -1000,7 +1015,3 @@ ${itemsText}
         </AppContext.Provider>
     );
 };
-
-
-
-    

@@ -96,9 +96,10 @@ export interface Order {
     profit: number | null;
     deliveryFee: number;
     deliveryWorkerId: string | null;
-    deliveryWorker: DeliveryWorker | null;
+    deliveryWorker: {id: string; name: string} | null;
     assignedToWorkerId: string | null;
     assignmentTimestamp: string | null;
+    rejectedBy?: string[];
     appliedCoupon: {
       code: string;
       discountAmount: number;

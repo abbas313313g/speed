@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LogOut, MapPin, Package, RefreshCw, BarChart3, Clock, Shield, Store, CircleDot, Loader2 } from 'lucide-react';
 import type { Order, Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 export default function DeliveryPage() {
     const context = useContext(AppContext);
@@ -84,11 +85,10 @@ export default function DeliveryPage() {
 
      const handleRejectOrder = async (orderId: string) => {
         if (workerId && updateOrderStatus && allOrders) {
-            const order = allOrders.find(o => o.id === orderId);
-            if (!order || !order.assignedToWorkerId) return;
-
             setIsProcessing(orderId);
-            await updateOrderStatus(orderId, 'unassigned');
+            // By setting it to 'unassigned' and passing the current worker's ID, 
+            // the context logic will re-assign it to someone else.
+            await updateOrderStatus(orderId, 'unassigned', workerId); 
             toast({title: "تم رفض الطلب", variant: 'destructive'});
             setIsProcessing(null);
         }
@@ -213,7 +213,10 @@ export default function DeliveryPage() {
 
             <Tabs defaultValue="available">
                 <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="available">طلبات جديدة ({availableOrders.length})</TabsTrigger>
+                    <TabsTrigger value="available" className="relative">
+                        طلبات جديدة
+                        {availableOrders.length > 0 && <Badge variant="destructive" className="absolute -top-2 -left-2 h-5 w-5 p-0 flex items-center justify-center text-xs">{availableOrders.length}</Badge>}
+                        </TabsTrigger>
                     <TabsTrigger value="my-orders">طلباتي الحالية ({myOrders.length})</TabsTrigger>
                 </TabsList>
                 <TabsContent value="available" className="space-y-4 pt-4">
