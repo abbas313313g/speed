@@ -185,7 +185,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             } catch (error) {
                 console.error("Error fetching initial data:", error);
                 if ((error as any).code !== 'resource-exhausted') {
-                    toast({ title: "فشل تحميل البيانات", description: "حدث خطأ أثناء جلب بيانات التطبيق.", variant: "destructive" });
+                    // toast({ title: "فشل تحميل البيانات", description: "حدث خطأ أثناء جلب بيانات التطبيق.", variant: "destructive" });
                 }
             } finally {
                 setIsLoading(false);
@@ -215,7 +215,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
         return () => {
             unsubs.forEach(unsub => unsub());
         };
-    }, [toast]);
+    }, []);
 
     useEffect(() => {
         const q = collection(db, "orders");
@@ -225,9 +225,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
           setAllOrders(ordersData);
         }, (error) => {
           console.error("Error fetching orders: ", error);
-          if ((error as any).code !== 'resource-exhausted') {
-            // toast({ title: "خطأ في جلب الطلبات", variant: "destructive" });
-          }
         });
     
         return () => unsubscribe();
@@ -376,7 +373,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 let couponDocRef: any = null;
                 let couponData: Coupon | null = null;
                 if (couponCode) {
-                    const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim()));
+                    const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim().toUpperCase()));
                     const couponQuerySnapshot = await getDocs(couponQuery);
                     if (!couponQuerySnapshot.empty) {
                         const couponDoc = couponQuerySnapshot.docs[0];
@@ -455,9 +452,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 };
                 
                 // Final sanitization step to prevent undefined values
-                const sanitizedOrderData = Object.fromEntries(
-                    Object.entries(newOrderData).map(([key, value]) => [key, value === undefined ? null : value])
-                );
+                const sanitizedOrderData = JSON.parse(JSON.stringify(newOrderData));
+
 
                 transaction.set(newOrderRef, sanitizedOrderData);
 
@@ -642,23 +638,6 @@ ${itemsText}
             if (worker) {
                 updateData.deliveryWorkerId = workerId;
                 updateData.deliveryWorker = { id: worker.id, name: worker.name };
-                updateData.assignedToWorkerId = null;
-                updateData.assignmentTimestamp = null;
-                updateData.rejectedBy = [];
-
-                const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === workerId);
-                if (workerConfig && currentOrder) {
-                    const message = `
-*تم قبول الطلب الجديد* ✅
-*رقم الطلب:* \`${orderId.substring(0, 6)}\`
-*الزبون:* ${currentOrder.address.name}
-*المنطقة:* ${currentOrder.address.deliveryZone}
-*المبلغ المستلم:* ${formatCurrency(currentOrder.total)}
-
-الرجاء مراجعة التطبيق لبدء التوصيل.
-                    `;
-                    sendTelegramMessage(workerConfig.chatId, message);
-                }
             }
         }
         
@@ -666,7 +645,13 @@ ${itemsText}
             updateData.assignedToWorkerId = null;
             updateData.assignmentTimestamp = null;
             updateData.rejectedBy = arrayUnion(workerId); // Add rejecting worker to the list
+        } else if (status !== 'unassigned') {
+            // Clear assignment fields when status moves forward
+            updateData.assignedToWorkerId = null;
+            updateData.assignmentTimestamp = null;
+            updateData.rejectedBy = [];
         }
+
 
         if (status === 'cancelled') {
             try {
@@ -832,7 +817,10 @@ ${itemsText}
 
     // --- ADMIN ACTIONS ---
     const addProduct = async (productData: Omit<Product, 'id'> & { image: string }) => {
-        const imageUrl = await uploadImage(productData.image, `products/${uuidv4()}`);
+        let imageUrl = productData.image;
+        if (productData.image && productData.image.startsWith('data:image')) {
+          imageUrl = await uploadImage(productData.image, `products/${uuidv4()}`);
+        }
         const docRef = await addDoc(collection(db, "products"), { ...productData, image: imageUrl });
         setProducts(prev => [...prev, {id: docRef.id, ...productData, image: imageUrl}]);
         toast({ title: "تمت إضافة المنتج بنجاح" });
@@ -841,7 +829,6 @@ ${itemsText}
     const updateProduct = async (updatedProduct: Partial<Product> & {id: string}) => {
         const { id, image, ...productData } = updatedProduct;
         let imageUrl = image;
-        // Check if image is a new base64 upload
         if (image && image.startsWith('data:image')) {
             imageUrl = await uploadImage(image, `products/${id}`);
         }
@@ -855,7 +842,6 @@ ${itemsText}
     const deleteProduct = async (productId: string) => {
         await deleteDoc(doc(db, "products", productId));
         setProducts(prev => prev.filter(p => p.id !== productId));
-        // Note: Deleting image from storage is optional to prevent broken links if image is reused.
         toast({ title: "تم حذف المنتج بنجاح", variant: "destructive" });
     }
 
@@ -880,7 +866,10 @@ ${itemsText}
     }
 
     const addRestaurant = async (restaurantData: Omit<Restaurant, 'id'> & {image: string}) => {
-        const imageUrl = await uploadImage(restaurantData.image, `restaurants/${uuidv4()}`);
+        let imageUrl = restaurantData.image;
+        if (restaurantData.image && restaurantData.image.startsWith('data:image')) {
+            imageUrl = await uploadImage(restaurantData.image, `restaurants/${uuidv4()}`);
+        }
         const docRef = await addDoc(collection(db, "restaurants"), { ...restaurantData, image: imageUrl });
         setRestaurants(prev => [...prev, {id: docRef.id, ...restaurantData, image: imageUrl}]);
         toast({ title: "تمت إضافة المتجر بنجاح" });
@@ -906,7 +895,10 @@ ${itemsText}
     }
   
     const addBanner = async (bannerData: Omit<Banner, 'id'> & {image: string}) => {
-        const imageUrl = await uploadImage(bannerData.image, `banners/${uuidv4()}`);
+        let imageUrl = bannerData.image;
+        if (bannerData.image && bannerData.image.startsWith('data:image')) {
+            imageUrl = await uploadImage(bannerData.image, `banners/${uuidv4()}`);
+        }
         const docRef = await addDoc(collection(db, "banners"), { ...bannerData, image: imageUrl });
         setBanners(prev => [...prev, {id: docRef.id, ...bannerData, image: imageUrl}]);
         toast({ title: "تمت إضافة البنر بنجاح" });
@@ -1030,5 +1022,6 @@ ${itemsText}
 
 
     
+
 
 

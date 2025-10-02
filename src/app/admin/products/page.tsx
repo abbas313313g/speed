@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useContext, useState } from 'react';
+import { useContext, useState, useRef } from 'react';
 import { AppContext } from '@/contexts/AppContext';
 import {
   Table,
@@ -43,11 +43,12 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils';
 import Image from 'next/image';
-import { Edit, Trash2, PlusCircle, X } from 'lucide-react';
+import { Edit, Trash2, PlusCircle, X, Upload } from 'lucide-react';
 import type { Product, ProductSize } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import React from 'react';
 
 const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
   name: '',
@@ -69,6 +70,8 @@ export default function AdminProductsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Partial<Product> & {image?: string}>({ ...EMPTY_PRODUCT });
   const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
 
   if (!context || context.isLoading) return <div>جار التحميل...</div>;
   const { products, categories, restaurants, addProduct, updateProduct, deleteProduct } = context;
@@ -194,8 +197,12 @@ export default function AdminProductsPage() {
                         <Input id="description" value={currentProduct.description} onChange={(e) => setCurrentProduct({...currentProduct, description: e.target.value})} className="col-span-3" />
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
-                         <Label htmlFor="image" className="text-right">صورة</Label>
-                         <Input id="image" type="file" onChange={handleImageUpload} className="col-span-3" accept="image/*" />
+                         <Label htmlFor="imageUrl" className="text-right">رابط الصورة</Label>
+                         <div className="col-span-3 flex gap-2">
+                             <Input id="imageUrl" value={currentProduct.image} onChange={(e) => setCurrentProduct({...currentProduct, image: e.target.value})} placeholder="https://example.com/image.png"/>
+                             <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4"/></Button>
+                             <Input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+                         </div>
                     </div>
                     {currentProduct.image && <Image src={currentProduct.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain" unoptimized={true}/>}
 

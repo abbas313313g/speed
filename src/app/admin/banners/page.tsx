@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Edit, Trash2 } from 'lucide-react';
+import { Loader2, Edit, Trash2, Upload } from 'lucide-react';
 import type { Banner } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -59,6 +59,7 @@ export default function AdminBannersPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentBanner, setCurrentBanner] = useState<Partial<Banner> & { image?: string }>({ ...EMPTY_BANNER });
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   if (!context || context.isLoading) return <div>جار التحميل...</div>;
   const { banners, addBanner, updateBanner, deleteBanner, products, restaurants } = context;
@@ -122,16 +123,21 @@ export default function AdminBannersPage() {
       </header>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>{isEditing ? 'تعديل البنر' : 'إضافة بنر جديد'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="image" className="text-right">صورة البنر</Label>
-              <Input id="image" type="file" onChange={handleImageUpload} className="col-span-3" accept="image/*" />
+            <div className="space-y-2">
+              <Label htmlFor="imageUrl">رابط صورة البنر</Label>
+              <div className="flex gap-2">
+                <Input id="imageUrl" value={currentBanner.image} onChange={e => setCurrentBanner({...currentBanner, image: e.target.value})} placeholder="https://example.com/image.png" />
+                <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4"/></Button>
+                <Input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+              </div>
             </div>
-            {currentBanner.image && <Image src={currentBanner.image} alt="preview" width={200} height={100} className="col-span-4 justify-self-center object-contain" unoptimized={true}/>}
+
+            {currentBanner.image && <Image src={currentBanner.image} alt="preview" width={200} height={100} className="col-span-4 justify-self-center object-contain rounded-md border" unoptimized={true}/>}
 
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="linkType" className="text-right">نوع الرابط</Label>
