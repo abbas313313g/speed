@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
@@ -163,7 +162,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     deliveryZonesSnap,
                     couponsSnap,
                     telegramConfigsSnap,
-                    ordersSnap, // Fetch orders once on load
                 ] = await Promise.all([
                     getDocs(collection(db, "products")),
                     getDocs(collection(db, "categories")),
@@ -173,7 +171,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     getDocs(collection(db, "deliveryZones")),
                     getDocs(collection(db, "coupons")),
                     getDocs(collection(db, "telegramConfigs")),
-                    getDocs(collection(db, "orders")), // Fetch orders once
                 ]);
 
                 setProducts(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
@@ -184,8 +181,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 setDeliveryZones(deliveryZonesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryZone)));
                 setCoupons(couponsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
                 setTelegramConfigs(telegramConfigsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TelegramConfig)));
-                setAllOrders(ordersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Order)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-
+                
 
             } catch (error) {
                 console.error("Error fetching initial data:", error);
@@ -199,6 +195,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
         // Keep real-time listeners for dynamic data that changes frequently and has a smaller document count
         const unsubs = [
+            onSnapshot(collection(db, "orders"), snap => setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()))),
             onSnapshot(collection(db, "supportTickets"), snap => setSupportTickets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket)))),
             onSnapshot(collection(db, "deliveryWorkers"), snap => setDeliveryWorkers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker)))),
         ];
@@ -219,20 +216,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     // Listener for user-specific support ticket
     useEffect(() => {
         if (!userId) return;
-
-        // Fetch user's orders once
-        const fetchUserOrders = async () => {
-            const q = query(collection(db, "orders"), where("userId", "==", userId));
-            const querySnapshot = await getDocs(q);
-            const userOrders = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-            // Merge with existing orders to avoid duplicates but add new ones
-            setAllOrders(prevOrders => {
-                const existingOrderIds = new Set(prevOrders.map(o => o.id));
-                const newOrders = userOrders.filter(o => !existingOrderIds.has(o.id));
-                return [...prevOrders, ...newOrders].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            });
-        };
-        fetchUserOrders();
 
         const q = query(collection(db, "supportTickets"), where("userId", "==", userId));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -465,7 +448,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     status: 'unassigned',
                     estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
                     address,
-                    profit: profit || 0,
+                    profit: profit,
                     deliveryFee,
                     deliveryWorkerId: null,
                     deliveryWorker: null,
@@ -475,18 +458,15 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 };
                 
                 // Sanitize newOrderData to remove undefined values
-                Object.keys(newOrderData).forEach(key => {
-                    if ((newOrderData as any)[key] === undefined) {
+                Object.keys(newOrderData).forEach(keyStr => {
+                    const key = keyStr as keyof typeof newOrderData;
+                    if (newOrderData[key] === undefined) {
                         (newOrderData as any)[key] = null;
                     }
                 });
 
                 const orderRef = doc(collection(db, "orders"));
                 transaction.set(orderRef, newOrderData);
-
-                // Add the new order to the local state immediately
-                setAllOrders(prev => [{ id: orderRef.id, ...newOrderData }, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-
 
                 for (const item of cart) {
                     const productRef = doc(db, "products", item.product.id);
@@ -597,7 +577,6 @@ ${itemsText}
             assignmentTimestamp: new Date().toISOString()
         };
         await updateDoc(doc(db, "orders", orderId), updateData);
-        setAllOrders(prev => prev.map(o => o.id === orderId ? {...o, ...updateData} : o));
         console.log(`Order ${orderId} assigned to ${nextWorker.name}`);
 
         const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
@@ -727,7 +706,6 @@ ${itemsText}
         }
         
         await updateDoc(orderDocRef, updateData);
-        setAllOrders(prev => prev.map(o => o.id === orderId ? {...o, ...updateData} : o));
     };
 
     const deleteOrder = async (orderId: string) => {
@@ -871,7 +849,7 @@ ${itemsText}
     const deleteCategory = async (categoryId: string) => {
         await deleteDoc(doc(db, "categories", categoryId));
         setCategories(prev => prev.filter(c => c.id !== categoryId));
-        toast({ title: "تم حذف القسم بنجاح", variant: "destructive" });
+        toast({ title: "تم حذف القسم بنجاح" });
     }
 
     const addRestaurant = async (restaurantData: Omit<Restaurant, 'id'> & {image: string}) => {
@@ -1023,3 +1001,6 @@ ${itemsText}
     );
 };
 
+
+
+    
