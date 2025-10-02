@@ -116,6 +116,7 @@ export default function CartPage() {
         title: "تم استلام طلبك بنجاح!",
         description: "يمكنك متابعة حالة طلبك من صفحة الطلبات.",
       });
+      // Reset coupon state after successful order
       setCouponCode("");
       setCouponDiscount(0);
 
@@ -327,5 +328,7 @@ export default function CartPage() {
     </div>
   );
 }
+
+    
 
     
