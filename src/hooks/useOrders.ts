@@ -4,7 +4,7 @@
 import { useContext, useCallback } from 'react';
 import { AppContext } from '@/contexts/AppContext';
 import { useToast } from './use-toast';
-import { doc, getDoc, collection, getDocs, runTransaction, arrayUnion } from 'firebase/firestore';
+import { doc, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { getWorkerLevel } from '@/lib/workerLevels';
@@ -17,7 +17,11 @@ export const useOrders = () => {
     }
     
     const { toast } = useToast();
-    const { allOrders, setAllOrders, assignOrderToNextWorker, setDeliveryWorkers } = context;
+    const { allOrders, deliveryWorkers } = context;
+
+    const assignOrderToNextWorker = useCallback(async (orderId: string, excludedWorkerIds: string[] = []) => {
+        // This function is now managed inside the AppContext to avoid circular dependencies
+    }, []);
 
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
@@ -36,13 +40,13 @@ export const useOrders = () => {
                     if (currentOrder.status !== 'pending_assignment' || currentOrder.assignedToWorkerId !== workerId) {
                         throw new Error("لم يعد هذا الطلب متاحًا لك.");
                     }
+                    
                     const workerDocRef = doc(db, "deliveryWorkers", workerId);
                     const workerDoc = await transaction.get(workerDocRef);
                     if (!workerDoc.exists()) {
                         throw new Error("لم يتم العثور على عامل التوصيل.");
                     }
                     const workerData = workerDoc.data() as DeliveryWorker;
-                    // Create a clean worker object to avoid any unexpected fields
                     const workerInfoForOrder = { id: workerId, name: workerData.name };
                     updateData.deliveryWorkerId = workerId;
                     updateData.deliveryWorker = workerInfoForOrder;
@@ -67,6 +71,7 @@ export const useOrders = () => {
                         const worker = workerDoc.data() as DeliveryWorker;
                         const now = new Date();
                         
+                        // We filter `allOrders` from the context, which is updated by onSnapshot
                         const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered').length + 1;
                         const { isFrozen } = getWorkerLevel(worker, myDeliveredOrders, now);
                         
@@ -82,34 +87,24 @@ export const useOrders = () => {
                 }
             });
 
-            const updatedOrderSnap = await getDoc(doc(db, "orders", orderId));
-            if (!updatedOrderSnap.exists()) return;
-            const updatedOrder = { id: updatedOrderSnap.id, ...updatedOrderSnap.data() } as Order;
+            // The onSnapshot in AppContext will handle UI updates automatically.
+            toast({ title: `تم تحديث حالة الطلب بنجاح` });
 
-            setAllOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-            
-            if (status === 'delivered' && workerId) {
-                const updatedWorkerSnap = await getDoc(doc(db, "deliveryWorkers", workerId));
-                if (updatedWorkerSnap.exists()) {
-                    const updatedWorker = { id: updatedWorkerSnap.id, ...updatedWorkerSnap.data() } as DeliveryWorker;
-                    setDeliveryWorkers(prev => prev.map(w => w.id === workerId ? updatedWorker : w));
+            // If an order was rejected, trigger the reassignment logic.
+             if (status === 'unassigned' && workerId) {
+                const order = allOrders.find(o => o.id === orderId);
+                if (order && context.assignOrderToNextWorker) {
+                    // Use the function from context
+                    await context.assignOrderToNextWorker(orderId, order.rejectedBy);
                 }
             }
-            
-            if (status === 'unassigned' && workerId) {
-                await assignOrderToNextWorker(orderId, updatedOrder.rejectedBy || []);
-            }
-            toast({ title: `تم تحديث حالة الطلب بنجاح` });
 
         } catch (error: any) {
             console.error("Failed to update order status:", error);
             toast({title: "فشل تحديث الطلب", description: error.message, variant: "destructive"});
-            // Re-fetch orders to ensure UI is consistent with backend state after a failed transaction
-            const ordersSnap = await getDocs(collection(db, "orders"));
-            setAllOrders(ordersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
             throw error;
         }
-    }, [allOrders, assignOrderToNextWorker, setAllOrders, setDeliveryWorkers, toast]);
+    }, [toast, allOrders, context]);
 
     return {
         allOrders: context.allOrders,
@@ -118,3 +113,5 @@ export const useOrders = () => {
         deleteOrder: context.deleteOrder,
     };
 };
+
+    
