@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, doc, runTransaction, arrayUnion, addDoc, updateDoc, deleteDoc, setDoc, query, where, writeBatch, onSnapshot } from 'firebase/firestore';
+import { collection, doc, runTransaction, arrayUnion, addDoc, updateDoc, deleteDoc, setDoc, query, where, writeBatch, onSnapshot, getDoc, getDocs } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -65,6 +65,9 @@ interface AppContextType {
     addDeliveryZone: (zone: Omit<DeliveryZone, 'id'>) => Promise<void>;
     updateDeliveryZone: (zone: DeliveryZone) => Promise<void>;
     deleteDeliveryZone: (zoneId: string) => Promise<void>;
+    
+    updateOrderStatus: (orderId: string, status: OrderStatus, workerId?: string) => Promise<void>;
+    deleteOrder: (orderId: string) => Promise<void>;
 
     addCoupon: (couponData: Omit<Coupon, 'id' | 'usedCount' | 'usedBy'>) => Promise<void>;
     deleteCoupon: (couponId: string) => Promise<void>;
@@ -95,6 +98,8 @@ interface AppContextType {
 
     mySupportTicket: SupportTicket | null;
     startNewTicketClient: () => void;
+    
+    assignOrderToNextWorker: (orderId: string, excludedWorkerIds: string[]) => Promise<void>;
 }
 
 
@@ -145,19 +150,20 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             onSnapshot(collection(db, "restaurants"), (snap) => setRestaurants(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant)))),
             onSnapshot(collection(db, "banners"), (snap) => setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)))),
             onSnapshot(collection(db, "deliveryZones"), (snap) => setDeliveryZones(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryZone)))),
-            onSnapshot(collection(db, "orders"), (snap) => setAllOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()))),
+            onSnapshot(collection(db, "orders"), (snap) => {
+                 const ordersData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+                 setAllOrders(ordersData.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+            }),
             onSnapshot(collection(db, "supportTickets"), (snap) => setSupportTickets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket)))),
             onSnapshot(collection(db, "coupons"), (snap) => setCoupons(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)))),
             onSnapshot(collection(db, "telegramConfigs"), (snap) => setTelegramConfigs(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TelegramConfig)))),
             onSnapshot(collection(db, "deliveryWorkers"), (snap) => setDeliveryWorkers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker)))),
         ];
 
-        if (isLoading) {
-            setIsLoading(false);
-        }
+        setIsLoading(false);
+        
 
         return () => unsubscribers.forEach(unsub => unsub());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const uploadImage = useCallback(async (base64: string, path: string): Promise<string> => {
@@ -457,23 +463,35 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (error) { console.error("Error updating worker status:", error); toast({ title: "فشل تحديث حالة العامل", variant: "destructive" }); }
     }, [toast]);
     
+    
     const assignOrderToNextWorker = useCallback(async (orderId: string, excludedWorkerIds: string[] = []) => {
         try {
             const orderRef = doc(db, "orders", orderId);
             
-            const orderToAssign = allOrders.find(o => o.id === orderId);
+            // Refetch data inside the function to ensure it's up-to-date
+            const allOrdersSnapshot = await getDocs(collection(db, "orders"));
+            const currentAllOrders = allOrdersSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as Order);
+            const orderToAssign = currentAllOrders.find(o => o.id === orderId);
+            
+            const deliveryWorkersSnapshot = await getDocs(collection(db, "deliveryWorkers"));
+            const currentDeliveryWorkers = deliveryWorkersSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as DeliveryWorker);
+            
+            const telegramConfigsSnapshot = await getDocs(collection(db, "telegramConfigs"));
+            const currentTelegramConfigs = telegramConfigsSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as TelegramConfig);
+
+
             if (!orderToAssign) throw new Error("Order to assign not found");
 
             const completedOrdersByWorker: {[workerId: string]: number} = {};
-            allOrders.forEach(o => {
+            currentAllOrders.forEach(o => {
                 if (o.status === 'delivered' && o.deliveryWorkerId) {
                     completedOrdersByWorker[o.deliveryWorkerId] = (completedOrdersByWorker[o.deliveryWorkerId] || 0) + 1;
                 }
             });
 
-            const busyWorkerIds = new Set(allOrders.filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status)).map(o => o.deliveryWorkerId).filter((id): id is string => !!id));
+            const busyWorkerIds = new Set(currentAllOrders.filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status)).map(o => o.deliveryWorkerId).filter((id): id is string => !!id));
             
-            const availableWorkers = deliveryWorkers.filter(w => w.isOnline && !busyWorkerIds.has(w.id) && !excludedWorkerIds.includes(w.id));
+            const availableWorkers = currentDeliveryWorkers.filter(w => w.isOnline && !busyWorkerIds.has(w.id) && !excludedWorkerIds.includes(w.id));
 
             if (availableWorkers.length === 0) {
                 await updateDoc(orderRef, { status: 'unassigned' as OrderStatus, assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: excludedWorkerIds });
@@ -485,7 +503,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             
             await updateDoc(orderRef, { status: 'pending_assignment' as OrderStatus, assignedToWorkerId: nextWorker.id, assignmentTimestamp: new Date().toISOString(), rejectedBy: excludedWorkerIds });
             
-            const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
+            const workerConfig = currentTelegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
             if (workerConfig) {
                 sendTelegramMessage(workerConfig.chatId, `*لديك طلب جديد في الانتظار* 🛵\n*رقم الطلب:* \`${orderId.substring(0, 6)}\`\n*المنطقة:* ${orderToAssign.address.deliveryZone}\n*ربحك من التوصيل:* ${formatCurrency(orderToAssign.deliveryFee)}`);
             }
@@ -493,7 +511,51 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             console.error("Failed to assign order to next worker:", error);
             toast({title: "فشل تعيين الطلب", description: "حدث خطأ أثناء محاولة تعيين الطلب لعامل آخر.", variant: "destructive"});
         }
-    }, [allOrders, deliveryWorkers, telegramConfigs, toast]);
+    }, [toast]);
+    
+    const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
+        try {
+            await runTransaction(db, async (transaction) => {
+                const orderRef = doc(db, "orders", orderId);
+                const orderDoc = await transaction.get(orderRef);
+
+                if (!orderDoc.exists()) {
+                    throw new Error("لم يتم العثور على الطلب.");
+                }
+                const currentOrder = orderDoc.data() as Order;
+                const updateData: any = { status };
+
+                if (status === 'confirmed' && workerId) {
+                    if (currentOrder.status !== 'pending_assignment' || currentOrder.assignedToWorkerId !== workerId) {
+                        throw new Error("لم يعد هذا الطلب متاحًا لك.");
+                    }
+                    updateData.deliveryWorkerId = workerId;
+                } else if (status === 'unassigned' && workerId) {
+                    updateData.rejectedBy = arrayUnion(workerId);
+                }
+                
+                if (status !== 'pending_assignment') {
+                    updateData.assignedToWorkerId = null;
+                    updateData.assignmentTimestamp = null;
+                    if (status !== 'unassigned') updateData.rejectedBy = [];
+                }
+
+                transaction.update(orderRef, updateData);
+            });
+
+            if (status === 'unassigned' && workerId) {
+                const order = allOrders.find(o => o.id === orderId);
+                if (order) {
+                    await assignOrderToNextWorker(orderId, order.rejectedBy || []);
+                }
+            }
+            
+        } catch (error: any) {
+            console.error("Failed to update order status:", error);
+            toast({title: "فشل تحديث الطلب", description: error.message, variant: "destructive"});
+            throw error; // Re-throw the error to be caught by the caller
+        }
+    }, [toast, assignOrderToNextWorker, allOrders]);
     
     
     const placeOrder = useCallback(async (currentCart: CartItem[], address: Address, deliveryFee: number, couponCode?: string): Promise<string> => {
@@ -562,8 +624,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 
                 const newOrderRef = doc(collection(db, "orders"));
                 newOrderId = newOrderRef.id;
+                
+                const orderRestaurant = restaurants.find(r => r.id === currentCart[0].product.restaurantId);
 
-                const newOrderData: Omit<Order, 'id'> = { userId, items: currentCart, total: finalTotal, date: new Date().toISOString(), status: 'unassigned', estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(), address, profit: calculatedProfit, deliveryFee, deliveryWorkerId: null, deliveryWorker: null, assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: [], appliedCoupon: appliedCouponInfo, };
+                const newOrderData: Omit<Order, 'id'> = { userId, items: currentCart, total: finalTotal, date: new Date().toISOString(), status: 'unassigned', estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(), address, profit: calculatedProfit, deliveryFee, deliveryWorkerId: null, deliveryWorker: null, assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: [], appliedCoupon: appliedCouponInfo, restaurant: orderRestaurant ? {id: orderRestaurant.id, name: orderRestaurant.name, latitude: orderRestaurant.latitude, longitude: orderRestaurant.longitude} : null, };
                 transaction.set(newOrderRef, newOrderData);
             });
             
@@ -571,12 +635,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
             clearCart();
             
-            const newOrder = allOrders.find(o => o.id === newOrderId);
+            const newOrder = (await getDoc(doc(db, "orders", newOrderId))).data() as Order;
             if (newOrder) {
                  telegramConfigs.filter(c => c.type === 'owner').forEach(c => {
-                    sendTelegramMessage(c.chatId, `*طلب جديد!* 🎉\n*رقم الطلب:* \`${newOrder.id.substring(0, 6)}\`\n*الزبون:* ${newOrder.address.name}\n*المنطقة:* ${newOrder.address.deliveryZone}\n*المبلغ:* ${formatCurrency(newOrder.total)}`);
+                    sendTelegramMessage(c.chatId, `*طلب جديد!* 🎉\n*رقم الطلب:* \`${newOrderId?.substring(0, 6)}\`\n*الزبون:* ${newOrder.address.name}\n*المنطقة:* ${newOrder.address.deliveryZone}\n*المبلغ:* ${formatCurrency(newOrder.total)}`);
                 });
-                await assignOrderToNextWorker(newOrder.id, []);
+                await assignOrderToNextWorker(newOrderId, []);
             }
             return newOrderId;
         } catch (error) {
@@ -584,7 +648,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             throw error;
         }
 
-    }, [userId, clearCart, telegramConfigs, assignOrderToNextWorker, coupons, allOrders]);
+    }, [userId, clearCart, telegramConfigs, assignOrderToNextWorker, coupons, allOrders, restaurants]);
+    
+    const deleteOrder = useCallback(async (orderId: string) => {
+        try {
+            await deleteDoc(doc(db, "orders", orderId));
+            toast({ title: "تم حذف الطلب بنجاح" });
+        } catch(e) {
+            console.error(e);
+            toast({title: "فشل حذف الطلب", variant: "destructive"})
+        }
+    }, [toast]);
+    
     
     const value = useMemo(() => ({
         products, categories, restaurants, banners, deliveryZones, allOrders, supportTickets, coupons, telegramConfigs, deliveryWorkers,
@@ -594,6 +669,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         addRestaurant, updateRestaurant, deleteRestaurant,
         addBanner, updateBanner, deleteBanner,
         addDeliveryZone, updateDeliveryZone, deleteDeliveryZone,
+        updateOrderStatus, deleteOrder,
         addCoupon, deleteCoupon,
         addTelegramConfig, deleteTelegramConfig,
         placeOrder,
@@ -602,17 +678,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress,
         mySupportTicket, startNewTicketClient,
+        assignOrderToNextWorker,
     }), [
         products, categories, restaurants, banners, deliveryZones, allOrders, supportTickets, coupons, telegramConfigs, deliveryWorkers,
         isLoading, addProduct, updateProduct, deleteProduct, addCategory, updateCategory, deleteCategory, addRestaurant, updateRestaurant, deleteRestaurant,
-        addBanner, updateBanner, deleteBanner, addDeliveryZone, updateDeliveryZone, deleteDeliveryZone, addCoupon, deleteCoupon, addTelegramConfig, deleteTelegramConfig,
+        addBanner, updateBanner, deleteBanner, addDeliveryZone, updateDeliveryZone, deleteDeliveryZone, updateOrderStatus, deleteOrder, addCoupon, deleteCoupon, addTelegramConfig, deleteTelegramConfig,
         placeOrder, addDeliveryWorker, updateWorkerStatus, createSupportTicket, addMessageToTicket, resolveSupportTicket,
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress,
-        mySupportTicket, startNewTicketClient
+        mySupportTicket, startNewTicketClient,
+        assignOrderToNextWorker
     ]);
     
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
-
-    

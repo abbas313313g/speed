@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useContext } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { MapPin, Phone, ArrowRight, XCircle } from 'lucide-react';
+import { MapPin, Phone, ArrowRight, XCircle, Store } from 'lucide-react';
 import type { OrderStatus } from '@/lib/types';
 import {
   AlertDialog,
@@ -23,14 +23,18 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-import { useOrders } from '@/hooks/useOrders';
+import { AppContext } from '@/contexts/AppContext';
 
 
 export default function DeliveryOrderDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const { allOrders, isLoading, updateOrderStatus } = useOrders();
+  const context = useContext(AppContext);
+  
+  if (!context) throw new Error("useOrders must be used within an AppProvider");
+  const { allOrders, isLoading, updateOrderStatus } = context;
+
 
   const order = useMemo(() => allOrders.find(o => o.id === id), [id, allOrders]);
 
@@ -72,16 +76,16 @@ export default function DeliveryOrderDetailPage() {
       'on_the_way': 'delivered',
   }
 
-  const handleUpdateStatus = () => {
+  const handleUpdateStatus = async () => {
       const next = nextStatus[order.status];
       if(next) {
-          updateOrderStatus(order.id, next, order.deliveryWorkerId);
+          await updateOrderStatus(order.id, next);
       }
   }
 
-  const handleCancelOrder = () => {
+  const handleCancelOrder = async () => {
       if (order.status === 'delivered' || order.status === 'cancelled') return;
-      updateOrderStatus(order.id, 'cancelled');
+      await updateOrderStatus(order.id, 'cancelled');
       toast({title: "تم إلغاء الطلب", variant: 'destructive'});
       router.back();
   }
@@ -117,6 +121,22 @@ export default function DeliveryOrderDetailPage() {
                 </a>
             </CardFooter>
         </Card>
+        
+        {order.restaurant && (
+            <Card>
+                <CardHeader>
+                    <CardTitle>معلومات المتجر</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                     <div className="flex justify-between"><span>الاسم:</span> <span className="font-semibold">{order.restaurant.name}</span></div>
+                </CardContent>
+                 <CardFooter className="grid grid-cols-1 gap-2">
+                    <a href={`https://www.google.com/maps?q=${order.restaurant.latitude},${order.restaurant.longitude}`} target="_blank" rel="noopener noreferrer" className="w-full">
+                        <Button variant="outline" className="w-full"><Store className="ml-2 h-4 w-4"/>موقع المتجر</Button>
+                    </a>
+                </CardFooter>
+            </Card>
+        )}
 
          <Card>
             <CardHeader>

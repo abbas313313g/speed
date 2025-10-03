@@ -104,6 +104,12 @@ export interface Order {
       code: string;
       discountAmount: number;
     } | null;
+    restaurant: {
+        id: string;
+        name: string;
+        latitude?: number;
+        longitude?: number;
+    } | null;
 }
 
 export interface Message {

@@ -59,7 +59,7 @@ export default function DeliveryPage() {
         if (workerId) {
             setIsProcessing(orderId);
             try {
-                await updateOrderStatus(orderId, 'confirmed');
+                await updateOrderStatus(orderId, 'confirmed', workerId);
                 toast({title: "تم قبول الطلب بنجاح!"})
                 router.push(`/delivery/order/${orderId}`);
             } catch (error: any) {
@@ -74,7 +74,7 @@ export default function DeliveryPage() {
         if (workerId) {
             setIsProcessing(orderId);
              try {
-                await updateOrderStatus(orderId, 'unassigned'); 
+                await updateOrderStatus(orderId, 'unassigned', workerId); 
                 toast({title: "تم رفض الطلب", variant: 'default'});
                 setDriverStatus('SEARCHING');
             } catch (error: any) {
@@ -108,11 +108,9 @@ export default function DeliveryPage() {
     
     const OrderCard = ({order}: {order: Order}) => {
         const orderRestaurant = useMemo(() => {
-            if (!restaurants || order.items.length === 0) return null;
-            const product = context.products.find(p => p.id === order.items[0].product.id)
-            if (!product) return null;
-            return restaurants.find(r => r.id === product.restaurantId);
-        }, [order.items, restaurants, context.products]);
+            if (!restaurants || !order.restaurant) return null;
+            return restaurants.find(r => r.id === order.restaurant!.id);
+        }, [order.restaurant, restaurants]);
 
         const { distance, mapUrl } = useMemo(() => {
             if (!orderRestaurant?.latitude || !orderRestaurant?.longitude || !order.address.latitude || !order.address.longitude) {
