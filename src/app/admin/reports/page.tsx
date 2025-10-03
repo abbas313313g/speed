@@ -1,8 +1,7 @@
 
 "use client";
 
-import { useContext, useMemo } from 'react';
-import { AppContext } from '@/contexts/AppContext';
+import { useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -15,6 +14,9 @@ import { formatCurrency } from '@/lib/utils';
 import Image from 'next/image';
 import type { Restaurant } from '@/lib/types';
 import { Card } from '@/components/ui/card';
+import { useRestaurants } from '@/hooks/useRestaurants';
+import { useOrders } from '@/hooks/useOrders';
+import { useProducts } from '@/hooks/useProducts';
 
 interface StoreReport {
     restaurant: Restaurant;
@@ -24,11 +26,14 @@ interface StoreReport {
 }
 
 export default function AdminReportsPage() {
-  const context = useContext(AppContext);
+  const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
+  const { allOrders, isLoading: ordersLoading } = useOrders();
+  const { products, isLoading: productsLoading } = useProducts();
 
+  const isLoading = restaurantsLoading || ordersLoading || productsLoading;
+  
   const reports: StoreReport[] = useMemo(() => {
-    if (!context || !context.restaurants || !context.allOrders) return [];
-    const { restaurants, allOrders, products } = context;
+    if (isLoading) return [];
 
     return restaurants.map(restaurant => {
         const storeOrders = allOrders.filter(order => 
@@ -63,9 +68,9 @@ export default function AdminReportsPage() {
         };
     }).sort((a,b) => b.totalRevenue - a.totalRevenue);
 
-  }, [context]);
+  }, [restaurants, allOrders, products, isLoading]);
 
-  if (!context || context.isLoading) return <div>جار التحميل...</div>;
+  if (isLoading) return <div>جار التحميل...</div>;
 
   return (
     <div className="space-y-8">
@@ -108,3 +113,5 @@ export default function AdminReportsPage() {
     </div>
   );
 }
+
+    

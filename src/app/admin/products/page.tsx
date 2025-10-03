@@ -1,8 +1,7 @@
 
 "use client";
 
-import { useContext, useState, useRef } from 'react';
-import { AppContext } from '@/contexts/AppContext';
+import { useState, useRef } from 'react';
 import {
   Table,
   TableBody,
@@ -48,6 +47,9 @@ import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import React from 'react';
+import { useProducts } from '@/hooks/useProducts';
+import { useCategories } from '@/hooks/useCategories';
+import { useRestaurants } from '@/hooks/useRestaurants';
 
 const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
   name: '',
@@ -63,7 +65,9 @@ const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
 };
 
 export default function AdminProductsPage() {
-  const context = useContext(AppContext);
+  const { products, isLoading: productsLoading, addProduct, updateProduct, deleteProduct } = useProducts();
+  const { categories, isLoading: categoriesLoading } = useCategories();
+  const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -71,9 +75,9 @@ export default function AdminProductsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-
-  if (!context || context.isLoading) return <div>جار التحميل...</div>;
-  const { products, categories, restaurants, addProduct, updateProduct, deleteProduct } = context;
+  const isLoading = productsLoading || categoriesLoading || restaurantsLoading;
+  
+  if (isLoading) return <div>جار التحميل...</div>;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -331,3 +335,5 @@ export default function AdminProductsPage() {
     </div>
   );
 }
+
+    

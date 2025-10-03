@@ -1,37 +1,117 @@
 
 "use client";
 
-import { useContext } from 'react';
-import { AppContext } from '@/contexts/AppContext';
-import { OrderStatus } from '@/lib/types';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { collection, onSnapshot, doc, runTransaction, arrayUnion } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
+import { getWorkerLevel } from '@/lib/workerLevels';
+import { useDeliveryWorkers } from './useDeliveryWorkers';
 
 export const useOrders = () => {
-    const context = useContext(AppContext);
+    const [allOrders, setAllOrders] = useState<Order[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
+    const { deliveryWorkers } = useDeliveryWorkers(); // Using the hook to get workers
+
+    useEffect(() => {
+        const unsub = onSnapshot(collection(db, 'orders'),
+            (snapshot) => {
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
+                data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                setAllOrders(data);
+                setIsLoading(false);
+            },
+            (error) => {
+                console.error("Error fetching orders:", error);
+                toast({ title: "Failed to fetch orders", variant: "destructive" });
+                setIsLoading(false);
+            }
+        );
+        return () => unsub();
+    }, [toast]);
     
-    if (!context) {
-        throw new Error('useOrders must be used within an AppProvider');
-    }
-    
-    const updateOrderStatusWithToast = async (orderId: string, status: OrderStatus, workerId?: string) => {
+    const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
-            await context.updateOrderStatus(orderId, status, workerId);
-            // The toast is now handled in the context to avoid duplication
+            await runTransaction(db, async (transaction) => {
+                const orderRef = doc(db, "orders", orderId);
+                const orderDoc = await transaction.get(orderRef);
+                if (!orderDoc.exists()) throw new Error("لم يتم العثور على الطلب.");
+                const currentOrder = orderDoc.data() as Order;
+                
+                const updateData: any = { status };
+
+                if (status === 'confirmed' && workerId) {
+                    if (currentOrder.status !== 'pending_assignment' || currentOrder.assignedToWorkerId !== workerId) {
+                        throw new Error("لم يعد هذا الطلب متاحًا لك.");
+                    }
+                    const worker = deliveryWorkers.find(w => w.id === workerId);
+                    if (!worker) throw new Error("لم يتم العثور على العامل.");
+
+                    updateData.deliveryWorkerId = workerId;
+                    updateData.deliveryWorker = { id: workerId, name: worker.name };
+
+                } else if (status === 'unassigned' && workerId) {
+                    // This is a rejection, add worker to rejectedBy list
+                    updateData.rejectedBy = arrayUnion(workerId);
+                }
+                
+                if (status !== 'pending_assignment') {
+                    updateData.assignedToWorkerId = null;
+                    updateData.assignmentTimestamp = null;
+                }
+
+                if (status === 'delivered' && currentOrder.deliveryWorkerId) {
+                    const currentWorkerId = currentOrder.deliveryWorkerId;
+                    const workerDocRef = doc(db, "deliveryWorkers", currentWorkerId);
+                    const workerDoc = await transaction.get(workerDocRef); // reading inside transaction
+                    
+                    if (workerDoc.exists()) {
+                        const worker = workerDoc.data() as DeliveryWorker;
+                        const now = new Date();
+                        const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === currentWorkerId && o.status === 'delivered').length + 1;
+                        const { isFrozen } = getWorkerLevel(worker, myDeliveredOrders, now);
+                        
+                        let workerUpdate: Partial<DeliveryWorker> = {};
+                        if (isFrozen) {
+                            const unfreezeProgress = (worker.unfreezeProgress || 0) + 1;
+                            workerUpdate = (unfreezeProgress >= 10) ? { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 } : { unfreezeProgress };
+                        } else {
+                            workerUpdate = { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 };
+                        }
+                        transaction.update(workerDocRef, workerUpdate);
+                    }
+                }
+
+                transaction.update(orderRef, updateData);
+            });
+            
+            toast({ title: `تم تحديث حالة الطلب بنجاح` });
+
         } catch (error: any) {
-            // The error is already toasted in the context's function
-            // We re-throw it so components know the operation failed
+            console.error("Failed to update order status:", error);
+            toast({title: "فشل تحديث الطلب", description: error.message, variant: "destructive"});
             throw error;
         }
-    };
+    }, [toast, allOrders, deliveryWorkers]);
+
+    const deleteOrder = useCallback(async (orderId: string) => {
+        try {
+            await deleteDoc(doc(db, "orders", orderId));
+            toast({ title: "تم حذف الطلب بنجاح" });
+        } catch(e) {
+            console.error(e);
+            toast({title: "فشل حذف الطلب", variant: "destructive"})
+        }
+    }, [toast]);
     
     return {
-        allOrders: context.allOrders,
-        isLoading: context.isLoading,
-        updateOrderStatus: updateOrderStatusWithToast,
-        deleteOrder: context.deleteOrder,
+        allOrders,
+        isLoading,
+        updateOrderStatus,
+        deleteOrder,
     };
 };
 
-
-  
+    

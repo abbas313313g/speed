@@ -1,9 +1,8 @@
 
 "use client";
 
-import { useContext, useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import Image from 'next/image';
-import { AppContext } from '@/contexts/AppContext';
 import {
   Table,
   TableBody,
@@ -37,6 +36,7 @@ import { Star, Edit, Trash2, Loader2, MapPin, Upload } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
+import { useRestaurants } from '@/hooks/useRestaurants';
 
 const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     name: '',
@@ -47,7 +47,7 @@ const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
 };
 
 export default function AdminStoresPage() {
-  const context = useContext(AppContext);
+  const { restaurants, isLoading, addRestaurant, updateRestaurant, deleteRestaurant } = useRestaurants();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -55,8 +55,7 @@ export default function AdminStoresPage() {
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  if (!context || context.isLoading) return <div>جار التحميل...</div>;
-  const { restaurants, addRestaurant, updateRestaurant, deleteRestaurant } = context;
+  if (isLoading) return <div>جار التحميل...</div>;
   
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -238,3 +237,5 @@ export default function AdminStoresPage() {
     </div>
   );
 }
+
+    
