@@ -123,6 +123,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [userId, setUserId] = useState<string|null>(null);
     const [myCurrentSupportTicket, setMySupportTicket] = useState<SupportTicket|null>(null);
+    const [lastProcessedOrderId, setLastProcessedOrderId] = useState<string | null>(null);
     
     const [isLoading, setIsLoading] = useState(true);
 
@@ -244,17 +245,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [toast]); // assignOrderToNextWorker is stable due to useCallback
 
      useEffect(() => {
-        // This effect will run whenever `allOrders` changes.
-        // It filters for newly unassigned orders and tries to assign them.
-        const newlyUnassigned = allOrders.filter(order => order.status === 'unassigned' && !order.assignedToWorkerId);
+        const orderToProcess = allOrders.find(
+            (order) => order.status === 'unassigned' && order.id !== lastProcessedOrderId && !order.assignedToWorkerId
+        );
 
-        if (newlyUnassigned.length > 0) {
-            newlyUnassigned.forEach(order => {
-                // We add a small delay to prevent rapid re-assignment cycles
-                setTimeout(() => assignOrderToNextWorker(order), 1000);
-            });
+        if (orderToProcess) {
+            setLastProcessedOrderId(orderToProcess.id);
+            setTimeout(() => assignOrderToNextWorker(orderToProcess), 1000);
         }
-    }, [allOrders, assignOrderToNextWorker]);
+    }, [allOrders, assignOrderToNextWorker, lastProcessedOrderId]);
 
     const categories = useMemo(() => {
         const iconMap = initialCategories.reduce((acc, cat) => {
@@ -749,7 +748,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress,
         mySupportTicket, startNewTicketClient,
-        assignOrderToNextWorker
     ]);
     
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
@@ -757,4 +755,5 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
 
   
+
 
