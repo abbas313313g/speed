@@ -625,7 +625,6 @@ ${itemsText}
         
         if (status === 'confirmed' && workerId) {
             let worker = deliveryWorkers.find(w => w.id === workerId);
-            // If worker not in state, fetch directly from DB
             if (!worker) {
                 const workerSnap = await getDoc(doc(db, "deliveryWorkers", workerId));
                 if (workerSnap.exists()) {
@@ -641,9 +640,11 @@ ${itemsText}
         if (status === 'unassigned' && workerId) {
             updateData.assignedToWorkerId = null;
             updateData.assignmentTimestamp = null;
-            updateData.rejectedBy = arrayUnion(workerId); // Add rejecting worker to the list
+            updateData.rejectedBy = arrayUnion(workerId);
+            await updateDoc(orderDocRef, updateData);
+            await assignOrderToNextWorker(orderId, updateData.rejectedBy);
+            return;
         } else if (status !== 'unassigned') {
-            // Clear assignment fields when status moves forward
             updateData.assignedToWorkerId = null;
             updateData.assignmentTimestamp = null;
             updateData.rejectedBy = [];
