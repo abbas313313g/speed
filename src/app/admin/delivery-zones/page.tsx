@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import {
   Table,
   TableBody,
@@ -34,7 +34,7 @@ import { Label } from '@/components/ui/label';
 import { Edit, Trash2, Loader2 } from 'lucide-react';
 import type { DeliveryZone } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
-import { useDeliveryZones } from '@/hooks/useDeliveryZones';
+import { AppContext } from '@/contexts/AppContext';
 
 const EMPTY_ZONE: Omit<DeliveryZone, 'id'> = {
     name: '',
@@ -42,13 +42,15 @@ const EMPTY_ZONE: Omit<DeliveryZone, 'id'> = {
 };
 
 export default function AdminDeliveryZonesPage() {
-  const { deliveryZones, isLoading, addDeliveryZone, updateDeliveryZone, deleteDeliveryZone } = useDeliveryZones();
+  const context = useContext(AppContext);
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentZone, setCurrentZone] = useState<Partial<DeliveryZone>>({ ...EMPTY_ZONE });
   const [isSaving, setIsSaving] = useState(false);
 
-  if (isLoading) return <div>جار التحميل...</div>;
+  if (!context || context.isLoading) return <div>جار التحميل...</div>;
+
+  const { deliveryZones, addDeliveryZone, updateDeliveryZone, deleteDeliveryZone } = context;
 
   const handleOpenDialog = (zone?: DeliveryZone) => {
     if (zone) {
@@ -154,3 +156,5 @@ export default function AdminDeliveryZonesPage() {
     </div>
   );
 }
+
+    

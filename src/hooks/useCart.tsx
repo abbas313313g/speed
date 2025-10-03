@@ -1,14 +1,12 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import type { CartItem, Product, ProductSize, Address, Order, Coupon } from '@/lib/types';
+import type { CartItem, Product, ProductSize, Address, Order, Coupon, Restaurant } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { runTransaction, doc, collection, query, where, getDocs, setDoc, arrayUnion, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useProducts } from './useProducts';
-import { useRestaurants } from './useRestaurants';
-import { useCoupons } from './useCoupons';
 import { calculateDeliveryFee, calculateDistance } from '@/lib/utils';
 import { ToastAction } from '@/components/ui/toast';
 
@@ -22,12 +20,16 @@ const getUserId = () => {
     return id;
 };
 
-export const useCart = () => {
+export const useCart = (
+    products: Product[], 
+    restaurants: Restaurant[], 
+    coupons: Coupon[], 
+    setAllOrders: React.Dispatch<React.SetStateAction<Order[]>>,
+    setProducts: (updater: (prev: Product[]) => Product[]) => void,
+    setCoupons: (updater: (prev: Coupon[]) => Coupon[]) => void,
+) => {
     const { toast } = useToast();
     const [cart, setCart] = useState<CartItem[]>([]);
-    const { products, setProducts, isLoading: productsLoading } = useProducts();
-    const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
-    const { coupons, setCoupons, isLoading: couponsLoading } = useCoupons();
 
     // Load cart from localStorage on initial render
     useEffect(() => {
@@ -115,8 +117,7 @@ export const useCart = () => {
     const placeOrder = async (address: Address, couponCode?: string) => {
         const userId = getUserId();
         if (cart.length === 0) throw new Error("السلة فارغة.");
-        if (productsLoading || restaurantsLoading || couponsLoading) throw new Error("البيانات لا تزال قيد التحميل.");
-
+        
         const currentCart = [...cart];
         const cartRestaurant = restaurants.find(r => r.id === currentCart[0].product.restaurantId);
         if (!cartRestaurant) throw new Error("لم يتم العثور على المتجر الخاص بالطلب.");
@@ -132,10 +133,10 @@ export const useCart = () => {
 
                 let couponSnap: any = null;
                 if (couponCode?.trim()) {
-                    const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim().toUpperCase()));
-                    const couponQuerySnapshot = await getDocs(couponQuery);
-                    if (!couponQuerySnapshot.empty) {
-                        couponSnap = couponQuerySnapshot.docs[0];
+                    const matchingCoupon = coupons.find(c => c.code.toUpperCase() === couponCode.trim().toUpperCase());
+                    if (matchingCoupon) {
+                       const couponRef = doc(db, "coupons", matchingCoupon.id);
+                       couponSnap = await transaction.get(couponRef);
                     } else {
                          throw new Error(`كود الخصم "${couponCode}" غير صالح.`);
                     }
@@ -236,11 +237,15 @@ export const useCart = () => {
                     });
                 }
                 
-                return newOrderRef.id;
+                // Return new order data to update local state
+                return { id: newOrderRef.id, ...newOrderData };
             });
             
             // Post-transaction UI updates
             clearCart();
+            
+            // Add new order to local state
+            setAllOrders(prev => [orderId, ...prev]);
 
             // Update local state for products
             setProducts(prevProducts => {
@@ -271,7 +276,7 @@ export const useCart = () => {
                 }));
             }
             
-            return orderId;
+            return orderId.id;
 
         } catch (error: any) {
             console.error("Order placement transaction failed:", error);
@@ -292,6 +297,7 @@ export const useCart = () => {
         clearCart,
         cartTotal,
         placeOrder,
-        isLoading: productsLoading || restaurantsLoading || couponsLoading
     };
 };
+
+    

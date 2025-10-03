@@ -1,14 +1,11 @@
+
 "use client";
 
-import { useRef } from "react";
+import { useRef, useContext } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Autoplay from "embla-carousel-autoplay"
 
-import { useProducts } from "@/hooks/useProducts";
-import { useCategories } from "@/hooks/useCategories";
-import { useRestaurants } from "@/hooks/useRestaurants";
-import { useBanners } from "@/hooks/useBanners";
 import { ProductCard } from "@/components/ProductCard";
 import { RestaurantCard } from "@/components/RestaurantCard";
 import {
@@ -21,23 +18,40 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Layers } from "lucide-react";
-import { useOrders } from "@/hooks/useOrders";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AppContext } from "@/contexts/AppContext";
 
 
 export default function HomePage() {
-  const { categories, isLoading: categoriesLoading } = useCategories();
-  const { banners, isLoading: bannersLoading } = useBanners();
-  const { products, isLoading: productsLoading } = useProducts();
-  const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
-  const { allOrders, isLoading: ordersLoading } = useOrders();
+  const context = useContext(AppContext);
   
   const plugin = useRef(
     Autoplay({ delay: 3000, stopOnInteraction: true })
   )
 
+  if (!context || context.isLoading) {
+    return (
+        <div className="p-4 space-y-8">
+        <Skeleton className="h-12 w-3/4" />
+        <Skeleton className="w-full aspect-video rounded-lg" />
+        <Skeleton className="h-8 w-1/4" />
+        <div className="flex gap-4">
+            <Skeleton className="h-32 w-24" />
+            <Skeleton className="h-32 w-24" />
+            <Skeleton className="h-32 w-24" />
+        </div>
+        <Skeleton className="h-8 w-1/3" />
+        <div className="grid grid-cols-2 gap-4">
+            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-64 w-full" />
+        </div>
+        </div>
+    );
+  }
+
+  const { categories, banners, products, restaurants, allOrders } = context;
+
   const bestSellers = (() => {
-      if (productsLoading || ordersLoading) return [];
         const salesCount: { [productId: string]: number } = {};
         allOrders.forEach(order => {
             order.items.forEach(item => {
@@ -47,26 +61,6 @@ export default function HomePage() {
         const soldProducts = products.filter(p => salesCount[p.id] > 0);
         return soldProducts.sort((a, b) => salesCount[b.id] - salesCount[a.id]);
     })();
-
-  const isLoading = categoriesLoading || bannersLoading || productsLoading || restaurantsLoading || ordersLoading;
-
-  if (isLoading) return (
-    <div className="p-4 space-y-8">
-      <Skeleton className="h-12 w-3/4" />
-      <Skeleton className="w-full aspect-video rounded-lg" />
-      <Skeleton className="h-8 w-1/4" />
-      <div className="flex gap-4">
-        <Skeleton className="h-32 w-24" />
-        <Skeleton className="h-32 w-24" />
-        <Skeleton className="h-32 w-24" />
-      </div>
-      <Skeleton className="h-8 w-1/3" />
-      <div className="grid grid-cols-2 gap-4">
-        <Skeleton className="h-64 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    </div>
-  );
   
   return (
     <div className="space-y-8 p-4">
@@ -163,3 +157,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
