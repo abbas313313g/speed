@@ -153,68 +153,77 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     
     // --- Data Listeners ---
     useEffect(() => {
-        setIsLoading(true);
+      const fetchAllData = async () => {
+          setIsLoading(true);
+          try {
+              const [
+                  productsSnap,
+                  categoriesSnap,
+                  restaurantsSnap,
+                  bannersSnap,
+                  usersSnap,
+                  deliveryZonesSnap,
+                  couponsSnap,
+                  telegramConfigsSnap,
+                  supportTicketsSnap,
+                  deliveryWorkersSnap,
+                  ordersSnap,
+              ] = await Promise.all([
+                  getDocs(collection(db, "products")),
+                  getDocs(collection(db, "categories")),
+                  getDocs(collection(db, "restaurants")),
+                  getDocs(collection(db, "banners")),
+                  getDocs(collection(db, "users")),
+                  getDocs(collection(db, "deliveryZones")),
+                  getDocs(collection(db, "coupons")),
+                  getDocs(collection(db, "telegramConfigs")),
+                  getDocs(collection(db, "supportTickets")),
+                  getDocs(collection(db, "deliveryWorkers")),
+                  getDocs(collection(db, "orders")),
+              ]);
 
-        const unsubs = [
-            onSnapshot(collection(db, "products"), 
-                (snap) => setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product))),
-                (error) => console.error("Products snapshot error: ", error)
-            ),
-             onSnapshot(collection(db, "categories"), 
-                (snap) => setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category))),
-                (error) => console.error("Categories snapshot error: ", error)
-            ),
-             onSnapshot(collection(db, "restaurants"), 
-                (snap) => setRestaurants(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant))),
-                (error) => console.error("Restaurants snapshot error: ", error)
-            ),
-             onSnapshot(collection(db, "banners"), 
-                (snap) => setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner))),
-                (error) => console.error("Banners snapshot error: ", error)
-            ),
-             onSnapshot(collection(db, "users"), 
-                (snap) => setAllUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User))),
-                (error) => console.error("Users snapshot error: ", error)
-            ),
-             onSnapshot(collection(db, "deliveryZones"), 
-                (snap) => setDeliveryZones(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryZone))),
-                (error) => console.error("Delivery Zones snapshot error: ", error)
-            ),
-             onSnapshot(collection(db, "coupons"), 
-                (snap) => setCoupons(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon))),
-                (error) => console.error("Coupons snapshot error: ", error)
-            ),
-             onSnapshot(collection(db, "telegramConfigs"), 
-                (snap) => setTelegramConfigs(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TelegramConfig))),
-                (error) => console.error("Telegram Configs snapshot error: ", error)
-            ),
-            onSnapshot(collection(db, "supportTickets"), 
-                (snap) => setSupportTickets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket))),
-                (error) => console.error("Support tickets snapshot error: ", error)
-            ),
-            onSnapshot(collection(db, "deliveryWorkers"), 
-                (snap) => setDeliveryWorkers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker))),
-                (error) => console.error("Delivery workers snapshot error: ", error)
-            ),
-            onSnapshot(collection(db, "orders"), 
-                (snap) => setAllOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())),
-                (error) => console.error("Orders snapshot error: ", error)
-            ),
-        ];
-        
-        const savedCart = localStorage.getItem('speedShopCart');
-        const savedAddresses = localStorage.getItem('speedShopAddresses');
-        const savedOrderIds = localStorage.getItem('speedShopOrderIds');
-        if (savedCart) setCart(JSON.parse(savedCart));
-        if (savedAddresses) setAddresses(JSON.parse(savedAddresses));
-        if (savedOrderIds) setLocalOrderIds(JSON.parse(savedOrderIds));
-        
-        setIsLoading(false);
+              setProducts(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+              setCategories(categoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)));
+              setRestaurants(restaurantsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant)));
+              setBanners(bannersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
+              setAllUsers(usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
+              setDeliveryZones(deliveryZonesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryZone)));
+              setCoupons(couponsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
+              setTelegramConfigs(telegramConfigsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TelegramConfig)));
+              setSupportTickets(supportTicketsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket)));
+              setDeliveryWorkers(deliveryWorkersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker)));
+              setAllOrders(ordersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+              
+          } catch (error) {
+              console.error("Error fetching initial data:", error);
+              toast({ title: "فشل تحميل البيانات", description: "لم نتمكن من جلب بيانات التطبيق. الرجاء المحاولة مرة أخرى.", variant: "destructive"});
+          } finally {
+              setIsLoading(false);
+          }
+      };
 
-        return () => {
-            unsubs.forEach(unsub => unsub());
-        };
-    }, []);
+      fetchAllData();
+      
+      const savedCart = localStorage.getItem('speedShopCart');
+      const savedAddresses = localStorage.getItem('speedShopAddresses');
+      const savedOrderIds = localStorage.getItem('speedShopOrderIds');
+      if (savedCart) setCart(JSON.parse(savedCart));
+      if (savedAddresses) setAddresses(JSON.parse(savedAddresses));
+      if (savedOrderIds) setLocalOrderIds(JSON.parse(savedOrderIds));
+
+      // We still need real-time updates for orders and workers for the admin/delivery dashboards
+      const orderUnsub = onSnapshot(collection(db, "orders"), (snap) => {
+        setAllOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      });
+      const workerUnsub = onSnapshot(collection(db, "deliveryWorkers"), (snap) => {
+        setDeliveryWorkers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker)));
+      });
+
+      return () => {
+          orderUnsub();
+          workerUnsub();
+      };
+  }, [toast]);
 
     // Listener for user-specific support ticket
     useEffect(() => {
