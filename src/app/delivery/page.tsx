@@ -119,7 +119,7 @@ export default function DeliveryPage() {
             const dist = calculateDistance(order.address.latitude, order.address.longitude, orderRestaurant.latitude, orderRestaurant.longitude);
             // Construct a Google Maps URL with both origin (restaurant) and destination (customer)
             const url = `https://www.google.com/maps/dir/?api=1&origin=${orderRestaurant.latitude},${orderRestaurant.longitude}&destination=${order.address.latitude},${order.address.longitude}`;
-            return { distance: dist, mapUrl };
+            return { distance: dist, mapUrl: url };
         }, [order.address, orderRestaurant]);
         
         const isThisCardProcessing = isProcessing === order.id;
@@ -233,5 +233,3 @@ export default function DeliveryPage() {
         </div>
     );
 }
-
-    
