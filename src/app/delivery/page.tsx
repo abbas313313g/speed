@@ -1,19 +1,32 @@
+
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatCurrency, calculateDistance } from '@/lib/utils';
-import { LogOut, MapPin, Package, Shield, Store, CircleDot, Loader2, PlayCircle, Search, ExternalLink } from 'lucide-react';
-import type { Order } from '@/lib/types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatCurrency, cn } from '@/lib/utils';
+import { LogOut, CircleDot, Loader2, Package, Check, Shield, MoreHorizontal } from 'lucide-react';
+import type { Order, OrderStatus } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useOrders } from '@/hooks/useOrders';
-import { useRestaurants } from '@/hooks/useRestaurants';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
-
-type DriverStatus = 'IDLE' | 'SEARCHING' | 'ORDER_ASSIGNED';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function DeliveryPage() {
     const router = useRouter();
@@ -22,7 +35,6 @@ export default function DeliveryPage() {
     const [isProcessing, setIsProcessing] = useState<string | null>(null);
 
     const { allOrders, isLoading: ordersLoading, updateOrderStatus } = useOrders();
-    const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
     const { deliveryWorkers, isLoading: workersLoading, updateWorkerStatus } = useDeliveryWorkers();
 
     useEffect(() => {
@@ -39,44 +51,31 @@ export default function DeliveryPage() {
         return deliveryWorkers.find(w => w.id === workerId);
     }, [workerId, deliveryWorkers]);
 
-    const assignedOrder = useMemo(() => {
-        if (!allOrders || !workerId) return null;
-        return allOrders.find(o => o.status === 'pending_assignment' && o.assignedToWorkerId === workerId);
+    const { myCurrentOrders, availableOrders } = useMemo(() => {
+        if (!allOrders || !workerId) return { myCurrentOrders: [], availableOrders: [] };
+        
+        const myOrders = allOrders.filter(o => 
+            o.deliveryWorkerId === workerId && 
+            ['confirmed', 'preparing', 'on_the_way'].includes(o.status)
+        );
+
+        const available = allOrders.filter(o => o.status === 'unassigned');
+        
+        return { myCurrentOrders: myOrders, availableOrders: available };
     }, [allOrders, workerId]);
-    
-    const driverStatus: DriverStatus = useMemo(() => {
-        if (!worker?.isOnline) return 'IDLE';
-        if (assignedOrder) return 'ORDER_ASSIGNED';
-        return 'SEARCHING';
-    }, [worker, assignedOrder]);
 
 
     const handleAcceptOrder = async (orderId: string) => {
-        if (workerId) {
-            setIsProcessing(orderId);
-            try {
-                await updateOrderStatus(orderId, 'confirmed', workerId);
-                toast({title: "تم قبول الطلب بنجاح!"})
-                router.push(`/delivery/order/${orderId}`);
-            } catch (error: any) {
-                // The error is already toasted by the hook
-            } finally {
-                setIsProcessing(null);
-            }
-        }
-    };
-
-     const handleRejectOrder = async (orderId: string) => {
-        if (workerId) {
-            setIsProcessing(orderId);
-             try {
-                await updateOrderStatus(orderId, 'unassigned', workerId); 
-                toast({title: "تم رفض الطلب", variant: 'default'});
-            } catch (error: any) {
-                 // The error is already toasted by the hook
-            } finally {
-                setIsProcessing(null);
-            }
+        if (!workerId) return;
+        setIsProcessing(orderId);
+        try {
+            await updateOrderStatus(orderId, 'confirmed', workerId);
+            toast({title: "تم قبول الطلب بنجاح!"})
+            router.push(`/delivery/order/${orderId}`);
+        } catch (error: any) {
+             // The hook will toast the error
+        } finally {
+            setIsProcessing(null);
         }
     };
     
@@ -88,97 +87,76 @@ export default function DeliveryPage() {
         router.replace('/delivery/login');
     };
     
-    const handleStartWork = () => {
-        if(workerId) {
-            updateWorkerStatus(workerId, true);
-            toast({ title: "أنت متصل الآن", description: "جاري البحث عن طلبات..." });
+    const handleToggleOnlineStatus = () => {
+        if(workerId && worker) {
+            const newStatus = !worker.isOnline;
+            updateWorkerStatus(workerId, newStatus);
+            toast({ title: newStatus ? "أنت متصل الآن" : "أنت غير متصل الآن" });
         }
     }
     
-    const isLoading = ordersLoading || restaurantsLoading || workersLoading || !workerId;
+    const isLoading = ordersLoading || workersLoading || !workerId;
     if (isLoading) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
-    
-    const OrderCard = ({order}: {order: Order}) => {
-        const orderRestaurant = useMemo(() => {
-            if (!restaurants || !order.restaurant) return null;
-            return restaurants.find(r => r.id === order.restaurant!.id);
-        }, [order.restaurant, restaurants]);
 
-        const { distance, mapUrl } = useMemo(() => {
-            if (!orderRestaurant?.latitude || !orderRestaurant?.longitude || !order.address.latitude || !order.address.longitude) {
-                 return { distance: null, mapUrl: null };
-            }
-            const dist = calculateDistance(order.address.latitude, order.address.longitude, orderRestaurant.latitude, orderRestaurant.longitude);
-            const url = `https://www.google.com/maps/dir/?api=1&origin=${orderRestaurant.latitude},${orderRestaurant.longitude}&destination=${order.address.latitude},${order.address.longitude}`;
-            return { distance: dist, mapUrl: url };
-        }, [order.address, orderRestaurant]);
-        
-        const isThisCardProcessing = isProcessing === order.id;
-
-        return (
-            <Card className="w-full max-w-md mx-auto shadow-xl">
-                <CardHeader>
-                    <CardTitle className="text-center text-2xl">لديك طلب جديد!</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4 text-center">
-                        <div className="p-2 bg-muted rounded-lg">
-                            <p className="text-sm text-muted-foreground">ربحك من التوصيل</p>
-                            <p className="font-bold text-lg text-primary">{formatCurrency(order.deliveryFee)}</p>
-                        </div>
-                        <div className="p-2 bg-muted rounded-lg">
-                            <p className="text-sm text-muted-foreground">المسافة المقدرة</p>
-                            <p className="font-bold text-lg">{distance ? `~${distance.toFixed(1)} كم` : 'غير معروف'}</p>
-                        </div>
-                    </div>
-                    
-                    <div className="p-3 bg-blue-50 dark:bg-blue-900/50 rounded-lg text-center">
-                        <p className="text-sm text-blue-600 dark:text-blue-300">المبلغ المطلوب من الزبون</p>
-                        <p className="font-bold text-2xl text-blue-700 dark:text-blue-200">{formatCurrency(order.total)}</p>
-                    </div>
-
-                    <div className="flex justify-between items-center text-sm pt-2 border-t">
-                        <div className="flex items-center gap-2">
-                             <Store className="h-4 w-4 text-muted-foreground"/>
-                             <span>المتجر:</span>
-                             <span className="font-semibold">{orderRestaurant?.name || 'غير معروف'}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                             <MapPin className="h-4 w-4 text-muted-foreground"/>
-                             <span>المنطقة:</span>
-                             <span className="font-semibold">{order.address.deliveryZone}</span>
-                        </div>
-                    </div>
-
-                     {mapUrl && (
-                        <a href={mapUrl} target="_blank" rel="noopener noreferrer">
-                            <Button variant="secondary" className="w-full">
-                                <ExternalLink className="ml-2 h-4 w-4" />
-                                عرض المسار على الخريطة
-                            </Button>
-                        </a>
-                    )}
-                </CardContent>
-                <CardFooter className="grid grid-cols-2 gap-4">
-                    <Button variant="destructive" size="lg" onClick={() => handleRejectOrder(order.id)} disabled={isThisCardProcessing}>
-                        {isThisCardProcessing ? <Loader2 className="h-5 w-5 animate-spin"/> : 'رفض'}
-                    </Button>
-                    <Button size="lg" className="bg-green-600 hover:bg-green-700" onClick={() => handleAcceptOrder(order.id)} disabled={isThisCardProcessing}>
-                        {isThisCardProcessing ? <Loader2 className="h-5 w-5 animate-spin"/> : 'قبول الطلب'}
-                    </Button>
-                </CardFooter>
-            </Card>
-        )
+    const getStatusVariant = (status: OrderStatus) => {
+        switch (status) {
+            case 'confirmed': return 'bg-blue-500';
+            case 'preparing': return 'bg-yellow-500 text-black';
+            case 'on_the_way': return 'bg-orange-500';
+            default: return 'bg-gray-500';
+        }
     };
 
+    const getStatusText = (status: OrderStatus) => {
+        switch (status) {
+            case 'confirmed': return "تم التأكيد";
+            case 'preparing': return "تحضير الطلب";
+            case 'on_the_way': return "في الطريق";
+            default: return status;
+        }
+    }
+    
+    const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
+      await updateOrderStatus(orderId, status);
+    };
+
+    const OrderRow = ({order}: {order: Order}) => (
+        <TableRow onClick={() => router.push(`/delivery/order/${order.id}`)} className="cursor-pointer">
+            <TableCell className="font-medium">#{order.id.substring(0, 6)}</TableCell>
+            <TableCell>{order.address.deliveryZone}</TableCell>
+            <TableCell>{formatCurrency(order.deliveryFee)}</TableCell>
+            <TableCell>{formatCurrency(order.total)}</TableCell>
+            <TableCell>
+                <Badge className={cn("text-white", getStatusVariant(order.status))}>
+                    {getStatusText(order.status)}
+                </Badge>
+            </TableCell>
+            <TableCell>
+                 <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
+                        <span className="sr-only">فتح القائمة</span>
+                        <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'preparing')}>تحضير الطلب</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'on_the_way')}>في الطريق</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'delivered')}>تم التوصيل</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </TableCell>
+        </TableRow>
+    );
+
     return (
-        <div className="p-4 space-y-6 flex flex-col min-h-[calc(100vh-1rem)]">
+        <div className="p-4 space-y-6 flex flex-col min-h-screen">
             <header className="flex justify-between items-center">
                  <div>
                     <h1 className="text-2xl font-bold">مرحباً {worker?.name}</h1>
-                    <div className="flex items-center gap-2 text-sm">
+                    <div className="flex items-center gap-2 text-sm cursor-pointer" onClick={handleToggleOnlineStatus}>
                         <CircleDot className={`h-4 w-4 ${worker?.isOnline ? 'text-green-500' : 'text-gray-400'}`} />
-                        <span className="text-muted-foreground">{worker?.isOnline ? 'أنت متصل الآن' : 'أنت غير متصل'}</span>
+                        <span className="text-muted-foreground">{worker?.isOnline ? 'أنت متصل' : 'أنت غير متصل'}</span>
                     </div>
                  </div>
                  <div className="flex gap-2">
@@ -193,32 +171,84 @@ export default function DeliveryPage() {
                  </div>
             </header>
 
-            <main className="flex-grow flex flex-col items-center justify-center">
-                {driverStatus === 'IDLE' && (
-                    <div className="text-center">
-                        <Card className="p-8 shadow-lg">
-                           <PlayCircle className="mx-auto h-20 w-20 text-primary mb-4"/>
-                           <h2 className="text-2xl font-bold mb-6">أنت غير متصل حالياً</h2>
-                           <Button size="lg" onClick={handleStartWork} className="w-full">
-                               بدء العمل واستلام الطلبات
-                           </Button>
-                        </Card>
-                    </div>
-                )}
-                
-                 {driverStatus === 'SEARCHING' && (
-                    <div className="text-center text-muted-foreground animate-pulse">
-                        <Search className="mx-auto h-24 w-24 mb-4"/>
-                        <p className="font-semibold text-xl">جاري البحث عن طلب...</p>
-                        <p>سيتم إشعارك عند توفر طلب جديد.</p>
-                    </div>
-                )}
+            <main className="flex-grow space-y-8">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Package className="h-5 w-5"/>
+                            طلباتي الحالية ({myCurrentOrders.length})
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {myCurrentOrders.length > 0 ? (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>الطلب</TableHead>
+                                        <TableHead>المنطقة</TableHead>
+                                        <TableHead>الأجرة</TableHead>
+                                        <TableHead>المبلغ</TableHead>
+                                        <TableHead>الحالة</TableHead>
+                                        <TableHead>إجراء</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {myCurrentOrders.map(order => <OrderRow key={order.id} order={order} />)}
+                                </TableBody>
+                            </Table>
+                        ) : (
+                            <p className="text-center text-muted-foreground py-4">لا توجد لديك طلبات قيد التنفيذ.</p>
+                        )}
+                    </CardContent>
+                </Card>
 
-                {driverStatus === 'ORDER_ASSIGNED' && assignedOrder && (
-                     <OrderCard order={assignedOrder} />
-                )}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>الطلبات المتاحة ({availableOrders.length})</CardTitle>
+                    </CardHeader>
+                     <CardContent>
+                        {availableOrders.length > 0 ? (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>الطلب</TableHead>
+                                        <TableHead>المنطقة</TableHead>
+                                        <TableHead>الأجرة</TableHead>
+                                        <TableHead>المبلغ</TableHead>
+                                        <TableHead>إجراء</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                   {availableOrders.map(order => (
+                                        <TableRow key={order.id}>
+                                            <TableCell className="font-medium" onClick={() => router.push(`/delivery/order/${order.id}`)}>#{order.id.substring(0, 6)}</TableCell>
+                                            <TableCell onClick={() => router.push(`/delivery/order/${order.id}`)}>{order.address.deliveryZone}</TableCell>
+                                            <TableCell onClick={() => router.push(`/delivery/order/${order.id}`)}>{formatCurrency(order.deliveryFee)}</TableCell>
+                                            <TableCell onClick={() => router.push(`/delivery/order/${order.id}`)}>{formatCurrency(order.total)}</TableCell>
+                                            <TableCell>
+                                                <Button 
+                                                    size="sm" 
+                                                    className="bg-green-600 hover:bg-green-700" 
+                                                    disabled={isProcessing === order.id || !worker?.isOnline}
+                                                    onClick={() => handleAcceptOrder(order.id)}
+                                                >
+                                                    {isProcessing === order.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <Check className="ml-1 h-4 w-4"/>}
+                                                    قبول
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                   ))}
+                                </TableBody>
+                            </Table>
+                        ) : (
+                             <p className="text-center text-muted-foreground py-4">لا توجد طلبات متاحة حالياً. {worker?.isOnline ? "سيتم إشعارك." : "اتصل بالانترنت لتلقي الطلبات."}</p>
+                        )}
+                    </CardContent>
+                </Card>
             </main>
-
         </div>
     );
 }
+
+
+    
