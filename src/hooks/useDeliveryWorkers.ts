@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, getDocs, setDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, setDoc, updateDoc, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { DeliveryWorker } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -28,13 +28,19 @@ export const useDeliveryWorkers = () => {
 
     useEffect(() => {
         fetchWorkers();
+        
+        const unsubscribe = onSnapshot(collection(db, "deliveryWorkers"), (snapshot) => {
+            const workers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker));
+            setDeliveryWorkers(workers);
+        });
+
+        return () => unsubscribe();
     }, [fetchWorkers]);
     
     const addDeliveryWorker = useCallback(async (workerData: Pick<DeliveryWorker, 'id' | 'name'>) => {
         try {
             const newWorker: DeliveryWorker = { ...workerData, isOnline: true, unfreezeProgress: 0, lastDeliveredAt: new Date().toISOString() };
             await setDoc(doc(db, 'deliveryWorkers', workerData.id), newWorker);
-            setDeliveryWorkers(prev => [...prev, newWorker]);
         } catch (error) {
             console.error("Error adding delivery worker:", error);
             toast({ title: "فشل إضافة عامل توصيل", variant: "destructive" });
@@ -45,7 +51,6 @@ export const useDeliveryWorkers = () => {
     const updateWorkerStatus = useCallback(async (workerId: string, isOnline: boolean) => {
         try {
             await updateDoc(doc(db, 'deliveryWorkers', workerId), { isOnline });
-            setDeliveryWorkers(prev => prev.map(w => w.id === workerId ? {...w, isOnline} : w));
         } catch (error) {
             console.error("Error updating worker status:", error);
             toast({ title: "فشل تحديث حالة العامل", variant: "destructive" });
