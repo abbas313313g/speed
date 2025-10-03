@@ -12,7 +12,7 @@ import { getWorkerLevel } from '@/lib/workerLevels';
 import { categories as initialCategories } from '@/lib/mock-data';
 import { ShoppingBasket } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { useCart } from '@/hooks/useCart';
+import { useCart } from '@/hooks/useCart.tsx';
 import { useAddresses } from '@/hooks/useAddresses';
 
 
@@ -463,7 +463,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     };
     const updateWorkerStatus = async (workerId: string, isOnline: boolean) => {
         const worker = deliveryWorkers.find(w => w.id === workerId);
-        if (worker?.isOnline === isOnline) return;
+        if (!worker || worker.isOnline === isOnline) return;
         await updateDoc(doc(db, 'deliveryWorkers', workerId), { isOnline });
         setDeliveryWorkers(prev => prev.map(w => w.id === workerId ? {...w, isOnline} : w));
     };
@@ -515,107 +515,126 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const assignOrderToNextWorker = useCallback(async (orderId: string, excludedWorkerIds: string[] = []) => {
         try {
-            const orderRef = doc(db, "orders", orderId);
-            
-            const currentWorkersSnapshot = await getDocs(collection(db, "deliveryWorkers"));
-            const allCurrentWorkers = currentWorkersSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as DeliveryWorker);
-            
-            const allOrdersSnapshot = await getDocs(collection(db, "orders"));
-            const allCurrentOrders = allOrdersSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as Order);
+            await runTransaction(db, async (transaction) => {
+                const orderRef = doc(db, "orders", orderId);
+                const currentWorkersSnapshot = await getDocs(collection(db, "deliveryWorkers"));
+                const allCurrentWorkers = currentWorkersSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as DeliveryWorker);
+                
+                const allOrdersSnapshot = await getDocs(collection(db, "orders"));
+                const allCurrentOrders = allOrdersSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as Order);
 
-            const completedOrdersByWorker: {[workerId: string]: number} = {};
-            allCurrentOrders.forEach(o => {
-                if (o.status === 'delivered' && o.deliveryWorkerId) {
-                    completedOrdersByWorker[o.deliveryWorkerId] = (completedOrdersByWorker[o.deliveryWorkerId] || 0) + 1;
+                const completedOrdersByWorker: {[workerId: string]: number} = {};
+                allCurrentOrders.forEach(o => {
+                    if (o.status === 'delivered' && o.deliveryWorkerId) {
+                        completedOrdersByWorker[o.deliveryWorkerId] = (completedOrdersByWorker[o.deliveryWorkerId] || 0) + 1;
+                    }
+                });
+                const busyWorkerIds = new Set(allCurrentOrders.filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status)).map(o => o.deliveryWorkerId).filter((id): id is string => !!id));
+                
+                const availableWorkers = allCurrentWorkers.filter(w => w.isOnline && !busyWorkerIds.has(w.id) && !excludedWorkerIds.includes(w.id));
+
+                if (availableWorkers.length === 0) {
+                    transaction.update(orderRef, { status: 'unassigned' as OrderStatus, assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: excludedWorkerIds });
+                    return;
+                }
+
+                availableWorkers.sort((a,b) => (completedOrdersByWorker[a.id] || 0) - (completedOrdersByWorker[b.id] || 0));
+                const nextWorker = availableWorkers[0];
+                transaction.update(orderRef, { status: 'pending_assignment' as OrderStatus, assignedToWorkerId: nextWorker.id, assignmentTimestamp: new Date().toISOString(), rejectedBy: excludedWorkerIds });
+                
+                // Side effect outside transaction
+                const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
+                const orderData = allCurrentOrders.find(o => o.id === orderId); 
+                if (workerConfig && orderData) {
+                    sendTelegramMessage(workerConfig.chatId, `*لديك طلب جديد في الانتظار* 🛵\n*رقم الطلب:* \`${orderId.substring(0, 6)}\`\n*المنطقة:* ${orderData.address.deliveryZone}\n*ربحك من التوصيل:* ${formatCurrency(orderData.deliveryFee)}`);
                 }
             });
-            const busyWorkerIds = new Set(allCurrentOrders.filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status)).map(o => o.deliveryWorkerId).filter((id): id is string => !!id));
-            
-            const availableWorkers = allCurrentWorkers.filter(w => w.isOnline && !busyWorkerIds.has(w.id) && !excludedWorkerIds.includes(w.id));
+            // After transaction, refresh local data
+            const updatedOrders = (await getDocs(collection(db, "orders"))).docs.map(doc => ({id: doc.id, ...doc.data()}) as Order);
+            setAllOrders(updatedOrders.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 
-            if (availableWorkers.length === 0) {
-                const updateData = { status: 'unassigned' as OrderStatus, assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: excludedWorkerIds };
-                await updateDoc(orderRef, updateData);
-                 setAllOrders(prev => prev.map(o => o.id === orderId ? {...o, ...updateData} as Order : o));
-                return;
-            }
-
-            availableWorkers.sort((a,b) => (completedOrdersByWorker[a.id] || 0) - (completedOrdersByWorker[b.id] || 0));
-            const nextWorker = availableWorkers[0];
-            const updateData = { status: 'pending_assignment' as OrderStatus, assignedToWorkerId: nextWorker.id, assignmentTimestamp: new Date().toISOString(), rejectedBy: excludedWorkerIds };
-            await updateDoc(orderRef, updateData);
-            setAllOrders(prev => prev.map(o => o.id === orderId ? {...o, ...updateData } as Order : o));
-            
-            const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
-            const orderData = allCurrentOrders.find(o => o.id === orderId); 
-            if (workerConfig && orderData) {
-                sendTelegramMessage(workerConfig.chatId, `*لديك طلب جديد في الانتظار* 🛵\n*رقم الطلب:* \`${orderId.substring(0, 6)}\`\n*المنطقة:* ${orderData.address.deliveryZone}\n*ربحك من التوصيل:* ${formatCurrency(orderData.deliveryFee)}`);
-            }
         } catch (error) {
             console.error("Failed to assign order to next worker:", error);
             toast({title: "فشل تعيين الطلب", description: "حدث خطأ أثناء محاولة تعيين الطلب لعامل آخر.", variant: "destructive"});
         }
     }, [telegramConfigs, sendTelegramMessage, toast]);
 
-     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
+    const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
-            const orderDocRef = doc(db, "orders", orderId);
-            const currentOrder = allOrders.find(o => o.id === orderId);
-            if (!currentOrder) throw new Error("Order not found");
+            await runTransaction(db, async (transaction) => {
+                const orderDocRef = doc(db, "orders", orderId);
+                const orderDoc = await transaction.get(orderDocRef);
+                if (!orderDoc.exists()) throw new Error("لم يتم العثور على الطلب.");
+                const currentOrder = orderDoc.data() as Order;
 
-            const updateData: Partial<Order> = { status };
+                const updateData: Partial<Order> = { status };
 
-            if (status === 'confirmed' && workerId) {
-                const workerData = deliveryWorkers.find(w => w.id === workerId);
-                if (!workerData) throw new Error("لم يتم العثور على عامل التوصيل.");
-
-                updateData.deliveryWorkerId = workerId;
-                updateData.deliveryWorker = { id: workerId, name: workerData.name };
-            }
-
-            if (status === 'unassigned' && workerId) { // This means a worker rejected the order
-                const newRejectedBy = Array.from(new Set([...(currentOrder.rejectedBy || []), workerId]));
-                await assignOrderToNextWorker(orderId, newRejectedBy);
-                return; // assignOrderToNextWorker handles its own state updates and returns
-            }
-            
-            // Clear assignment fields for terminal statuses or when moving to stages after assignment
-            if (status !== 'pending_assignment') {
-                updateData.assignedToWorkerId = null;
-                updateData.assignmentTimestamp = null;
-                updateData.rejectedBy = [];
-            }
-            
-            await updateDoc(orderDocRef, updateData);
-            
-            // Optimistically update local state
-            setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updateData } as Order : o));
-
-            if (status === 'delivered' && workerId) {
-                const workerDocRef = doc(db, "deliveryWorkers", workerId);
-                const workerDoc = await getDoc(workerDocRef);
-                if (!workerDoc.exists()) return;
-                
-                const worker = workerDoc.data() as DeliveryWorker;
-                const now = new Date();
-                const deliveredOrdersCount = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered').length + 1;
-                const { isFrozen } = getWorkerLevel(worker, deliveredOrdersCount, now);
-                let workerUpdate: any = {};
-                if (isFrozen) {
-                    const unfreezeProgress = (worker.unfreezeProgress || 0) + 1;
-                    workerUpdate = (unfreezeProgress >= 10) ? { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 } : { unfreezeProgress };
-                } else {
-                    workerUpdate = { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 };
+                if (status === 'confirmed' && workerId) {
+                    if (currentOrder.status !== 'pending_assignment' || currentOrder.assignedToWorkerId !== workerId) {
+                         throw new Error("لم يعد هذا الطلب متاحًا لك.");
+                    }
+                    const workerDocRef = doc(db, "deliveryWorkers", workerId);
+                    const workerDoc = await transaction.get(workerDocRef);
+                    if (!workerDoc.exists()) throw new Error("لم يتم العثور على عامل التوصيل.");
+                    
+                    const workerData = workerDoc.data() as DeliveryWorker;
+                    updateData.deliveryWorkerId = workerId;
+                    updateData.deliveryWorker = { id: workerId, name: workerData.name };
                 }
-                await updateDoc(workerDocRef, workerUpdate);
-                setDeliveryWorkers(prev => prev.map(w => w.id === workerId ? {...w, ...workerUpdate} : w));
+
+                if (status === 'unassigned' && workerId) {
+                    const newRejectedBy = Array.from(new Set([...(currentOrder.rejectedBy || []), workerId]));
+                    // The actual reassignment logic will be handled outside the transaction for simplicity
+                    updateData.rejectedBy = newRejectedBy;
+                }
+                
+                if (status !== 'pending_assignment') {
+                    updateData.assignedToWorkerId = null;
+                    updateData.assignmentTimestamp = null;
+                    if (status !== 'unassigned') updateData.rejectedBy = [];
+                }
+                
+                transaction.update(orderDocRef, updateData);
+
+                if (status === 'delivered' && workerId) {
+                    const workerDocRef = doc(db, "deliveryWorkers", workerId);
+                    const workerDoc = await transaction.get(workerDocRef);
+                    if (workerDoc.exists()) {
+                        const worker = workerDoc.data() as DeliveryWorker;
+                        const now = new Date();
+                        const deliveredOrdersCount = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered').length + 1;
+                        const { isFrozen } = getWorkerLevel(worker, deliveredOrdersCount, now);
+                        let workerUpdate: any = {};
+                        if (isFrozen) {
+                            const unfreezeProgress = (worker.unfreezeProgress || 0) + 1;
+                            workerUpdate = (unfreezeProgress >= 10) ? { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 } : { unfreezeProgress };
+                        } else {
+                            workerUpdate = { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 };
+                        }
+                        transaction.update(workerDocRef, workerUpdate);
+                    }
+                }
+            });
+            
+            // If a worker rejected, re-assign
+            if (status === 'unassigned' && workerId) {
+                 await assignOrderToNextWorker(orderId, (allOrders.find(o => o.id === orderId)?.rejectedBy || []));
+            } else {
+                // Manually refresh all orders and workers data after a successful transaction
+                const updatedOrders = (await getDocs(collection(db, "orders"))).docs.map(doc => ({id: doc.id, ...doc.data()}) as Order);
+                setAllOrders(updatedOrders.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                if(status === 'delivered') {
+                    const updatedWorkers = (await getDocs(collection(db, "deliveryWorkers"))).docs.map(doc => ({id: doc.id, ...doc.data()}) as DeliveryWorker);
+                    setDeliveryWorkers(updatedWorkers);
+                }
             }
         } catch (error: any) {
             console.error(`Failed to update order ${orderId} to ${status}:`, error);
             toast({ title: "فشل تحديث الطلب", description: error.message, variant: "destructive" });
             throw error; // Re-throw to be caught in the component
         }
-    }, [allOrders, assignOrderToNextWorker, toast, deliveryWorkers]);
+    }, [allOrders, assignOrderToNextWorker, toast]);
+
 
     return (
         <AppContext.Provider value={{
@@ -640,5 +659,3 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         </AppContext.Provider>
     );
 };
-
-    
