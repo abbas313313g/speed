@@ -12,8 +12,9 @@ import { getWorkerLevel } from '@/lib/workerLevels';
 import { categories as initialCategories } from '@/lib/mock-data';
 import { ShoppingBasket } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { useCart } from '@/hooks/useCart.tsx';
+import { useCart } from '@/hooks/useCart';
 import { useAddresses } from '@/hooks/useAddresses';
+import { sendTelegramMessage } from '@/lib/telegram';
 
 
 type AppContextType = {
@@ -111,8 +112,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [deliveryWorkers, setDeliveryWorkers] = useState<DeliveryWorker[]>([]);
     const [allUsers, setAllUsers] = useState<User[]>([]);
 
-    const { addresses, addAddress, deleteAddress, setAddresses } = useAddresses();
-    const { cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, setCart } = useCart();
+    const { addresses, addAddress, deleteAddress } = useAddresses();
+    const { cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal } = useCart();
     
     // This useEffect will run only once on mount, fetching all data.
     useEffect(() => {
@@ -171,7 +172,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         fetchAllData();
     }, [toast]);
     
-    const placeOrder = async (address: Address, couponCode?: string): Promise<string | void> => {
+    const placeOrder = useCallback(async (address: Address, couponCode?: string): Promise<string | void> => {
         if (!userId) throw new Error("User ID not found.");
         if (cart.length === 0) throw new Error("السلة فارغة.");
         
@@ -279,7 +280,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             toast({ title: "فشل إرسال الطلب", description: error.message, variant: "destructive" });
             throw error;
         }
-    };
+    }, [userId, cart, toast, clearCart]);
     
     const iconMap = useMemo(() => initialCategories.reduce((acc, cat) => {
         acc[cat.iconName] = cat.icon;
@@ -479,14 +480,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         await updateDoc(doc(db, 'deliveryWorkers', workerId), { isOnline });
         setDeliveryWorkers(prev => prev.map(w => w.id === workerId ? {...w, isOnline} : w));
     }, [deliveryWorkers]);
-
-    const sendTelegramMessage = useCallback(async (chatId: string, message: string) => {
-        const botToken = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
-        if (!botToken || !chatId) return;
-        try {
-            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'Markdown' }) });
-        } catch (error) { console.error(`Failed to send Telegram message to ${chatId}:`, error); }
-    }, []);
     
     const addTelegramConfig = useCallback(async (configData: Omit<TelegramConfig, 'id'>) => {
         const docRef = await addDoc(collection(db, "telegramConfigs"), configData);
@@ -496,35 +489,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const deleteTelegramConfig = useCallback(async (configId: string) => {
         await deleteDoc(doc(db, "telegramConfigs", configId));
         setTelegramConfigs(prev => prev.filter(c => c.id !== configId));
-    }, []);
-
-    const createSupportTicket = useCallback(async (firstMessage: Message) => {
-        if (!userId) return;
-        const activeTicket = mySupportTicket;
-        if (activeTicket && !activeTicket.isResolved) {
-             await addMessageToTicket(activeTicket.id, firstMessage);
-             return;
-        }
-        const userName = addresses[0]?.name || `مستخدم ${userId.substring(0, 4)}`;
-        const newTicket: Omit<SupportTicket, 'id'> = { userId, userName, createdAt: new Date().toISOString(), isResolved: false, history: [firstMessage] };
-        const docRef = await addDoc(collection(db, "supportTickets"), newTicket);
-        setMySupportTicket({id: docRef.id, ...newTicket});
-        telegramConfigs.filter(c => c.type === 'owner').forEach(c => sendTelegramMessage(c.chatId, `*تذكرة دعم جديدة* 📩\n*من:* ${userName}\n*الرسالة:* ${firstMessage.content}`));
-    }, [userId, mySupportTicket, addresses, telegramConfigs, sendTelegramMessage]);
-
-    const addMessageToTicket = useCallback(async (ticketId: string, message: Message) => {
-        await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
-        setSupportTickets(prev => prev.map(t => t.id === ticketId ? {...t, history: [...t.history, message]} : t));
-    }, []);
-
-    const resolveSupportTicket = useCallback(async (ticketId: string) => {
-        await updateDoc(doc(db, "supportTickets", ticketId), { isResolved: true });
-        setSupportTickets(prev => prev.map(t => t.id === ticketId ? {...t, isResolved: true} : t));
-    }, []);
-
-    const deleteOrder = useCallback(async (orderId: string) => {
-        await deleteDoc(doc(db, "orders", orderId));
-        setAllOrders(prev => prev.filter(o => o.id !== orderId));
     }, []);
 
     const assignOrderToNextWorker = useCallback(async (orderId: string, excludedWorkerIds: string[] = []) => {
@@ -571,7 +535,39 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             console.error("Failed to assign order to next worker:", error);
             toast({title: "فشل تعيين الطلب", description: "حدث خطأ أثناء محاولة تعيين الطلب لعامل آخر.", variant: "destructive"});
         }
-    }, [telegramConfigs, sendTelegramMessage, toast]);
+    }, [toast, telegramConfigs]);
+
+
+    const createSupportTicket = useCallback(async (firstMessage: Message) => {
+        if (!userId) return;
+        const activeTicket = mySupportTicket;
+        if (activeTicket && !activeTicket.isResolved) {
+             await addMessageToTicket(activeTicket.id, firstMessage);
+             return;
+        }
+        const userName = addresses[0]?.name || `مستخدم ${userId.substring(0, 4)}`;
+        const newTicket: Omit<SupportTicket, 'id'> = { userId, userName, createdAt: new Date().toISOString(), isResolved: false, history: [firstMessage] };
+        const docRef = await addDoc(collection(db, "supportTickets"), newTicket);
+        const finalTicket = {id: docRef.id, ...newTicket};
+        setSupportTickets(prev => [...prev, finalTicket]);
+        setMySupportTicket(finalTicket);
+        telegramConfigs.filter(c => c.type === 'owner').forEach(c => sendTelegramMessage(c.chatId, `*تذكرة دعم جديدة* 📩\n*من:* ${userName}\n*الرسالة:* ${firstMessage.content}`));
+    }, [userId, mySupportTicket, addresses, telegramConfigs]);
+
+    const addMessageToTicket = useCallback(async (ticketId: string, message: Message) => {
+        await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
+        setSupportTickets(prev => prev.map(t => t.id === ticketId ? {...t, history: [...t.history, message]} : t));
+    }, []);
+
+    const resolveSupportTicket = useCallback(async (ticketId: string) => {
+        await updateDoc(doc(db, "supportTickets", ticketId), { isResolved: true });
+        setSupportTickets(prev => prev.map(t => t.id === ticketId ? {...t, isResolved: true} : t));
+    }, []);
+
+    const deleteOrder = useCallback(async (orderId: string) => {
+        await deleteDoc(doc(db, "orders", orderId));
+        setAllOrders(prev => prev.filter(o => o.id !== orderId));
+    }, []);
 
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
@@ -629,11 +625,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 }
             });
             
+             // Optimistically update UI before re-fetch
+            setAllOrders(prevOrders => prevOrders.map(o => o.id === orderId ? { ...o, status } : o));
+
             if (status === 'unassigned' && workerId) {
                  await assignOrderToNextWorker(orderId, (allOrders.find(o => o.id === orderId)?.rejectedBy || []));
             } else {
-                const updatedOrders = (await getDocs(collection(db, "orders"))).docs.map(doc => ({id: doc.id, ...doc.data()}) as Order);
-                setAllOrders(updatedOrders.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                // Fetch the single updated order to sync
+                const updatedOrderSnap = await getDoc(doc(db, "orders", orderId));
+                if(updatedOrderSnap.exists()){
+                     const updatedOrder = { id: updatedOrderSnap.id, ...updatedOrderSnap.data() } as Order;
+                     setAllOrders(prevOrders => prevOrders.map(o => o.id === orderId ? updatedOrder : o));
+                }
+
                 if(status === 'delivered') {
                     const updatedWorkers = (await getDocs(collection(db, "deliveryWorkers"))).docs.map(doc => ({id: doc.id, ...doc.data()}) as DeliveryWorker);
                     setDeliveryWorkers(updatedWorkers);
@@ -670,5 +674,3 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         </AppContext.Provider>
     );
 };
-
-    
