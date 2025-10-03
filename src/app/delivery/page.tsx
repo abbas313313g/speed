@@ -30,38 +30,6 @@ export default function DeliveryPage() {
             setWorkerId(id);
         }
     }, [router]);
-
-    // Effect for handling online/offline status
-    useEffect(() => {
-        if (!workerId || !context) return;
-        
-        const { updateWorkerStatus } = context;
-
-        const handleOnline = () => updateWorkerStatus(workerId, true);
-        const handleOffline = () => updateWorkerStatus(workerId, false);
-
-        // Set online when component mounts
-        handleOnline();
-
-        // Add event listeners for visibility change and unload
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                handleOnline();
-            } else {
-                handleOffline();
-            }
-        };
-
-        window.addEventListener('beforeunload', handleOffline);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        // Cleanup on component unmount
-        return () => {
-            handleOffline(); // Set offline when navigating away or closing
-            window.removeEventListener('beforeunload', handleOffline);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-    }, [workerId, context]);
     
     const { allOrders, updateOrderStatus, restaurants, deliveryWorkers } = context || {};
 
