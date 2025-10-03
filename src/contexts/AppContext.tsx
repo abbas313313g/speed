@@ -50,7 +50,7 @@ const uploadImage = async (base64: string, path: string): Promise<string> => {
         const snapshot = await uploadString(storageRef, base64, 'data_url');
         return getDownloadURL(snapshot.ref);
     }
-    // If it's not a data URL, it's either an existing URL or empty, so return it as is.
+    // If it's not a data URL, it's an existing URL or empty, so return it as is.
     return base64;
 };
 
@@ -212,7 +212,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
       if (savedAddresses) setAddresses(JSON.parse(savedAddresses));
       if (savedOrderIds) setLocalOrderIds(JSON.parse(savedOrderIds));
 
-  }, [toast]);
+  }, []);
 
     // Listener for user-specific support ticket
     useEffect(() => {
