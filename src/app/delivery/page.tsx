@@ -56,14 +56,14 @@ export default function DeliveryPage() {
 
 
     const handleAcceptOrder = async (orderId: string) => {
-        if (workerId && updateOrderStatus) {
+        if (workerId) {
             setIsProcessing(orderId);
             try {
-                await updateOrderStatus(orderId, 'confirmed', workerId);
+                await updateOrderStatus(orderId, 'confirmed');
                 toast({title: "تم قبول الطلب بنجاح!"})
                 router.push(`/delivery/order/${orderId}`);
             } catch (error: any) {
-                toast({title: "فشل قبول الطلب", description: error.message, variant: "destructive"});
+                // The error is already toasted by the hook
             } finally {
                 setIsProcessing(null);
             }
@@ -71,14 +71,14 @@ export default function DeliveryPage() {
     };
 
      const handleRejectOrder = async (orderId: string) => {
-        if (workerId && updateOrderStatus && allOrders) {
+        if (workerId) {
             setIsProcessing(orderId);
              try {
-                await updateOrderStatus(orderId, 'unassigned', workerId); 
+                await updateOrderStatus(orderId, 'unassigned'); 
                 toast({title: "تم رفض الطلب", variant: 'default'});
                 setDriverStatus('SEARCHING');
             } catch (error: any) {
-                toast({title: "فشل رفض الطلب", description: error.message, variant: "destructive"});
+                 // The error is already toasted by the hook
             } finally {
                 setIsProcessing(null);
             }
@@ -109,14 +109,17 @@ export default function DeliveryPage() {
     const OrderCard = ({order}: {order: Order}) => {
         const orderRestaurant = useMemo(() => {
             if (!restaurants || order.items.length === 0) return null;
-            return restaurants.find(r => r.id === order.items[0].product.restaurantId);
-        }, [order.items, restaurants]);
+            const product = context.products.find(p => p.id === order.items[0].product.id)
+            if (!product) return null;
+            return restaurants.find(r => r.id === product.restaurantId);
+        }, [order.items, restaurants, context.products]);
 
         const { distance, mapUrl } = useMemo(() => {
             if (!orderRestaurant?.latitude || !orderRestaurant?.longitude || !order.address.latitude || !order.address.longitude) {
                  return { distance: null, mapUrl: null };
             }
             const dist = calculateDistance(order.address.latitude, order.address.longitude, orderRestaurant.latitude, orderRestaurant.longitude);
+            // Construct a Google Maps URL with both origin (restaurant) and destination (customer)
             const url = `https://www.google.com/maps/dir/?api=1&origin=${orderRestaurant.latitude},${orderRestaurant.longitude}&destination=${order.address.latitude},${order.address.longitude}`;
             return { distance: dist, mapUrl: url };
         }, [order.address, orderRestaurant]);
@@ -136,17 +139,10 @@ export default function DeliveryPage() {
                         </div>
                         <div className="p-2 bg-muted rounded-lg">
                             <p className="text-sm text-muted-foreground">المسافة المقدرة</p>
-                            <p className="font-bold text-lg">{distance ? `${distance.toFixed(1)} كم` : 'غير معروف'}</p>
+                            <p className="font-bold text-lg">{distance ? `~${distance.toFixed(1)} كم` : 'غير معروف'}</p>
                         </div>
                     </div>
-                    {mapUrl && (
-                        <a href={mapUrl} target="_blank" rel="noopener noreferrer">
-                            <Button variant="outline" className="w-full">
-                                <ExternalLink className="ml-2 h-4 w-4" />
-                                عرض المسار على الخريطة
-                            </Button>
-                        </a>
-                    )}
+                    
                     <div className="p-3 bg-blue-50 dark:bg-blue-900/50 rounded-lg text-center">
                         <p className="text-sm text-blue-600 dark:text-blue-300">المبلغ المطلوب من الزبون</p>
                         <p className="font-bold text-2xl text-blue-700 dark:text-blue-200">{formatCurrency(order.total)}</p>
@@ -164,6 +160,15 @@ export default function DeliveryPage() {
                              <span className="font-semibold">{order.address.deliveryZone}</span>
                         </div>
                     </div>
+
+                     {mapUrl && (
+                        <a href={mapUrl} target="_blank" rel="noopener noreferrer">
+                            <Button variant="secondary" className="w-full">
+                                <ExternalLink className="ml-2 h-4 w-4" />
+                                عرض المسار على الخريطة
+                            </Button>
+                        </a>
+                    )}
                 </CardContent>
                 <CardFooter className="grid grid-cols-2 gap-4">
                     <Button variant="destructive" size="lg" onClick={() => handleRejectOrder(order.id)} disabled={isThisCardProcessing}>
@@ -228,6 +233,3 @@ export default function DeliveryPage() {
         </div>
     );
 }
-
-
-    
