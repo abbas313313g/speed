@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
@@ -46,6 +45,9 @@ const sendTelegramMessage = async (chatId: string, message: string) => {
 
 // --- Storage Helper ---
 const uploadImage = async (base64: string, path: string): Promise<string> => {
+    if (!base64.startsWith('data:image')) {
+      return base64; // It's already a URL, return it as is
+    }
     const storageRef = ref(storage, path);
     const snapshot = await uploadString(storageRef, base64, 'data_url');
     return getDownloadURL(snapshot.ref);
@@ -203,6 +205,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 (snap) => setDeliveryWorkers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker))),
                 (error) => console.error("Delivery workers snapshot error: ", error)
             ),
+            onSnapshot(collection(db, "orders"), 
+                (snap) => setAllOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())),
+                (error) => console.error("Orders snapshot error: ", error)
+            ),
         ];
         
         const savedCart = localStorage.getItem('speedShopCart');
@@ -216,20 +222,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
             unsubs.forEach(unsub => unsub());
         };
     }, []);
-
-    useEffect(() => {
-        const q = collection(db, "orders");
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-          const ordersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-          ordersData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          setAllOrders(ordersData);
-        }, (error) => {
-          console.error("Error fetching orders: ", error);
-        });
-    
-        return () => unsubscribe();
-      }, []);
-
 
     // Listener for user-specific support ticket
     useEffect(() => {
@@ -412,17 +404,14 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 }
 
                 // 3. Calculate totals
-                const subtotal = localCart.reduce((acc, item) => {
-                    const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
-                    return acc + (price * item.quantity);
-                }, 0);
-
                 const profit = localCart.reduce((acc, item) => {
                     const productData = productDocSnaps[localCart.indexOf(item)].data() as Product;
                     const itemPrice = item.selectedSize?.price ?? productData.discountPrice ?? productData.price;
                     const wholesalePrice = productData.wholesalePrice ?? 0;
                     return acc + ((itemPrice - wholesalePrice) * item.quantity);
                 }, 0);
+
+                const subtotal = cartTotal; // Use pre-calculated cartTotal for subtotal
 
                 const distance = (address.latitude && address.longitude && cartRestaurant.latitude && cartRestaurant.longitude)
                     ? calculateDistance(address.latitude, address.longitude, cartRestaurant.latitude, cartRestaurant.longitude)
@@ -452,8 +441,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 };
                 
                 // Final sanitization step to prevent undefined values
-                const sanitizedOrderData = JSON.parse(JSON.stringify(newOrderData));
-
+                const sanitizedOrderData = JSON.parse(JSON.stringify(newOrderData, (key, value) => 
+                    value === undefined ? null : value
+                ));
 
                 transaction.set(newOrderRef, sanitizedOrderData);
 
@@ -634,7 +624,14 @@ ${itemsText}
         const updateData: any = { status };
         
         if (status === 'confirmed' && workerId) {
-            const worker = deliveryWorkers.find(w => w.id === workerId);
+            let worker = deliveryWorkers.find(w => w.id === workerId);
+            // If worker not in state, fetch directly from DB
+            if (!worker) {
+                const workerSnap = await getDoc(doc(db, "deliveryWorkers", workerId));
+                if (workerSnap.exists()) {
+                    worker = { id: workerSnap.id, ...workerSnap.data() } as DeliveryWorker;
+                }
+            }
             if (worker) {
                 updateData.deliveryWorkerId = workerId;
                 updateData.deliveryWorker = { id: worker.id, name: worker.name };
@@ -796,7 +793,7 @@ ${itemsText}
             if (existing) {
                 return prev.map(w => w.id === workerData.id ? {...w, ...workerData, isOnline: true} : w);
             }
-            return [...prev, {...workerData, isOnline: true}];
+            return [...prev, {...workerData, isOnline: true, unfreezeProgress: 0}];
         })
     };
 
@@ -817,10 +814,7 @@ ${itemsText}
 
     // --- ADMIN ACTIONS ---
     const addProduct = async (productData: Omit<Product, 'id'> & { image: string }) => {
-        let imageUrl = productData.image;
-        if (productData.image && productData.image.startsWith('data:image')) {
-          imageUrl = await uploadImage(productData.image, `products/${uuidv4()}`);
-        }
+        const imageUrl = await uploadImage(productData.image, `products/${uuidv4()}`);
         const docRef = await addDoc(collection(db, "products"), { ...productData, image: imageUrl });
         setProducts(prev => [...prev, {id: docRef.id, ...productData, image: imageUrl}]);
         toast({ title: "تمت إضافة المنتج بنجاح" });
@@ -828,12 +822,8 @@ ${itemsText}
 
     const updateProduct = async (updatedProduct: Partial<Product> & {id: string}) => {
         const { id, image, ...productData } = updatedProduct;
-        let imageUrl = image;
-        if (image && image.startsWith('data:image')) {
-            imageUrl = await uploadImage(image, `products/${id}`);
-        }
+        const finalData = { ...productData, image: image ? await uploadImage(image, `products/${id}`) : updatedProduct.image };
         const productDocRef = doc(db, "products", id);
-        const finalData = { ...productData, image: imageUrl };
         await updateDoc(productDocRef, finalData);
         setProducts(prev => prev.map(p => p.id === id ? {...p, ...finalData} as Product : p));
         toast({ title: "تم تحديث المنتج بنجاح" });
@@ -866,10 +856,7 @@ ${itemsText}
     }
 
     const addRestaurant = async (restaurantData: Omit<Restaurant, 'id'> & {image: string}) => {
-        let imageUrl = restaurantData.image;
-        if (restaurantData.image && restaurantData.image.startsWith('data:image')) {
-            imageUrl = await uploadImage(restaurantData.image, `restaurants/${uuidv4()}`);
-        }
+        const imageUrl = await uploadImage(restaurantData.image, `restaurants/${uuidv4()}`);
         const docRef = await addDoc(collection(db, "restaurants"), { ...restaurantData, image: imageUrl });
         setRestaurants(prev => [...prev, {id: docRef.id, ...restaurantData, image: imageUrl}]);
         toast({ title: "تمت إضافة المتجر بنجاح" });
@@ -877,12 +864,8 @@ ${itemsText}
 
     const updateRestaurant = async (updatedRestaurant: Partial<Restaurant> & {id: string}) => {
         const { id, image, ...restaurantData } = updatedRestaurant;
-        let imageUrl = image;
-        if (image && image.startsWith('data:image')) {
-            imageUrl = await uploadImage(image, `restaurants/${id}`);
-        }
+        const finalData = { ...restaurantData, image: image ? await uploadImage(image, `restaurants/${id}`) : updatedRestaurant.image };
         const restaurantDocRef = doc(db, "restaurants", id);
-        const finalData = { ...restaurantData, image: imageUrl };
         await updateDoc(restaurantDocRef, finalData);
         setRestaurants(prev => prev.map(r => r.id === id ? {...r, ...finalData} as Restaurant : r));
         toast({ title: "تم تحديث المتجر بنجاح" });
@@ -895,10 +878,7 @@ ${itemsText}
     }
   
     const addBanner = async (bannerData: Omit<Banner, 'id'> & {image: string}) => {
-        let imageUrl = bannerData.image;
-        if (bannerData.image && bannerData.image.startsWith('data:image')) {
-            imageUrl = await uploadImage(bannerData.image, `banners/${uuidv4()}`);
-        }
+        const imageUrl = await uploadImage(bannerData.image, `banners/${uuidv4()}`);
         const docRef = await addDoc(collection(db, "banners"), { ...bannerData, image: imageUrl });
         setBanners(prev => [...prev, {id: docRef.id, ...bannerData, image: imageUrl}]);
         toast({ title: "تمت إضافة البنر بنجاح" });
@@ -906,13 +886,10 @@ ${itemsText}
 
     const updateBanner = async (banner: Banner) => {
         const { id, image, ...bannerData } = banner;
-        let imageUrl = image;
-        if (image && image.startsWith('data:image')) {
-            imageUrl = await uploadImage(image, `banners/${id}`);
-        }
+        const finalData = { ...bannerData, image: await uploadImage(image, `banners/${id}`) };
         const bannerRef = doc(db, "banners", id);
-        await updateDoc(bannerRef, { ...bannerData, image: imageUrl });
-        setBanners(prev => prev.map(b => b.id === id ? {...b, ...bannerData, image: imageUrl } as Banner : b));
+        await updateDoc(bannerRef, finalData);
+        setBanners(prev => prev.map(b => b.id === id ? {...b, ...finalData } as Banner : b));
         toast({ title: "تم تحديث البنر بنجاح" });
     };
 
@@ -1019,9 +996,4 @@ ${itemsText}
     );
 };
 
-
-
     
-
-
-
