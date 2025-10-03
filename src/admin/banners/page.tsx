@@ -1,9 +1,7 @@
-
 "use client";
 
-import { useContext, useState, useEffect } from 'react';
+import React, { useState, useContext, useRef } from 'react';
 import Image from 'next/image';
-import { AppContext } from '@/contexts/AppContext';
 import {
   Table,
   TableBody,
@@ -19,11 +17,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Edit, Trash2 } from 'lucide-react';
+import { Loader2, Edit, Trash2, Upload } from 'lucide-react';
 import type { Banner } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -44,6 +41,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { AppContext } from '@/contexts/AppContext';
+
 
 const EMPTY_BANNER: Partial<Banner> & { image: string } = {
   image: '',
@@ -54,13 +53,15 @@ const EMPTY_BANNER: Partial<Banner> & { image: string } = {
 export default function AdminBannersPage() {
   const context = useContext(AppContext);
   const { toast } = useToast();
+  
   const [open, setOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentBanner, setCurrentBanner] = useState<Partial<Banner> & { image?: string }>({ ...EMPTY_BANNER });
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   if (!context || context.isLoading) return <div>جار التحميل...</div>;
-  const { banners, addBanner, updateBanner, deleteBanner, products, restaurants } = context;
+  const { banners, products, restaurants, addBanner, updateBanner, deleteBanner } = context;
 
   const handleOpenDialog = (banner?: Banner) => {
     if (banner) {
@@ -121,16 +122,26 @@ export default function AdminBannersPage() {
       </header>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>{isEditing ? 'تعديل البنر' : 'إضافة بنر جديد'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="image" className="text-right">صورة البنر</Label>
-              <Input id="image" type="file" onChange={handleImageUpload} className="col-span-3" accept="image/*" />
+             <div className="space-y-2">
+              <Label htmlFor="image">صورة البنر</Label>
+              <div className="flex gap-2">
+                <Input 
+                    id="image" 
+                    placeholder="أدخل رابط صورة أو ارفع ملفًا" 
+                    value={currentBanner.image} 
+                    onChange={(e) => setCurrentBanner({ ...currentBanner, image: e.target.value })} 
+                />
+                <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4"/></Button>
+                <Input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+              </div>
             </div>
-            {currentBanner.image && <Image src={currentBanner.image} alt="preview" width={200} height={100} className="col-span-4 justify-self-center object-contain" unoptimized={true}/>}
+
+            {currentBanner.image && <Image src={currentBanner.image} alt="preview" width={200} height={100} className="col-span-4 justify-self-center object-contain rounded-md border" unoptimized={true}/>}
 
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="linkType" className="text-right">نوع الرابط</Label>
@@ -183,52 +194,55 @@ export default function AdminBannersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>صورة</TableHead>
-            <TableHead>الرابط</TableHead>
-            <TableHead>إجراءات</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {banners.map((banner) => (
-            <TableRow key={banner.id}>
-              <TableCell>
-                <Image src={banner.image} alt="Banner" width={120} height={60} className="rounded-md object-cover" unoptimized={true}/>
-              </TableCell>
-              <TableCell>{banner.link}</TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" size="icon" onClick={() => handleOpenDialog(banner)}>
-                        <Edit className="h-4 w-4" />
-                    </Button>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="icon">
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    هذا الإجراء سيقوم بحذف البنر بشكل نهائي.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteBanner(banner.id)}>حذف</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+        {banners.length > 0 ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>صورة</TableHead>
+                <TableHead>الرابط</TableHead>
+                <TableHead>إجراءات</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {banners.map((banner) => (
+                <TableRow key={banner.id}>
+                  <TableCell>
+                    <Image src={banner.image} alt="Banner" width={120} height={60} className="rounded-md object-cover" unoptimized={true}/>
+                  </TableCell>
+                  <TableCell>{banner.link}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="icon" onClick={() => handleOpenDialog(banner)}>
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="icon">
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        هذا الإجراء سيقوم بحذف البنر بشكل نهائي.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteBanner(banner.id)}>حذف</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+      ) : (
+        <p className="text-center text-muted-foreground py-8">لا توجد بنرات لعرضها.</p>
+      )}
     </div>
   );
 }

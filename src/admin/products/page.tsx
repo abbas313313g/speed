@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useContext, useState } from 'react';
+import { useContext, useState, useRef } from 'react';
 import { AppContext } from '@/contexts/AppContext';
 import {
   Table,
@@ -42,11 +41,12 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils';
 import Image from 'next/image';
-import { Edit, Trash2, PlusCircle, X } from 'lucide-react';
+import { Edit, Trash2, PlusCircle, X, Upload } from 'lucide-react';
 import type { Product, ProductSize } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import React from 'react';
 
 const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
   name: '',
@@ -68,6 +68,8 @@ export default function AdminProductsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Partial<Product> & {image?: string}>({ ...EMPTY_PRODUCT });
   const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
 
   if (!context || context.isLoading) return <div>جار التحميل...</div>;
   const { products, categories, restaurants, addProduct, updateProduct, deleteProduct } = context;
@@ -113,6 +115,9 @@ export default function AdminProductsPage() {
 
     if (!productToSave.discountPrice || productToSave.discountPrice <= 0) {
         delete productToSave.discountPrice;
+    }
+     if (!productToSave.wholesalePrice || productToSave.wholesalePrice <= 0) {
+        productToSave.wholesalePrice = 0;
     }
 
     setIsSaving(true);
@@ -193,8 +198,12 @@ export default function AdminProductsPage() {
                         <Input id="description" value={currentProduct.description} onChange={(e) => setCurrentProduct({...currentProduct, description: e.target.value})} className="col-span-3" />
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
-                         <Label htmlFor="image" className="text-right">صورة</Label>
-                         <Input id="image" type="file" onChange={handleImageUpload} className="col-span-3" accept="image/*" />
+                         <Label htmlFor="imageUrl" className="text-right">الصورة</Label>
+                         <div className="col-span-3 flex gap-2">
+                             <Input id="imageUrl" value={currentProduct.image} onChange={(e) => setCurrentProduct({...currentProduct, image: e.target.value})} placeholder="أدخل رابط صورة أو ارفع ملفًا"/>
+                             <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4"/></Button>
+                             <Input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+                         </div>
                     </div>
                     {currentProduct.image && <Image src={currentProduct.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain" unoptimized={true}/>}
 
@@ -248,72 +257,76 @@ export default function AdminProductsPage() {
             </DialogContent>
         </Dialog>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="hidden sm:table-cell">صورة</TableHead>
-            <TableHead>اسم المنتج</TableHead>
-            <TableHead>السعر</TableHead>
-            <TableHead>الكمية</TableHead>
-            <TableHead className="hidden md:table-cell">سعر الجملة</TableHead>
-            <TableHead className="hidden lg:table-cell">القسم</TableHead>
-            <TableHead className="hidden lg:table-cell">المتجر</TableHead>
-            <TableHead>إجراءات</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {products.map((product) => (
-            <TableRow key={product.id}>
-              <TableCell className="hidden sm:table-cell">
-                <Image src={product.image} alt={product.name} width={40} height={40} className="rounded-md object-cover" unoptimized={true}/>
-              </TableCell>
-              <TableCell className="font-medium">{product.name}</TableCell>
-              <TableCell>
-                  <div className="flex flex-col">
-                      {product.discountPrice ? (
-                          <>
-                            <span className="text-destructive line-through">{formatCurrency(product.price)}</span>
-                            <span className="font-bold text-primary">{formatCurrency(product.discountPrice)}</span>
-                          </>
-                      ) : (
-                         <span>{formatCurrency(product.price)}</span>
-                      )}
-                  </div>
-              </TableCell>
-              <TableCell>{product.stock}</TableCell>
-              <TableCell className="hidden md:table-cell">{formatCurrency(product.wholesalePrice || 0)}</TableCell>
-              <TableCell className="hidden lg:table-cell">{categories.find(c => c.id === product.categoryId)?.name || 'غير معروف'}</TableCell>
-              <TableCell className="hidden lg:table-cell">{restaurants.find(r => r.id === product.restaurantId)?.name || 'غير معروف'}</TableCell>
-              <TableCell>
-                  <div className="flex items-center gap-2">
-                      <Button variant="outline" size="icon" onClick={() => handleOpenDialog(product)}>
-                          <Edit className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                           <Button variant="destructive" size="icon">
-                                <Trash2 className="h-4 w-4" />
-                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    هذا الإجراء سيقوم بحذف المنتج "{product.name}" بشكل نهائي. لا يمكن التراجع عن هذا الإجراء.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteProduct(product.id)}>حذف</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                  </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+        {products.length > 0 ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="hidden sm:table-cell">صورة</TableHead>
+                <TableHead>اسم المنتج</TableHead>
+                <TableHead>السعر</TableHead>
+                <TableHead>الكمية</TableHead>
+                <TableHead className="hidden md:table-cell">سعر الجملة</TableHead>
+                <TableHead className="hidden lg:table-cell">القسم</TableHead>
+                <TableHead className="hidden lg:table-cell">المتجر</TableHead>
+                <TableHead>إجراءات</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {products.map((product) => (
+                <TableRow key={product.id}>
+                  <TableCell className="hidden sm:table-cell">
+                    <Image src={product.image} alt={product.name} width={40} height={40} className="rounded-md object-cover" unoptimized={true}/>
+                  </TableCell>
+                  <TableCell className="font-medium">{product.name}</TableCell>
+                  <TableCell>
+                      <div className="flex flex-col">
+                          {product.discountPrice ? (
+                              <>
+                                <span className="text-destructive line-through">{formatCurrency(product.price)}</span>
+                                <span className="font-bold text-primary">{formatCurrency(product.discountPrice)}</span>
+                              </>
+                          ) : (
+                            <span>{formatCurrency(product.price)}</span>
+                          )}
+                      </div>
+                  </TableCell>
+                  <TableCell>{product.stock}</TableCell>
+                  <TableCell className="hidden md:table-cell">{formatCurrency(product.wholesalePrice || 0)}</TableCell>
+                  <TableCell className="hidden lg:table-cell">{categories.find(c => c.id === product.categoryId)?.name || 'غير معروف'}</TableCell>
+                  <TableCell className="hidden lg:table-cell">{restaurants.find(r => r.id === product.restaurantId)?.name || 'غير معروف'}</TableCell>
+                  <TableCell>
+                      <div className="flex items-center gap-2">
+                          <Button variant="outline" size="icon" onClick={() => handleOpenDialog(product)}>
+                              <Edit className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="destructive" size="icon">
+                                    <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        هذا الإجراء سيقوم بحذف المنتج "{product.name}" بشكل نهائي. لا يمكن التراجع عن هذا الإجراء.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteProduct(product.id)}>حذف</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                      </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+      ) : (
+        <p className="text-center text-muted-foreground py-8">لا توجد منتجات لعرضها.</p>
+      )}
     </div>
   );
 }

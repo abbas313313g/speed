@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useContext, FormEvent } from 'react';
@@ -10,8 +9,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Bike, KeyRound, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { DeliveryWorker } from '@/lib/types';
-
 
 export default function DeliveryLoginPage() {
     const [step, setStep] = useState(1); // 1 for login, 2 for register
@@ -33,7 +30,7 @@ export default function DeliveryLoginPage() {
         const worker = deliveryWorkers.find(w => w.id === phone);
         if (worker) {
             localStorage.setItem('deliveryWorkerId', worker.id);
-            await updateWorkerStatus(worker.id, true);
+            await updateWorkerStatus(worker.id, true); // Set as online
             toast({ title: `مرحباً بعودتك ${worker.name}` });
             router.push('/delivery');
         } else {
@@ -50,10 +47,9 @@ export default function DeliveryLoginPage() {
         }
         setIsLoading(true);
         try {
-            // First, create the worker record.
             await addDeliveryWorker({ id: phone, name });
-            
             localStorage.setItem('deliveryWorkerId', phone);
+            await updateWorkerStatus(phone, true); // Also set as online on registration
             toast({ title: `أهلاً بك ${name}!`});
             router.push('/delivery');
         } catch (error) {

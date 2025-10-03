@@ -1,315 +1,690 @@
-
 "use client";
 
 import React, { createContext, useEffect, useState, useCallback, useMemo } from 'react';
-import { useAddresses } from '@/hooks/useAddresses';
-import { useCart } from '@/hooks/useCart';
-import { useData } from '@/hooks/useData'; // Changed
-import type { Order, OrderStatus, SupportTicket, Message, TelegramConfig, DeliveryWorker, Coupon, Product } from '@/lib/types';
+import type { Order, OrderStatus, SupportTicket, Message, TelegramConfig, DeliveryWorker, Coupon, Product, ProductSize, Category, Banner, DeliveryZone, CartItem, Restaurant, Address, User } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
-import { doc, updateDoc, deleteDoc, addDoc, collection, runTransaction, getDoc, arrayUnion } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { calculateDeliveryFee, calculateDistance } from '@/lib/utils';
+import { doc, updateDoc, deleteDoc, addDoc, collection, runTransaction, getDoc, arrayUnion, getDocs, writeBatch, setDoc, query, where } from 'firebase/firestore';
+import { db, storage } from '@/lib/firebase';
+import { calculateDeliveryFee, calculateDistance, formatCurrency } from '@/lib/utils';
 import { getWorkerLevel } from '@/lib/workerLevels';
+import { categories as initialCategories } from '@/lib/mock-data';
+import { ShoppingBasket } from 'lucide-react';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { ToastAction } from '@/components/ui/toast';
+import { useAddresses } from '@/hooks/useAddresses';
 
-// This is a simplified, more stable context.
 
-type AppContextType = 
-    & ReturnType<typeof useAddresses>
-    & ReturnType<typeof useCart>
-    & ReturnType<typeof useData>
-    & {
-        userId: string | null;
-        allUsers: any[]; 
-        isLoading: boolean;
-        // Orders
-        allOrders: Order[];
-        updateOrderStatus: (orderId: string, status: OrderStatus, workerId?: string) => Promise<void>;
-        deleteOrder: (orderId: string) => Promise<void>;
-        // Support Tickets
-        supportTickets: SupportTicket[];
-        mySupportTicket: SupportTicket | null;
-        createSupportTicket: (firstMessage: Message) => Promise<void>;
-        addMessageToTicket: (ticketId: string, message: Message) => Promise<void>;
-        resolveSupportTicket: (ticketId: string) => Promise<void>;
-        startNewTicketClient: () => void;
-        // Telegram
-        telegramConfigs: TelegramConfig[];
-        addTelegramConfig: (config: Omit<TelegramConfig, 'id'>) => Promise<void>;
-        deleteTelegramConfig: (configId: string) => Promise<void>;
-        sendTelegramMessage: (chatId: string, message: string) => Promise<void>;
-        // Delivery Workers
-        deliveryWorkers: DeliveryWorker[];
-        addDeliveryWorker: (workerData: Pick<DeliveryWorker, 'id' | 'name'>) => Promise<void>;
-        updateWorkerStatus: (workerId: string, isOnline: boolean) => Promise<void>;
-    };
+type AppContextType = {
+    // Data
+    products: Product[];
+    restaurants: Restaurant[];
+    categories: Category[];
+    banners: Banner[];
+    deliveryZones: DeliveryZone[];
+    coupons: Coupon[];
+    allOrders: Order[];
+    supportTickets: SupportTicket[];
+    telegramConfigs: TelegramConfig[];
+    deliveryWorkers: DeliveryWorker[];
+    allUsers: User[];
+    isLoading: boolean;
+    
+    // Auth-like
+    userId: string | null;
+
+    // Addresses
+    addresses: ReturnType<typeof useAddresses>['addresses'];
+    addAddress: ReturnType<typeof useAddresses>['addAddress'];
+    deleteAddress: ReturnType<typeof useAddresses>['deleteAddress'];
+    
+    // Cart
+    cart: CartItem[];
+    addToCart: (product: Product, quantity: number, selectedSize?: any) => boolean;
+    removeFromCart: (productId: string, sizeName?: string) => void;
+    updateCartQuantity: (productId: string, quantity: number, sizeName?: string) => void;
+    clearCart: () => void;
+    cartTotal: number;
+    placeOrder: (address: any, couponCode?: string) => Promise<string | void>;
+
+    // Firestore Write Operations
+    addProduct: (productData: Omit<Product, 'id'> & { image: string }) => Promise<void>;
+    updateProduct: (updatedProduct: Partial<Product> & { id: string }) => Promise<void>;
+    deleteProduct: (productId: string) => Promise<void>;
+    addCategory: (categoryData: Omit<Category, 'id'|'icon'>) => Promise<void>;
+    updateCategory: (updatedCategory: Omit<Category, 'icon'|'id'> & { id: string }) => Promise<void>;
+    deleteCategory: (categoryId: string) => Promise<void>;
+    addRestaurant: (restaurantData: Omit<Restaurant, 'id'> & { image: string }) => Promise<void>;
+    updateRestaurant: (updatedRestaurant: Partial<Restaurant> & { id: string }) => Promise<void>;
+    deleteRestaurant: (restaurantId: string) => Promise<void>;
+    addBanner: (bannerData: Omit<Banner, 'id'> & { image: string }) => Promise<void>;
+    updateBanner: (banner: Banner) => Promise<void>;
+    deleteBanner: (bannerId: string) => Promise<void>;
+    addDeliveryZone: (zone: Omit<DeliveryZone, 'id'>) => Promise<void>;
+    updateDeliveryZone: (zone: DeliveryZone) => Promise<void>;
+    deleteDeliveryZone: (zoneId: string) => Promise<void>;
+    addCoupon: (couponData: Omit<Coupon, 'id' | 'usedCount' | 'usedBy'>) => Promise<void>;
+    deleteCoupon: (couponId: string) => Promise<void>;
+    updateOrderStatus: (orderId: string, status: OrderStatus, workerId?: string) => Promise<void>;
+    deleteOrder: (orderId: string) => Promise<void>;
+    createSupportTicket: (firstMessage: Message) => Promise<void>;
+    addMessageToTicket: (ticketId: string, message: Message) => Promise<void>;
+    resolveSupportTicket: (ticketId: string) => Promise<void>;
+    addTelegramConfig: (config: Omit<TelegramConfig, 'id'>) => Promise<void>;
+    deleteTelegramConfig: (configId: string) => Promise<void>;
+    addDeliveryWorker: (workerData: Pick<DeliveryWorker, 'id' | 'name'>) => Promise<void>;
+    updateWorkerStatus: (workerId: string, isOnline: boolean) => Promise<void>;
+    
+    // Client-side computed values
+    mySupportTicket: SupportTicket | null;
+    startNewTicketClient: () => void;
+};
 
 
 export const AppContext = createContext<AppContextType | null>(null);
 
-export const AppProvider = ({ children }: { children: React.ReactNode }) => {
-    const addresses = useAddresses();
-    const data = useData(); // USE THE NEW STABLE HOOK
-    const { toast } = useToast();
-    const [userId, setUserId] = useState<string|null>(null);
+const uploadImage = async (base64: string, path: string): Promise<string> => {
+    if (!base64 || !base64.startsWith('data:')) {
+        return base64; // It's already a URL or invalid
+    }
+    const storageRef = ref(storage, path);
+    const snapshot = await uploadString(storageRef, base64, 'data_url');
+    return getDownloadURL(snapshot.ref);
+};
 
+export const AppProvider = ({ children }: { children: React.ReactNode }) => {
+    const { toast } = useToast();
+    const [isLoading, setIsLoading] = useState(true);
+    const [userId, setUserId] = useState<string|null>(null);
+    
+    // All data states
+    const [products, setProducts] = useState<Product[]>([]);
+    const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+    const [categoriesData, setCategoriesData] = useState<Omit<Category, 'icon'>[]>([]);
+    const [banners, setBanners] = useState<Banner[]>([]);
+    const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
+    const [coupons, setCoupons] = useState<Coupon[]>([]);
     const [allOrders, setAllOrders] = useState<Order[]>([]);
     const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
     const [telegramConfigs, setTelegramConfigs] = useState<TelegramConfig[]>([]);
     const [deliveryWorkers, setDeliveryWorkers] = useState<DeliveryWorker[]>([]);
+    const [allUsers, setAllUsers] = useState<User[]>([]);
     
-    const [isFetching, setIsFetching] = useState(true);
-
-    const mySupportTicket = useMemo(() => {
-        if (!userId) return null;
-        const userTickets = supportTickets.filter(t => t.userId === userId);
-        if (userTickets.length > 0) {
-            const unresolvedTicket = userTickets.find(t => !t.isResolved);
-            if (unresolvedTicket) return unresolvedTicket;
-            const sortedTickets = userTickets.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            return sortedTickets[0];
-        }
-        return null;
-    }, [userId, supportTickets]);
-
-    // This now only runs ONCE. No dependencies.
+    const { addresses, addAddress, deleteAddress } = useAddresses();
+    
+    // This useEffect will run only once on mount, fetching all data.
     useEffect(() => {
-        const getUserId = () => {
-            let id = localStorage.getItem('speedShopUserId');
-            if (!id) {
-                id = uuidv4();
-                localStorage.setItem('speedShopUserId', id);
+        const fetchInitialData = async () => {
+            setIsLoading(true);
+            try {
+                const collectionsToFetch = {
+                    products: collection(db, "products"),
+                    restaurants: collection(db, "restaurants"),
+                    categories: collection(db, "categories"),
+                    banners: collection(db, "banners"),
+                    deliveryZones: collection(db, "deliveryZones"),
+                    coupons: collection(db, "coupons"),
+                    allOrders: collection(db, "orders"),
+                    supportTickets: collection(db, "supportTickets"),
+                    telegramConfigs: collection(db, "telegramConfigs"),
+                    deliveryWorkers: collection(db, "deliveryWorkers"),
+                };
+
+                const results = await Promise.all(
+                    Object.values(collectionsToFetch).map(col => getDocs(col))
+                );
+
+                const [
+                    productsSnap, restaurantsSnap, categoriesSnap, bannersSnap, 
+                    deliveryZonesSnap, couponsSnap, allOrdersSnap, supportTicketsSnap,
+                    telegramConfigsSnap, deliveryWorkersSnap
+                ] = results;
+
+                setProducts(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[]);
+                setRestaurants(restaurantsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Restaurant[]);
+                setCategoriesData(categoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Omit<Category, 'icon'>[]);
+                setBanners(bannersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Banner[]);
+                setDeliveryZones(deliveryZonesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DeliveryZone[]);
+                setCoupons(couponsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Coupon[]);
+                setAllOrders(allOrdersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                setSupportTickets(supportTicketsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket)));
+                setTelegramConfigs(telegramConfigsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as TelegramConfig[]);
+                setDeliveryWorkers(deliveryWorkersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker)));
+
+            } catch (error) {
+                console.error("Failed to fetch initial data:", error);
+                toast({ title: "فشل تحميل البيانات", description: "لا يمكن الاتصال بقاعدة البيانات.", variant: "destructive" });
+            } finally {
+                setIsLoading(false);
             }
-            return id;
         };
-        setUserId(getUserId());
-        setIsFetching(false); // Data is static, so fetching is instant.
+        
+        let id = localStorage.getItem('speedShopUserId');
+        if (!id) {
+            id = uuidv4();
+            localStorage.setItem('speedShopUserId', id);
+        }
+        setUserId(id);
+        
+        fetchInitialData();
+        
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Empty dependency array ensures this runs only ONCE.
+
+
+    const [cart, setCart] = useState<CartItem[]>([]);
+    useEffect(() => {
+        const savedCart = localStorage.getItem('speedShopCart');
+        if (savedCart) {
+            try {
+                setCart(JSON.parse(savedCart));
+            } catch (e) {
+                console.error("Failed to parse cart from localStorage", e);
+                setCart([]);
+            }
+        }
     }, []);
 
-    const isLoading = isFetching || data.isLoading;
+    useEffect(() => {
+        localStorage.setItem('speedShopCart', JSON.stringify(cart));
+    }, [cart]);
 
-    const cart = useCart(data.products, data.restaurants, data.coupons, setAllOrders, data.setProducts, data.setCoupons);
+    const addToCart = useCallback((product: Product, quantity: number, selectedSize?: ProductSize): boolean => {
+        const restaurantId = product.restaurantId;
+        const cartIsFromDifferentRestaurant = cart.length > 0 && cart[0].product.restaurantId !== restaurantId;
+
+        if (cartIsFromDifferentRestaurant) {
+            toast({
+                title: "بدء سلة جديدة؟",
+                description: "لديك منتجات من متجر آخر. هل تريد حذفها وبدء سلة جديدة من هذا المتجر؟",
+                action: <ToastAction altText="نعم، ابدأ" onClick={() => {
+                    setCart([{ product, quantity, selectedSize }]);
+                    toast({ title: "تمت الإضافة إلى السلة" });
+                }}>نعم، ابدأ</ToastAction>
+            });
+            return false;
+        }
+
+        setCart(prevCart => {
+            const existingItemIndex = prevCart.findIndex(item => item.product.id === product.id && item.selectedSize?.name === selectedSize?.name);
+            if (existingItemIndex > -1) {
+                const updatedCart = [...prevCart];
+                updatedCart[existingItemIndex].quantity += quantity;
+                return updatedCart;
+            }
+            return [...prevCart, { product, quantity, selectedSize }];
+        });
+        return true;
+    }, [cart, toast]);
+
+    const removeFromCart = useCallback((productId: string, sizeName?: string) => {
+        setCart(prev => prev.filter(item => !(item.product.id === productId && item.selectedSize?.name === sizeName)));
+    }, []);
+
+    const updateCartQuantity = useCallback((productId: string, quantity: number, sizeName?: string) => {
+        if (quantity < 1) {
+            removeFromCart(productId, sizeName);
+            return;
+        }
+        setCart(prev => prev.map(item => (item.product.id === productId && item.selectedSize?.name === sizeName) ? { ...item, quantity } : item));
+    }, [removeFromCart]);
+
+    const clearCart = useCallback(() => setCart([]), []);
+
+    const cartTotal = useMemo(() => cart.reduce((total, item) => {
+        const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
+        return total + price * item.quantity;
+    }, 0), [cart]);
+
+    const placeOrder = async (address: Address, couponCode?: string): Promise<string | void> => {
+        if (!userId) throw new Error("User ID not found.");
+        if (cart.length === 0) throw new Error("السلة فارغة.");
+        
+        const currentCart = [...cart];
+        
+        try {
+            const newOrderRef = doc(collection(db, "orders"));
+            await runTransaction(db, async (transaction) => {
+                const productRefsAndItems = currentCart.map(item => ({ ref: doc(db, "products", item.product.id), item: item }));
+                const productSnaps = await Promise.all(productRefsAndItems.map(p => transaction.get(p.ref)));
+
+                const cartRestaurantId = productSnaps[0].data()?.restaurantId;
+                if (!cartRestaurantId) throw new Error("لم يتم العثور على المتجر للطلب.");
+                const cartRestaurantSnap = await transaction.get(doc(db, "restaurants", cartRestaurantId));
+                if (!cartRestaurantSnap.exists()) throw new Error("لم يتم العثور على المتجر للطلب.");
+                const cartRestaurant = cartRestaurantSnap.data() as Restaurant;
+
+                let couponSnap: any = null;
+                let couponData: Coupon | null = null;
+                if (couponCode?.trim()) {
+                    const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim().toUpperCase()));
+                    const couponQuerySnap = await getDocs(couponQuery);
+                    if (!couponQuerySnap.empty) {
+                        couponSnap = couponQuerySnap.docs[0];
+                        couponData = { id: couponSnap.id, ...couponSnap.data() } as Coupon;
+                    } else { throw new Error(`كود الخصم "${couponCode}" غير صالح.`); }
+                }
+
+                for (let i = 0; i < productSnaps.length; i++) {
+                    const productDoc = productSnaps[i];
+                    const { item } = productRefsAndItems[i];
+                    if (!productDoc.exists()) throw new Error(`منتج "${item.product.name}" لم يعد متوفرًا.`);
+                    const serverProduct = productDoc.data() as Product;
+                    if (item.selectedSize) {
+                        const size = serverProduct.sizes?.find(s => s.name === item.selectedSize!.name);
+                        if (!size || size.stock < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name} (${item.selectedSize.name})" غير متوفرة.`);
+                    } else if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
+                }
+                
+                let discountAmount = 0;
+                let appliedCouponInfo: Order['appliedCoupon'] = null;
+                if (couponData && couponSnap) {
+                    if (couponData.usedCount >= couponData.maxUses) throw new Error("تم استخدام هذا الكود بالكامل.");
+                    if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
+                    discountAmount = couponData.discountValue;
+                    appliedCouponInfo = { code: couponData.code, discountAmount: discountAmount };
+                }
+
+                const profit = productSnaps.reduce((acc, productSnap, index) => {
+                    const serverProduct = productSnap.data() as Product;
+                    if (!serverProduct) return acc; // Should not happen
+                    const item = currentCart[index];
+                    const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price;
+                    const wholesalePrice = serverProduct.wholesalePrice || 0;
+                    return acc + ((itemPrice - wholesalePrice) * item.quantity);
+                }, 0);
+
+                const distance = (address.latitude && address.longitude && cartRestaurant?.latitude && cartRestaurant?.longitude) ? calculateDistance(address.latitude, address.longitude, cartRestaurant.latitude, cartRestaurant.longitude) : 0;
+                const deliveryFee = calculateDeliveryFee(distance);
+                const subtotal = currentCart.reduce((total, item) => {
+                    const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
+                    return total + price * item.quantity;
+                }, 0);
+                const finalTotal = Math.max(0, subtotal - discountAmount) + deliveryFee;
+                
+                const newOrderData: Omit<Order, 'id'> = { userId, items: currentCart, total: finalTotal, date: new Date().toISOString(),
+                    status: 'unassigned', estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
+                    address, profit, deliveryFee, deliveryWorkerId: null, deliveryWorker: null, assignedToWorkerId: null,
+                    assignmentTimestamp: null, rejectedBy: [], appliedCoupon: appliedCouponInfo,
+                };
+                transaction.set(newOrderRef, newOrderData);
+
+                productSnaps.forEach((productSnap, index) => {
+                    const productRef = productSnap.ref;
+                    const serverProduct = productSnap.data() as Product;
+                    const item = currentCart[index];
+                    if (item.selectedSize) {
+                        const newSizes = serverProduct.sizes?.map(s => s.name === item.selectedSize!.name ? { ...s, stock: s.stock - item.quantity } : s) ?? [];
+                        transaction.update(productRef, { sizes: newSizes });
+                    } else {
+                        transaction.update(productRef, { stock: (serverProduct.stock || 0) - item.quantity });
+                    }
+                });
+                
+                if (couponSnap && couponData) {
+                    transaction.update(couponSnap.ref, { usedCount: couponData.usedCount + 1, usedBy: arrayUnion(userId) });
+                }
+            });
+            
+            clearCart();
+            // Optimistically update the UI
+            const newOrderData = (await getDoc(newOrderRef)).data() as Omit<Order, 'id'>;
+            setAllOrders(prev => [{ id: newOrderRef.id, ...newOrderData } as Order, ...prev]);
+
+            toast({ title: "تم استلام طلبك بنجاح!" });
+            return newOrderRef.id;
+
+        } catch (error: any) {
+            console.error("Order placement failed:", error);
+            toast({ title: "فشل إرسال الطلب", description: error.message, variant: "destructive" });
+            throw error;
+        }
+    };
+    
+    const iconMap = useMemo(() => initialCategories.reduce((acc, cat) => {
+        acc[cat.iconName] = cat.icon;
+        return acc;
+    }, {} as {[key: string]: React.ComponentType<{ className?: string }>}), []);
+
+    const categories = useMemo(() => {
+        return categoriesData.map(cat => ({
+            ...cat,
+            icon: iconMap[cat.iconName] || ShoppingBasket
+        }));
+    }, [categoriesData, iconMap]);
+    
+    const [myCurrentSupportTicket, setMySupportTicket] = useState<SupportTicket|null>(null);
+
+    const mySupportTicket = useMemo(() => {
+        if (myCurrentSupportTicket) return myCurrentSupportTicket;
+        if (!userId) return null;
+        const userTickets = supportTickets.filter(t => t.userId === userId);
+        if (userTickets.length === 0) return null;
+        const unresolved = userTickets.find(t => !t.isResolved);
+        if (unresolved) return unresolved;
+        return userTickets.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    }, [userId, supportTickets, myCurrentSupportTicket]);
+    
+    const startNewTicketClient = () => setMySupportTicket(null);
 
 
-    // All state modification functions are now here, centralized.
-    // START: WORKER-RELATED FUNCTIONS
+    const addProduct = async (productData: Omit<Product, 'id'> & { image: string }) => {
+        try {
+            const imageUrl = await uploadImage(productData.image, `products/${uuidv4()}`);
+            const docRef = await addDoc(collection(db, "products"), { ...productData, image: imageUrl });
+            setProducts(prev => [{id: docRef.id, ...productData, image: imageUrl} as Product, ...prev]);
+            toast({ title: "تمت إضافة المنتج بنجاح" });
+        } catch (error) { toast({ title: "فشل إضافة المنتج", variant: "destructive" }); }
+    };
+    const updateProduct = async (updatedProduct: Partial<Product> & { id: string }) => {
+        try {
+            const { id, ...productData } = updatedProduct;
+            let finalData: Partial<Product> = {...productData};
+            if (productData.image && productData.image.startsWith('data:')) {
+                finalData.image = await uploadImage(productData.image, `products/${id}`);
+            }
+            await updateDoc(doc(db, "products", id), finalData);
+            setProducts(prev => prev.map(p => p.id === id ? {...p, ...finalData} as Product : p));
+            toast({ title: "تم تحديث المنتج بنجاح" });
+        } catch (error) { toast({ title: "فشل تحديث المنتج", variant: "destructive" }); }
+    };
+    const deleteProduct = async (productId: string) => {
+        try {
+            await deleteDoc(doc(db, "products", productId));
+            setProducts(prev => prev.filter(p => p.id !== productId));
+            toast({ title: "تم حذف المنتج بنجاح" });
+        } catch (error) { toast({ title: "فشل حذف المنتج", variant: "destructive" }); }
+    };
+
+    const addCategory = async (categoryData: Omit<Category, 'id'|'icon'>) => {
+        try {
+            const docRef = await addDoc(collection(db, "categories"), categoryData);
+            setCategoriesData(prev => [{id: docRef.id, ...categoryData}, ...prev]);
+            toast({ title: "تمت إضافة القسم بنجاح" });
+        } catch (error) { toast({ title: "فشل إضافة القسم", variant: "destructive" }); }
+    };
+    const updateCategory = async (updatedCategory: Omit<Category, 'icon'|'id'> & { id: string }) => {
+        try {
+            const { id, ...categoryData } = updatedCategory;
+            await updateDoc(doc(db, "categories", id), categoryData);
+            setCategoriesData(prev => prev.map(c => c.id === id ? {...c, ...categoryData} : c));
+            toast({ title: "تم تحديث القسم بنجاح" });
+        } catch (error) { toast({ title: "فشل تحديث القسم", variant: "destructive" }); }
+    };
+    const deleteCategory = async (categoryId: string) => {
+        try {
+            await deleteDoc(doc(db, "categories", categoryId));
+            setCategoriesData(prev => prev.filter(c => c.id !== categoryId));
+            toast({ title: "تم حذف القسم بنجاح" });
+        } catch (error) { toast({ title: "فشل حذف القسم", variant: "destructive" }); }
+    };
+    
+    const addRestaurant = async (restaurantData: Omit<Restaurant, 'id'> & { image: string }) => {
+        try {
+            const imageUrl = await uploadImage(restaurantData.image, `restaurants/${uuidv4()}`);
+            const docRef = await addDoc(collection(db, "restaurants"), { ...restaurantData, image: imageUrl });
+            setRestaurants(prev => [{id: docRef.id, ...restaurantData, image: imageUrl} as Restaurant, ...prev]);
+            toast({ title: "تمت إضافة المتجر بنجاح" });
+        } catch (error) { toast({ title: "فشل إضافة المتجر", variant: "destructive" }); }
+    };
+    const updateRestaurant = async (updatedRestaurant: Partial<Restaurant> & { id: string }) => {
+        try {
+            const { id, image, ...restaurantData } = updatedRestaurant;
+            const finalData: Partial<Omit<Restaurant, 'id'>> = { ...restaurantData };
+             if (image && image.startsWith('data:')) {
+                finalData.image = await uploadImage(image, `restaurants/${id}`);
+            } else {
+                finalData.image = image;
+            }
+            await updateDoc(doc(db, "restaurants", id), finalData as any);
+            setRestaurants(prev => prev.map(r => r.id === id ? {...r, ...finalData} as Restaurant : r));
+            toast({ title: "تم تحديث المتجر بنجاح" });
+        } catch (error) { console.error(error); toast({ title: "فشل تحديث المتجر", variant: "destructive" }); }
+    };
+    const deleteRestaurant = async (restaurantId: string) => {
+        try {
+            await deleteDoc(doc(db, "restaurants", restaurantId));
+            setRestaurants(prev => prev.filter(r => r.id !== restaurantId));
+            toast({ title: "تم حذف المتجر بنجاح" });
+        } catch (error) { toast({ title: "فشل حذف المتجر", variant: "destructive" }); }
+    };
+
+    const addBanner = async (bannerData: Omit<Banner, 'id'> & { image: string }) => {
+        try {
+            const imageUrl = await uploadImage(bannerData.image, `banners/${uuidv4()}`);
+            const docRef = await addDoc(collection(db, "banners"), { ...bannerData, image: imageUrl });
+            setBanners(prev => [{id: docRef.id, ...bannerData, image: imageUrl} as Banner, ...prev]);
+            toast({ title: "تمت إضافة البنر بنجاح" });
+        } catch (error) { toast({ title: "فشل إضافة البنر", variant: "destructive" }); }
+    };
+    const updateBanner = async (banner: Banner) => {
+        try {
+            const { id, image, ...bannerData } = banner;
+            let finalImageUrl = image;
+            if (image && image.startsWith('data:')) {
+                finalImageUrl = await uploadImage(image, `banners/${id}`);
+            }
+            await updateDoc(doc(db, "banners", id), { ...bannerData, image: finalImageUrl });
+            setBanners(prev => prev.map(b => b.id === id ? {...b, ...bannerData, image: finalImageUrl} : b));
+            toast({ title: "تم تحديث البنر بنجاح" });
+        } catch (error) { toast({ title: "فشل تحديث البنر", variant: "destructive" }); }
+    };
+    const deleteBanner = async (bannerId: string) => {
+        try {
+            await deleteDoc(doc(db, "banners", bannerId));
+            setBanners(prev => prev.filter(b => b.id !== bannerId));
+            toast({ title: "تم حذف البنر بنجاح" });
+        } catch (error) { toast({ title: "فشل حذف البنر", variant: "destructive" }); }
+    };
+
+    const addDeliveryZone = async (zone: Omit<DeliveryZone, 'id'>) => {
+        try {
+            const docRef = await addDoc(collection(db, "deliveryZones"), zone);
+            setDeliveryZones(prev => [{id: docRef.id, ...zone}, ...prev]);
+            toast({ title: "تمت إضافة المنطقة بنجاح" });
+        } catch (error) { toast({ title: "فشل إضافة المنطقة", variant: "destructive" }); }
+    };
+    const updateDeliveryZone = async (zone: DeliveryZone) => {
+        try {
+            const { id, ...zoneData } = zone;
+            await updateDoc(doc(db, "deliveryZones", id), zoneData);
+            setDeliveryZones(prev => prev.map(z => z.id === id ? zone : z));
+            toast({ title: "تم تحديث المنطقة بنجاح" });
+        } catch (error) { toast({ title: "فشل تحديث المنطقة", variant: "destructive" }); }
+    };
+    const deleteDeliveryZone = async (zoneId: string) => {
+        try {
+            await deleteDoc(doc(db, "deliveryZones", zoneId));
+            setDeliveryZones(prev => prev.filter(z => z.id !== zoneId));
+            toast({ title: "تم حذف المنطقة بنجاح" });
+        } catch (error) { toast({ title: "فشل حذف المنطقة", variant: "destructive" }); }
+    };
+
+    const addCoupon = async (couponData: Omit<Coupon, 'id' | 'usedCount' | 'usedBy'>) => {
+        try {
+            const finalData = { ...couponData, usedCount: 0, usedBy: [] };
+            const docRef = await addDoc(collection(db, "coupons"), finalData);
+            setCoupons(prev => [{id: docRef.id, ...finalData}, ...prev] as Coupon[]);
+            toast({ title: "تمت إضافة الكود بنجاح" });
+        } catch (error) { toast({ title: "فشل إضافة الكود", variant: "destructive" }); }
+    };
+    const deleteCoupon = async (couponId: string) => {
+        try {
+            await deleteDoc(doc(db, "coupons", couponId));
+            setCoupons(prev => prev.filter(c => c.id !== couponId));
+            toast({ title: "تم حذف الكود بنجاح" });
+        } catch (error) { toast({ title: "فشل حذف الكود", variant: "destructive" }); }
+    };
+
     const addDeliveryWorker = async (workerData: Pick<DeliveryWorker, 'id' | 'name'>) => {
-        const workerRef = doc(db, 'deliveryWorkers', workerData.id);
-        const newWorkerData = { name: workerData.name, isOnline: true, unfreezeProgress: 0, lastDeliveredAt: new Date().toISOString() };
-        await addDoc(collection(db, "deliveryWorkers"), newWorkerData);
-        setDeliveryWorkers(prev => [...prev, { ...workerData, ...newWorkerData }]);
+        const newWorker: DeliveryWorker = { ...workerData, id: workerData.id, isOnline: true, unfreezeProgress: 0, lastDeliveredAt: new Date().toISOString() };
+        await setDoc(doc(db, 'deliveryWorkers', workerData.id), newWorker);
+        setDeliveryWorkers(prev => [...prev, newWorker]);
     };
     const updateWorkerStatus = async (workerId: string, isOnline: boolean) => {
         const worker = deliveryWorkers.find(w => w.id === workerId);
-        if (worker && worker.isOnline === isOnline) return;
-
-        const workerRef = doc(db, 'deliveryWorkers', workerId);
-        await updateDoc(workerRef, { isOnline });
-        setDeliveryWorkers(prev => prev.map(w => w.id === workerId ? { ...w, isOnline } : w));
+        if (worker?.isOnline === isOnline) return;
+        await updateDoc(doc(db, 'deliveryWorkers', workerId), { isOnline });
+        setDeliveryWorkers(prev => prev.map(w => w.id === workerId ? {...w, isOnline} : w));
     };
-    // END: WORKER-RELATED FUNCTIONS
 
-    // START: TELEGRAM FUNCTIONS
+    const sendTelegramMessage = useCallback(async (chatId: string, message: string) => {
+        const botToken = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
+        if (!botToken || !chatId) return;
+        try {
+            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'Markdown' }) });
+        } catch (error) { console.error(`Failed to send Telegram message to ${chatId}:`, error); }
+    }, []);
+    
     const addTelegramConfig = async (configData: Omit<TelegramConfig, 'id'>) => {
         const docRef = await addDoc(collection(db, "telegramConfigs"), configData);
-        setTelegramConfigs(prev => [...prev, { id: docRef.id, ...configData }]);
+        setTelegramConfigs(prev => [...prev, {id: docRef.id, ...configData} as TelegramConfig]);
     };
     const deleteTelegramConfig = async (configId: string) => {
         await deleteDoc(doc(db, "telegramConfigs", configId));
         setTelegramConfigs(prev => prev.filter(c => c.id !== configId));
     };
-    const sendTelegramMessage = async (chatId: string, message: string) => {
-        const botToken = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
-        if (!botToken || !chatId) return;
-        try {
-            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'Markdown' }),
-            });
-        } catch (error) { console.error(`Failed to send Telegram message to ${chatId}:`, error); }
-    };
-    // END: TELEGRAM FUNCTIONS
 
-    // START: SUPPORT TICKET FUNCTIONS
-    const startNewTicketClient = () => setMySupportTicket(null);
-    const addMessageToTicket = async (ticketId: string, message: Message) => {
-        const ticketRef = doc(db, "supportTickets", ticketId);
-        await updateDoc(ticketRef, { history: arrayUnion(message) });
-        setSupportTickets(prev => prev.map(t => t.id === ticketId ? {...t, history: [...t.history, message]} : t));
-        if (message.role === 'user') {
-            const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
-             if (ownerConfigs.length > 0) {
-                 const ticket = supportTickets.find(t => t.id === ticketId);
-                 const notificationMsg = `*رد جديد على تذكرة دعم* 💬\n*من:* ${ticket?.userName || 'غير معروف'}\n*الرسالة:* ${message.content}`;
-                 ownerConfigs.forEach(config => sendTelegramMessage(config.chatId, notificationMsg));
-             }
-        }
-    };
-    const createSupportTicket = async (firstMessage: Message) => {
+    const createSupportTicket = useCallback(async (firstMessage: Message) => {
         if (!userId) return;
-        if (mySupportTicket && !mySupportTicket.isResolved) {
-             await addMessageToTicket(mySupportTicket.id, firstMessage);
+        const activeTicket = mySupportTicket;
+        if (activeTicket && !activeTicket.isResolved) {
+             await addMessageToTicket(activeTicket.id, firstMessage);
              return;
         }
-        const addresses = JSON.parse(localStorage.getItem('speedShopAddresses') || '[]');
         const userName = addresses[0]?.name || `مستخدم ${userId.substring(0, 4)}`;
-        const newTicket: Omit<SupportTicket, 'id'> = {
-            userId, userName, createdAt: new Date().toISOString(), isResolved: false, history: [firstMessage],
-        };
+        const newTicket: Omit<SupportTicket, 'id'> = { userId, userName, createdAt: new Date().toISOString(), isResolved: false, history: [firstMessage] };
         const docRef = await addDoc(collection(db, "supportTickets"), newTicket);
-        setSupportTickets(prev => [...prev, {id: docRef.id, ...newTicket}]);
-        const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
-        if (ownerConfigs.length > 0) {
-            const notificationMsg = `*تذكرة دعم جديدة* 📩\n*من:* ${userName} (${userId.substring(0,4)})\n*المشكلة:* ${firstMessage.content}\n\nالرجاء المتابعة من لوحة التحكم.`;
-            ownerConfigs.forEach(config => sendTelegramMessage(config.chatId, notificationMsg));
-        }
+        setMySupportTicket({id: docRef.id, ...newTicket});
+        telegramConfigs.filter(c => c.type === 'owner').forEach(c => sendTelegramMessage(c.chatId, `*تذكرة دعم جديدة* 📩\n*من:* ${userName}\n*الرسالة:* ${firstMessage.content}`));
+    }, [userId, mySupportTicket, addresses, telegramConfigs, sendTelegramMessage]);
+
+    const addMessageToTicket = async (ticketId: string, message: Message) => {
+        await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
+        setSupportTickets(prev => prev.map(t => t.id === ticketId ? {...t, history: [...t.history, message]} : t));
     };
     const resolveSupportTicket = async (ticketId: string) => {
         await updateDoc(doc(db, "supportTickets", ticketId), { isResolved: true });
         setSupportTickets(prev => prev.map(t => t.id === ticketId ? {...t, isResolved: true} : t));
-    }
-    // END: SUPPORT TICKET FUNCTIONS
+    };
 
-    // START: ORDER FUNCTIONS
+    const deleteOrder = async (orderId: string) => {
+        await deleteDoc(doc(db, "orders", orderId));
+        setAllOrders(prev => prev.filter(o => o.id !== orderId));
+    };
+
     const assignOrderToNextWorker = useCallback(async (orderId: string, excludedWorkerIds: string[] = []) => {
-        const currentWorkers = deliveryWorkers;
+        const orderRef = doc(db, "orders", orderId);
+        
+        const currentWorkersSnapshot = await getDocs(collection(db, "deliveryWorkers"));
+        const allCurrentWorkers = currentWorkersSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as DeliveryWorker);
+        
+        const allOrdersSnapshot = await getDocs(collection(db, "orders"));
+        const allCurrentOrders = allOrdersSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as Order);
+
         const completedOrdersByWorker: {[workerId: string]: number} = {};
-        allOrders.forEach(o => {
+        allCurrentOrders.forEach(o => {
             if (o.status === 'delivered' && o.deliveryWorkerId) {
                 completedOrdersByWorker[o.deliveryWorkerId] = (completedOrdersByWorker[o.deliveryWorkerId] || 0) + 1;
             }
         });
-        const busyWorkerIds = new Set(allOrders.filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status)).map(o => o.deliveryWorkerId).filter((id): id is string => !!id));
-        const availableWorkers = currentWorkers.filter(w => w.isOnline && !busyWorkerIds.has(w.id) && !excludedWorkerIds.includes(w.id));
+        const busyWorkerIds = new Set(allCurrentOrders.filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status)).map(o => o.deliveryWorkerId).filter((id): id is string => !!id));
+        
+        const availableWorkers = allCurrentWorkers.filter(w => w.isOnline && !busyWorkerIds.has(w.id) && !excludedWorkerIds.includes(w.id));
 
         if (availableWorkers.length === 0) {
-            await updateDoc(doc(db, "orders", orderId), { status: 'unassigned', assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: excludedWorkerIds });
-            setAllOrders(prev => prev.map(o => o.id === orderId ? {...o, status: 'unassigned', assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: excludedWorkerIds} : o));
+            await updateDoc(orderRef, { status: 'unassigned', assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: excludedWorkerIds });
+             setAllOrders(prev => prev.map(o => o.id === orderId ? {...o, status: 'unassigned', assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: excludedWorkerIds } as Order : o));
             return;
         }
+
         availableWorkers.sort((a,b) => (completedOrdersByWorker[a.id] || 0) - (completedOrdersByWorker[b.id] || 0));
         const nextWorker = availableWorkers[0];
-        const updateData = { status: 'pending_assignment' as OrderStatus, assignedToWorkerId: nextWorker.id, assignmentTimestamp: new Date().toISOString() };
-        await updateDoc(doc(db, "orders", orderId), updateData);
-        setAllOrders(prev => prev.map(o => o.id === orderId ? {...o, ...updateData} : o));
+        const updateData = { status: 'pending_assignment' as OrderStatus, assignedToWorkerId: nextWorker.id, assignmentTimestamp: new Date().toISOString(), rejectedBy: excludedWorkerIds };
+        await updateDoc(orderRef, updateData);
+        setAllOrders(prev => prev.map(o => o.id === orderId ? {...o, ...updateData } as Order : o));
+        
         const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
-        const orderData = allOrders.find(o => o.id === orderId); 
+        const orderData = allCurrentOrders.find(o => o.id === orderId); 
         if (workerConfig && orderData) {
-            const message = `*لديك طلب جديد في الانتظار* 🛵\n*رقم الطلب:* \`${orderId.substring(0, 6)}\`\n*المنطقة:* ${orderData.address.deliveryZone}\n*ربحك من التوصيل:* ${new Intl.NumberFormat('ar-IQ', { style: 'currency', currency: 'IQD' }).format(orderData.deliveryFee)}\n\nالرجاء مراجعة التطبيق لقبول أو رفض الطلب.`;
-            sendTelegramMessage(workerConfig.chatId, message);
+            sendTelegramMessage(workerConfig.chatId, `*لديك طلب جديد في الانتظار* 🛵\n*رقم الطلب:* \`${orderId.substring(0, 6)}\`\n*المنطقة:* ${orderData.address.deliveryZone}\n*ربحك من التوصيل:* ${formatCurrency(orderData.deliveryFee)}`);
         }
-    }, [allOrders, deliveryWorkers, telegramConfigs, sendTelegramMessage]);
+    }, [telegramConfigs, sendTelegramMessage]);
 
-    const updateOrderStatus = async (orderId: string, status: OrderStatus, workerId?: string) => {
+    const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         const orderDocRef = doc(db, "orders", orderId);
         const currentOrder = allOrders.find(o => o.id === orderId);
         if (!currentOrder) return;
+        
         const updateData: any = { status };
-        let localWorkerData: { id: string, name: string } | null = null;
+
         if (status === 'confirmed' && workerId) {
-            let worker = deliveryWorkers.find(w => w.id === workerId);
-            if (!worker) {
-                const workerSnap = await getDoc(doc(db, "deliveryWorkers", workerId));
-                if (workerSnap.exists()) {
-                    worker = { id: workerSnap.id, ...workerSnap.data() } as DeliveryWorker;
-                }
-            }
-            updateData.deliveryWorker = { id: workerId, name: worker?.name || "عامل غير معروف" };
-            updateData.deliveryWorkerId = workerId;
-            localWorkerData = updateData.deliveryWorker;
+             // Fetch worker directly to avoid stale state
+             const workerDoc = await getDoc(doc(db, "deliveryWorkers", workerId));
+             if (workerDoc.exists()) {
+                const worker = workerDoc.data() as DeliveryWorker;
+                updateData.deliveryWorker = { id: workerId, name: worker.name };
+                updateData.deliveryWorkerId = workerId;
+             } else {
+                 updateData.deliveryWorker = { id: workerId, name: "عامل غير معروف" };
+                 updateData.deliveryWorkerId = workerId;
+             }
         }
 
-        if (status === 'unassigned' && workerId) {
-            const newRejectedBy = Array.from(new Set([...(currentOrder.rejectedBy || []), workerId]));
-            setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'unassigned', assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: newRejectedBy } : o));
-            await assignOrderToNextWorker(orderId, newRejectedBy); // This is now the main path for rejection
+        if (status === 'unassigned') {
+            const newRejectedBy = Array.from(new Set([...(currentOrder.rejectedBy || []), ...(workerId ? [workerId] : [])]));
+            await assignOrderToNextWorker(orderId, newRejectedBy);
+            // assignOrderToNextWorker handles its own state updates now
             return;
-        } else if (status !== 'unassigned') {
+        } else if (status !== 'pending_assignment') {
             updateData.assignedToWorkerId = null;
             updateData.assignmentTimestamp = null;
             updateData.rejectedBy = [];
         }
 
-        if (status === 'cancelled') {
-            try {
-                await runTransaction(db, async (transaction) => {
-                    for (const item of currentOrder.items) {
-                        const productRef = doc(db, "products", item.product.id);
-                        const productDoc = await transaction.get(productRef);
-                        if (productDoc.exists()) {
-                            const productData = productDoc.data() as Product;
-                            if (item.selectedSize) {
-                                const newSizes = productData.sizes?.map(s => s.name === item.selectedSize!.name ? { ...s, stock: s.stock + item.quantity } : s) ?? [];
-                                transaction.update(productRef, { sizes: newSizes });
-                            } else {
-                                transaction.update(productRef, { stock: (productData.stock || 0) + item.quantity });
-                            }
-                        }
-                    }
-                    transaction.update(orderDocRef, updateData);
-                });
-                setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updateData } : o));
-            } catch (e) { console.error("Transaction failed: ", e); toast({ title: "فشل إلغاء الطلب", variant: "destructive" }); return; }
-        } else {
-            await updateDoc(orderDocRef, updateData);
-            setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updateData, deliveryWorker: localWorkerData !== undefined ? localWorkerData : o.deliveryWorker } : o));
-        }
+        await updateDoc(orderDocRef, updateData);
+        setAllOrders(prev => prev.map(o => o.id === orderId ? {...o, ...updateData} as Order : o));
 
         if (status === 'delivered' && workerId) {
-             try {
-                const workerDocRef = doc(db, "deliveryWorkers", workerId);
-                const worker = deliveryWorkers.find(w => w.id === workerId);
-                const now = new Date();
-                const { isFrozen } = getWorkerLevel(worker!, 0, now); // delivered count doesn't matter here
-                let workerUpdate: Partial<DeliveryWorker> = {};
-                if (isFrozen) {
-                    const unfreezeProgress = (worker?.unfreezeProgress || 0) + 1;
-                    if (unfreezeProgress >= 10) workerUpdate = { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 };
-                    else workerUpdate = { unfreezeProgress };
-                } else {
-                    workerUpdate = { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 };
-                }
-                await updateDoc(workerDocRef, workerUpdate);
-             } catch (error) { console.error("Failed to update worker stats on delivery", error); }
+            const workerDocRef = doc(db, "deliveryWorkers", workerId);
+            const workerDoc = await getDoc(workerDocRef);
+            if (!workerDoc.exists()) return;
+            
+            const worker = workerDoc.data() as DeliveryWorker;
+            const now = new Date();
+            const deliveredOrdersCount = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered').length + 1;
+            const { isFrozen } = getWorkerLevel(worker, deliveredOrdersCount, now);
+            let workerUpdate: any = {};
+            if (isFrozen) {
+                const unfreezeProgress = (worker.unfreezeProgress || 0) + 1;
+                workerUpdate = (unfreezeProgress >= 10) ? { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 } : { unfreezeProgress };
+            } else {
+                workerUpdate = { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 };
+            }
+            await updateDoc(workerDocRef, workerUpdate);
+            setDeliveryWorkers(prev => prev.map(w => w.id === workerId ? {...w, ...workerUpdate} : w));
         }
-    };
-    const deleteOrder = async (orderId: string) => {
-        await deleteDoc(doc(db, "orders", orderId));
-        setAllOrders(prev => prev.filter(o => o.id !== orderId));
-    };
-    // END: ORDER FUNCTIONS
-
-    const value: AppContextType = {
-        ...addresses,
-        ...data,
-        ...cart,
-        userId,
-        allUsers: [], 
-        isLoading,
-        allOrders,
-        updateOrderStatus,
-        deleteOrder,
-        supportTickets,
-        mySupportTicket,
-        createSupportTicket,
-        addMessageToTicket,
-        resolveSupportTicket,
-        startNewTicketClient,
-        telegramConfigs,
-        addTelegramConfig,
-        deleteTelegramConfig,
-        sendTelegramMessage,
-        deliveryWorkers,
-        addDeliveryWorker,
-        updateWorkerStatus,
-    };
+    }, [allOrders, assignOrderToNextWorker]);
 
     return (
-        <AppContext.Provider value={value}>
+        <AppContext.Provider value={{
+            products, restaurants, categories, banners, deliveryZones, coupons, allOrders,
+            supportTickets, telegramConfigs, deliveryWorkers, allUsers, isLoading, userId,
+            addresses, addAddress, deleteAddress,
+            cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, placeOrder,
+            addProduct, updateProduct, deleteProduct,
+            addCategory, updateCategory, deleteCategory,
+            addRestaurant, updateRestaurant, deleteRestaurant,
+            addBanner, updateBanner, deleteBanner,
+            addDeliveryZone, updateDeliveryZone, deleteDeliveryZone,
+            addCoupon, deleteCoupon,
+            updateOrderStatus, deleteOrder,
+            createSupportTicket, addMessageToTicket, resolveSupportTicket,
+            addTelegramConfig, deleteTelegramConfig,
+            addDeliveryWorker, updateWorkerStatus,
+            mySupportTicket, startNewTicketClient
+        }}>
             {children}
         </AppContext.Provider>
     );
 };
-
-    

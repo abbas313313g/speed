@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useContext, useMemo } from 'react';
@@ -13,8 +12,8 @@ import {
 } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/utils';
 import Image from 'next/image';
-import type { Restaurant, Order } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { Restaurant } from '@/lib/types';
+import { Card } from '@/components/ui/card';
 
 interface StoreReport {
     restaurant: Restaurant;
@@ -27,13 +26,13 @@ export default function AdminReportsPage() {
   const context = useContext(AppContext);
 
   const reports: StoreReport[] = useMemo(() => {
-    if (!context) return [];
-    const { restaurants, allOrders, products } = context;
+    if (!context || !context.restaurants || !context.allOrders) return [];
+    const { restaurants, allOrders } = context;
 
     return restaurants.map(restaurant => {
         const storeOrders = allOrders.filter(order => 
             order.items.some(item => {
-                const product = products.find(p => p.id === item.product.id);
+                const product = context.products.find(p => p.id === item.product.id);
                 return product?.restaurantId === restaurant.id;
             })
         );
@@ -43,11 +42,12 @@ export default function AdminReportsPage() {
         
         storeOrders.forEach(order => {
             order.items.forEach(item => {
-                const product = products.find(p => p.id === item.product.id);
+                const product = context.products.find(p => p.id === item.product.id);
                 if (product?.restaurantId === restaurant.id) {
                     const itemPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
                     const itemRevenue = itemPrice * item.quantity;
-                    const itemProfit = (itemPrice - (item.product.wholesalePrice || 0)) * item.quantity;
+                    const wholesalePrice = product.wholesalePrice || 0;
+                    const itemProfit = (itemPrice - wholesalePrice) * item.quantity;
                     totalRevenue += itemRevenue;
                     totalProfit += itemProfit;
                 }
@@ -73,37 +73,37 @@ export default function AdminReportsPage() {
         <p className="text-muted-foreground">نظرة مفصلة على أداء كل متجر.</p>
       </header>
 
-      <Card>
-        <Table>
-            <TableHeader>
-            <TableRow>
-                <TableHead>المتجر</TableHead>
-                <TableHead>إجمالي المبيعات (الإيرادات)</TableHead>
-                <TableHead>إجمالي الأرباح</TableHead>
-                <TableHead>عدد الطلبات</TableHead>
-            </TableRow>
-            </TableHeader>
-            <TableBody>
-            {reports.length === 0 ? (
-                <TableRow>
-                    <TableCell colSpan={4} className="text-center">لا توجد بيانات لعرضها.</TableCell>
-                </TableRow>
-            ) : reports.map((report) => (
-                <TableRow key={report.restaurant.id}>
-                <TableCell>
-                    <div className="flex items-center gap-3">
-                        <Image src={report.restaurant.image} alt={report.restaurant.name} width={40} height={40} className="rounded-md object-cover" unoptimized={true} />
-                        <span className="font-medium">{report.restaurant.name}</span>
-                    </div>
-                </TableCell>
-                <TableCell>{formatCurrency(report.totalRevenue)}</TableCell>
-                <TableCell>{formatCurrency(report.totalProfit)}</TableCell>
-                <TableCell>{report.orderCount}</TableCell>
-                </TableRow>
-            ))}
-            </TableBody>
-        </Table>
-      </Card>
+      {reports.length === 0 ? (
+        <p className="text-center text-muted-foreground py-8">لا توجد بيانات تقارير لعرضها.</p>
+      ) : (
+        <Card>
+          <Table>
+              <TableHeader>
+              <TableRow>
+                  <TableHead>المتجر</TableHead>
+                  <TableHead>إجمالي المبيعات (الإيرادات)</TableHead>
+                  <TableHead>إجمالي الأرباح</TableHead>
+                  <TableHead>عدد الطلبات</TableHead>
+              </TableRow>
+              </TableHeader>
+              <TableBody>
+              {reports.map((report) => (
+                  <TableRow key={report.restaurant.id}>
+                  <TableCell>
+                      <div className="flex items-center gap-3">
+                          <Image src={report.restaurant.image} alt={report.restaurant.name} width={40} height={40} className="rounded-md object-cover" unoptimized={true} />
+                          <span className="font-medium">{report.restaurant.name}</span>
+                      </div>
+                  </TableCell>
+                  <TableCell>{formatCurrency(report.totalRevenue)}</TableCell>
+                  <TableCell>{formatCurrency(report.totalProfit)}</TableCell>
+                  <TableCell>{report.orderCount}</TableCell>
+                  </TableRow>
+              ))}
+              </TableBody>
+          </Table>
+        </Card>
+      )}
     </div>
   );
 }
