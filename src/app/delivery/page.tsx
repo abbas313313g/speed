@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency, calculateDistance } from '@/lib/utils';
 import { LogOut, MapPin, Package, BarChart3, Clock, Shield, Store, CircleDot, Loader2, PlayCircle, Search } from 'lucide-react';
 import type { Order } from '@/lib/types';
@@ -54,15 +54,14 @@ export default function DeliveryPage() {
 
 
     const handleAcceptOrder = async (orderId: string) => {
-        if (workerId && updateOrderStatus) {
+        if (workerId) {
             setIsProcessing(orderId);
             try {
                 await updateOrderStatus(orderId, 'confirmed', workerId);
-                toast({title: "تم قبول الطلب بنجاح!"})
                 // Navigate to the full details page after accepting
                 router.push(`/delivery/order/${orderId}`);
             } catch (error: any) {
-                toast({title: "فشل قبول الطلب", description: error.message, variant: "destructive"});
+                 // Error toast is handled inside the hook
             } finally {
                 setIsProcessing(null);
             }
@@ -70,15 +69,15 @@ export default function DeliveryPage() {
     };
 
      const handleRejectOrder = async (orderId: string) => {
-        if (workerId && updateOrderStatus && allOrders) {
+        if (workerId && allOrders) {
             setIsProcessing(orderId);
              try {
+                // The 'unassigned' status will trigger finding a new driver
                 await updateOrderStatus(orderId, 'unassigned', workerId); 
-                toast({title: "تم رفض الطلب", variant: 'default'});
                 // Go back to searching state
                 setDriverStatus('SEARCHING');
             } catch (error: any) {
-                toast({title: "فشل رفض الطلب", description: error.message, variant: "destructive"});
+                // Error toast is handled inside the hook
             } finally {
                 setIsProcessing(null);
             }
@@ -131,16 +130,12 @@ export default function DeliveryPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {mapUrl && (
-                        <div className="aspect-video w-full rounded-lg overflow-hidden border">
-                            <iframe
-                                width="100%"
-                                height="100%"
-                                style={{ border: 0 }}
-                                loading="lazy"
-                                allowFullScreen
-                                src={`https://www.google.com/maps/embed/v1/directions?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&origin=${orderRestaurant?.latitude},${orderRestaurant?.longitude}&destination=${order.address.latitude},${order.address.longitude}`}>
-                            </iframe>
-                        </div>
+                        <a href={mapUrl} target="_blank" rel="noopener noreferrer">
+                           <Button className="w-full" variant="outline">
+                                <MapPin className="ml-2 h-5 w-5" />
+                                عرض المسار على الخريطة
+                           </Button>
+                        </a>
                     )}
                     <div className="grid grid-cols-2 gap-4 text-center">
                         <div className="p-2 bg-muted rounded-lg">
@@ -172,10 +167,10 @@ export default function DeliveryPage() {
                 </CardContent>
                 <CardFooter className="grid grid-cols-2 gap-4">
                     <Button variant="destructive" size="lg" onClick={() => handleRejectOrder(order.id)} disabled={isThisCardProcessing}>
-                        {isThisCardProcessing ? <Loader2 className="h-5 w-5 animate-spin"/> : 'رفض'}
+                        {isThisCardProcessing && isProcessing === order.id ? <Loader2 className="h-5 w-5 animate-spin"/> : 'رفض'}
                     </Button>
                     <Button size="lg" className="bg-green-600 hover:bg-green-700" onClick={() => handleAcceptOrder(order.id)} disabled={isThisCardProcessing}>
-                        {isThisCardProcessing ? <Loader2 className="h-5 w-5 animate-spin"/> : 'قبول الطلب'}
+                        {isThisCardProcessing && isProcessing === order.id ? <Loader2 className="h-5 w-5 animate-spin"/> : 'قبول الطلب'}
                     </Button>
                 </CardFooter>
             </Card>
