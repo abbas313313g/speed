@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
   },
   env: {
     NEXT_PUBLIC_TELEGRAM_BOT_TOKEN: process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN,
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
   },
   images: {
     remotePatterns: [
@@ -23,3 +24,5 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+    
