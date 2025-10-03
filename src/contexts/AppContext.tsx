@@ -13,7 +13,6 @@ import {
     updateDoc,
     deleteDoc,
     collection,
-    onSnapshot,
     runTransaction,
     query,
     where,
@@ -167,6 +166,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                   deliveryZonesSnap,
                   couponsSnap,
                   telegramConfigsSnap,
+                  ordersSnap,
+                  workersSnap,
+                  ticketsSnap,
               ] = await Promise.all([
                   getDocs(collection(db, "products")),
                   getDocs(collection(db, "categories")),
@@ -176,6 +178,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                   getDocs(collection(db, "deliveryZones")),
                   getDocs(collection(db, "coupons")),
                   getDocs(collection(db, "telegramConfigs")),
+                  getDocs(collection(db, "orders")),
+                  getDocs(collection(db, "deliveryWorkers")),
+                  getDocs(collection(db, "supportTickets")),
               ]);
 
               setProducts(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
@@ -186,6 +191,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
               setDeliveryZones(deliveryZonesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryZone)));
               setCoupons(couponsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
               setTelegramConfigs(telegramConfigsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TelegramConfig)));
+              setAllOrders(ordersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+              setDeliveryWorkers(workersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker)));
+              setSupportTickets(ticketsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket)));
               
           } catch (error) {
               console.error("Error fetching initial data:", error);
@@ -204,28 +212,14 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
       if (savedAddresses) setAddresses(JSON.parse(savedAddresses));
       if (savedOrderIds) setLocalOrderIds(JSON.parse(savedOrderIds));
 
-      // We still need real-time updates for orders and workers for the admin/delivery dashboards
-      const orderUnsub = onSnapshot(collection(db, "orders"), (snap) => {
-        setAllOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      });
-      const workerUnsub = onSnapshot(collection(db, "deliveryWorkers"), (snap) => {
-        setDeliveryWorkers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker)));
-      });
-      const supportTicketsUnsub = onSnapshot(collection(db, "supportTickets"), (snap) => {
-        setSupportTickets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket)));
-      });
-
-
-      return () => {
-          orderUnsub();
-          workerUnsub();
-          supportTicketsUnsub();
-      };
   }, [toast]);
 
     // Listener for user-specific support ticket
     useEffect(() => {
-        if (!userId || !supportTickets.length) return;
+        if (!userId || !supportTickets.length) {
+            setMySupportTicket(null);
+            return;
+        };
 
         const userTickets = supportTickets.filter(t => t.userId === userId);
 
@@ -367,8 +361,9 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
                 let couponSnap: any = null;
                 if (couponCode?.trim()) {
+                    // Fetch inside transaction to ensure atomicity
                     const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim().toUpperCase()));
-                    const couponQuerySnapshot = await getDocs(couponQuery);
+                    const couponQuerySnapshot = await getDocs(couponQuery); // Cannot use transaction.get() with queries, so this is a point of slight inconsistency risk.
                     if (!couponQuerySnapshot.empty) {
                         couponSnap = couponQuerySnapshot.docs[0];
                     }
@@ -469,6 +464,27 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     });
                 }
 
+                setAllOrders(prev => [{id: newOrderRef.id, ...newOrderData}, ...prev]);
+                setProducts(prev => {
+                    const productUpdates = new Map<string, Partial<Product>>();
+                    for (let i = 0; i < productSnaps.length; i++) {
+                        const item = productRefsAndItems[i].item;
+                        const productData = productSnaps[i].data() as Product;
+                         if (item.selectedSize) {
+                            const newSizes = productData.sizes?.map(s =>
+                                s.name === item.selectedSize!.name ? { ...s, stock: s.stock - item.quantity } : s
+                            ) ?? [];
+                            productUpdates.set(item.product.id, {sizes: newSizes});
+                        } else {
+                            productUpdates.set(item.product.id, {stock: (productData.stock || 0) - item.quantity});
+                        }
+                    }
+                    return prev.map(p => productUpdates.has(p.id) ? {...p, ...productUpdates.get(p.id)} : p );
+                });
+                if (couponSnap) {
+                    setCoupons(prev => prev.map(c => c.id === couponSnap.id ? {...c, usedCount: c.usedCount + 1, usedBy: [...c.usedBy, userId] } : c));
+                }
+
                 return newOrderRef.id;
             });
             
@@ -521,18 +537,17 @@ ${itemsText}
     
     // --- Intelligent Order Assignment ---
     const assignOrderToNextWorker = async (orderId: string, excludedWorkerIds: string[] = []) => {
-        const currentOrders = (await getDocs(collection(db, "orders"))).docs.map(d => ({ id: d.id, ...d.data() } as Order));
-        const currentWorkers = (await getDocs(collection(db, "deliveryWorkers"))).docs.map(d => ({id: d.id, ...d.data()}) as DeliveryWorker);
+        const currentWorkers = deliveryWorkers;
         
         const completedOrdersByWorker: {[workerId: string]: number} = {};
-        currentOrders.forEach(o => {
+        allOrders.forEach(o => {
             if (o.status === 'delivered' && o.deliveryWorkerId) {
                 completedOrdersByWorker[o.deliveryWorkerId] = (completedOrdersByWorker[o.deliveryWorkerId] || 0) + 1;
             }
         });
 
         const busyWorkerIds = new Set(
-            currentOrders
+            allOrders
                 .filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status))
                 .map(o => o.deliveryWorkerId)
                 .filter((id): id is string => !!id)
@@ -545,6 +560,7 @@ ${itemsText}
         if (availableWorkers.length === 0) {
             console.log("No available workers to assign the order to.");
             await updateDoc(doc(db, "orders", orderId), { status: 'unassigned', assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: excludedWorkerIds });
+            setAllOrders(prev => prev.map(o => o.id === orderId ? {...o, status: 'unassigned', assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: excludedWorkerIds} : o));
             return;
         }
 
@@ -553,16 +569,16 @@ ${itemsText}
         const nextWorker = availableWorkers[0];
 
         const updateData = {
-            status: 'pending_assignment',
+            status: 'pending_assignment' as OrderStatus,
             assignedToWorkerId: nextWorker.id,
             assignmentTimestamp: new Date().toISOString()
         };
         await updateDoc(doc(db, "orders", orderId), updateData);
+        setAllOrders(prev => prev.map(o => o.id === orderId ? {...o, ...updateData} : o));
         console.log(`Order ${orderId} assigned to ${nextWorker.name}`);
 
-        const currentConfigs = (await getDocs(collection(db, "telegramConfigs"))).docs.map(d => ({id: d.id, ...d.data()}) as TelegramConfig);
-        const workerConfig = currentConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
-        const orderData = currentOrders.find(o => o.id === orderId); 
+        const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
+        const orderData = allOrders.find(o => o.id === orderId); 
         if (workerConfig && orderData) {
             const message = `
 *لديك طلب جديد في الانتظار* 🛵
@@ -597,6 +613,7 @@ ${itemsText}
         }, 10000); // Check every 10 seconds
 
         return () => clearInterval(interval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [allOrders]);
 
     const updateWorkerStatus = async (workerId: string, isOnline: boolean) => {
@@ -608,6 +625,7 @@ ${itemsText}
             }
             const workerRef = doc(db, 'deliveryWorkers', workerId);
             await setDoc(workerRef, { isOnline }, { merge: true });
+            setDeliveryWorkers(prev => prev.map(w => w.id === workerId ? {...w, isOnline} : w));
         } catch (error) {
             console.error("Failed to update worker status:", error);
         }
@@ -620,6 +638,7 @@ ${itemsText}
         if (!currentOrder) return;
 
         const updateData: any = { status };
+        let localWorkerData: {id: string, name: string} | null = null;
         
         if (status === 'confirmed' && workerId) {
             let worker: DeliveryWorker | undefined = deliveryWorkers.find(w => w.id === workerId);
@@ -631,6 +650,7 @@ ${itemsText}
             }
             updateData.deliveryWorkerId = workerId;
             updateData.deliveryWorker = { id: workerId, name: worker?.name || "عامل غير معروف" };
+            localWorkerData = updateData.deliveryWorker;
         }
         
         if (status === 'unassigned' && workerId) {
@@ -638,6 +658,7 @@ ${itemsText}
             updateData.assignmentTimestamp = null;
             updateData.rejectedBy = arrayUnion(workerId);
             await updateDoc(orderDocRef, updateData);
+            setAllOrders(prev => prev.map(o => o.id === orderId ? {...o, status: 'unassigned', assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: [...(o.rejectedBy || []), workerId]} : o));
             await assignOrderToNextWorker(orderId, updateData.rejectedBy);
             return;
         } else if (status !== 'unassigned') {
@@ -678,13 +699,14 @@ ${itemsText}
             await updateDoc(orderDocRef, updateData);
         }
 
+        setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updateData, deliveryWorker: localWorkerData !== undefined ? localWorkerData : o.deliveryWorker } : o));
+
         if (status === 'delivered' && workerId) {
             const workerDocRef = doc(db, "deliveryWorkers", workerId);
             const worker = deliveryWorkers.find(w => w.id === workerId);
             const now = new Date();
             let unfreezeProgress = worker?.unfreezeProgress || 0;
 
-            const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered').length;
             const lastDeliveredDate = worker?.lastDeliveredAt ? new Date(worker.lastDeliveredAt) : null;
             let isFrozen = false;
             if(lastDeliveredDate) {
@@ -694,22 +716,19 @@ ${itemsText}
                 }
             }
            
+            let workerUpdate: Partial<DeliveryWorker> = {};
             if (isFrozen) {
                 unfreezeProgress += 1;
                 if (unfreezeProgress >= 10) {
-                    await updateDoc(workerDocRef, {
-                        lastDeliveredAt: now.toISOString(),
-                        unfreezeProgress: 0
-                    });
+                    workerUpdate = { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 };
                 } else {
-                    await updateDoc(workerDocRef, { unfreezeProgress });
+                    workerUpdate = { unfreezeProgress };
                 }
             } else {
-                 await updateDoc(workerDocRef, {
-                    lastDeliveredAt: now.toISOString(),
-                    unfreezeProgress: 0
-                });
+                 workerUpdate = { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 };
             }
+            await updateDoc(workerDocRef, workerUpdate);
+            setDeliveryWorkers(prev => prev.map(w => w.id === workerId ? {...w, ...workerUpdate} : w));
         }
     };
 
@@ -760,6 +779,8 @@ ${itemsText}
         await updateDoc(ticketRef, {
             history: arrayUnion(message)
         });
+        setSupportTickets(prev => prev.map(t => t.id === ticketId ? {...t, history: [...t.history, message]} : t));
+
 
         if (message.role === 'user') {
             const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
@@ -777,18 +798,20 @@ ${itemsText}
 
     const resolveSupportTicket = async (ticketId: string) => {
         await updateDoc(doc(db, "supportTickets", ticketId), { isResolved: true });
+        setSupportTickets(prev => prev.map(t => t.id === ticketId ? {...t, isResolved: true} : t));
     }
 
     // --- Delivery Worker Management ---
     const addDeliveryWorker = async (workerData: Pick<DeliveryWorker, 'id' | 'name'>) => {
         const workerRef = doc(db, 'deliveryWorkers', workerData.id);
-        await setDoc(workerRef, { name: workerData.name, isOnline: true }, { merge: true });
+        const newWorkerData = { name: workerData.name, isOnline: true, unfreezeProgress: 0 };
+        await setDoc(workerRef, newWorkerData, { merge: true });
         setDeliveryWorkers(prev => {
             const existing = prev.find(w => w.id === workerData.id);
             if (existing) {
-                return prev.map(w => w.id === workerData.id ? {...w, ...workerData, isOnline: true} : w);
+                return prev.map(w => w.id === workerData.id ? {...w, ...newWorkerData} : w);
             }
-            return [...prev, {...workerData, isOnline: true, unfreezeProgress: 0}];
+            return [...prev, {...workerData, ...newWorkerData}];
         })
     };
 
@@ -990,5 +1013,7 @@ ${itemsText}
         </AppContext.Provider>
     );
 };
+
+    
 
     
