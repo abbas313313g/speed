@@ -1,8 +1,7 @@
 
 "use client";
 
-import { useContext, useState } from 'react';
-import { AppContext } from '@/contexts/AppContext';
+import React, { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -15,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -36,8 +34,9 @@ import { Label } from '@/components/ui/label';
 import { Edit, Trash2, ShoppingBasket } from 'lucide-react';
 import type { Category } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import React from 'react';
 import { categories as initialCategories } from '@/lib/mock-data';
+import { useCategories } from '@/hooks/useCategories';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = initialCategories.reduce((acc, cat) => {
     acc[cat.iconName] = cat.icon;
@@ -52,12 +51,10 @@ const EMPTY_CATEGORY: Omit<Category, 'id' | 'icon'> = {
 };
 
 export default function AdminCategoriesPage() {
-  const context = useContext(AppContext);
+  const { categories, addCategory, updateCategory, deleteCategory, isLoading } = useCategories();
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentCategory, setCurrentCategory] = useState<Omit<Category, 'icon' | 'id'> & {id?: string}>({ ...EMPTY_CATEGORY });
-
-  const { categories, addCategory, updateCategory, deleteCategory } = context!;
 
   const handleOpenDialog = (category?: Category) => {
     if (category) {
@@ -82,7 +79,22 @@ export default function AdminCategoriesPage() {
     }
   };
 
-  if (!context || context.isLoading) return <div>جار التحميل...</div>;
+  if (isLoading) return (
+      <div className="space-y-8">
+      <header className="flex justify-between items-center">
+        <div className="w-1/2 space-y-2">
+            <Skeleton className="h-10 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+        </div>
+        <Skeleton className="h-10 w-32" />
+      </header>
+       <div className="space-y-2">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+       </div>
+      </div>
+  );
 
   return (
     <div className="space-y-8">

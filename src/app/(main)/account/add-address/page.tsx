@@ -128,7 +128,7 @@ export default function AddAddressPage() {
             </SelectTrigger>
             <SelectContent>
               {deliveryZones.map((zone) => (
-                <SelectItem key={zone.name} value={zone.name}>
+                <SelectItem key={zone.id} value={zone.name}>
                   {zone.name}
                 </SelectItem>
               ))}
@@ -173,4 +173,3 @@ export default function AddAddressPage() {
     </div>
   );
 }
-
