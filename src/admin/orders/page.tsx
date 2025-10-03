@@ -2,10 +2,8 @@
 
 "use client";
 
-import React, { useState, useContext } from 'react';
-import { AppContext } from '@/contexts/AppContext';
-import { db } from '@/lib/firebase';
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import React from 'react';
+import { useOrders } from '@/hooks/useOrders';
 import type { Order, OrderStatus } from '@/lib/types';
 import {
   Table,
@@ -40,22 +38,21 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminOrdersPage() {
-  const context = useContext(AppContext);
   const { toast } = useToast();
+  const { allOrders, isLoading, deleteOrder, updateOrderStatus } = useOrders();
   
-  if (!context || context.isLoading) return <div>جار تحميل الطلبات...</div>;
+  if (isLoading) return <div>جار تحميل الطلبات...</div>;
   
-  const { allOrders, deleteOrder, updateOrderStatus } = context;
-
-
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
-    await updateOrderStatus(orderId, status);
-    toast({ title: `تم تحديث حالة الطلب إلى: ${getStatusText(status)}` });
+    try {
+      await updateOrderStatus(orderId, status);
+    } catch(e) {
+      // Error is already toasted in the hook
+    }
   };
   
   const handleDelete = async (orderId: string) => {
       await deleteOrder(orderId);
-      toast({ title: "تم حذف الطلب بنجاح", variant: "destructive" });
   }
 
   const getStatusVariant = (status: OrderStatus) => {

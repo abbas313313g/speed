@@ -1,7 +1,7 @@
+
 "use client";
 
-import { useContext, useMemo } from 'react';
-import { AppContext } from '@/contexts/AppContext';
+import { useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -14,6 +14,9 @@ import { formatCurrency } from '@/lib/utils';
 import Image from 'next/image';
 import type { Restaurant } from '@/lib/types';
 import { Card } from '@/components/ui/card';
+import { useRestaurants } from '@/hooks/useRestaurants';
+import { useOrders } from '@/hooks/useOrders';
+import { useProducts } from '@/hooks/useProducts';
 
 interface StoreReport {
     restaurant: Restaurant;
@@ -23,16 +26,19 @@ interface StoreReport {
 }
 
 export default function AdminReportsPage() {
-  const context = useContext(AppContext);
+  const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
+  const { allOrders, isLoading: ordersLoading } = useOrders();
+  const { products, isLoading: productsLoading } = useProducts();
 
+  const isLoading = restaurantsLoading || ordersLoading || productsLoading;
+  
   const reports: StoreReport[] = useMemo(() => {
-    if (!context || !context.restaurants || !context.allOrders) return [];
-    const { restaurants, allOrders } = context;
+    if (isLoading) return [];
 
     return restaurants.map(restaurant => {
         const storeOrders = allOrders.filter(order => 
             order.items.some(item => {
-                const product = context.products.find(p => p.id === item.product.id);
+                const product = products.find(p => p.id === item.product.id);
                 return product?.restaurantId === restaurant.id;
             })
         );
@@ -42,7 +48,7 @@ export default function AdminReportsPage() {
         
         storeOrders.forEach(order => {
             order.items.forEach(item => {
-                const product = context.products.find(p => p.id === item.product.id);
+                const product = products.find(p => p.id === item.product.id);
                 if (product?.restaurantId === restaurant.id) {
                     const itemPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
                     const itemRevenue = itemPrice * item.quantity;
@@ -62,9 +68,9 @@ export default function AdminReportsPage() {
         };
     }).sort((a,b) => b.totalRevenue - a.totalRevenue);
 
-  }, [context]);
+  }, [restaurants, allOrders, products, isLoading]);
 
-  if (!context || context.isLoading) return <div>جار التحميل...</div>;
+  if (isLoading) return <div>جار التحميل...</div>;
 
   return (
     <div className="space-y-8">

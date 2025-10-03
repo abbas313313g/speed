@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, useContext, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 import {
   Table,
@@ -41,7 +42,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { AppContext } from '@/contexts/AppContext';
+import { useBanners } from '@/hooks/useBanners';
+import { useProducts } from '@/hooks/useProducts';
+import { useRestaurants } from '@/hooks/useRestaurants';
 
 
 const EMPTY_BANNER: Partial<Banner> & { image: string } = {
@@ -51,7 +54,9 @@ const EMPTY_BANNER: Partial<Banner> & { image: string } = {
 };
 
 export default function AdminBannersPage() {
-  const context = useContext(AppContext);
+  const { banners, isLoading: bannersLoading, addBanner, updateBanner, deleteBanner } = useBanners();
+  const { products, isLoading: productsLoading } = useProducts();
+  const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
   const { toast } = useToast();
   
   const [open, setOpen] = useState(false);
@@ -60,8 +65,9 @@ export default function AdminBannersPage() {
   const [currentBanner, setCurrentBanner] = useState<Partial<Banner> & { image?: string }>({ ...EMPTY_BANNER });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  if (!context || context.isLoading) return <div>جار التحميل...</div>;
-  const { banners, products, restaurants, addBanner, updateBanner, deleteBanner } = context;
+  const isLoading = bannersLoading || productsLoading || restaurantsLoading;
+
+  if (isLoading) return <div>جار التحميل...</div>;
 
   const handleOpenDialog = (banner?: Banner) => {
     if (banner) {

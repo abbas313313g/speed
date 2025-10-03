@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useContext } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,9 @@ import { formatCurrency, calculateDistance } from '@/lib/utils';
 import { LogOut, MapPin, Package, Shield, Store, CircleDot, Loader2, PlayCircle, Search, ExternalLink } from 'lucide-react';
 import type { Order } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { AppContext } from '@/contexts/AppContext';
+import { useOrders } from '@/hooks/useOrders';
+import { useRestaurants } from '@/hooks/useRestaurants';
+import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 
 type DriverStatus = 'IDLE' | 'SEARCHING' | 'ORDER_ASSIGNED';
 
@@ -17,15 +19,11 @@ export default function DeliveryPage() {
     const router = useRouter();
     const { toast } = useToast();
     const [workerId, setWorkerId] = useState<string | null>(null);
-    const [isProcessing, setIsProcessing] = useState<string | null>(null); // orderId being processed
-    const [driverStatus, setDriverStatus] = useState<DriverStatus>('IDLE');
+    const [isProcessing, setIsProcessing] = useState<string | null>(null);
 
-    const context = useContext(AppContext);
-    if (!context) {
-        throw new Error("AppContext is missing");
-    }
-    const { allOrders, restaurants, deliveryWorkers, isLoading: contextLoading, updateOrderStatus, updateWorkerStatus } = context;
-
+    const { allOrders, isLoading: ordersLoading, updateOrderStatus } = useOrders();
+    const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
+    const { deliveryWorkers, isLoading: workersLoading, updateWorkerStatus } = useDeliveryWorkers();
 
     useEffect(() => {
         const id = localStorage.getItem('deliveryWorkerId');
@@ -33,25 +31,24 @@ export default function DeliveryPage() {
             router.replace('/delivery/login');
         } else {
             setWorkerId(id);
-            const worker = deliveryWorkers?.find(w => w.id === id);
-            if (worker?.isOnline) {
-                setDriverStatus('SEARCHING');
-            }
         }
-    }, [router, deliveryWorkers]);
+    }, [router]);
     
+    const worker = useMemo(() => {
+        if (!workerId || !deliveryWorkers) return null;
+        return deliveryWorkers.find(w => w.id === workerId);
+    }, [workerId, deliveryWorkers]);
+
     const assignedOrder = useMemo(() => {
         if (!allOrders || !workerId) return null;
         return allOrders.find(o => o.status === 'pending_assignment' && o.assignedToWorkerId === workerId);
     }, [allOrders, workerId]);
     
-    useEffect(() => {
-        if (driverStatus === 'SEARCHING' && assignedOrder) {
-            setDriverStatus('ORDER_ASSIGNED');
-        } else if (driverStatus === 'ORDER_ASSIGNED' && !assignedOrder) {
-            setDriverStatus('SEARCHING');
-        }
-    }, [assignedOrder, driverStatus]);
+    const driverStatus: DriverStatus = useMemo(() => {
+        if (!worker?.isOnline) return 'IDLE';
+        if (assignedOrder) return 'ORDER_ASSIGNED';
+        return 'SEARCHING';
+    }, [worker, assignedOrder]);
 
 
     const handleAcceptOrder = async (orderId: string) => {
@@ -75,7 +72,6 @@ export default function DeliveryPage() {
              try {
                 await updateOrderStatus(orderId, 'unassigned', workerId); 
                 toast({title: "تم رفض الطلب", variant: 'default'});
-                setDriverStatus('SEARCHING');
             } catch (error: any) {
                  // The error is already toasted by the hook
             } finally {
@@ -95,28 +91,24 @@ export default function DeliveryPage() {
     const handleStartWork = () => {
         if(workerId) {
             updateWorkerStatus(workerId, true);
-            setDriverStatus('SEARCHING');
             toast({ title: "أنت متصل الآن", description: "جاري البحث عن طلبات..." });
         }
     }
     
-    const isLoading = contextLoading || !workerId;
+    const isLoading = ordersLoading || restaurantsLoading || workersLoading || !workerId;
     if (isLoading) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
-    
-    const worker = deliveryWorkers?.find(w => w.id === workerId);
     
     const OrderCard = ({order}: {order: Order}) => {
         const orderRestaurant = useMemo(() => {
             if (!restaurants || !order.restaurant) return null;
             return restaurants.find(r => r.id === order.restaurant!.id);
-        }, [order.restaurant]);
+        }, [order.restaurant, restaurants]);
 
         const { distance, mapUrl } = useMemo(() => {
             if (!orderRestaurant?.latitude || !orderRestaurant?.longitude || !order.address.latitude || !order.address.longitude) {
                  return { distance: null, mapUrl: null };
             }
             const dist = calculateDistance(order.address.latitude, order.address.longitude, orderRestaurant.latitude, orderRestaurant.longitude);
-            // Construct a Google Maps URL with both origin (restaurant) and destination (customer)
             const url = `https://www.google.com/maps/dir/?api=1&origin=${orderRestaurant.latitude},${orderRestaurant.longitude}&destination=${order.address.latitude},${order.address.longitude}`;
             return { distance: dist, mapUrl: url };
         }, [order.address, orderRestaurant]);
@@ -169,10 +161,10 @@ export default function DeliveryPage() {
                 </CardContent>
                 <CardFooter className="grid grid-cols-2 gap-4">
                     <Button variant="destructive" size="lg" onClick={() => handleRejectOrder(order.id)} disabled={isThisCardProcessing}>
-                        {isThisCardProcessing && isProcessing === order.id ? <Loader2 className="h-5 w-5 animate-spin"/> : 'رفض'}
+                        {isThisCardProcessing ? <Loader2 className="h-5 w-5 animate-spin"/> : 'رفض'}
                     </Button>
                     <Button size="lg" className="bg-green-600 hover:bg-green-700" onClick={() => handleAcceptOrder(order.id)} disabled={isThisCardProcessing}>
-                        {isThisCardProcessing && isProcessing === order.id ? <Loader2 className="h-5 w-5 animate-spin"/> : 'قبول الطلب'}
+                        {isThisCardProcessing ? <Loader2 className="h-5 w-5 animate-spin"/> : 'قبول الطلب'}
                     </Button>
                 </CardFooter>
             </Card>

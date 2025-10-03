@@ -1,8 +1,7 @@
 
 "use client";
 
-import { useContext, useState } from 'react';
-import { AppContext } from '@/contexts/AppContext';
+import { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -37,7 +36,7 @@ import type { Coupon } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-
+import { useCoupons } from '@/hooks/useCoupons';
 
 const EMPTY_COUPON: Omit<Coupon, 'id' | 'usedCount' | 'usedBy'> = {
     code: '',
@@ -47,14 +46,13 @@ const EMPTY_COUPON: Omit<Coupon, 'id' | 'usedCount' | 'usedBy'> = {
 };
 
 export default function AdminCouponsPage() {
-  const context = useContext(AppContext);
   const { toast } = useToast();
+  const { coupons, isLoading, addCoupon, deleteCoupon } = useCoupons();
   const [open, setOpen] = useState(false);
   const [currentCoupon, setCurrentCoupon] = useState<Omit<Coupon, 'id' | 'usedCount' | 'usedBy'>>({ ...EMPTY_COUPON });
   const [isSaving, setIsSaving] = useState(false);
 
-  if (!context || context.isLoading) return <div>جار التحميل...</div>;
-  const { coupons, addCoupon, deleteCoupon } = context;
+  if (isLoading) return <div>جار التحميل...</div>;
   
   const handleSave = async () => {
     if (!currentCoupon.code || currentCoupon.discountValue <= 0 || currentCoupon.maxUses <= 0) {
