@@ -45,12 +45,14 @@ const sendTelegramMessage = async (chatId: string, message: string) => {
 
 // --- Storage Helper ---
 const uploadImage = async (base64: string, path: string): Promise<string> => {
-    if (!base64 || !base64.startsWith('data:image')) {
-      return base64; // It's already a URL or empty, return it as is
+    // Check if the string is a data URL (a new upload)
+    if (base64 && (base64.startsWith('data:image') || base64.startsWith('data:application'))) {
+        const storageRef = ref(storage, path);
+        const snapshot = await uploadString(storageRef, base64, 'data_url');
+        return getDownloadURL(snapshot.ref);
     }
-    const storageRef = ref(storage, path);
-    const snapshot = await uploadString(storageRef, base64, 'data_url');
-    return getDownloadURL(snapshot.ref);
+    // If it's not a data URL, it's either an existing URL or empty, so return it as is.
+    return base64;
 };
 
 
@@ -356,32 +358,41 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
 
         try {
             const orderId = await runTransaction(db, async (transaction) => {
-                const productRefs = currentCart.map(item => doc(db, "products", item.product.id));
-                const productSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
-                
+                const productRefsAndItems = currentCart.map(item => ({
+                    ref: doc(db, "products", item.product.id),
+                    item: item
+                }));
+
+                const productSnaps = await Promise.all(productRefsAndItems.map(p => transaction.get(p.ref)));
+
                 let couponSnap: any = null;
-                if (couponCode) {
+                if (couponCode?.trim()) {
                     const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim().toUpperCase()));
-                    const couponQuerySnapshot = await getDocs(couponQuery); // Use getDocs for querying
+                    const couponQuerySnapshot = await getDocs(couponQuery);
                     if (!couponQuerySnapshot.empty) {
-                         couponSnap = couponQuerySnapshot.docs[0];
+                        couponSnap = couponQuerySnapshot.docs[0];
                     }
                 }
 
-                for (let i = 0; i < currentCart.length; i++) {
+                // Pre-transaction validation
+                for (let i = 0; i < productSnaps.length; i++) {
                     const productDoc = productSnaps[i];
-                    const item = currentCart[i];
+                    const { item } = productRefsAndItems[i];
                     if (!productDoc.exists()) throw new Error(`منتج "${item.product.name}" لم يعد متوفرًا.`);
-                    const productData = productDoc.data() as Product;
                     
+                    const productData = productDoc.data() as Product;
                     if (item.selectedSize) {
                         const size = productData.sizes?.find(s => s.name === item.selectedSize!.name);
-                        if (!size || size.stock < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name} (${item.selectedSize.name})" غير متوفرة.`);
+                        if (!size || size.stock < item.quantity) {
+                            throw new Error(`الكمية المطلوبة من "${item.product.name} (${item.selectedSize.name})" غير متوفرة.`);
+                        }
                     } else {
-                        if ((productData.stock ?? 0) < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
+                         if ((productData.stock ?? 0) < item.quantity) {
+                            throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
+                        }
                     }
                 }
-
+                
                 let discountAmount = 0;
                 let appliedCouponInfo: Order['appliedCoupon'] = null;
                 if (couponSnap && couponSnap.exists()) {
@@ -393,11 +404,12 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     appliedCouponInfo = { code: couponData.code, discountAmount: discountAmount };
                 }
 
+                // Calculations
                 const subtotal = currentCart.reduce((total, item) => {
                     const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
                     return total + price * item.quantity;
                 }, 0);
-
+                
                 const profit = productSnaps.reduce((acc, productSnap, index) => {
                     const productData = productSnap.data() as Product;
                     const item = currentCart[index];
@@ -412,6 +424,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 const deliveryFee = calculateDeliveryFee(distance);
                 const finalTotal = Math.max(0, subtotal - discountAmount) + deliveryFee;
 
+                // Create Order
                 const newOrderRef = doc(collection(db, "orders"));
                 const newOrderData: Omit<Order, 'id'> = {
                     userId: userId,
@@ -432,9 +445,10 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 };
                 transaction.set(newOrderRef, newOrderData);
 
-                for (let i = 0; i < currentCart.length; i++) {
-                    const item = currentCart[i];
-                    const productRef = productRefs[i];
+                // Update Stock
+                for (let i = 0; i < productSnaps.length; i++) {
+                    const productRef = productRefsAndItems[i].ref;
+                    const item = productRefsAndItems[i].item;
                     const productData = productSnaps[i].data() as Product;
 
                     if (item.selectedSize) {
@@ -447,6 +461,7 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     }
                 }
                 
+                // Update Coupon
                 if (couponSnap && couponSnap.exists()) {
                     transaction.update(couponSnap.ref, {
                         usedCount: (couponSnap.data().usedCount || 0) + 1,
@@ -586,6 +601,11 @@ ${itemsText}
 
     const updateWorkerStatus = async (workerId: string, isOnline: boolean) => {
         try {
+            const worker = deliveryWorkers.find(w => w.id === workerId);
+            // Only update if the status is different to prevent loops
+            if (worker && worker.isOnline === isOnline) {
+                return;
+            }
             const workerRef = doc(db, 'deliveryWorkers', workerId);
             await setDoc(workerRef, { isOnline }, { merge: true });
         } catch (error) {
@@ -970,3 +990,5 @@ ${itemsText}
         </AppContext.Provider>
     );
 };
+
+    
