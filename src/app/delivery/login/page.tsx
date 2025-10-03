@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useContext, FormEvent } from 'react';
@@ -24,7 +23,7 @@ export default function DeliveryLoginPage() {
     const context = useContext(AppContext);
     const { toast } = useToast();
 
-    if (!context) return <Loader2 className="h-8 w-8 animate-spin" />;
+    if (!context) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
 
     const { deliveryWorkers, addDeliveryWorker, updateWorkerStatus } = context;
 
@@ -53,8 +52,6 @@ export default function DeliveryLoginPage() {
         try {
             // First, create the worker record.
             await addDeliveryWorker({ id: phone, name });
-            // Then, set them as online.
-            await updateWorkerStatus(phone, true);
             
             localStorage.setItem('deliveryWorkerId', phone);
             toast({ title: `أهلاً بك ${name}!`});

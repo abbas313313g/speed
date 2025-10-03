@@ -47,7 +47,7 @@ export default function AdminReportsPage() {
                 if (product?.restaurantId === restaurant.id) {
                     const itemPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
                     const itemRevenue = itemPrice * item.quantity;
-                    const itemProfit = (itemPrice - (item.product.wholesalePrice || itemPrice)) * item.quantity;
+                    const itemProfit = (itemPrice - (item.product.wholesalePrice || 0)) * item.quantity;
                     totalRevenue += itemRevenue;
                     totalProfit += itemProfit;
                 }
@@ -84,13 +84,15 @@ export default function AdminReportsPage() {
             </TableRow>
             </TableHeader>
             <TableBody>
-            {reports.map((report) => {
-                const imageUrl = report.restaurant.image && (report.restaurant.image.startsWith('http') || report.restaurant.image.startsWith('data:')) ? report.restaurant.image : 'https://placehold.co/40x40.png';
-                return (
+            {reports.length === 0 ? (
+                <TableRow>
+                    <TableCell colSpan={4} className="text-center">لا توجد بيانات لعرضها.</TableCell>
+                </TableRow>
+            ) : reports.map((report) => (
                 <TableRow key={report.restaurant.id}>
                 <TableCell>
                     <div className="flex items-center gap-3">
-                        <Image src={imageUrl} alt={report.restaurant.name} width={40} height={40} className="rounded-md object-cover" unoptimized={true}/>
+                        <Image src={report.restaurant.image} alt={report.restaurant.name} width={40} height={40} className="rounded-md object-cover" unoptimized={true} />
                         <span className="font-medium">{report.restaurant.name}</span>
                     </div>
                 </TableCell>
@@ -98,7 +100,7 @@ export default function AdminReportsPage() {
                 <TableCell>{formatCurrency(report.totalProfit)}</TableCell>
                 <TableCell>{report.orderCount}</TableCell>
                 </TableRow>
-            )})}
+            ))}
             </TableBody>
         </Table>
       </Card>

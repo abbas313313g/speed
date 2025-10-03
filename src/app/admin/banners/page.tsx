@@ -1,8 +1,7 @@
 
-
 "use client";
 
-import { useContext, useState, useEffect } from 'react';
+import { useContext, useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { AppContext } from '@/contexts/AppContext';
 import {
@@ -20,7 +19,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,6 +43,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import React from 'react';
 
 const EMPTY_BANNER: Partial<Banner> & { image: string } = {
   image: '',
