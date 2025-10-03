@@ -165,9 +165,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                   deliveryZonesSnap,
                   couponsSnap,
                   telegramConfigsSnap,
-                  supportTicketsSnap,
-                  deliveryWorkersSnap,
-                  ordersSnap,
               ] = await Promise.all([
                   getDocs(collection(db, "products")),
                   getDocs(collection(db, "categories")),
@@ -177,9 +174,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                   getDocs(collection(db, "deliveryZones")),
                   getDocs(collection(db, "coupons")),
                   getDocs(collection(db, "telegramConfigs")),
-                  getDocs(collection(db, "supportTickets")),
-                  getDocs(collection(db, "deliveryWorkers")),
-                  getDocs(collection(db, "orders")),
               ]);
 
               setProducts(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
@@ -190,9 +184,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
               setDeliveryZones(deliveryZonesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryZone)));
               setCoupons(couponsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
               setTelegramConfigs(telegramConfigsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TelegramConfig)));
-              setSupportTickets(supportTicketsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket)));
-              setDeliveryWorkers(deliveryWorkersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker)));
-              setAllOrders(ordersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
               
           } catch (error) {
               console.error("Error fetching initial data:", error);
@@ -218,33 +209,38 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
       const workerUnsub = onSnapshot(collection(db, "deliveryWorkers"), (snap) => {
         setDeliveryWorkers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker)));
       });
+      const supportTicketsUnsub = onSnapshot(collection(db, "supportTickets"), (snap) => {
+        setSupportTickets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket)));
+      });
+
 
       return () => {
           orderUnsub();
           workerUnsub();
+          supportTicketsUnsub();
       };
   }, [toast]);
 
     // Listener for user-specific support ticket
     useEffect(() => {
-        if (!userId) return;
+        if (!userId || !supportTickets.length) return;
 
-        const q = query(collection(db, "supportTickets"), where("userId", "==", userId));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            if (!querySnapshot.empty) {
-                // Find unresolved ticket first, otherwise show the latest resolved one
-                const ticketDoc = querySnapshot.docs.find(doc => !doc.data().isResolved) || querySnapshot.docs.sort((a,b) => new Date(b.data().createdAt).getTime() - new Date(a.data().createdAt).getTime())[0];
-                if (ticketDoc) {
-                    setMySupportTicket({ id: ticketDoc.id, ...ticketDoc.data() } as SupportTicket);
-                }
+        const userTickets = supportTickets.filter(t => t.userId === userId);
+
+        if (userTickets.length > 0) {
+            const unresolvedTicket = userTickets.find(t => !t.isResolved);
+            if (unresolvedTicket) {
+                setMySupportTicket(unresolvedTicket);
             } else {
-                setMySupportTicket(null);
+                // If all are resolved, show the most recent one.
+                const sortedTickets = userTickets.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                setMySupportTicket(sortedTickets[0]);
             }
-        });
+        } else {
+            setMySupportTicket(null);
+        }
 
-        return () => unsubscribe();
-
-    }, [userId]);
+    }, [userId, supportTickets]);
 
 
     // --- Derived State ---
@@ -354,29 +350,24 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
     const placeOrder = async (address: Address, couponCode?: string) => {
         if (cart.length === 0) throw new Error("السلة فارغة.");
         
-        // This is a local copy of the cart, NOT state.
         const currentCart = [...cart];
         const cartRestaurant = restaurants.find(r => r.id === currentCart[0].product.restaurantId);
         if (!cartRestaurant) throw new Error("لم يتم العثور على المتجر الخاص بالطلب.");
 
         try {
             const orderId = await runTransaction(db, async (transaction) => {
-                // 1. Fetch all product and coupon data *within the transaction* for strong consistency
                 const productRefs = currentCart.map(item => doc(db, "products", item.product.id));
                 const productSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
                 
-                let couponDocRef: any = null;
                 let couponSnap: any = null;
                 if (couponCode) {
                     const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim().toUpperCase()));
-                    const couponQuerySnapshot = await getDocs(couponQuery);
+                    const couponQuerySnapshot = await getDocs(couponQuery); // Use getDocs for querying
                     if (!couponQuerySnapshot.empty) {
-                        couponDocRef = couponQuerySnapshot.docs[0].ref;
-                        couponSnap = await transaction.get(couponDocRef);
+                         couponSnap = couponQuerySnapshot.docs[0];
                     }
                 }
 
-                // 2. Validate stock and coupon
                 for (let i = 0; i < currentCart.length; i++) {
                     const productDoc = productSnaps[i];
                     const item = currentCart[i];
@@ -402,7 +393,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     appliedCouponInfo = { code: couponData.code, discountAmount: discountAmount };
                 }
 
-                // 3. Calculate totals
                 const subtotal = currentCart.reduce((total, item) => {
                     const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
                     return total + price * item.quantity;
@@ -422,7 +412,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 const deliveryFee = calculateDeliveryFee(distance);
                 const finalTotal = Math.max(0, subtotal - discountAmount) + deliveryFee;
 
-                // 4. Create and set the new order document
                 const newOrderRef = doc(collection(db, "orders"));
                 const newOrderData: Omit<Order, 'id'> = {
                     userId: userId,
@@ -443,7 +432,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 };
                 transaction.set(newOrderRef, newOrderData);
 
-                // 5. Update stock and coupon usage
                 for (let i = 0; i < currentCart.length; i++) {
                     const item = currentCart[i];
                     const productRef = productRefs[i];
@@ -459,8 +447,8 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                     }
                 }
                 
-                if (couponSnap && couponSnap.exists() && couponDocRef) {
-                    transaction.update(couponDocRef, {
+                if (couponSnap && couponSnap.exists()) {
+                    transaction.update(couponSnap.ref, {
                         usedCount: (couponSnap.data().usedCount || 0) + 1,
                         usedBy: arrayUnion(userId)
                     });
@@ -469,7 +457,6 @@ export const AppContextProvider = ({ children }: { children: ReactNode }) => {
                 return newOrderRef.id;
             });
             
-            // Post-transaction side effects
             setLocalOrderIds(prev => [...prev, orderId]);
             clearCart();
             
@@ -623,7 +610,6 @@ ${itemsText}
                 }
             }
             updateData.deliveryWorkerId = workerId;
-            // Use a fallback to prevent the undefined error
             updateData.deliveryWorker = { id: workerId, name: worker?.name || "عامل غير معروف" };
         }
         
@@ -632,11 +618,9 @@ ${itemsText}
             updateData.assignmentTimestamp = null;
             updateData.rejectedBy = arrayUnion(workerId);
             await updateDoc(orderDocRef, updateData);
-            // Immediately try to reassign
             await assignOrderToNextWorker(orderId, updateData.rejectedBy);
-            return; // Exit the function after reassigning
+            return;
         } else if (status !== 'unassigned') {
-            // Clear assignment fields for any other status change
             updateData.assignedToWorkerId = null;
             updateData.assignmentTimestamp = null;
             updateData.rejectedBy = [];
@@ -668,7 +652,7 @@ ${itemsText}
             } catch (e) {
                 console.error("Transaction failed: ", e);
                 toast({title: "فشل إلغاء الطلب", description: "حدث خطأ أثناء إعادة المنتجات للمخزون.", variant: "destructive"});
-                return; // Stop if transaction fails
+                return;
             }
         } else {
             await updateDoc(orderDocRef, updateData);
@@ -713,7 +697,6 @@ ${itemsText}
         const orderRef = doc(db, "orders", orderId);
         await deleteDoc(orderRef);
         setAllOrders(prev => prev.filter(o => o.id !== orderId));
-        toast({ title: "تم حذف الطلب بنجاح", variant: "destructive" });
     }
 
     // --- Support Ticket Management ---
@@ -723,13 +706,11 @@ ${itemsText}
     
     const createSupportTicket = async (firstMessage: Message) => {
         if (!userId) return;
-        // If there's an existing ticket that isn't resolved, add to it
         if (mySupportTicket && !mySupportTicket.isResolved) {
              await addMessageToTicket(mySupportTicket.id, firstMessage);
              return;
         }
 
-        // Otherwise, create a new one
         const userName = addresses[0]?.name || `مستخدم ${userId.substring(0, 4)}`;
         const newTicket: Omit<SupportTicket, 'id'> = {
             userId,
@@ -738,7 +719,8 @@ ${itemsText}
             isResolved: false,
             history: [firstMessage],
         };
-        await addDoc(collection(db, "supportTickets"), newTicket);
+        const docRef = await addDoc(collection(db, "supportTickets"), newTicket);
+        setSupportTickets(prev => [...prev, {id: docRef.id, ...newTicket}]);
         
         const ownerConfigs = telegramConfigs.filter(c => c.type === 'owner');
         if (ownerConfigs.length > 0) {
@@ -988,5 +970,3 @@ ${itemsText}
         </AppContext.Provider>
     );
 };
-
-    

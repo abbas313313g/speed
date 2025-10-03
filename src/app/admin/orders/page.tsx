@@ -2,9 +2,10 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useContext } from 'react';
+import { AppContext } from '@/contexts/AppContext';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import type { Order, OrderStatus } from '@/lib/types';
 import {
   Table,
@@ -39,39 +40,23 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminOrdersPage() {
-  const [allOrders, setAllOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const context = useContext(AppContext);
   const { toast } = useToast();
+  
+  if (!context || context.isLoading) return <div>جار تحميل الطلبات...</div>;
+  
+  const { allOrders, deleteOrder, updateOrderStatus } = context;
 
-  useEffect(() => {
-    const q = collection(db, "orders");
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const ordersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-      ordersData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setAllOrders(ordersData);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching orders: ", error);
-      toast({ title: "خطأ في جلب الطلبات", variant: "destructive" });
-      setIsLoading(false);
-    });
 
-    return () => unsubscribe();
-  }, [toast]);
-
-  const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
-    const orderDocRef = doc(db, "orders", orderId);
-    await updateDoc(orderDocRef, { status });
+  const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
+    await updateOrderStatus(orderId, status);
     toast({ title: `تم تحديث حالة الطلب إلى: ${getStatusText(status)}` });
   };
-
-  const deleteOrder = async (orderId: string) => {
-    const orderRef = doc(db, "orders", orderId);
-    await deleteDoc(orderRef);
-    toast({ title: "تم حذف الطلب بنجاح", variant: "destructive" });
-  };
   
-  if (isLoading) return <div>جار تحميل الطلبات...</div>;
+  const handleDelete = async (orderId: string) => {
+      await deleteOrder(orderId);
+      toast({ title: "تم حذف الطلب بنجاح", variant: "destructive" });
+  }
 
   const getStatusVariant = (status: OrderStatus) => {
     switch (status) {
@@ -141,12 +126,12 @@ export default function AdminOrdersPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'unassigned')}>بانتظار سائق</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'confirmed')}>تم التأكيد</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'preparing')}>تحضير الطلب</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'on_the_way')}>في الطريق</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'delivered')}>تم التوصيل</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'cancelled')}>إلغاء الطلب</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'unassigned')}>بانتظار سائق</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'confirmed')}>تم التأكيد</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'preparing')}>تحضير الطلب</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'on_the_way')}>في الطريق</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'delivered')}>تم التوصيل</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'cancelled')}>إلغاء الطلب</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <AlertDialogTrigger asChild>
                         <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>
@@ -165,7 +150,7 @@ export default function AdminOrdersPage() {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                           <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => deleteOrder(order.id)} className="bg-destructive hover:bg-destructive/90">حذف</AlertDialogAction>
+                          <AlertDialogAction onClick={() => handleDelete(order.id)} className="bg-destructive hover:bg-destructive/90">حذف</AlertDialogAction>
                       </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>

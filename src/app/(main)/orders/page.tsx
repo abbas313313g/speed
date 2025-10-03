@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useContext, useMemo, useEffect, useState } from 'react';
+import { useContext, useMemo } from 'react';
 import Link from 'next/link';
 import { AppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
@@ -13,8 +13,6 @@ import type { Order, OrderStatus } from '@/lib/types';
 import Image from 'next/image';
 import { getWorkerLevel } from '@/lib/workerLevels';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,27 +30,18 @@ import { useToast } from '@/hooks/use-toast';
 export default function OrdersPage() {
     const context = useContext(AppContext);
     const { toast } = useToast();
-    const [myOrders, setMyOrders] = useState<Order[]>([]);
-    
-    useEffect(() => {
-        if (!context?.userId) return;
-
-        const q = query(collection(db, "orders"), where("userId", "==", context.userId));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const ordersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-            ordersData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            setMyOrders(ordersData);
-        });
-
-        return () => unsubscribe();
-    }, [context?.userId]);
-
 
     if (!context) {
         return <div>جار التحميل...</div>;
     }
 
-    const { allOrders, deliveryWorkers, updateOrderStatus } = context;
+    const { allOrders, deliveryWorkers, updateOrderStatus, userId } = context;
+
+    const myOrders = useMemo(() => {
+      if (!userId || !allOrders) return [];
+      return allOrders.filter(o => o.userId === userId);
+    }, [userId, allOrders]);
+
 
     const handleCancelOrder = (order: Order) => {
         updateOrderStatus(order.id, 'cancelled');
