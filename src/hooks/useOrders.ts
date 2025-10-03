@@ -35,7 +35,8 @@ export const useOrders = () => {
             }
         };
         fetchOrders();
-    }, [toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     
     const assignOrderToNextWorker = useCallback(async (orderId: string, excludedWorkerIds: string[] = []) => {
         try {
@@ -85,7 +86,7 @@ export const useOrders = () => {
             console.error("Failed to assign order to next worker:", error);
             toast({title: "فشل تعيين الطلب", description: "حدث خطأ أثناء محاولة تعيين الطلب لعامل آخر.", variant: "destructive"});
         }
-    }, [toast, telegramConfigs]);
+    }, [telegramConfigs, toast]);
 
     const addOrder = useCallback(async (newOrder: Order) => {
         setAllOrders(prev => [newOrder, ...prev]);
