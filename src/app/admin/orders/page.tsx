@@ -1,8 +1,8 @@
 
 "use client";
 
-import React from 'react';
-import { useOrders } from '@/hooks/useOrders';
+import React, { useState, useContext } from 'react';
+import { AppContext } from '@/contexts/AppContext';
 import type { Order, OrderStatus } from '@/lib/types';
 import {
   Table,
@@ -37,18 +37,17 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminOrdersPage() {
+  const context = useContext(AppContext);
   const { toast } = useToast();
-  const { allOrders, isLoading, deleteOrder, updateOrderStatus } = useOrders();
   
-  if (isLoading) return <div>جار تحميل الطلبات...</div>;
+  if (!context || context.isLoading) return <div>جار تحميل الطلبات...</div>;
+  
+  const { allOrders, deleteOrder, updateOrderStatus } = context;
+
 
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
-    try {
-      await updateOrderStatus(orderId, status);
-      toast({ title: `تم تحديث حالة الطلب إلى: ${getStatusText(status)}` });
-    } catch (e: any) {
-       toast({ title: "فشل تحديث الطلب", description: e.message, variant: "destructive" });
-    }
+    await updateOrderStatus(orderId, status);
+    toast({ title: `تم تحديث حالة الطلب إلى: ${getStatusText(status)}` });
   };
   
   const handleDelete = async (orderId: string) => {
