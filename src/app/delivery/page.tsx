@@ -45,20 +45,28 @@ export default function DeliveryPage() {
     const handleAcceptOrder = async (orderId: string) => {
         if (workerId && updateOrderStatus) {
             setIsProcessing(orderId);
-            await updateOrderStatus(orderId, 'confirmed', workerId);
-            toast({title: "تم قبول الطلب بنجاح!"})
-            setIsProcessing(null);
+            try {
+                await updateOrderStatus(orderId, 'confirmed', workerId);
+                toast({title: "تم قبول الطلب بنجاح!"})
+            } catch (error) {
+                // The error toast is handled in the context now
+            } finally {
+                setIsProcessing(null);
+            }
         }
     };
 
      const handleRejectOrder = async (orderId: string) => {
         if (workerId && updateOrderStatus && allOrders) {
             setIsProcessing(orderId);
-            // By setting it to 'unassigned' and passing the current worker's ID, 
-            // the context logic will re-assign it to someone else.
-            await updateOrderStatus(orderId, 'unassigned', workerId); 
-            toast({title: "تم رفض الطلب", variant: 'destructive'});
-            setIsProcessing(null);
+             try {
+                await updateOrderStatus(orderId, 'unassigned', workerId); 
+                toast({title: "تم رفض الطلب", variant: 'default'});
+            } catch (error) {
+                // The error toast is handled in the context now
+            } finally {
+                setIsProcessing(null);
+            }
         }
     };
     
@@ -70,7 +78,7 @@ export default function DeliveryPage() {
         router.replace('/delivery/login');
     };
 
-    if (!context || context.isLoading || !workerId) return <div>جار التحميل...</div>;
+    if (!context || context.isLoading || !workerId) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
     const worker = deliveryWorkers?.find(w => w.id === workerId);
     
     const OrderCard = ({order, isMyOrder}: {order: Order, isMyOrder: boolean}) => {
