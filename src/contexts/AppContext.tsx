@@ -198,7 +198,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             const savedAddresses = localStorage.getItem('speedShopAddresses');
             if(savedAddresses) setAddresses(JSON.parse(savedAddresses));
         } catch (e) { console.error("Failed to parse addresses from localStorage", e); }
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -789,5 +788,3 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
-
-    

@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import React from "react";
+import React, { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useSupportTickets } from "@/hooks/useSupportTickets";
 
@@ -52,7 +52,10 @@ const navItems = [
 export function AdminNav({ isSheet = false }: { isSheet?: boolean }) {
   const pathname = usePathname();
   const { supportTickets } = useSupportTickets();
-  const openTicketsCount = supportTickets.filter(t => !t.isResolved).length || 0;
+  
+  const openTicketsCount = useMemo(() => {
+    return supportTickets.filter(t => !t.isResolved).length;
+  }, [supportTickets]);
 
   const navContent = (
     <nav className={cn("flex flex-col items-center gap-4 px-2 sm:py-5", isSheet && "items-stretch text-lg font-medium px-4")}>
