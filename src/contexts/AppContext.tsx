@@ -1,14 +1,12 @@
-
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, doc, runTransaction, arrayUnion, addDoc, updateDoc, deleteDoc, setDoc, query, where, writeBatch, onSnapshot, getDoc, getDocs } from 'firebase/firestore';
+import { collection, doc, runTransaction, arrayUnion, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
 import { sendTelegramMessage } from '@/lib/telegram';
-import { getWorkerLevel } from '@/lib/workerLevels';
 import { formatCurrency } from '@/lib/utils';
 import { ToastAction } from '@/components/ui/toast';
 import type { 
@@ -98,8 +96,6 @@ interface AppContextType {
 
     mySupportTicket: SupportTicket | null;
     startNewTicketClient: () => void;
-    
-    assignOrderToNextWorker: (orderId: string, excludedWorkerIds: string[]) => Promise<void>;
 }
 
 
@@ -144,25 +140,28 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             if(savedAddresses) setAddresses(JSON.parse(savedAddresses));
         } catch (e) { console.error("Failed to parse addresses from localStorage", e); }
 
-        const unsubscribers = [
-            onSnapshot(collection(db, "products"), (snap) => setProducts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)))),
-            onSnapshot(collection(db, "categories"), (snap) => setCategoriesData(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Omit<Category, 'icon'>)))),
-            onSnapshot(collection(db, "restaurants"), (snap) => setRestaurants(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant)))),
-            onSnapshot(collection(db, "banners"), (snap) => setBanners(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)))),
-            onSnapshot(collection(db, "deliveryZones"), (snap) => setDeliveryZones(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryZone)))),
-            onSnapshot(collection(db, "orders"), (snap) => {
-                 const ordersData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-                 setAllOrders(ordersData.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-            }),
-            onSnapshot(collection(db, "supportTickets"), (snap) => setSupportTickets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportTicket)))),
-            onSnapshot(collection(db, "coupons"), (snap) => setCoupons(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)))),
-            onSnapshot(collection(db, "telegramConfigs"), (snap) => setTelegramConfigs(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TelegramConfig)))),
-            onSnapshot(collection(db, "deliveryWorkers"), (snap) => setDeliveryWorkers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeliveryWorker)))),
-        ];
+        const collections = {
+            products: setProducts,
+            categories: setCategoriesData,
+            restaurants: setRestaurants,
+            banners: setBanners,
+            deliveryZones: setDeliveryZones,
+            orders: (data: any) => setAllOrders(data.sort((a: Order, b: Order) => new Date(b.date).getTime() - new Date(a.date).getTime())),
+            supportTickets: setSupportTickets,
+            coupons: setCoupons,
+            telegramConfigs: setTelegramConfigs,
+            deliveryWorkers: setDeliveryWorkers,
+        };
+
+        const unsubscribers = Object.entries(collections).map(([name, setter]) => 
+            onSnapshot(collection(db, name), 
+                (snap) => setter(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))),
+                (error) => console.error(`Error fetching ${name}:`, error)
+            )
+        );
 
         setIsLoading(false);
         
-
         return () => unsubscribers.forEach(unsub => unsub());
     }, []);
 
@@ -466,44 +465,31 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     
     const assignOrderToNextWorker = useCallback(async (orderId: string, excludedWorkerIds: string[] = []) => {
         try {
-            const orderRef = doc(db, "orders", orderId);
-            
-            // Refetch data inside the function to ensure it's up-to-date
-            const allOrdersSnapshot = await getDocs(collection(db, "orders"));
-            const currentAllOrders = allOrdersSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as Order);
-            const orderToAssign = currentAllOrders.find(o => o.id === orderId);
-            
-            const deliveryWorkersSnapshot = await getDocs(collection(db, "deliveryWorkers"));
-            const currentDeliveryWorkers = deliveryWorkersSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as DeliveryWorker);
-            
-            const telegramConfigsSnapshot = await getDocs(collection(db, "telegramConfigs"));
-            const currentTelegramConfigs = telegramConfigsSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as TelegramConfig);
-
-
+            const orderToAssign = allOrders.find(o => o.id === orderId);
             if (!orderToAssign) throw new Error("Order to assign not found");
 
             const completedOrdersByWorker: {[workerId: string]: number} = {};
-            currentAllOrders.forEach(o => {
+            allOrders.forEach(o => {
                 if (o.status === 'delivered' && o.deliveryWorkerId) {
                     completedOrdersByWorker[o.deliveryWorkerId] = (completedOrdersByWorker[o.deliveryWorkerId] || 0) + 1;
                 }
             });
 
-            const busyWorkerIds = new Set(currentAllOrders.filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status)).map(o => o.deliveryWorkerId).filter((id): id is string => !!id));
+            const busyWorkerIds = new Set(allOrders.filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status)).map(o => o.deliveryWorkerId).filter((id): id is string => !!id));
             
-            const availableWorkers = currentDeliveryWorkers.filter(w => w.isOnline && !busyWorkerIds.has(w.id) && !excludedWorkerIds.includes(w.id));
+            const availableWorkers = deliveryWorkers.filter(w => w.isOnline && !busyWorkerIds.has(w.id) && !excludedWorkerIds.includes(w.id));
 
             if (availableWorkers.length === 0) {
-                await updateDoc(orderRef, { status: 'unassigned' as OrderStatus, assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: excludedWorkerIds });
+                await updateDoc(doc(db, "orders", orderId), { status: 'unassigned' as OrderStatus, assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: excludedWorkerIds });
                 return;
             }
 
             availableWorkers.sort((a,b) => (completedOrdersByWorker[a.id] || 0) - (completedOrdersByWorker[b.id] || 0));
             const nextWorker = availableWorkers[0];
             
-            await updateDoc(orderRef, { status: 'pending_assignment' as OrderStatus, assignedToWorkerId: nextWorker.id, assignmentTimestamp: new Date().toISOString(), rejectedBy: excludedWorkerIds });
+            await updateDoc(doc(db, "orders", orderId), { status: 'pending_assignment' as OrderStatus, assignedToWorkerId: nextWorker.id, assignmentTimestamp: new Date().toISOString(), rejectedBy: excludedWorkerIds });
             
-            const workerConfig = currentTelegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
+            const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
             if (workerConfig) {
                 sendTelegramMessage(workerConfig.chatId, `*لديك طلب جديد في الانتظار* 🛵\n*رقم الطلب:* \`${orderId.substring(0, 6)}\`\n*المنطقة:* ${orderToAssign.address.deliveryZone}\n*ربحك من التوصيل:* ${formatCurrency(orderToAssign.deliveryFee)}`);
             }
@@ -511,25 +497,29 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             console.error("Failed to assign order to next worker:", error);
             toast({title: "فشل تعيين الطلب", description: "حدث خطأ أثناء محاولة تعيين الطلب لعامل آخر.", variant: "destructive"});
         }
-    }, [toast]);
+    }, [allOrders, deliveryWorkers, telegramConfigs, toast]);
     
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
             await runTransaction(db, async (transaction) => {
                 const orderRef = doc(db, "orders", orderId);
                 const orderDoc = await transaction.get(orderRef);
-
-                if (!orderDoc.exists()) {
-                    throw new Error("لم يتم العثور على الطلب.");
-                }
+                if (!orderDoc.exists()) throw new Error("لم يتم العثور على الطلب.");
                 const currentOrder = orderDoc.data() as Order;
+                
                 const updateData: any = { status };
 
                 if (status === 'confirmed' && workerId) {
                     if (currentOrder.status !== 'pending_assignment' || currentOrder.assignedToWorkerId !== workerId) {
                         throw new Error("لم يعد هذا الطلب متاحًا لك.");
                     }
+                    const workerDocRef = doc(db, "deliveryWorkers", workerId);
+                    const workerDoc = await transaction.get(workerDocRef);
+                    if (!workerDoc.exists()) throw new Error("لم يتم العثور على العامل.");
+
+                    const workerData = workerDoc.data() as DeliveryWorker;
                     updateData.deliveryWorkerId = workerId;
+                    updateData.deliveryWorker = { id: workerId, name: workerData.name };
                 } else if (status === 'unassigned' && workerId) {
                     updateData.rejectedBy = arrayUnion(workerId);
                 }
@@ -542,18 +532,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
                 transaction.update(orderRef, updateData);
             });
-
+            
             if (status === 'unassigned' && workerId) {
                 const order = allOrders.find(o => o.id === orderId);
-                if (order) {
-                    await assignOrderToNextWorker(orderId, order.rejectedBy || []);
-                }
+                if (order) await assignOrderToNextWorker(orderId, order.rejectedBy || []);
             }
-            
+            toast({ title: `تم تحديث حالة الطلب بنجاح` });
+
         } catch (error: any) {
             console.error("Failed to update order status:", error);
             toast({title: "فشل تحديث الطلب", description: error.message, variant: "destructive"});
-            throw error; // Re-throw the error to be caught by the caller
+            throw error;
         }
     }, [toast, assignOrderToNextWorker, allOrders]);
     
@@ -575,7 +564,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     const foundCoupon = coupons.find(c => c.code === couponCode.trim().toUpperCase());
                     if (foundCoupon) {
                         couponDoc = doc(db, "coupons", foundCoupon.id);
-                        couponData = await transaction.get(couponDoc).then(snap => snap.exists() ? { id: snap.id, ...snap.data() } as Coupon : null);
+                        const couponSnap = await transaction.get(couponDoc);
+                        if (!couponSnap.exists()) throw new Error(`كود الخصم "${couponCode}" غير صالح.`);
+                        couponData = { id: couponSnap.id, ...couponSnap.data() } as Coupon;
                     } else { throw new Error(`كود الخصم "${couponCode}" غير صالح.`); }
                 }
 
@@ -635,8 +626,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
             clearCart();
             
-            const newOrder = (await getDoc(doc(db, "orders", newOrderId))).data() as Order;
-            if (newOrder) {
+            const newOrderSnap = await getDoc(doc(db, "orders", newOrderId));
+            if (newOrderSnap.exists()) {
+                 const newOrder = newOrderSnap.data() as Order;
                  telegramConfigs.filter(c => c.type === 'owner').forEach(c => {
                     sendTelegramMessage(c.chatId, `*طلب جديد!* 🎉\n*رقم الطلب:* \`${newOrderId?.substring(0, 6)}\`\n*الزبون:* ${newOrder.address.name}\n*المنطقة:* ${newOrder.address.deliveryZone}\n*المبلغ:* ${formatCurrency(newOrder.total)}`);
                 });
@@ -648,7 +640,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             throw error;
         }
 
-    }, [userId, clearCart, telegramConfigs, assignOrderToNextWorker, coupons, allOrders, restaurants]);
+    }, [userId, clearCart, telegramConfigs, assignOrderToNextWorker, coupons, restaurants]);
     
     const deleteOrder = useCallback(async (orderId: string) => {
         try {
@@ -678,7 +670,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress,
         mySupportTicket, startNewTicketClient,
-        assignOrderToNextWorker,
     }), [
         products, categories, restaurants, banners, deliveryZones, allOrders, supportTickets, coupons, telegramConfigs, deliveryWorkers,
         isLoading, addProduct, updateProduct, deleteProduct, addCategory, updateCategory, deleteCategory, addRestaurant, updateRestaurant, deleteRestaurant,
@@ -686,8 +677,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         placeOrder, addDeliveryWorker, updateWorkerStatus, createSupportTicket, addMessageToTicket, resolveSupportTicket,
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress,
-        mySupportTicket, startNewTicketClient,
-        assignOrderToNextWorker
+        mySupportTicket, startNewTicketClient
     ]);
     
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

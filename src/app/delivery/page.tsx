@@ -1,13 +1,12 @@
-
 "use client";
 
 import { useEffect, useState, useMemo, useContext } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency, calculateDistance } from '@/lib/utils';
-import { LogOut, MapPin, Package, BarChart3, Clock, Shield, Store, CircleDot, Loader2, PlayCircle, Search, ExternalLink } from 'lucide-react';
+import { LogOut, MapPin, Package, Shield, Store, CircleDot, Loader2, PlayCircle, Search, ExternalLink } from 'lucide-react';
 import type { Order } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { AppContext } from '@/contexts/AppContext';
@@ -110,7 +109,7 @@ export default function DeliveryPage() {
         const orderRestaurant = useMemo(() => {
             if (!restaurants || !order.restaurant) return null;
             return restaurants.find(r => r.id === order.restaurant!.id);
-        }, [order.restaurant, restaurants]);
+        }, [order.restaurant]);
 
         const { distance, mapUrl } = useMemo(() => {
             if (!orderRestaurant?.latitude || !orderRestaurant?.longitude || !order.address.latitude || !order.address.longitude) {
@@ -170,10 +169,10 @@ export default function DeliveryPage() {
                 </CardContent>
                 <CardFooter className="grid grid-cols-2 gap-4">
                     <Button variant="destructive" size="lg" onClick={() => handleRejectOrder(order.id)} disabled={isThisCardProcessing}>
-                        {isThisCardProcessing ? <Loader2 className="h-5 w-5 animate-spin"/> : 'رفض'}
+                        {isThisCardProcessing && isProcessing === order.id ? <Loader2 className="h-5 w-5 animate-spin"/> : 'رفض'}
                     </Button>
                     <Button size="lg" className="bg-green-600 hover:bg-green-700" onClick={() => handleAcceptOrder(order.id)} disabled={isThisCardProcessing}>
-                        {isThisCardProcessing ? <Loader2 className="h-5 w-5 animate-spin"/> : 'قبول الطلب'}
+                        {isThisCardProcessing && isProcessing === order.id ? <Loader2 className="h-5 w-5 animate-spin"/> : 'قبول الطلب'}
                     </Button>
                 </CardFooter>
             </Card>
