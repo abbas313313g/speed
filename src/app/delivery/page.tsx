@@ -1,26 +1,30 @@
 
-
 "use client";
 
-import { useContext, useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatCurrency, calculateDistance } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LogOut, MapPin, Package, RefreshCw, BarChart3, Clock, Shield, Store, CircleDot, Loader2 } from 'lucide-react';
-import type { Order, Restaurant } from '@/lib/types';
+import type { Order } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { useOrders } from '@/hooks/useOrders';
+import { useRestaurants } from '@/hooks/useRestaurants';
+import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 
 export default function DeliveryPage() {
-    const context = useContext(AppContext);
     const router = useRouter();
     const { toast } = useToast();
     const [workerId, setWorkerId] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState<string | null>(null); // orderId being processed
+
+    const { allOrders, isLoading: ordersLoading, updateOrderStatus } = useOrders();
+    const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
+    const { deliveryWorkers, isLoading: workersLoading, updateWorkerStatus } = useDeliveryWorkers();
 
     useEffect(() => {
         const id = localStorage.getItem('deliveryWorkerId');
@@ -31,8 +35,6 @@ export default function DeliveryPage() {
         }
     }, [router]);
     
-    const { allOrders, updateOrderStatus, restaurants, deliveryWorkers } = context || {};
-
     const { availableOrders, myOrders } = useMemo(() => {
         if (!allOrders || !workerId) return { availableOrders: [], myOrders: [] };
         return {
@@ -48,8 +50,8 @@ export default function DeliveryPage() {
             try {
                 await updateOrderStatus(orderId, 'confirmed', workerId);
                 toast({title: "تم قبول الطلب بنجاح!"})
-            } catch (error) {
-                // The error toast is handled in the context now
+            } catch (error: any) {
+                toast({title: "فشل قبول الطلب", description: error.message, variant: "destructive"});
             } finally {
                 setIsProcessing(null);
             }
@@ -62,8 +64,8 @@ export default function DeliveryPage() {
              try {
                 await updateOrderStatus(orderId, 'unassigned', workerId); 
                 toast({title: "تم رفض الطلب", variant: 'default'});
-            } catch (error) {
-                // The error toast is handled in the context now
+            } catch (error: any) {
+                toast({title: "فشل رفض الطلب", description: error.message, variant: "destructive"});
             } finally {
                 setIsProcessing(null);
             }
@@ -71,14 +73,16 @@ export default function DeliveryPage() {
     };
     
     const handleLogout = () => {
-        if(workerId && context) {
-            context.updateWorkerStatus(workerId, false);
+        if(workerId) {
+            updateWorkerStatus(workerId, false);
         }
         localStorage.removeItem('deliveryWorkerId');
         router.replace('/delivery/login');
     };
-
-    if (!context || context.isLoading || !workerId) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    
+    const isLoading = ordersLoading || restaurantsLoading || workersLoading || !workerId;
+    if (isLoading) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    
     const worker = deliveryWorkers?.find(w => w.id === workerId);
     
     const OrderCard = ({order, isMyOrder}: {order: Order, isMyOrder: boolean}) => {

@@ -1,19 +1,16 @@
 
 "use client";
 
-import { useContext } from 'react';
-import { AppContext } from '@/contexts/AppContext';
 import { RestaurantCard } from '@/components/RestaurantCard';
+import { useRestaurants } from '@/hooks/useRestaurants';
 
 export default function RestaurantsPage() {
-  const context = useContext(AppContext);
+  const { restaurants, isLoading } = useRestaurants();
 
-  if (!context || context.isLoading) {
+  if (isLoading) {
     return <div>جار التحميل...</div>;
   }
   
-  const { restaurants } = context;
-
   return (
     <div className="p-4 space-y-6">
       <header>
@@ -34,4 +31,3 @@ export default function RestaurantsPage() {
     </div>
   );
 }
-

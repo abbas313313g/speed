@@ -1,10 +1,9 @@
 
 "use client";
 
-import { useContext, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { AppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,17 +23,18 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
+import { useOrders } from '@/hooks/useOrders';
 
 
 export default function DeliveryOrderDetailPage() {
   const { id } = useParams();
-  const context = useContext(AppContext);
   const router = useRouter();
   const { toast } = useToast();
+  const { allOrders, isLoading, updateOrderStatus } = useOrders();
 
-  const order = useMemo(() => context?.allOrders.find(o => o.id === id), [id, context?.allOrders]);
+  const order = useMemo(() => allOrders.find(o => o.id === id), [id, allOrders]);
 
-  if (!context || context.isLoading) {
+  if (isLoading) {
     return (
         <div className="p-4 space-y-4">
             <Skeleton className="h-12 w-full" />
@@ -52,8 +52,6 @@ export default function DeliveryOrderDetailPage() {
           </div>
       )
   }
-
-  const { updateOrderStatus } = context;
 
    const getStatusText = (status: OrderStatus) => {
         switch (status) {

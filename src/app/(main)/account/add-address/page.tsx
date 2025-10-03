@@ -1,9 +1,8 @@
 
 "use client";
 
-import { useContext, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,11 +17,15 @@ import {
 import { MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Address } from "@/lib/types";
+import { useAddresses } from "@/hooks/useAddresses";
+import { useDeliveryZones } from "@/hooks/useDeliveryZones";
 
 export default function AddAddressPage() {
-  const context = useContext(AppContext);
   const router = useRouter();
   const { toast } = useToast();
+  const { addAddress } = useAddresses();
+  const { deliveryZones } = useDeliveryZones();
+  
   const [address, setAddress] = useState<Omit<Address, "id">>({
     name: "",
     phone: "",
@@ -33,8 +36,6 @@ export default function AddAddressPage() {
   });
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
-  if (!context) return null;
-  const { addAddress, deliveryZones } = context;
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>

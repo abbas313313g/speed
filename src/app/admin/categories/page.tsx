@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -36,7 +36,7 @@ import type { Category } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { categories as initialCategories } from '@/lib/mock-data';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AppContext } from '@/contexts/AppContext';
+import { useCategories } from '@/hooks/useCategories';
 
 const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = initialCategories.reduce((acc, cat) => {
     acc[cat.iconName] = cat.icon;
@@ -51,12 +51,12 @@ const EMPTY_CATEGORY: Omit<Category, 'id' | 'icon'> = {
 };
 
 export default function AdminCategoriesPage() {
-  const context = useContext(AppContext);
+  const { categories, isLoading, addCategory, updateCategory, deleteCategory } = useCategories();
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentCategory, setCurrentCategory] = useState<Omit<Category, 'icon' | 'id'> & {id?: string}>({ ...EMPTY_CATEGORY });
   
-  if (!context || context.isLoading) {
+  if (isLoading) {
     return (
       <div className="space-y-8">
       <header className="flex justify-between items-center">
@@ -74,8 +74,6 @@ export default function AdminCategoriesPage() {
       </div>
     );
   }
-
-  const { categories, addCategory, updateCategory, deleteCategory } = context;
 
   const handleOpenDialog = (category?: Category) => {
     if (category) {
@@ -196,5 +194,3 @@ export default function AdminCategoriesPage() {
     </div>
   );
 }
-
-    

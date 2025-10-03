@@ -1,10 +1,9 @@
 
 "use client";
 
-import { useContext, useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { AppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { Minus, Plus, ShoppingCart, ArrowRight } from 'lucide-react';
@@ -14,16 +13,19 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import type { ProductSize } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
+import { useProducts } from '@/hooks/useProducts';
+import { useCart } from '@/hooks/useCart';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const context = useContext(AppContext);
   const { toast } = useToast();
+  const { products, isLoading } = useProducts();
+  const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(undefined);
 
-  const product = useMemo(() => context?.products.find(p => p.id === id), [id, context?.products]);
+  const product = useMemo(() => products.find(p => p.id === id), [id, products]);
 
   // Set default selected size when product loads
   useEffect(() => {
@@ -47,7 +49,7 @@ export default function ProductDetailPage() {
 
   const isOutOfStock = availableStock <= 0;
 
-  if (!product || !context) {
+  if (isLoading || !product) {
     return (
         <div className="p-4 space-y-4">
             <Skeleton className="h-64 w-full rounded-lg" />
@@ -60,7 +62,6 @@ export default function ProductDetailPage() {
   }
 
   const handleAddToCart = () => {
-    if (context) {
       if (isOutOfStock) return;
       if (product.sizes && product.sizes.length > 0 && !selectedSize) {
         toast({
@@ -70,14 +71,13 @@ export default function ProductDetailPage() {
         });
         return;
       }
-      const wasAdded = context.addToCart(product, quantity, selectedSize);
+      const wasAdded = addToCart(product, quantity, selectedSize);
       if (wasAdded) {
           toast({
             title: "تمت الإضافة إلى السلة",
             description: `${quantity}x ${product.name}${selectedSize ? ` (${selectedSize.name})` : ''}`,
           });
       }
-    }
   };
 
   const handleQuantityChange = (newQuantity: number) => {

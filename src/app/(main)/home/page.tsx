@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useRef, useContext } from "react";
+import { useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Autoplay from "embla-carousel-autoplay"
@@ -19,17 +19,27 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Layers } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AppContext } from "@/contexts/AppContext";
+import { useCategories } from "@/hooks/useCategories";
+import { useBanners } from "@/hooks/useBanners";
+import { useProducts } from "@/hooks/useProducts";
+import { useRestaurants } from "@/hooks/useRestaurants";
+import { useOrders } from "@/hooks/useOrders";
 
 
 export default function HomePage() {
-  const context = useContext(AppContext);
+  const { categories, isLoading: categoriesLoading } = useCategories();
+  const { banners, isLoading: bannersLoading } = useBanners();
+  const { products, isLoading: productsLoading } = useProducts();
+  const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
+  const { allOrders, isLoading: ordersLoading } = useOrders();
   
   const plugin = useRef(
     Autoplay({ delay: 3000, stopOnInteraction: true })
   )
+  
+  const isLoading = categoriesLoading || bannersLoading || productsLoading || restaurantsLoading || ordersLoading;
 
-  if (!context || context.isLoading) {
+  if (isLoading) {
     return (
         <div className="p-4 space-y-8">
         <Skeleton className="h-12 w-3/4" />
@@ -48,8 +58,6 @@ export default function HomePage() {
         </div>
     );
   }
-
-  const { categories, banners, products, restaurants, allOrders } = context;
 
   const bestSellers = (() => {
         const salesCount: { [productId: string]: number } = {};
@@ -157,5 +165,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    

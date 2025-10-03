@@ -1,17 +1,17 @@
 
 "use client";
 
-import React, { useContext, useMemo } from "react";
+import React, { useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { PlusCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
-import type { Product, ProductSize } from "@/lib/types";
+import type { Product } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { AppContext } from "@/contexts/AppContext";
 import { Badge } from "@/components/ui/badge";
+import { useCart } from "@/hooks/useCart";
 
 interface ProductCardProps {
   product: Product;
@@ -19,7 +19,7 @@ interface ProductCardProps {
 
 function ProductCardComponent({ product }: ProductCardProps) {
   const { toast } = useToast();
-  const context = useContext(AppContext);
+  const { addToCart } = useCart();
 
   const isOutOfStock = useMemo(() => {
     if (product.sizes && product.sizes.length > 0) {
@@ -34,22 +34,20 @@ function ProductCardComponent({ product }: ProductCardProps) {
         toast({ title: "نفدت الكمية", description: `منتج "${product.name}" غير متوفر حالياً.`, variant: "destructive" });
         return;
     }
-    if (context) {
-        if (product.sizes && product.sizes.length > 0) {
-            toast({
-                title: "الرجاء اختيار الحجم",
-                description: `لمنتج "${product.name}" أحجام متعددة. الرجاء الدخول لصفحة المنتج لاختيار الحجم.`,
-                variant: "default",
-            })
-            return;
-        }
-        const wasAdded = context.addToCart(product, 1);
-        if (wasAdded) {
-            toast({
-                title: "تمت الإضافة إلى السلة",
-                description: `تمت إضافة ${product.name} إلى سلتك.`,
-            });
-        }
+    if (product.sizes && product.sizes.length > 0) {
+        toast({
+            title: "الرجاء اختيار الحجم",
+            description: `لمنتج "${product.name}" أحجام متعددة. الرجاء الدخول لصفحة المنتج لاختيار الحجم.`,
+            variant: "default",
+        })
+        return;
+    }
+    const wasAdded = addToCart(product, 1);
+    if (wasAdded) {
+        toast({
+            title: "تمت الإضافة إلى السلة",
+            description: `تمت إضافة ${product.name} إلى سلتك.`,
+        });
     }
   };
 

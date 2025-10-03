@@ -1,8 +1,7 @@
 
 "use client";
 
-import { useContext, useState } from 'react';
-import { AppContext } from '@/contexts/AppContext';
+import { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -37,7 +36,7 @@ import type { Coupon } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-
+import { useCoupons } from '@/hooks/useCoupons';
 
 const EMPTY_COUPON: Omit<Coupon, 'id' | 'usedCount' | 'usedBy'> = {
     code: '',
@@ -47,14 +46,13 @@ const EMPTY_COUPON: Omit<Coupon, 'id' | 'usedCount' | 'usedBy'> = {
 };
 
 export default function AdminCouponsPage() {
-  const context = useContext(AppContext);
   const { toast } = useToast();
+  const { coupons, isLoading, addCoupon, deleteCoupon } = useCoupons();
   const [open, setOpen] = useState(false);
   const [currentCoupon, setCurrentCoupon] = useState<Omit<Coupon, 'id' | 'usedCount' | 'usedBy'>>({ ...EMPTY_COUPON });
   const [isSaving, setIsSaving] = useState(false);
 
-  if (!context || context.isLoading) return <div>جار التحميل...</div>;
-  const { coupons, addCoupon, deleteCoupon } = context;
+  if (isLoading) return <div>جار التحميل...</div>;
   
   const handleSave = async () => {
     if (!currentCoupon.code || currentCoupon.discountValue <= 0 || currentCoupon.maxUses <= 0) {
@@ -90,11 +88,11 @@ export default function AdminCouponsPage() {
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="discountValue" className="text-right">قيمة الخصم</Label>
-                        <Input id="discountValue" type="number" value={currentCoupon.discountValue} onChange={(e) => setCurrentCoupon({...currentCoupon, discountValue: parseFloat(e.target.value) || 0})} className="col-span-3" />
+                        <Input id="discountValue" type="number" value={currentCoupon.discountValue || ''} onChange={(e) => setCurrentCoupon({...currentCoupon, discountValue: e.target.value === '' ? 0 : parseFloat(e.target.value)})} className="col-span-3" />
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="maxUses" className="text-right">أقصى عدد استخدام</Label>
-                        <Input id="maxUses" type="number" value={currentCoupon.maxUses} onChange={(e) => setCurrentCoupon({...currentCoupon, maxUses: parseInt(e.target.value) || 1})} className="col-span-3" />
+                        <Input id="maxUses" type="number" value={currentCoupon.maxUses || ''} onChange={(e) => setCurrentCoupon({...currentCoupon, maxUses: e.target.value === '' ? 0 : parseInt(e.target.value)})} className="col-span-3" />
                     </div>
                 </div>
                 <DialogFooter>

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef, useEffect, FormEvent, useContext } from "react";
+import { useState, useRef, useEffect, FormEvent } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,17 +9,17 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Loader2, Send, User, ShieldCheck, MessageSquareWarning, PlusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { AppContext } from "@/contexts/AppContext";
 import type { Message } from "@/lib/types";
+import { useSupportTickets } from "@/hooks/useSupportTickets";
 
 export default function SupportPage() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const context = useContext(AppContext);
-
-  const ticket = context?.mySupportTicket;
+  
+  const { mySupportTicket, createSupportTicket, addMessageToTicket, startNewTicketClient } = useSupportTickets();
+  const ticket = mySupportTicket;
   const conversationHistory = ticket?.history || [];
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function SupportPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading || !context) return;
+    if (!input.trim() || isLoading) return;
     
     setIsLoading(true);
     
@@ -48,9 +48,9 @@ export default function SupportPage() {
 
     try {
         if (ticket && !ticket.isResolved) {
-            await context.addMessageToTicket(ticket.id, userMessage);
+            await addMessageToTicket(ticket.id, userMessage);
         } else {
-            await context.createSupportTicket(userMessage);
+            await createSupportTicket(userMessage);
             toast({ title: "تم إرسال رسالتك", description: "سيقوم فريق الدعم بالرد عليك قريبًا." });
         }
     } catch (error) {
@@ -66,9 +66,7 @@ export default function SupportPage() {
   };
 
   const handleStartNewConversation = () => {
-    if (context) {
-        context.startNewTicketClient();
-    }
+    startNewTicketClient();
   }
 
 

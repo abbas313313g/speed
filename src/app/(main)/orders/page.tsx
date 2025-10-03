@@ -1,9 +1,8 @@
 
 "use client";
 
-import { useContext, useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { AppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { ShoppingBag, User, XCircle } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -25,17 +24,20 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-
+import { useOrders } from '@/hooks/useOrders';
+import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 
 export default function OrdersPage() {
-    const context = useContext(AppContext);
     const { toast } = useToast();
+    const [userId, setUserId] = useState<string | null>(null);
 
-    if (!context) {
-        return <div>جار التحميل...</div>;
-    }
-
-    const { allOrders, deliveryWorkers, updateOrderStatus, userId } = context;
+    const { allOrders, isLoading: ordersLoading, updateOrderStatus } = useOrders();
+    const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers();
+    
+    useEffect(() => {
+        const id = localStorage.getItem('speedShopUserId');
+        if (id) setUserId(id);
+    }, []);
 
     const myOrders = useMemo(() => {
       if (!userId || !allOrders) return [];
@@ -82,7 +84,11 @@ export default function OrdersPage() {
         }
     }
 
-    if (myOrders.length === 0 && !context.isLoading) {
+    if (ordersLoading || workersLoading) {
+        return <div>جار التحميل...</div>;
+    }
+
+    if (myOrders.length === 0 && !ordersLoading) {
         return (
             <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] text-center p-4">
                 <ShoppingBag className="h-24 w-24 text-muted-foreground/50 mb-4" />

@@ -1,9 +1,6 @@
 
-
 "use client";
 
-import { useContext } from 'react';
-import { AppContext } from '@/contexts/AppContext';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { DollarSign, ShoppingCart, Users, Activity, TrendingUp } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
@@ -11,26 +8,29 @@ import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
 import { useMemo } from 'react';
+import { useOrders } from '@/hooks/useOrders';
+import { useUsers } from '@/hooks/useUsers';
 
 export default function AdminDashboard() {
-  const context = useContext(AppContext);
+  const { allOrders, isLoading: ordersLoading } = useOrders();
+  const { allUsers, isLoading: usersLoading } = useUsers();
 
   const stats = useMemo(() => {
-    if (!context?.allOrders) return { totalRevenue: 0, totalOrders: 0, newCustomers: 0, avgOrderValue: 0, totalProfit: 0 };
+    if (!allOrders) return { totalRevenue: 0, totalOrders: 0, newCustomers: 0, avgOrderValue: 0, totalProfit: 0 };
     
-    const totalRevenue = context.allOrders.reduce((acc, order) => acc + (order.total || 0), 0);
-    const totalProfit = context.allOrders.reduce((acc, order) => acc + (order.profit || 0), 0);
-    const totalOrders = context.allOrders.length;
-    const newCustomers = context.allUsers.filter(u => !u.isAdmin).length;
+    const totalRevenue = allOrders.reduce((acc, order) => acc + (order.total || 0), 0);
+    const totalProfit = allOrders.reduce((acc, order) => acc + (order.profit || 0), 0);
+    const totalOrders = allOrders.length;
+    const newCustomers = allUsers.filter(u => !u.isAdmin).length;
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
     
     return { totalRevenue, totalOrders, newCustomers, avgOrderValue, totalProfit };
-  }, [context?.allOrders, context?.allUsers]);
+  }, [allOrders, allUsers]);
 
   const chartData = useMemo(() => {
-     if (!context?.allOrders) return [];
+     if (!allOrders) return [];
      const monthlyData: {[key: string]: { revenue: number, profit: number }} = {};
-     context.allOrders.forEach(order => {
+     allOrders.forEach(order => {
         const month = new Date(order.date).toLocaleString('default', { month: 'short' });
         if (!monthlyData[month]) {
             monthlyData[month] = { revenue: 0, profit: 0 };
@@ -39,7 +39,7 @@ export default function AdminDashboard() {
         monthlyData[month].profit += order.profit || 0;
      });
      return Object.keys(monthlyData).map(month => ({ month, ...monthlyData[month] }));
-  }, [context?.allOrders]);
+  }, [allOrders]);
 
   const chartConfig = {
     revenue: {
@@ -51,6 +51,10 @@ export default function AdminDashboard() {
       color: "hsl(var(--chart-2))",
     }
   } satisfies ChartConfig
+
+  if (ordersLoading || usersLoading) {
+      return <div>جار التحميل...</div>
+  }
 
   return (
     <div className="space-y-8">

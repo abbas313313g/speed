@@ -1,9 +1,7 @@
 
-
 "use client";
 
-import { useContext, useState, FormEvent } from 'react';
-import { AppContext } from '@/contexts/AppContext';
+import { useState } from 'react';
 import type { SupportTicket, Message } from '@/lib/types';
 import {
   Table,
@@ -30,17 +28,16 @@ import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { useSupportTickets } from '@/hooks/useSupportTickets';
 
 export default function AdminSupportTicketsPage() {
-  const context = useContext(AppContext);
+  const { supportTickets, isLoading, resolveSupportTicket, addMessageToTicket } = useSupportTickets();
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [reply, setReply] = useState("");
   const [isReplying, setIsReplying] = useState(false);
   const { toast } = useToast();
 
-  if (!context || context.isLoading) return <div>جار التحميل...</div>;
-
-  const { supportTickets, resolveSupportTicket, addMessageToTicket } = context;
+  if (isLoading) return <div>جار التحميل...</div>;
 
   const sortedTickets = [...supportTickets].sort((a,b) => {
     if (a.isResolved !== b.isResolved) {
@@ -49,7 +46,7 @@ export default function AdminSupportTicketsPage() {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   });
 
-  const handleReply = async (e: FormEvent) => {
+  const handleReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reply.trim() || !selectedTicket) return;
     setIsReplying(true);

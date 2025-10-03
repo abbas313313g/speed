@@ -1,8 +1,7 @@
 
 "use client";
 
-import { useContext, useState } from 'react';
-import { AppContext } from '@/contexts/AppContext';
+import { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -43,6 +42,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { useTelegramConfigs } from '@/hooks/useTelegramConfigs';
+import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 
 
 const EMPTY_CONFIG: Omit<TelegramConfig, 'id'> = {
@@ -52,14 +53,15 @@ const EMPTY_CONFIG: Omit<TelegramConfig, 'id'> = {
 };
 
 export default function AdminTelegramPage() {
-  const context = useContext(AppContext);
   const { toast } = useToast();
+  const { telegramConfigs, isLoading: configsLoading, addTelegramConfig, deleteTelegramConfig } = useTelegramConfigs();
+  const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers();
+  
   const [open, setOpen] = useState(false);
   const [currentConfig, setCurrentConfig] = useState<Omit<TelegramConfig, 'id'>>({ ...EMPTY_CONFIG });
   const [isSaving, setIsSaving] = useState(false);
 
-  if (!context || context.isLoading) return <div>جار التحميل...</div>;
-  const { telegramConfigs, deliveryWorkers, addTelegramConfig, deleteTelegramConfig } = context;
+  if (configsLoading || workersLoading) return <div>جار التحميل...</div>;
   
   const handleSave = async () => {
     if (!currentConfig.name || !currentConfig.chatId) {

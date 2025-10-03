@@ -1,14 +1,15 @@
+
 "use client";
 
-import { useState, useContext, FormEvent } from 'react';
+import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { AppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Bike, KeyRound, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 
 export default function DeliveryLoginPage() {
     const [step, setStep] = useState(1); // 1 for login, 2 for register
@@ -17,12 +18,9 @@ export default function DeliveryLoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     
     const router = useRouter();
-    const context = useContext(AppContext);
     const { toast } = useToast();
+    const { deliveryWorkers, addDeliveryWorker, updateWorkerStatus } = useDeliveryWorkers();
 
-    if (!context) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
-
-    const { deliveryWorkers, addDeliveryWorker, updateWorkerStatus } = context;
 
     const handleLogin = async (e: FormEvent) => {
         e.preventDefault();

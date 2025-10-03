@@ -1,8 +1,7 @@
 
 "use client";
 
-import { useContext, useMemo } from 'react';
-import { AppContext } from '@/contexts/AppContext';
+import { useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -14,6 +13,8 @@ import {
 import { formatCurrency } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import type { DeliveryWorker } from '@/lib/types';
+import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
+import { useOrders } from '@/hooks/useOrders';
 
 
 interface WorkerStats {
@@ -23,11 +24,11 @@ interface WorkerStats {
 }
 
 export default function AdminDeliveryWorkersPage() {
-  const context = useContext(AppContext);
+  const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers();
+  const { allOrders, isLoading: ordersLoading } = useOrders();
 
   const stats: WorkerStats[] = useMemo(() => {
-    if (!context) return [];
-    const { deliveryWorkers, allOrders } = context;
+    if (!deliveryWorkers || !allOrders) return [];
 
     return deliveryWorkers.map(worker => {
         const workerOrders = allOrders.filter(order => order.deliveryWorkerId === worker.id && order.status === 'delivered');
@@ -39,9 +40,9 @@ export default function AdminDeliveryWorkersPage() {
         };
     }).sort((a, b) => b.deliveredOrdersCount - a.deliveredOrdersCount);
 
-  }, [context]);
+  }, [deliveryWorkers, allOrders]);
 
-  if (!context || context.isLoading) return <div>جار التحميل...</div>;
+  if (workersLoading || ordersLoading) return <div>جار التحميل...</div>;
 
   return (
     <div className="space-y-8">

@@ -1,8 +1,8 @@
+
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from '@/lib/utils';
-import { AppProvider } from '@/contexts/AppContext';
 
 export const metadata: Metadata = {
   title: 'Speed Shop',
@@ -22,9 +22,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
       </head>
       <body className={cn("font-body antialiased", process.env.NODE_ENV === "development" ? "debug-screens" : "")}>
-          <AppProvider>
             {children}
-          </AppProvider>
           <Toaster />
       </body>
     </html>

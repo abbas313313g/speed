@@ -29,9 +29,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import React, { useContext } from "react";
-import { AppContext } from "@/contexts/AppContext";
+import React from "react";
 import { Badge } from "@/components/ui/badge";
+import { useSupportTickets } from "@/hooks/useSupportTickets";
 
 
 const navItems = [
@@ -51,8 +51,8 @@ const navItems = [
 
 export function AdminNav({ isSheet = false }: { isSheet?: boolean }) {
   const pathname = usePathname();
-  const context = useContext(AppContext);
-  const openTicketsCount = context?.supportTickets.filter(t => !t.isResolved).length || 0;
+  const { supportTickets } = useSupportTickets();
+  const openTicketsCount = supportTickets.filter(t => !t.isResolved).length || 0;
 
   const navContent = (
     <nav className={cn("flex flex-col items-center gap-4 px-2 sm:py-5", isSheet && "items-stretch text-lg font-medium px-4")}>

@@ -1,10 +1,9 @@
 
 "use client";
 
-import { useContext, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Minus, Plus, Trash2, Home, Loader2, MapPin, AlertCircle } from "lucide-react";
 import { formatCurrency, calculateDistance, calculateDeliveryFee } from "@/lib/utils";
@@ -29,23 +28,23 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
-import type { Restaurant } from "@/lib/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useCart } from "@/hooks/useCart";
+import { useAddresses } from "@/hooks/useAddresses";
+import { useRestaurants } from "@/hooks/useRestaurants";
 
 const MAX_DELIVERY_DISTANCE = 25; // 25 km
 
 export default function CartPage() {
-  const context = useContext(AppContext);
   const { toast } = useToast();
   const [selectedAddressId, setSelectedAddressId] = useState<string | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [couponCode, setCouponCode] = useState("");
 
-  if (!context) {
-    return <div>جار التحميل...</div>;
-  }
+  const { cart, updateCartQuantity, removeFromCart, clearCart, cartTotal, placeOrder } = useCart();
+  const { addresses } = useAddresses();
+  const { restaurants } = useRestaurants();
 
-  const { cart, updateCartQuantity, removeFromCart, clearCart, cartTotal, addresses, placeOrder, restaurants } = context;
 
   const cartRestaurant = useMemo(() => {
     if (cart.length === 0) return null;
@@ -94,17 +93,17 @@ export default function CartPage() {
 
     setIsSubmitting(true);
     try {
-      await placeOrder(selectedAddress, couponCode);
+      await placeOrder(selectedAddress, deliveryFee, couponCode);
       toast({
         title: "تم استلام طلبك بنجاح!",
-        description: "يجب الخروج والرجوع من التطبيق لكي تطلب مرة اخرى.",
+        description: "يمكنك متابعة حالة طلبك من صفحة الطلبات.",
         duration: 5000,
       });
       // Reset coupon code after successful order
       setCouponCode("");
 
     } catch (error: any) {
-       // Error toast is handled inside placeOrder now
+       toast({ title: "فشل إرسال الطلب", description: error.message, variant: "destructive" });
     } finally {
         setIsSubmitting(false);
     }
@@ -293,5 +292,3 @@ export default function CartPage() {
     </div>
   );
 }
-
-    

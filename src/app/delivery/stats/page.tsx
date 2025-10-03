@@ -1,10 +1,8 @@
 
-
 "use client";
 
-import { useContext, useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { AppContext } from '@/contexts/AppContext';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { DollarSign, ShoppingCart, ArrowRight, ShieldAlert } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
@@ -12,11 +10,16 @@ import { Button } from '@/components/ui/button';
 import { getWorkerLevel } from '@/lib/workerLevels';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
+import { useOrders } from '@/hooks/useOrders';
 
 export default function DeliveryStatsPage() {
-  const context = useContext(AppContext);
   const router = useRouter();
   const [workerId, setWorkerId] = useState<string | null>(null);
+
+  const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers();
+  const { allOrders, isLoading: ordersLoading } = useOrders();
+
 
   useEffect(() => {
     const id = localStorage.getItem('deliveryWorkerId');
@@ -28,26 +31,26 @@ export default function DeliveryStatsPage() {
   }, [router]);
 
   const { stats, worker, level, isFrozen } = useMemo(() => {
-    if (!context || !workerId) {
+    if (!workerId || !deliveryWorkers || !allOrders) {
         return { stats: { totalEarnings: 0, deliveredOrders: 0 }, worker: null, level: null, isFrozen: false };
     }
     
-    const worker = context.deliveryWorkers.find(w => w.id === workerId);
+    const worker = deliveryWorkers.find(w => w.id === workerId);
     if (!worker) {
         return { stats: { totalEarnings: 0, deliveredOrders: 0 }, worker: null, level: null, isFrozen: false };
     }
 
-    const myDeliveredOrders = context.allOrders.filter(order => order.deliveryWorkerId === workerId && order.status === 'delivered');
+    const myDeliveredOrders = allOrders.filter(order => order.deliveryWorkerId === workerId && order.status === 'delivered');
     const totalEarnings = myDeliveredOrders.reduce((acc, order) => acc + (order.deliveryFee || 0), 0);
     const deliveredOrders = myDeliveredOrders.length;
     
     const {level, isFrozen} = getWorkerLevel(worker, deliveredOrders, new Date());
     
     return { stats: { totalEarnings, deliveredOrders }, worker, level, isFrozen };
-  }, [context, workerId]);
+  }, [workerId, deliveryWorkers, allOrders]);
 
 
-  if (!context || !workerId || context.isLoading) {
+  if (workersLoading || ordersLoading || !workerId) {
       return (
           <div className="p-4 space-y-6">
               <div className="flex items-center gap-4">

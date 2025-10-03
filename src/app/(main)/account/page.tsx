@@ -1,9 +1,7 @@
 
 "use client";
 
-import { useContext } from "react";
 import Link from "next/link";
-import { AppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,15 +11,14 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Home, PlusCircle, Trash2, MessageSquareHeart, Shield } from "lucide-react";
+import { useAddresses } from "@/hooks/useAddresses";
 
 export default function AccountPage() {
-  const context = useContext(AppContext);
+  const { addresses, deleteAddress, isLoading } = useAddresses();
 
-  if (!context) {
+  if (isLoading) {
     return <div>جار التحميل...</div>;
   }
-
-  const { addresses, deleteAddress } = context;
 
   return (
     <div className="p-4 space-y-6">

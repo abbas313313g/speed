@@ -1,24 +1,26 @@
 
 "use client";
 
-import { useContext, useState, useMemo } from 'react';
-import { AppContext } from '@/contexts/AppContext';
+import { useState, useMemo } from 'react';
 import { ProductCard } from "@/components/ProductCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
+import { useProducts } from '@/hooks/useProducts';
+import { useCategories } from '@/hooks/useCategories';
 
 export default function ProductsPage() {
-  const context = useContext(AppContext);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
 
-  if (!context) {
+  const { products, isLoading: productsLoading } = useProducts();
+  const { categories, isLoading: categoriesLoading } = useCategories();
+
+
+  if (productsLoading || categoriesLoading) {
     return <div>جار التحميل...</div>;
   }
   
-  const { products, categories } = context;
-
   const filteredProducts = useMemo(() => {
       let prods = products;
 
@@ -79,5 +81,3 @@ export default function ProductsPage() {
     </div>
   );
 }
-
-    

@@ -1,24 +1,28 @@
 
 "use client";
 
-import { useContext, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { AppContext } from '@/contexts/AppContext';
 import { ProductCard } from '@/components/ProductCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
 import { Star, ArrowRight, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useRestaurants } from '@/hooks/useRestaurants';
+import { useProducts } from '@/hooks/useProducts';
 
 export default function RestaurantProductsPage() {
   const { id } = useParams();
-  const context = useContext(AppContext);
   const router = useRouter();
+  const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
+  const { products, isLoading: productsLoading } = useProducts();
 
-  const restaurant = useMemo(() => context?.restaurants.find(r => r.id === id), [id, context?.restaurants]);
-  const restaurantProducts = useMemo(() => context?.products.filter(p => p.restaurantId === id), [id, context?.products]);
+  const restaurant = useMemo(() => restaurants.find(r => r.id === id), [id, restaurants]);
+  const restaurantProducts = useMemo(() => products.filter(p => p.restaurantId === id), [id, products]);
   
-  if (!context || context.isLoading) {
+  const isLoading = restaurantsLoading || productsLoading;
+
+  if (isLoading) {
     return (
         <div className="p-4 space-y-4">
             <div className="flex items-center gap-4">
