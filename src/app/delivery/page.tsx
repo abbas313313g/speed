@@ -1,19 +1,16 @@
 
 "use client";
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useContext } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatCurrency, calculateDistance } from '@/lib/utils';
-import { LogOut, MapPin, Package, BarChart3, Clock, Shield, Store, CircleDot, Loader2, PlayCircle, Search } from 'lucide-react';
+import { LogOut, MapPin, Package, BarChart3, Clock, Shield, Store, CircleDot, Loader2, PlayCircle, Search, ExternalLink } from 'lucide-react';
 import type { Order } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { useOrders } from '@/hooks/useOrders';
-import { useRestaurants } from '@/hooks/useRestaurants';
-import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
-import Image from 'next/image';
+import { AppContext } from '@/contexts/AppContext';
 
 type DriverStatus = 'IDLE' | 'SEARCHING' | 'ORDER_ASSIGNED';
 
@@ -24,9 +21,12 @@ export default function DeliveryPage() {
     const [isProcessing, setIsProcessing] = useState<string | null>(null); // orderId being processed
     const [driverStatus, setDriverStatus] = useState<DriverStatus>('IDLE');
 
-    const { allOrders, isLoading: ordersLoading, updateOrderStatus } = useOrders();
-    const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
-    const { deliveryWorkers, isLoading: workersLoading, updateWorkerStatus } = useDeliveryWorkers();
+    const context = useContext(AppContext);
+    if (!context) {
+        throw new Error("AppContext is missing");
+    }
+    const { allOrders, restaurants, deliveryWorkers, isLoading: contextLoading, updateOrderStatus, updateWorkerStatus } = context;
+
 
     useEffect(() => {
         const id = localStorage.getItem('deliveryWorkerId');
@@ -34,16 +34,18 @@ export default function DeliveryPage() {
             router.replace('/delivery/login');
         } else {
             setWorkerId(id);
+            const worker = deliveryWorkers?.find(w => w.id === id);
+            if (worker?.isOnline) {
+                setDriverStatus('SEARCHING');
+            }
         }
-    }, [router]);
+    }, [router, deliveryWorkers]);
     
     const assignedOrder = useMemo(() => {
         if (!allOrders || !workerId) return null;
-        // Find the first order that is pending assignment for this worker
         return allOrders.find(o => o.status === 'pending_assignment' && o.assignedToWorkerId === workerId);
     }, [allOrders, workerId]);
     
-    // Update driver status based on assignedOrder
     useEffect(() => {
         if (driverStatus === 'SEARCHING' && assignedOrder) {
             setDriverStatus('ORDER_ASSIGNED');
@@ -54,14 +56,14 @@ export default function DeliveryPage() {
 
 
     const handleAcceptOrder = async (orderId: string) => {
-        if (workerId) {
+        if (workerId && updateOrderStatus) {
             setIsProcessing(orderId);
             try {
                 await updateOrderStatus(orderId, 'confirmed', workerId);
-                // Navigate to the full details page after accepting
+                toast({title: "تم قبول الطلب بنجاح!"})
                 router.push(`/delivery/order/${orderId}`);
             } catch (error: any) {
-                 // Error toast is handled inside the hook
+                toast({title: "فشل قبول الطلب", description: error.message, variant: "destructive"});
             } finally {
                 setIsProcessing(null);
             }
@@ -69,15 +71,14 @@ export default function DeliveryPage() {
     };
 
      const handleRejectOrder = async (orderId: string) => {
-        if (workerId && allOrders) {
+        if (workerId && updateOrderStatus && allOrders) {
             setIsProcessing(orderId);
              try {
-                // The 'unassigned' status will trigger finding a new driver
                 await updateOrderStatus(orderId, 'unassigned', workerId); 
-                // Go back to searching state
+                toast({title: "تم رفض الطلب", variant: 'default'});
                 setDriverStatus('SEARCHING');
             } catch (error: any) {
-                // Error toast is handled inside the hook
+                toast({title: "فشل رفض الطلب", description: error.message, variant: "destructive"});
             } finally {
                 setIsProcessing(null);
             }
@@ -100,7 +101,7 @@ export default function DeliveryPage() {
         }
     }
     
-    const isLoading = ordersLoading || restaurantsLoading || workersLoading || !workerId;
+    const isLoading = contextLoading || !workerId;
     if (isLoading) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
     
     const worker = deliveryWorkers?.find(w => w.id === workerId);
@@ -116,7 +117,6 @@ export default function DeliveryPage() {
                  return { distance: null, mapUrl: null };
             }
             const dist = calculateDistance(order.address.latitude, order.address.longitude, orderRestaurant.latitude, orderRestaurant.longitude);
-            // Construct a Google Maps URL with both origin (restaurant) and destination (customer)
             const url = `https://www.google.com/maps/dir/?api=1&origin=${orderRestaurant.latitude},${orderRestaurant.longitude}&destination=${order.address.latitude},${order.address.longitude}`;
             return { distance: dist, mapUrl: url };
         }, [order.address, orderRestaurant]);
@@ -129,14 +129,6 @@ export default function DeliveryPage() {
                     <CardTitle className="text-center text-2xl">لديك طلب جديد!</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {mapUrl && (
-                        <a href={mapUrl} target="_blank" rel="noopener noreferrer">
-                           <Button className="w-full" variant="outline">
-                                <MapPin className="ml-2 h-5 w-5" />
-                                عرض المسار على الخريطة
-                           </Button>
-                        </a>
-                    )}
                     <div className="grid grid-cols-2 gap-4 text-center">
                         <div className="p-2 bg-muted rounded-lg">
                             <p className="text-sm text-muted-foreground">ربحك من التوصيل</p>
@@ -147,6 +139,14 @@ export default function DeliveryPage() {
                             <p className="font-bold text-lg">{distance ? `${distance.toFixed(1)} كم` : 'غير معروف'}</p>
                         </div>
                     </div>
+                    {mapUrl && (
+                        <a href={mapUrl} target="_blank" rel="noopener noreferrer">
+                            <Button variant="outline" className="w-full">
+                                <ExternalLink className="ml-2 h-4 w-4" />
+                                عرض المسار على الخريطة
+                            </Button>
+                        </a>
+                    )}
                     <div className="p-3 bg-blue-50 dark:bg-blue-900/50 rounded-lg text-center">
                         <p className="text-sm text-blue-600 dark:text-blue-300">المبلغ المطلوب من الزبون</p>
                         <p className="font-bold text-2xl text-blue-700 dark:text-blue-200">{formatCurrency(order.total)}</p>
@@ -167,10 +167,10 @@ export default function DeliveryPage() {
                 </CardContent>
                 <CardFooter className="grid grid-cols-2 gap-4">
                     <Button variant="destructive" size="lg" onClick={() => handleRejectOrder(order.id)} disabled={isThisCardProcessing}>
-                        {isThisCardProcessing && isProcessing === order.id ? <Loader2 className="h-5 w-5 animate-spin"/> : 'رفض'}
+                        {isThisCardProcessing ? <Loader2 className="h-5 w-5 animate-spin"/> : 'رفض'}
                     </Button>
                     <Button size="lg" className="bg-green-600 hover:bg-green-700" onClick={() => handleAcceptOrder(order.id)} disabled={isThisCardProcessing}>
-                        {isThisCardProcessing && isProcessing === order.id ? <Loader2 className="h-5 w-5 animate-spin"/> : 'قبول الطلب'}
+                        {isThisCardProcessing ? <Loader2 className="h-5 w-5 animate-spin"/> : 'قبول الطلب'}
                     </Button>
                 </CardFooter>
             </Card>
@@ -228,3 +228,6 @@ export default function DeliveryPage() {
         </div>
     );
 }
+
+
+    

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, getDocs, doc, runTransaction, arrayUnion, addDoc, updateDoc, deleteDoc, setDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, runTransaction, arrayUnion, addDoc, updateDoc, deleteDoc, setDoc, query, where, writeBatch } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -538,47 +538,42 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     
     const assignOrderToNextWorker = useCallback(async (orderId: string, excludedWorkerIds: string[] = []) => {
         try {
-            await runTransaction(db, async (transaction) => {
-                const orderRef = doc(db, "orders", orderId);
-                const orderDoc = await transaction.get(orderRef);
-                if (!orderDoc.exists()) throw new Error("Order does not exist.");
-                const orderData = orderDoc.data() as Order;
+            const orderRef = doc(db, "orders", orderId);
+            
+            // We need the latest data for workers and orders for this logic
+            const workersSnap = await getDocs(collection(db, "deliveryWorkers"));
+            const currentWorkers = workersSnap.docs.map(d => ({id: d.id, ...d.data()}) as DeliveryWorker);
+            
+            const ordersSnap = await getDocs(collection(db, "orders"));
+            const currentOrders = ordersSnap.docs.map(d => ({id: d.id, ...d.data()}) as Order);
 
-                const currentWorkersSnapshot = await getDocs(collection(db, "deliveryWorkers"));
-                const allCurrentWorkers = currentWorkersSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as DeliveryWorker);
-                
-                const allOrdersSnapshot = await getDocs(collection(db, "orders"));
-                const allCurrentOrders = allOrdersSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as Order);
+            const orderToAssign = currentOrders.find(o => o.id === orderId);
+            if (!orderToAssign) throw new Error("Order to assign not found");
 
-                const completedOrdersByWorker: {[workerId: string]: number} = {};
-                allCurrentOrders.forEach(o => {
-                    if (o.status === 'delivered' && o.deliveryWorkerId) {
-                        completedOrdersByWorker[o.deliveryWorkerId] = (completedOrdersByWorker[o.deliveryWorkerId] || 0) + 1;
-                    }
-                });
-                const busyWorkerIds = new Set(allCurrentOrders.filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status)).map(o => o.deliveryWorkerId).filter((id): id is string => !!id));
-                
-                const availableWorkers = allCurrentWorkers.filter(w => w.isOnline && !busyWorkerIds.has(w.id) && !excludedWorkerIds.includes(w.id));
-
-                if (availableWorkers.length === 0) {
-                    transaction.update(orderRef, { status: 'unassigned' as OrderStatus, assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: excludedWorkerIds });
-                    return;
-                }
-
-                availableWorkers.sort((a,b) => (completedOrdersByWorker[a.id] || 0) - (completedOrdersByWorker[b.id] || 0));
-                const nextWorker = availableWorkers[0];
-                transaction.update(orderRef, { status: 'pending_assignment' as OrderStatus, assignedToWorkerId: nextWorker.id, assignmentTimestamp: new Date().toISOString(), rejectedBy: excludedWorkerIds });
-                
-                const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
-                if (workerConfig) {
-                    sendTelegramMessage(workerConfig.chatId, `*لديك طلب جديد في الانتظار* 🛵\n*رقم الطلب:* \`${orderId.substring(0, 6)}\`\n*المنطقة:* ${orderData.address.deliveryZone}\n*ربحك من التوصيل:* ${formatCurrency(orderData.deliveryFee)}`);
+            const completedOrdersByWorker: {[workerId: string]: number} = {};
+            currentOrders.forEach(o => {
+                if (o.status === 'delivered' && o.deliveryWorkerId) {
+                    completedOrdersByWorker[o.deliveryWorkerId] = (completedOrdersByWorker[o.deliveryWorkerId] || 0) + 1;
                 }
             });
 
-            const updatedOrderSnap = await getDoc(doc(db, "orders", orderId));
-            if(updatedOrderSnap.exists()){
-                const updatedOrder = { id: updatedOrderSnap.id, ...updatedOrderSnap.data() } as Order;
-                setAllOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
+            const busyWorkerIds = new Set(currentOrders.filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status)).map(o => o.deliveryWorkerId).filter((id): id is string => !!id));
+            
+            const availableWorkers = currentWorkers.filter(w => w.isOnline && !busyWorkerIds.has(w.id) && !excludedWorkerIds.includes(w.id));
+
+            if (availableWorkers.length === 0) {
+                await updateDoc(orderRef, { status: 'unassigned' as OrderStatus, assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: excludedWorkerIds });
+                return;
+            }
+
+            availableWorkers.sort((a,b) => (completedOrdersByWorker[a.id] || 0) - (completedOrdersByWorker[b.id] || 0));
+            const nextWorker = availableWorkers[0];
+            
+            await updateDoc(orderRef, { status: 'pending_assignment' as OrderStatus, assignedToWorkerId: nextWorker.id, assignmentTimestamp: new Date().toISOString(), rejectedBy: excludedWorkerIds });
+            
+            const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
+            if (workerConfig) {
+                sendTelegramMessage(workerConfig.chatId, `*لديك طلب جديد في الانتظار* 🛵\n*رقم الطلب:* \`${orderId.substring(0, 6)}\`\n*المنطقة:* ${orderToAssign.address.deliveryZone}\n*ربحك من التوصيل:* ${formatCurrency(orderToAssign.deliveryFee)}`);
             }
         } catch (error) {
             console.error("Failed to assign order to next worker:", error);
@@ -586,81 +581,107 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, [telegramConfigs, toast]);
     
-    const placeOrder = useCallback(async (currentCart: CartItem[], address: Address, deliveryFee: number, couponCode?: string) => {
+    
+    const placeOrder = useCallback(async (currentCart: CartItem[], address: Address, deliveryFee: number, couponCode?: string): Promise<string> => {
         if (!userId) throw new Error("User ID not found.");
         if (currentCart.length === 0) throw new Error("السلة فارغة.");
         
-        const newOrderRef = doc(collection(db, "orders"));
-        await runTransaction(db, async (transaction) => {
-            const productRefsAndItems = currentCart.map(item => ({ ref: doc(db, "products", item.product.id), item: item }));
-            
-            let couponSnap: any = null;
-            let couponData: Coupon | null = null;
-            if (couponCode?.trim()) {
-                const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim().toUpperCase()));
-                const couponQuerySnap = await getDocs(couponQuery);
-                if (!couponQuerySnap.empty) {
-                    couponSnap = couponQuerySnap.docs[0];
-                    couponData = { id: couponSnap.id, ...couponSnap.data() } as Coupon;
-                } else { throw new Error(`كود الخصم "${couponCode}" غير صالح.`); }
-            }
+        let newOrderId: string | null = null;
+        
+        try {
+            await runTransaction(db, async (transaction) => {
+                const productRefs = currentCart.map(item => doc(db, "products", item.product.id));
+                const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
-            if (couponData && couponSnap) {
-                if (couponData.usedCount >= couponData.maxUses) throw new Error("تم استخدام هذا الكود بالكامل.");
-                if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
-            }
-
-            let calculatedProfit = 0;
-
-            for (const { ref, item } of productRefsAndItems) {
-                const productDoc = await transaction.get(ref);
-                if (!productDoc.exists()) throw new Error(`منتج "${item.product.name}" لم يعد متوفرًا.`);
-                const serverProduct = productDoc.data() as Product;
-                
-                const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price;
-                const wholesalePrice = serverProduct.wholesalePrice ?? 0;
-                if(itemPrice < wholesalePrice) throw new Error(`سعر بيع المنتج ${serverProduct.name} أقل من سعر الجملة.`);
-                calculatedProfit += (itemPrice - wholesalePrice) * item.quantity;
-
-                if (item.selectedSize) {
-                    const size = serverProduct.sizes?.find(s => s.name === item.selectedSize!.name);
-                    if (!size || size.stock < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name} (${item.selectedSize.name})" غير متوفرة.`);
-                    const newSizes = serverProduct.sizes?.map(s => s.name === item.selectedSize!.name ? { ...s, stock: s.stock - item.quantity } : s) ?? [];
-                    transaction.update(ref, { sizes: newSizes });
-                } else {
-                    if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
-                    transaction.update(ref, { stock: (serverProduct.stock || 0) - item.quantity });
+                let couponSnap: any = null;
+                let couponData: Coupon | null = null;
+                if (couponCode?.trim()) {
+                    const couponQuery = query(collection(db, "coupons"), where("code", "==", couponCode.trim().toUpperCase()));
+                    const couponQuerySnap = await getDocs(couponQuery);
+                    if (!couponQuerySnap.empty) {
+                        couponSnap = couponQuerySnap.docs[0];
+                        couponData = { id: couponSnap.id, ...couponSnap.data() } as Coupon;
+                    } else { throw new Error(`كود الخصم "${couponCode}" غير صالح.`); }
                 }
-            }
+
+                if (couponData) {
+                    if (couponData.usedCount >= couponData.maxUses) throw new Error("تم استخدام هذا الكود بالكامل.");
+                    if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
+                }
+
+                let calculatedProfit = 0;
+
+                for (let i = 0; i < productDocs.length; i++) {
+                    const productDoc = productDocs[i];
+                    const item = currentCart[i];
+                    if (!productDoc.exists()) throw new Error(`منتج "${item.product.name}" لم يعد متوفرًا.`);
+                    const serverProduct = productDoc.data() as Product;
+                    
+                    const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price;
+                    const wholesalePrice = serverProduct.wholesalePrice ?? 0;
+                    if(itemPrice < wholesalePrice) throw new Error(`سعر بيع المنتج ${serverProduct.name} أقل من سعر الجملة.`);
+                    calculatedProfit += (itemPrice - wholesalePrice) * item.quantity;
+
+                    if (item.selectedSize) {
+                        const size = serverProduct.sizes?.find(s => s.name === item.selectedSize!.name);
+                        if (!size || size.stock < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name} (${item.selectedSize.name})" غير متوفرة.`);
+                        const newSizes = serverProduct.sizes?.map(s => s.name === item.selectedSize!.name ? { ...s, stock: s.stock - item.quantity } : s) ?? [];
+                        transaction.update(productRefs[i], { sizes: newSizes });
+                    } else {
+                        if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
+                        transaction.update(productRefs[i], { stock: (serverProduct.stock || 0) - item.quantity });
+                    }
+                }
+                
+                let discountAmount = 0;
+                let appliedCouponInfo: Order['appliedCoupon'] = null;
+                if (couponData && couponSnap) {
+                    discountAmount = couponData.discountValue;
+                    appliedCouponInfo = { code: couponData.code, discountAmount: discountAmount };
+                    transaction.update(couponSnap.ref, { usedCount: couponData.usedCount + 1, usedBy: arrayUnion(userId) });
+                }
+
+                const subtotal = currentCart.reduce((total, item) => {
+                    const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
+                    return total + price * item.quantity;
+                }, 0);
+                const finalTotal = Math.max(0, subtotal - discountAmount) + deliveryFee;
+                
+                const newOrderRef = doc(collection(db, "orders"));
+                newOrderId = newOrderRef.id;
+
+                const newOrderData: Omit<Order, 'id'> = { userId, items: currentCart, total: finalTotal, date: new Date().toISOString(), status: 'unassigned', estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(), address, profit: calculatedProfit, deliveryFee, deliveryWorkerId: null, deliveryWorker: null, assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: [], appliedCoupon: appliedCouponInfo, };
+                transaction.set(newOrderRef, newOrderData);
+            });
             
-            let discountAmount = 0;
-            let appliedCouponInfo: Order['appliedCoupon'] = null;
-            if (couponData && couponSnap) {
-                discountAmount = couponData.discountValue;
-                appliedCouponInfo = { code: couponData.code, discountAmount: discountAmount };
-                transaction.update(couponSnap.ref, { usedCount: couponData.usedCount + 1, usedBy: arrayUnion(userId) });
+            if (!newOrderId) throw new Error("Failed to create new order ID.");
+
+            // After transaction is successful
+            clearCart();
+            
+            // Manually fetch the new order to update the state
+            const newOrderSnap = await getDoc(doc(db, 'orders', newOrderId));
+            if (newOrderSnap.exists()) {
+                const newOrder = { id: newOrderSnap.id, ...newOrderSnap.data() } as Order;
+                setAllOrders(prev => [newOrder, ...prev].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                 telegramConfigs.filter(c => c.type === 'owner').forEach(c => {
+                    sendTelegramMessage(c.chatId, `*طلب جديد!* 🎉\n*رقم الطلب:* \`${newOrder.id.substring(0, 6)}\`\n*الزبون:* ${newOrder.address.name}\n*المنطقة:* ${newOrder.address.deliveryZone}\n*المبلغ:* ${formatCurrency(newOrder.total)}`);
+                });
+                await assignOrderToNextWorker(newOrder.id, []);
+            }
+             // Manually refetch products and coupons
+            const productsSnap = await getDocs(collection(db, "products"));
+            setProducts(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+            if (couponCode) {
+                 const couponsSnap = await getDocs(collection(db, "coupons"));
+                 setCoupons(couponsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon)));
             }
 
-            const subtotal = currentCart.reduce((total, item) => {
-                const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
-                return total + price * item.quantity;
-            }, 0);
-            const finalTotal = Math.max(0, subtotal - discountAmount) + deliveryFee;
-            
-            const newOrderData: Omit<Order, 'id'> = { userId, items: currentCart, total: finalTotal, date: new Date().toISOString(), status: 'unassigned', estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(), address, profit: calculatedProfit, deliveryFee, deliveryWorkerId: null, deliveryWorker: null, assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: [], appliedCoupon: appliedCouponInfo, };
-            transaction.set(newOrderRef, newOrderData);
-        });
-        
-        clearCart();
-        const newOrderSnap = await getDoc(newOrderRef);
-        const newOrder = { id: newOrderSnap.id, ...newOrderSnap.data() } as Order;
-        
-        setAllOrders(prev => [newOrder, ...prev].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-        telegramConfigs.filter(c => c.type === 'owner').forEach(c => {
-            sendTelegramMessage(c.chatId, `*طلب جديد!* 🎉\n*رقم الطلب:* \`${newOrder.id.substring(0, 6)}\`\n*الزبون:* ${newOrder.address.name}\n*المنطقة:* ${newOrder.address.deliveryZone}\n*المبلغ:* ${formatCurrency(newOrder.total)}`);
-        });
-        await assignOrderToNextWorker(newOrder.id, []);
-        return newOrderRef.id;
+            return newOrderId;
+        } catch (error) {
+            console.error("Place order transaction failed: ", error);
+            throw error; // Re-throw to be caught by the calling function
+        }
 
     }, [userId, clearCart, telegramConfigs, assignOrderToNextWorker]);
 
@@ -671,11 +692,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 const orderDoc = await transaction.get(orderRef);
 
                 if (!orderDoc.exists()) throw new Error("لم يتم العثور على الطلب.");
+                
                 const currentOrder = orderDoc.data() as Order;
                 const updateData: any = { status };
 
                 if (status === 'confirmed' && workerId) {
                     if (currentOrder.status !== 'pending_assignment' || currentOrder.assignedToWorkerId !== workerId) throw new Error("لم يعد هذا الطلب متاحًا لك.");
+                    
                     const workerDocRef = doc(db, "deliveryWorkers", workerId);
                     const workerDoc = await transaction.get(workerDocRef);
                     if (!workerDoc.exists()) throw new Error("لم يتم العثور على عامل التوصيل.");
@@ -705,8 +728,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                         const now = new Date();
                         
                         const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered').length + 1;
-
                         const { isFrozen } = getWorkerLevel(worker, myDeliveredOrders, now);
+                        
                         let workerUpdate: Partial<DeliveryWorker> = {};
                         if (isFrozen) {
                             const unfreezeProgress = (worker.unfreezeProgress || 0) + 1;
@@ -768,23 +791,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress,
         mySupportTicket, startNewTicketClient,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }), [
         products, categories, restaurants, banners, deliveryZones, allOrders, supportTickets, coupons, telegramConfigs, deliveryWorkers, allUsers,
         isLoading,
-        addProduct, updateProduct, deleteProduct,
-        addCategory, updateCategory, deleteCategory,
-        addRestaurant, updateRestaurant, deleteRestaurant,
-        addBanner, updateBanner, deleteBanner,
-        addDeliveryZone, updateDeliveryZone, deleteDeliveryZone,
-        addCoupon, deleteCoupon,
-        addTelegramConfig, deleteTelegramConfig,
-        updateOrderStatus, deleteOrder, placeOrder,
-        addDeliveryWorker, updateWorkerStatus,
-        createSupportTicket, addMessageToTicket, resolveSupportTicket,
-        cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
-        userId, addresses, addAddress, deleteAddress,
-        mySupportTicket, startNewTicketClient
+        toast, uploadImage,
+        cart, cartTotal,
+        userId, addresses,
+        mySupportTicket, 
+        assignOrderToNextWorker
     ]);
     
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
+
+
+    
