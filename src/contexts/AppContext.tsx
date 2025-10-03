@@ -5,14 +5,14 @@ import React, { createContext, useEffect, useState, useCallback, useMemo } from 
 import type { Order, OrderStatus, SupportTicket, Message, TelegramConfig, DeliveryWorker, Coupon, Product, ProductSize, Category, Banner, DeliveryZone, CartItem, Restaurant, Address, User } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
-import { doc, updateDoc, deleteDoc, addDoc, collection, runTransaction, getDoc, arrayUnion, getDocs, writeBatch, setDoc, query, where, DocumentReference } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, addDoc, collection, runTransaction, getDoc, arrayUnion, getDocs, writeBatch, setDoc, query, where, DocumentReference, onSnapshot } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { calculateDeliveryFee, calculateDistance, formatCurrency } from '@/lib/utils';
 import { getWorkerLevel } from '@/lib/workerLevels';
 import { categories as initialCategories } from '@/lib/mock-data';
 import { ShoppingBasket } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { ToastAction } from '@/components/ui/toast';
+import { useCart } from '@/hooks/useCart';
 import { useAddresses } from '@/hooks/useAddresses';
 
 
@@ -41,10 +41,10 @@ type AppContextType = {
     
     // Cart
     cart: CartItem[];
-    addToCart: (product: Product, quantity: number, selectedSize?: any) => boolean;
-    removeFromCart: (productId: string, sizeName?: string) => void;
-    updateCartQuantity: (productId: string, quantity: number, sizeName?: string) => void;
-    clearCart: () => void;
+    addToCart: ReturnType<typeof useCart>['addToCart'];
+    removeFromCart: ReturnType<typeof useCart>['removeFromCart'];
+    updateCartQuantity: ReturnType<typeof useCart>['updateCartQuantity'];
+    clearCart: ReturnType<typeof useCart>['clearCart'];
     cartTotal: number;
     placeOrder: (address: any, couponCode?: string) => Promise<string | void>;
 
@@ -110,12 +110,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [telegramConfigs, setTelegramConfigs] = useState<TelegramConfig[]>([]);
     const [deliveryWorkers, setDeliveryWorkers] = useState<DeliveryWorker[]>([]);
     const [allUsers, setAllUsers] = useState<User[]>([]);
-    
-    const { addresses, addAddress, deleteAddress } = useAddresses();
+
+    const { addresses, addAddress, deleteAddress, setAddresses } = useAddresses();
+    const { cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, setCart } = useCart();
     
     // This useEffect will run only once on mount, fetching all data.
     useEffect(() => {
-        const fetchInitialData = async () => {
+        const fetchAllData = async () => {
             setIsLoading(true);
             try {
                 const collectionsToFetch = {
@@ -167,76 +168,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
         setUserId(id);
         
-        fetchInitialData();
-        
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-
-    const [cart, setCart] = useState<CartItem[]>([]);
-    useEffect(() => {
-        const savedCart = localStorage.getItem('speedShopCart');
-        if (savedCart) {
-            try {
-                setCart(JSON.parse(savedCart));
-            } catch (e) {
-                console.error("Failed to parse cart from localStorage", e);
-                setCart([]);
-            }
-        }
-    }, []);
-
-    useEffect(() => {
-        localStorage.setItem('speedShopCart', JSON.stringify(cart));
-    }, [cart]);
-
-    const addToCart = useCallback((product: Product, quantity: number, selectedSize?: ProductSize): boolean => {
-        const restaurantId = product.restaurantId;
-        const cartIsFromDifferentRestaurant = cart.length > 0 && cart[0].product.restaurantId !== restaurantId;
-
-        if (cartIsFromDifferentRestaurant) {
-            toast({
-                title: "بدء سلة جديدة؟",
-                description: "لديك منتجات من متجر آخر. هل تريد حذفها وبدء سلة جديدة من هذا المتجر؟",
-                action: <ToastAction altText="نعم، ابدأ" onClick={() => {
-                    setCart([{ product, quantity, selectedSize }]);
-                    toast({ title: "تمت الإضافة إلى السلة" });
-                }}>نعم، ابدأ</ToastAction>
-            });
-            return false;
-        }
-
-        setCart(prevCart => {
-            const existingItemIndex = prevCart.findIndex(item => item.product.id === product.id && item.selectedSize?.name === selectedSize?.name);
-            if (existingItemIndex > -1) {
-                const updatedCart = [...prevCart];
-                updatedCart[existingItemIndex].quantity += quantity;
-                return updatedCart;
-            }
-            return [...prevCart, { product, quantity, selectedSize }];
-        });
-        return true;
-    }, [cart, toast]);
-
-    const removeFromCart = useCallback((productId: string, sizeName?: string) => {
-        setCart(prev => prev.filter(item => !(item.product.id === productId && item.selectedSize?.name === sizeName)));
-    }, []);
-
-    const updateCartQuantity = useCallback((productId: string, quantity: number, sizeName?: string) => {
-        if (quantity < 1) {
-            removeFromCart(productId, sizeName);
-            return;
-        }
-        setCart(prev => prev.map(item => (item.product.id === productId && item.selectedSize?.name === sizeName) ? { ...item, quantity } : item));
-    }, [removeFromCart]);
-
-    const clearCart = useCallback(() => setCart([]), []);
-
-    const cartTotal = useMemo(() => cart.reduce((total, item) => {
-        const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
-        return total + price * item.quantity;
-    }, 0), [cart]);
-
+        fetchAllData();
+    }, [toast]);
+    
     const placeOrder = async (address: Address, couponCode?: string): Promise<string | void> => {
         if (!userId) throw new Error("User ID not found.");
         if (cart.length === 0) throw new Error("السلة فارغة.");
@@ -271,6 +205,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     const { item } = productRefsAndItems[i];
                     if (!productDoc.exists()) throw new Error(`منتج "${item.product.name}" لم يعد متوفرًا.`);
                     const serverProduct = productDoc.data() as Product;
+                    
+                    const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price;
+                    const wholesalePrice = serverProduct.wholesalePrice ?? 0;
+                    if(itemPrice < wholesalePrice) throw new Error(` سعر بيع المنتج ${serverProduct.name} أقل من سعر الجملة.`);
+
                     if (item.selectedSize) {
                         const size = serverProduct.sizes?.find(s => s.name === item.selectedSize!.name);
                         if (!size || size.stock < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name} (${item.selectedSize.name})" غير متوفرة.`);
@@ -627,11 +566,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             const updateData: Partial<Order> = { status };
 
             if (status === 'confirmed' && workerId) {
-                const workerDocRef = doc(db, "deliveryWorkers", workerId);
-                const workerSnap = await getDoc(workerDocRef);
-                if (!workerSnap.exists()) throw new Error("Delivery worker not found.");
-                
-                const workerData = workerSnap.data() as DeliveryWorker;
+                const workerData = deliveryWorkers.find(w => w.id === workerId);
+                if (!workerData) throw new Error("لم يتم العثور على عامل التوصيل.");
+
                 updateData.deliveryWorkerId = workerId;
                 updateData.deliveryWorker = { id: workerId, name: workerData.name };
             }
@@ -678,14 +615,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             toast({ title: "فشل تحديث الطلب", description: error.message, variant: "destructive" });
             throw error; // Re-throw to be caught in the component
         }
-    }, [allOrders, assignOrderToNextWorker, toast]);
+    }, [allOrders, assignOrderToNextWorker, toast, deliveryWorkers]);
 
     return (
         <AppContext.Provider value={{
             products, restaurants, categories, banners, deliveryZones, coupons, allOrders,
             supportTickets, telegramConfigs, deliveryWorkers, allUsers, isLoading, userId,
             addresses, addAddress, deleteAddress,
-            cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, placeOrder,
+            cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
+            placeOrder,
             addProduct, updateProduct, deleteProduct,
             addCategory, updateCategory, deleteCategory,
             addRestaurant, updateRestaurant, deleteRestaurant,
@@ -702,3 +640,5 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         </AppContext.Provider>
     );
 };
+
+    
