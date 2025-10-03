@@ -308,15 +308,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const startNewTicketClient = () => setMySupportTicket(null);
 
 
-    const addProduct = async (productData: Omit<Product, 'id'> & { image: string }) => {
+    const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }) => {
         try {
             const imageUrl = await uploadImage(productData.image, `products/${uuidv4()}`);
             const docRef = await addDoc(collection(db, "products"), { ...productData, image: imageUrl });
             setProducts(prev => [{id: docRef.id, ...productData, image: imageUrl} as Product, ...prev]);
             toast({ title: "تمت إضافة المنتج بنجاح" });
         } catch (error) { toast({ title: "فشل إضافة المنتج", variant: "destructive" }); }
-    };
-    const updateProduct = async (updatedProduct: Partial<Product> & { id: string }) => {
+    }, [toast]);
+
+    const updateProduct = useCallback(async (updatedProduct: Partial<Product> & { id: string }) => {
         try {
             const { id, ...productData } = updatedProduct;
             let finalData: Partial<Product> = {...productData};
@@ -327,47 +328,51 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             setProducts(prev => prev.map(p => p.id === id ? {...p, ...finalData} as Product : p));
             toast({ title: "تم تحديث المنتج بنجاح" });
         } catch (error) { toast({ title: "فشل تحديث المنتج", variant: "destructive" }); }
-    };
-    const deleteProduct = async (productId: string) => {
+    }, [toast]);
+
+    const deleteProduct = useCallback(async (productId: string) => {
         try {
             await deleteDoc(doc(db, "products", productId));
             setProducts(prev => prev.filter(p => p.id !== productId));
             toast({ title: "تم حذف المنتج بنجاح" });
         } catch (error) { toast({ title: "فشل حذف المنتج", variant: "destructive" }); }
-    };
+    }, [toast]);
 
-    const addCategory = async (categoryData: Omit<Category, 'id'|'icon'>) => {
+    const addCategory = useCallback(async (categoryData: Omit<Category, 'id'|'icon'>) => {
         try {
             const docRef = await addDoc(collection(db, "categories"), categoryData);
             setCategoriesData(prev => [{id: docRef.id, ...categoryData}, ...prev]);
             toast({ title: "تمت إضافة القسم بنجاح" });
         } catch (error) { toast({ title: "فشل إضافة القسم", variant: "destructive" }); }
-    };
-    const updateCategory = async (updatedCategory: Omit<Category, 'icon'|'id'> & { id: string }) => {
+    }, [toast]);
+
+    const updateCategory = useCallback(async (updatedCategory: Omit<Category, 'icon'|'id'> & { id: string }) => {
         try {
             const { id, ...categoryData } = updatedCategory;
             await updateDoc(doc(db, "categories", id), categoryData);
             setCategoriesData(prev => prev.map(c => c.id === id ? {...c, ...categoryData} : c));
             toast({ title: "تم تحديث القسم بنجاح" });
         } catch (error) { toast({ title: "فشل تحديث القسم", variant: "destructive" }); }
-    };
-    const deleteCategory = async (categoryId: string) => {
+    }, [toast]);
+
+    const deleteCategory = useCallback(async (categoryId: string) => {
         try {
             await deleteDoc(doc(db, "categories", categoryId));
             setCategoriesData(prev => prev.filter(c => c.id !== categoryId));
             toast({ title: "تم حذف القسم بنجاح" });
         } catch (error) { toast({ title: "فشل حذف القسم", variant: "destructive" }); }
-    };
+    }, [toast]);
     
-    const addRestaurant = async (restaurantData: Omit<Restaurant, 'id'> & { image: string }) => {
+    const addRestaurant = useCallback(async (restaurantData: Omit<Restaurant, 'id'> & { image: string }) => {
         try {
             const imageUrl = await uploadImage(restaurantData.image, `restaurants/${uuidv4()}`);
             const docRef = await addDoc(collection(db, "restaurants"), { ...restaurantData, image: imageUrl });
             setRestaurants(prev => [{id: docRef.id, ...restaurantData, image: imageUrl} as Restaurant, ...prev]);
             toast({ title: "تمت إضافة المتجر بنجاح" });
         } catch (error) { toast({ title: "فشل إضافة المتجر", variant: "destructive" }); }
-    };
-    const updateRestaurant = async (updatedRestaurant: Partial<Restaurant> & { id: string }) => {
+    }, [toast]);
+
+    const updateRestaurant = useCallback(async (updatedRestaurant: Partial<Restaurant> & { id: string }) => {
         try {
             const { id, image, ...restaurantData } = updatedRestaurant;
             const finalData: Partial<Omit<Restaurant, 'id'>> = { ...restaurantData };
@@ -380,24 +385,26 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             setRestaurants(prev => prev.map(r => r.id === id ? {...r, ...finalData} as Restaurant : r));
             toast({ title: "تم تحديث المتجر بنجاح" });
         } catch (error) { console.error(error); toast({ title: "فشل تحديث المتجر", variant: "destructive" }); }
-    };
-    const deleteRestaurant = async (restaurantId: string) => {
+    }, [toast]);
+
+    const deleteRestaurant = useCallback(async (restaurantId: string) => {
         try {
             await deleteDoc(doc(db, "restaurants", restaurantId));
             setRestaurants(prev => prev.filter(r => r.id !== restaurantId));
             toast({ title: "تم حذف المتجر بنجاح" });
         } catch (error) { toast({ title: "فشل حذف المتجر", variant: "destructive" }); }
-    };
+    }, [toast]);
 
-    const addBanner = async (bannerData: Omit<Banner, 'id'> & { image: string }) => {
+    const addBanner = useCallback(async (bannerData: Omit<Banner, 'id'> & { image: string }) => {
         try {
             const imageUrl = await uploadImage(bannerData.image, `banners/${uuidv4()}`);
             const docRef = await addDoc(collection(db, "banners"), { ...bannerData, image: imageUrl });
             setBanners(prev => [{id: docRef.id, ...bannerData, image: imageUrl} as Banner, ...prev]);
             toast({ title: "تمت إضافة البنر بنجاح" });
         } catch (error) { toast({ title: "فشل إضافة البنر", variant: "destructive" }); }
-    };
-    const updateBanner = async (banner: Banner) => {
+    }, [toast]);
+
+    const updateBanner = useCallback(async (banner: Banner) => {
         try {
             const { id, image, ...bannerData } = banner;
             let finalImageUrl = image;
@@ -408,65 +415,70 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             setBanners(prev => prev.map(b => b.id === id ? {...b, ...bannerData, image: finalImageUrl} : b));
             toast({ title: "تم تحديث البنر بنجاح" });
         } catch (error) { toast({ title: "فشل تحديث البنر", variant: "destructive" }); }
-    };
-    const deleteBanner = async (bannerId: string) => {
+    }, [toast]);
+
+    const deleteBanner = useCallback(async (bannerId: string) => {
         try {
             await deleteDoc(doc(db, "banners", bannerId));
             setBanners(prev => prev.filter(b => b.id !== bannerId));
             toast({ title: "تم حذف البنر بنجاح" });
         } catch (error) { toast({ title: "فشل حذف البنر", variant: "destructive" }); }
-    };
+    }, [toast]);
 
-    const addDeliveryZone = async (zone: Omit<DeliveryZone, 'id'>) => {
+    const addDeliveryZone = useCallback(async (zone: Omit<DeliveryZone, 'id'>) => {
         try {
             const docRef = await addDoc(collection(db, "deliveryZones"), zone);
             setDeliveryZones(prev => [{id: docRef.id, ...zone}, ...prev]);
             toast({ title: "تمت إضافة المنطقة بنجاح" });
         } catch (error) { toast({ title: "فشل إضافة المنطقة", variant: "destructive" }); }
-    };
-    const updateDeliveryZone = async (zone: DeliveryZone) => {
+    }, [toast]);
+
+    const updateDeliveryZone = useCallback(async (zone: DeliveryZone) => {
         try {
             const { id, ...zoneData } = zone;
             await updateDoc(doc(db, "deliveryZones", id), zoneData);
             setDeliveryZones(prev => prev.map(z => z.id === id ? zone : z));
             toast({ title: "تم تحديث المنطقة بنجاح" });
         } catch (error) { toast({ title: "فشل تحديث المنطقة", variant: "destructive" }); }
-    };
-    const deleteDeliveryZone = async (zoneId: string) => {
+    }, [toast]);
+
+    const deleteDeliveryZone = useCallback(async (zoneId: string) => {
         try {
             await deleteDoc(doc(db, "deliveryZones", zoneId));
             setDeliveryZones(prev => prev.filter(z => z.id !== zoneId));
             toast({ title: "تم حذف المنطقة بنجاح" });
         } catch (error) { toast({ title: "فشل حذف المنطقة", variant: "destructive" }); }
-    };
+    }, [toast]);
 
-    const addCoupon = async (couponData: Omit<Coupon, 'id' | 'usedCount' | 'usedBy'>) => {
+    const addCoupon = useCallback(async (couponData: Omit<Coupon, 'id' | 'usedCount' | 'usedBy'>) => {
         try {
             const finalData = { ...couponData, usedCount: 0, usedBy: [] };
             const docRef = await addDoc(collection(db, "coupons"), finalData);
             setCoupons(prev => [{id: docRef.id, ...finalData}, ...prev] as Coupon[]);
             toast({ title: "تمت إضافة الكود بنجاح" });
         } catch (error) { toast({ title: "فشل إضافة الكود", variant: "destructive" }); }
-    };
-    const deleteCoupon = async (couponId: string) => {
+    }, [toast]);
+
+    const deleteCoupon = useCallback(async (couponId: string) => {
         try {
             await deleteDoc(doc(db, "coupons", couponId));
             setCoupons(prev => prev.filter(c => c.id !== couponId));
             toast({ title: "تم حذف الكود بنجاح" });
         } catch (error) { toast({ title: "فشل حذف الكود", variant: "destructive" }); }
-    };
+    }, [toast]);
 
-    const addDeliveryWorker = async (workerData: Pick<DeliveryWorker, 'id' | 'name'>) => {
+    const addDeliveryWorker = useCallback(async (workerData: Pick<DeliveryWorker, 'id' | 'name'>) => {
         const newWorker: DeliveryWorker = { ...workerData, id: workerData.id, isOnline: true, unfreezeProgress: 0, lastDeliveredAt: new Date().toISOString() };
         await setDoc(doc(db, 'deliveryWorkers', workerData.id), newWorker);
         setDeliveryWorkers(prev => [...prev, newWorker]);
-    };
-    const updateWorkerStatus = async (workerId: string, isOnline: boolean) => {
+    }, []);
+    
+    const updateWorkerStatus = useCallback(async (workerId: string, isOnline: boolean) => {
         const worker = deliveryWorkers.find(w => w.id === workerId);
         if (!worker || worker.isOnline === isOnline) return;
         await updateDoc(doc(db, 'deliveryWorkers', workerId), { isOnline });
         setDeliveryWorkers(prev => prev.map(w => w.id === workerId ? {...w, isOnline} : w));
-    };
+    }, [deliveryWorkers]);
 
     const sendTelegramMessage = useCallback(async (chatId: string, message: string) => {
         const botToken = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
@@ -476,14 +488,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (error) { console.error(`Failed to send Telegram message to ${chatId}:`, error); }
     }, []);
     
-    const addTelegramConfig = async (configData: Omit<TelegramConfig, 'id'>) => {
+    const addTelegramConfig = useCallback(async (configData: Omit<TelegramConfig, 'id'>) => {
         const docRef = await addDoc(collection(db, "telegramConfigs"), configData);
         setTelegramConfigs(prev => [...prev, {id: docRef.id, ...configData} as TelegramConfig]);
-    };
-    const deleteTelegramConfig = async (configId: string) => {
+    }, []);
+
+    const deleteTelegramConfig = useCallback(async (configId: string) => {
         await deleteDoc(doc(db, "telegramConfigs", configId));
         setTelegramConfigs(prev => prev.filter(c => c.id !== configId));
-    };
+    }, []);
 
     const createSupportTicket = useCallback(async (firstMessage: Message) => {
         if (!userId) return;
@@ -499,19 +512,20 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         telegramConfigs.filter(c => c.type === 'owner').forEach(c => sendTelegramMessage(c.chatId, `*تذكرة دعم جديدة* 📩\n*من:* ${userName}\n*الرسالة:* ${firstMessage.content}`));
     }, [userId, mySupportTicket, addresses, telegramConfigs, sendTelegramMessage]);
 
-    const addMessageToTicket = async (ticketId: string, message: Message) => {
+    const addMessageToTicket = useCallback(async (ticketId: string, message: Message) => {
         await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
         setSupportTickets(prev => prev.map(t => t.id === ticketId ? {...t, history: [...t.history, message]} : t));
-    };
-    const resolveSupportTicket = async (ticketId: string) => {
+    }, []);
+
+    const resolveSupportTicket = useCallback(async (ticketId: string) => {
         await updateDoc(doc(db, "supportTickets", ticketId), { isResolved: true });
         setSupportTickets(prev => prev.map(t => t.id === ticketId ? {...t, isResolved: true} : t));
-    };
+    }, []);
 
-    const deleteOrder = async (orderId: string) => {
+    const deleteOrder = useCallback(async (orderId: string) => {
         await deleteDoc(doc(db, "orders", orderId));
         setAllOrders(prev => prev.filter(o => o.id !== orderId));
-    };
+    }, []);
 
     const assignOrderToNextWorker = useCallback(async (orderId: string, excludedWorkerIds: string[] = []) => {
         try {
@@ -584,7 +598,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
                 if (status === 'unassigned' && workerId) {
                     const newRejectedBy = Array.from(new Set([...(currentOrder.rejectedBy || []), workerId]));
-                    // The actual reassignment logic will be handled outside the transaction for simplicity
                     updateData.rejectedBy = newRejectedBy;
                 }
                 
@@ -602,8 +615,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     if (workerDoc.exists()) {
                         const worker = workerDoc.data() as DeliveryWorker;
                         const now = new Date();
-                        const deliveredOrdersCount = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered').length + 1;
-                        const { isFrozen } = getWorkerLevel(worker, deliveredOrdersCount, now);
+                        const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered').length + 1;
+                        const { isFrozen } = getWorkerLevel(worker, myDeliveredOrders, now);
                         let workerUpdate: any = {};
                         if (isFrozen) {
                             const unfreezeProgress = (worker.unfreezeProgress || 0) + 1;
@@ -616,11 +629,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 }
             });
             
-            // If a worker rejected, re-assign
             if (status === 'unassigned' && workerId) {
                  await assignOrderToNextWorker(orderId, (allOrders.find(o => o.id === orderId)?.rejectedBy || []));
             } else {
-                // Manually refresh all orders and workers data after a successful transaction
                 const updatedOrders = (await getDocs(collection(db, "orders"))).docs.map(doc => ({id: doc.id, ...doc.data()}) as Order);
                 setAllOrders(updatedOrders.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
                 if(status === 'delivered') {
@@ -631,7 +642,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (error: any) {
             console.error(`Failed to update order ${orderId} to ${status}:`, error);
             toast({ title: "فشل تحديث الطلب", description: error.message, variant: "destructive" });
-            throw error; // Re-throw to be caught in the component
+            throw error; 
         }
     }, [allOrders, assignOrderToNextWorker, toast]);
 
@@ -659,3 +670,5 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         </AppContext.Provider>
     );
 };
+
+    
