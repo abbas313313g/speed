@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -74,7 +75,6 @@ interface AppContextType {
     
     addTelegramConfig: (configData: Omit<TelegramConfig, 'id'>) => Promise<void>;
     deleteTelegramConfig: (configId: string) => Promise<void>;
-    assignOrderToNextWorker: (orderId: string, excludedWorkerIds: string[]) => Promise<void>;
 
     placeOrder: (currentCart: CartItem[], address: Address, deliveryFee: number, couponCode?: string) => Promise<string>;
 
@@ -126,6 +126,36 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     
     const [isLoading, setIsLoading] = useState(true);
 
+    const assignOrderToNextWorker = useCallback(async (order: Order) => {
+        try {
+            const excludedWorkerIds = order.rejectedBy || [];
+            
+            const busyWorkerIds = new Set(allOrders.filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status)).map(o => o.deliveryWorkerId).filter((id): id is string => !!id));
+            
+            const availableWorkers = deliveryWorkers.filter(w => w.isOnline && !busyWorkerIds.has(w.id) && !excludedWorkerIds.includes(w.id));
+
+            if (availableWorkers.length === 0) {
+                // If no workers available, keep it as unassigned. Another trigger will try again later.
+                await updateDoc(doc(db, "orders", order.id), { status: 'unassigned' as OrderStatus, assignedToWorkerId: null, assignmentTimestamp: null });
+                return;
+            }
+
+            // Simple sorting logic, can be improved
+            availableWorkers.sort((a, b) => new Date(a.lastDeliveredAt || 0).getTime() - new Date(b.lastDeliveredAt || 0).getTime());
+            const nextWorker = availableWorkers[0];
+            
+            await updateDoc(doc(db, "orders", order.id), { status: 'pending_assignment' as OrderStatus, assignedToWorkerId: nextWorker.id, assignmentTimestamp: new Date().toISOString() });
+            
+            const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
+            if (workerConfig) {
+                sendTelegramMessage(workerConfig.chatId, `*لديك طلب جديد في الانتظار* 🛵\n*رقم الطلب:* \`${order.id.substring(0, 6)}\`\n*المنطقة:* ${order.address.deliveryZone}\n*ربحك من التوصيل:* ${formatCurrency(order.deliveryFee)}`);
+            }
+        } catch (error) {
+            console.error("Failed to assign order to next worker:", error);
+            toast({title: "فشل تعيين الطلب", description: "حدث خطأ أثناء محاولة تعيين الطلب لعامل آخر.", variant: "destructive"});
+        }
+    }, [deliveryWorkers, allOrders, telegramConfigs, toast]);
+
     // This effect runs once to set up listeners for all data collections.
     useEffect(() => {
         let id = localStorage.getItem('speedShopUserId');
@@ -145,21 +175,21 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             if(savedAddresses) setAddresses(JSON.parse(savedAddresses));
         } catch (e) { console.error("Failed to parse addresses from localStorage", e); }
 
+        const unsubscribers: (()=>void)[] = [];
         const collections: { [key: string]: React.Dispatch<React.SetStateAction<any>> } = {
             products: setProducts,
             categories: setCategoriesData,
             restaurants: setRestaurants,
             banners: setBanners,
             deliveryZones: setDeliveryZones,
-            orders: (data: any) => setAllOrders(data.sort((a: Order, b: Order) => new Date(b.date).getTime() - new Date(a.date).getTime())),
             supportTickets: setSupportTickets,
             coupons: setCoupons,
             telegramConfigs: setTelegramConfigs,
             deliveryWorkers: setDeliveryWorkers,
         };
 
-        const unsubscribers = Object.entries(collections).map(([name, setter]) => 
-            onSnapshot(collection(db, name), 
+        Object.entries(collections).forEach(([name, setter]) => {
+            const unsub = onSnapshot(collection(db, name), 
                 (snap) => {
                     const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     setter(data as any);
@@ -168,14 +198,64 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     console.error(`Error fetching ${name}:`, error);
                     toast({ title: `Error fetching ${name}`, description: error.message, variant: 'destructive'});
                 }
-            )
-        );
+            );
+            unsubscribers.push(unsub);
+        });
 
+        // Special handler for orders
+        const ordersUnsub = onSnapshot(collection(db, "orders"), 
+            (snap) => {
+                const newOrders = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
+                
+                 // Handle timeouts for pending orders
+                const pendingOrders = newOrders.filter(o => o.status === 'pending_assignment' && o.assignmentTimestamp);
+                pendingOrders.forEach(order => {
+                    const assignmentTime = new Date(order.assignmentTimestamp!).getTime();
+                    const now = new Date().getTime();
+                    const timeout = 30000; // 30 seconds
+                    if (now - assignmentTime > timeout && order.assignedToWorkerId) {
+                        console.log(`Order ${order.id} timed out for worker ${order.assignedToWorkerId}. Reassigning...`);
+                        // Use a transaction to safely update the order
+                        runTransaction(db, async (transaction) => {
+                            const orderRef = doc(db, "orders", order.id);
+                            transaction.update(orderRef, {
+                                status: 'unassigned',
+                                assignedToWorkerId: null,
+                                assignmentTimestamp: null,
+                                rejectedBy: arrayUnion(order.assignedToWorkerId)
+                            });
+                        }).catch(err => console.error("Timeout transaction failed:", err));
+                    }
+                });
+
+                newOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                setAllOrders(newOrders);
+            },
+            (error) => {
+                console.error(`Error fetching orders:`, error);
+                toast({ title: `Error fetching orders`, description: error.message, variant: 'destructive'});
+            }
+        );
+        unsubscribers.push(ordersUnsub);
+        
         setIsLoading(false);
         
         return () => unsubscribers.forEach(unsub => unsub());
-    }, [toast]);
-    
+    }, [toast]); // assignOrderToNextWorker is stable due to useCallback
+
+     useEffect(() => {
+        // This effect will run whenever `allOrders` changes.
+        // It filters for newly unassigned orders and tries to assign them.
+        const newlyUnassigned = allOrders.filter(order => order.status === 'unassigned' && !order.assignedToWorkerId);
+
+        if (newlyUnassigned.length > 0) {
+            newlyUnassigned.forEach(order => {
+                // We add a small delay to prevent rapid re-assignment cycles
+                setTimeout(() => assignOrderToNextWorker(order), 1000);
+            });
+        }
+    }, [allOrders, assignOrderToNextWorker]);
+
     const categories = useMemo(() => {
         const iconMap = initialCategories.reduce((acc, cat) => {
             acc[cat.iconName] = cat.icon;
@@ -186,30 +266,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             icon: iconMap[cat.iconName] || ShoppingBasket
         }));
     }, [categoriesData]);
-
-    // Effect to handle assigning new/unassigned orders
-    useEffect(() => {
-        const newOrUnassignedOrders = allOrders.filter(o => o.status === 'unassigned' && !o.assignedToWorkerId && o.rejectedBy?.length === 0);
-        if (newOrUnassignedOrders.length > 0) {
-            newOrUnassignedOrders.forEach(order => {
-                assignOrderToNextWorker(order.id, []);
-            });
-        }
-
-        // Handle auto-rejection timeout for pending assignments
-        const pendingOrders = allOrders.filter(o => o.status === 'pending_assignment' && o.assignmentTimestamp);
-        pendingOrders.forEach(order => {
-            const assignmentTime = new Date(order.assignmentTimestamp!).getTime();
-            const now = new Date().getTime();
-            const timeout = 30000; // 30 seconds
-            if (now - assignmentTime > timeout && order.assignedToWorkerId) {
-                console.log(`Order ${order.id} timed out for worker ${order.assignedToWorkerId}. Reassigning...`);
-                updateOrderStatus(order.id, 'unassigned', order.assignedToWorkerId);
-            }
-        });
-
-    }, [allOrders]); // Dependency on allOrders
-
 
     const uploadImage = useCallback(async (base64: string, path: string): Promise<string> => {
         if (!base64 || !base64.startsWith('data:')) {
@@ -499,42 +555,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [toast]);
     
     
-    const assignOrderToNextWorker = useCallback(async (orderId: string, excludedWorkerIds: string[] = []) => {
-        try {
-            const orderToAssign = allOrders.find(o => o.id === orderId);
-            if (!orderToAssign) return;
-
-            const completedOrdersByWorker: {[workerId: string]: number} = {};
-            allOrders.forEach(o => {
-                if (o.status === 'delivered' && o.deliveryWorkerId) {
-                    completedOrdersByWorker[o.deliveryWorkerId] = (completedOrdersByWorker[o.deliveryWorkerId] || 0) + 1;
-                }
-            });
-
-            const busyWorkerIds = new Set(allOrders.filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status)).map(o => o.deliveryWorkerId).filter((id): id is string => !!id));
-            
-            const availableWorkers = deliveryWorkers.filter(w => w.isOnline && !busyWorkerIds.has(w.id) && !excludedWorkerIds.includes(w.id));
-
-            if (availableWorkers.length === 0) {
-                 await updateDoc(doc(db, "orders", orderId), { status: 'unassigned' as OrderStatus, assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: excludedWorkerIds });
-                return;
-            }
-
-            availableWorkers.sort((a,b) => (completedOrdersByWorker[a.id] || 0) - (completedOrdersByWorker[b.id] || 0));
-            const nextWorker = availableWorkers[0];
-            
-            await updateDoc(doc(db, "orders", orderId), { status: 'pending_assignment' as OrderStatus, assignedToWorkerId: nextWorker.id, assignmentTimestamp: new Date().toISOString(), rejectedBy: excludedWorkerIds });
-            
-            const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
-            if (workerConfig) {
-                sendTelegramMessage(workerConfig.chatId, `*لديك طلب جديد في الانتظار* 🛵\n*رقم الطلب:* \`${orderId.substring(0, 6)}\`\n*المنطقة:* ${orderToAssign.address.deliveryZone}\n*ربحك من التوصيل:* ${formatCurrency(orderToAssign.deliveryFee)}`);
-            }
-        } catch (error) {
-            console.error("Failed to assign order to next worker:", error);
-            toast({title: "فشل تعيين الطلب", description: "حدث خطأ أثناء محاولة تعيين الطلب لعامل آخر.", variant: "destructive"});
-        }
-    }, [allOrders, deliveryWorkers, telegramConfigs, toast]);
-    
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
             await runTransaction(db, async (transaction) => {
@@ -557,23 +577,21 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     updateData.deliveryWorkerId = workerId;
                     updateData.deliveryWorker = { id: workerId, name: workerData.name };
                 } else if (status === 'unassigned' && workerId) {
+                    // This is a rejection, add worker to rejectedBy list
                     updateData.rejectedBy = arrayUnion(workerId);
                 }
                 
                 if (status !== 'pending_assignment') {
                     updateData.assignedToWorkerId = null;
                     updateData.assignmentTimestamp = null;
-                    if (status !== 'unassigned') updateData.rejectedBy = [];
                 }
 
-                 if (status === 'delivered' && workerId) {
+                if (status === 'delivered' && workerId) {
                     const workerDocRef = doc(db, "deliveryWorkers", workerId);
                     const workerDoc = await transaction.get(workerDocRef);
                     if (workerDoc.exists()) {
                         const worker = workerDoc.data() as DeliveryWorker;
                         const now = new Date();
-                        
-                        // We filter `allOrders` from the context, which is updated by onSnapshot
                         const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered').length + 1;
                         const { isFrozen } = getWorkerLevel(worker, myDeliveredOrders, now);
                         
@@ -591,13 +609,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 transaction.update(orderRef, updateData);
             });
             
-            // This logic is now separated to prevent loops.
-            // It will be triggered by the useEffect that watches for 'unassigned' orders.
-            if (status === 'unassigned' && workerId) {
-                const order = allOrders.find(o => o.id === orderId);
-                if (order) await assignOrderToNextWorker(orderId, [...(order.rejectedBy || []), workerId]);
-            }
-            
             toast({ title: `تم تحديث حالة الطلب بنجاح` });
 
         } catch (error: any) {
@@ -605,7 +616,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             toast({title: "فشل تحديث الطلب", description: error.message, variant: "destructive"});
             throw error;
         }
-    }, [toast, assignOrderToNextWorker, allOrders]);
+    }, [toast, allOrders]);
     
     
     const placeOrder = useCallback(async (currentCart: CartItem[], address: Address, deliveryFee: number, couponCode?: string): Promise<string> => {
@@ -693,7 +704,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                  telegramConfigs.filter(c => c.type === 'owner').forEach(c => {
                     sendTelegramMessage(c.chatId, `*طلب جديد!* 🎉\n*رقم الطلب:* \`${newOrderId?.substring(0, 6)}\`\n*الزبون:* ${newOrder.address.name}\n*المنطقة:* ${newOrder.address.deliveryZone}\n*المبلغ:* ${formatCurrency(newOrder.total)}`);
                 });
-                // The useEffect will pick up this new order and assign it.
             }
             return newOrderId;
         } catch (error) {
@@ -724,7 +734,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         addDeliveryZone, updateDeliveryZone, deleteDeliveryZone,
         updateOrderStatus, deleteOrder,
         addCoupon, deleteCoupon,
-        addTelegramConfig, deleteTelegramConfig, assignOrderToNextWorker,
+        addTelegramConfig, deleteTelegramConfig,
         placeOrder,
         addDeliveryWorker, updateWorkerStatus,
         createSupportTicket, addMessageToTicket, resolveSupportTicket,
@@ -734,12 +744,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }), [
         products, categories, restaurants, banners, deliveryZones, allOrders, supportTickets, coupons, telegramConfigs, deliveryWorkers, allUsers,
         isLoading, addProduct, updateProduct, deleteProduct, addCategory, updateCategory, deleteCategory, addRestaurant, updateRestaurant, deleteRestaurant,
-        addBanner, updateBanner, deleteBanner, addDeliveryZone, updateDeliveryZone, deleteDeliveryZone, updateOrderStatus, deleteOrder, addCoupon, deleteCoupon, addTelegramConfig, deleteTelegramConfig, assignOrderToNextWorker,
+        addBanner, updateBanner, deleteBanner, addDeliveryZone, updateDeliveryZone, deleteDeliveryZone, updateOrderStatus, deleteOrder, addCoupon, deleteCoupon, addTelegramConfig, deleteTelegramConfig,
         placeOrder, addDeliveryWorker, updateWorkerStatus, createSupportTicket, addMessageToTicket, resolveSupportTicket,
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress,
-        mySupportTicket, startNewTicketClient
+        mySupportTicket, startNewTicketClient,
+        assignOrderToNextWorker
     ]);
     
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
+
+
+  
+
