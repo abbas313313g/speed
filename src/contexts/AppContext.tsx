@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, getDocs, doc, runTransaction, arrayUnion, addDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, runTransaction, arrayUnion, addDoc, updateDoc, deleteDoc, setDoc, query, where } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -79,7 +79,7 @@ interface AppContextType {
 
     updateOrderStatus: (orderId: string, status: OrderStatus, workerId?: string) => Promise<void>;
     deleteOrder: (orderId: string) => Promise<void>;
-    placeOrder: (cart: CartItem[], address: Address, deliveryFee: number, couponCode?: string) => Promise<string>;
+    placeOrder: (currentCart: CartItem[], address: Address, deliveryFee: number, couponCode?: string) => Promise<string>;
 
     addDeliveryWorker: (workerData: Pick<DeliveryWorker, 'id' | 'name'>) => Promise<void>;
     updateWorkerStatus: (workerId: string, isOnline: boolean) => Promise<void>;
@@ -131,15 +131,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [myCurrentSupportTicket, setMySupportTicket] = useState<SupportTicket|null>(null);
     
     const [isLoading, setIsLoading] = useState(true);
-
-    const uploadImage = async (base64: string, path: string): Promise<string> => {
-        if (!base64 || !base64.startsWith('data:')) {
-            return base64; // It's already a URL or invalid
-        }
-        const storageRef = ref(storage, path);
-        const snapshot = await uploadString(storageRef, base64, 'data_url');
-        return getDownloadURL(snapshot.ref);
-    };
 
     // --- DATA FETCHING ---
     useEffect(() => {
@@ -198,14 +189,27 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
         setUserId(id);
 
-        const savedCart = localStorage.getItem('speedShopCart');
-        if(savedCart) setCart(JSON.parse(savedCart));
-
-        const savedAddresses = localStorage.getItem('speedShopAddresses');
-        if(savedAddresses) setAddresses(JSON.parse(savedAddresses));
+        try {
+            const savedCart = localStorage.getItem('speedShopCart');
+            if(savedCart) setCart(JSON.parse(savedCart));
+        } catch (e) { console.error("Failed to parse cart from localStorage", e); }
+        
+        try {
+            const savedAddresses = localStorage.getItem('speedShopAddresses');
+            if(savedAddresses) setAddresses(JSON.parse(savedAddresses));
+        } catch (e) { console.error("Failed to parse addresses from localStorage", e); }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // This should ONLY run once.
+    }, []);
+
+    const uploadImage = useCallback(async (base64: string, path: string): Promise<string> => {
+        if (!base64 || !base64.startsWith('data:')) {
+            return base64; // It's already a URL or invalid
+        }
+        const storageRef = ref(storage, path);
+        const snapshot = await uploadString(storageRef, base64, 'data_url');
+        return getDownloadURL(snapshot.ref);
+    }, []);
 
     // --- COMPUTED DATA ---
     const categories = useMemo(() => {
@@ -343,7 +347,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             setProducts(prev => [{id: docRef.id, ...productData, image: imageUrl} as Product, ...prev]);
             toast({ title: "تمت إضافة المنتج بنجاح" });
         } catch (error) { console.error(error); toast({ title: "فشل إضافة المنتج", variant: "destructive" }); }
-    }, [toast]);
+    }, [toast, uploadImage]);
 
     const updateProduct = useCallback(async (updatedProduct: Partial<Product> & { id: string }) => {
         try {
@@ -356,7 +360,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             setProducts(prev => prev.map(p => p.id === id ? {...p, ...finalData} as Product : p));
             toast({ title: "تم تحديث المنتج بنجاح" });
         } catch (error) { console.error(error); toast({ title: "فشل تحديث المنتج", variant: "destructive" }); }
-    }, [toast]);
+    }, [toast, uploadImage]);
 
     const deleteProduct = useCallback(async (productId: string) => {
         try {
@@ -374,6 +378,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             toast({ title: "تمت إضافة القسم بنجاح" });
         } catch (error) { toast({ title: "فشل إضافة القسم", variant: "destructive" }); }
     }, [toast]);
+
     const updateCategory = useCallback(async (updatedCategory: Omit<Category, 'icon'|'id'> & { id: string }) => {
         try {
             const { id, ...categoryData } = updatedCategory;
@@ -382,6 +387,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             toast({ title: "تم تحديث القسم بنجاح" });
         } catch (error) { toast({ title: "فشل تحديث القسم", variant: "destructive" }); }
     }, [toast]);
+
     const deleteCategory = useCallback(async (categoryId: string) => {
         try {
             await deleteDoc(doc(db, "categories", categoryId));
@@ -398,7 +404,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             setRestaurants(prev => [{id: docRef.id, ...restaurantData, image: imageUrl} as Restaurant, ...prev]);
             toast({ title: "تمت إضافة المتجر بنجاح" });
         } catch (error) { toast({ title: "فشل إضافة المتجر", variant: "destructive" }); }
-    }, [toast]);
+    }, [toast, uploadImage]);
+
     const updateRestaurant = useCallback(async (updatedRestaurant: Partial<Restaurant> & { id: string }) => {
         try {
             const { id, image, ...restaurantData } = updatedRestaurant;
@@ -412,7 +419,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             setRestaurants(prev => prev.map(r => r.id === id ? {...r, ...finalData} as Restaurant : r));
             toast({ title: "تم تحديث المتجر بنجاح" });
         } catch (error) { console.error(error); toast({ title: "فشل تحديث المتجر", variant: "destructive" }); }
-    }, [toast]);
+    }, [toast, uploadImage]);
+
     const deleteRestaurant = useCallback(async (restaurantId: string) => {
         try {
             await deleteDoc(doc(db, "restaurants", restaurantId));
@@ -429,7 +437,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             setBanners(prev => [{id: docRef.id, ...bannerData, image: imageUrl} as Banner, ...prev]);
             toast({ title: "تمت إضافة البنر بنجاح" });
         } catch (error) { toast({ title: "فشل إضافة البنر", variant: "destructive" }); }
-    }, [toast]);
+    }, [toast, uploadImage]);
+
     const updateBanner = useCallback(async (banner: Banner) => {
         try {
             const { id, image, ...bannerData } = banner;
@@ -441,7 +450,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             setBanners(prev => prev.map(b => b.id === id ? {...b, ...bannerData, image: finalImageUrl} : b));
             toast({ title: "تم تحديث البنر بنجاح" });
         } catch (error) { toast({ title: "فشل تحديث البنر", variant: "destructive" }); }
-    }, [toast]);
+    }, [toast, uploadImage]);
+
     const deleteBanner = useCallback(async (bannerId: string) => {
         try {
             await deleteDoc(doc(db, "banners", bannerId));
@@ -458,6 +468,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             toast({ title: "تمت إضافة المنطقة بنجاح" });
         } catch (error) { toast({ title: "فشل إضافة المنطقة", variant: "destructive" }); }
     }, [toast]);
+
     const updateDeliveryZone = useCallback(async (zone: DeliveryZone) => {
         try {
             const { id, ...zoneData } = zone;
@@ -466,6 +477,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             toast({ title: "تم تحديث المنطقة بنجاح" });
         } catch (error) { toast({ title: "فشل تحديث المنطقة", variant: "destructive" }); }
     }, [toast]);
+
     const deleteDeliveryZone = useCallback(async (zoneId: string) => {
         try {
             await deleteDoc(doc(db, "deliveryZones", zoneId));
@@ -483,6 +495,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             toast({ title: "تمت إضافة الكود بنجاح" });
         } catch (error) { toast({ title: "فشل إضافة الكود", variant: "destructive" }); }
     }, [toast]);
+
     const deleteCoupon = useCallback(async (couponId: string) => {
         try {
             await deleteDoc(doc(db, "coupons", couponId));
@@ -499,6 +512,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             toast({ title: "تمت إضافة المعرف بنجاح" });
         } catch (error) { toast({ title: "فشل إضافة المعرف", variant: "destructive" }); }
     }, [toast]);
+
     const deleteTelegramConfig = useCallback(async (configId: string) => {
         try {
             await deleteDoc(doc(db, "telegramConfigs", configId));
@@ -515,6 +529,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             setDeliveryWorkers(prev => [...prev, newWorker]);
         } catch (error) { console.error("Error adding delivery worker:", error); toast({ title: "فشل إضافة عامل توصيل", variant: "destructive" }); throw error; }
     }, [toast]);
+
     const updateWorkerStatus = useCallback(async (workerId: string, isOnline: boolean) => {
         try {
             await updateDoc(doc(db, 'deliveryWorkers', workerId), { isOnline });
@@ -522,7 +537,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (error) { console.error("Error updating worker status:", error); toast({ title: "فشل تحديث حالة العامل", variant: "destructive" }); }
     }, [toast]);
     
-    // --- ORDERS ---
     const assignOrderToNextWorker = useCallback(async (orderId: string, excludedWorkerIds: string[] = []) => {
         try {
             await runTransaction(db, async (transaction) => {
@@ -531,7 +545,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 if (!orderDoc.exists()) throw new Error("Order does not exist.");
                 const orderData = orderDoc.data() as Order;
 
-                // Fetch workers inside transaction to get the latest state
                 const currentWorkersSnapshot = await getDocs(collection(db, "deliveryWorkers"));
                 const allCurrentWorkers = currentWorkersSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as DeliveryWorker);
                 
@@ -740,7 +753,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (error) { toast({ title: "فشل حذف الطلب", variant: "destructive" }); }
     }, [toast]);
     
-    const value = {
+    const value = useMemo(() => ({
         products, categories, restaurants, banners, deliveryZones, allOrders, supportTickets, coupons, telegramConfigs, deliveryWorkers, allUsers,
         isLoading,
         addProduct, updateProduct, deleteProduct,
@@ -756,7 +769,25 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress,
         mySupportTicket, startNewTicketClient,
-    };
+    }), [
+        products, categories, restaurants, banners, deliveryZones, allOrders, supportTickets, coupons, telegramConfigs, deliveryWorkers, allUsers,
+        isLoading,
+        addProduct, updateProduct, deleteProduct,
+        addCategory, updateCategory, deleteCategory,
+        addRestaurant, updateRestaurant, deleteRestaurant,
+        addBanner, updateBanner, deleteBanner,
+        addDeliveryZone, updateDeliveryZone, deleteDeliveryZone,
+        addCoupon, deleteCoupon,
+        addTelegramConfig, deleteTelegramConfig,
+        updateOrderStatus, deleteOrder, placeOrder,
+        addDeliveryWorker, updateWorkerStatus,
+        createSupportTicket, addMessageToTicket, resolveSupportTicket,
+        cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
+        userId, addresses, addAddress, deleteAddress,
+        mySupportTicket, startNewTicketClient
+    ]);
     
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
+
+    
