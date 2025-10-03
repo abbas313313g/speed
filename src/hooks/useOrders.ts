@@ -4,20 +4,20 @@
 import { useContext, useCallback } from 'react';
 import { AppContext } from '@/contexts/AppContext';
 import { useToast } from './use-toast';
-import { doc, runTransaction, arrayUnion, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { getWorkerLevel } from '@/lib/workerLevels';
 
 export const useOrders = () => {
     const context = useContext(AppContext);
-    const { toast } = useToast();
-
+    
     if (!context) {
         throw new Error('useOrders must be used within an AppProvider');
     }
-
-    const { allOrders, setAllOrders, telegramConfigs, assignOrderToNextWorker, setDeliveryWorkers } = context;
+    
+    const { toast } = useToast();
+    const { allOrders, setAllOrders, assignOrderToNextWorker, setDeliveryWorkers } = context;
 
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
@@ -41,9 +41,11 @@ export const useOrders = () => {
                     if (!workerDoc.exists()) {
                         throw new Error("لم يتم العثور على عامل التوصيل.");
                     }
-                    const workerData = workerDoc.data();
+                    const workerData = workerDoc.data() as DeliveryWorker;
+                    // Create a clean worker object to avoid any unexpected fields
+                    const workerInfoForOrder = { id: workerId, name: workerData.name };
                     updateData.deliveryWorkerId = workerId;
-                    updateData.deliveryWorker = { id: workerId, name: workerData.name };
+                    updateData.deliveryWorker = workerInfoForOrder;
                 }
 
                 if (status === 'unassigned' && workerId) {
@@ -65,10 +67,9 @@ export const useOrders = () => {
                         const worker = workerDoc.data() as DeliveryWorker;
                         const now = new Date();
                         
-                        // Note: This count is based on client-side data, for a more robust solution, this should be a server-side count.
                         const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered').length + 1;
-
                         const { isFrozen } = getWorkerLevel(worker, myDeliveredOrders, now);
+                        
                         let workerUpdate: Partial<DeliveryWorker> = {};
                         if (isFrozen) {
                             const unfreezeProgress = (worker.unfreezeProgress || 0) + 1;
@@ -81,12 +82,11 @@ export const useOrders = () => {
                 }
             });
 
-            // After the transaction is successful, update the local state
             const updatedOrderSnap = await getDoc(doc(db, "orders", orderId));
             if (!updatedOrderSnap.exists()) return;
             const updatedOrder = { id: updatedOrderSnap.id, ...updatedOrderSnap.data() } as Order;
 
-            setAllOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
+            setAllOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
             
             if (status === 'delivered' && workerId) {
                 const updatedWorkerSnap = await getDoc(doc(db, "deliveryWorkers", workerId));
@@ -109,7 +109,7 @@ export const useOrders = () => {
             setAllOrders(ordersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
             throw error;
         }
-    }, [toast, allOrders, assignOrderToNextWorker, setAllOrders, setDeliveryWorkers, telegramConfigs]);
+    }, [allOrders, assignOrderToNextWorker, setAllOrders, setDeliveryWorkers, toast]);
 
     return {
         allOrders: context.allOrders,
