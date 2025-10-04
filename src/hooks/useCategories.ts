@@ -28,7 +28,7 @@ export const useCategories = () => {
             }
         );
         return () => unsub();
-    }, []);
+    }, [toast]);
 
     const categories = useMemo(() => {
         const iconMap = initialCategories.reduce((acc, cat) => {
@@ -65,3 +65,5 @@ export const useCategories = () => {
 
     return { categories, isLoading, addCategory, updateCategory, deleteCategory };
 };
+
+    

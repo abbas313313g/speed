@@ -26,7 +26,7 @@ export const useTelegramConfigs = () => {
             }
         );
         return () => unsub();
-    }, []);
+    }, [toast]);
 
     const addTelegramConfig = useCallback(async (configData: Omit<TelegramConfig, 'id'>) => {
         try {
@@ -44,3 +44,5 @@ export const useTelegramConfigs = () => {
 
     return { telegramConfigs, isLoading, addTelegramConfig, deleteTelegramConfig };
 };
+
+    

@@ -27,9 +27,16 @@ import type {
     DeliveryWorker,
     ProductSize
 } from '@/lib/types';
-import { categories as initialCategories } from '@/lib/mock-data';
-import { ShoppingBasket } from 'lucide-react';
-import { getWorkerLevel } from '@/lib/workerLevels';
+import { useOrders } from '@/hooks/useOrders';
+import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
+import { useTelegramConfigs } from '@/hooks/useTelegramConfigs';
+import { useRestaurants } from '@/hooks/useRestaurants';
+import { useProducts } from '@/hooks/useProducts';
+import { useSupportTickets } from '@/hooks/useSupportTickets';
+import { useCoupons } from '@/hooks/useCoupons';
+import { useDeliveryZones } from '@/hooks/useDeliveryZones';
+import { useBanners } from '@/hooks/useBanners';
+import { useCategories } from '@/hooks/useCategories';
 
 
 interface AppContextType {
@@ -74,16 +81,17 @@ export const AppContext = createContext<AppContextType | null>(null);
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
     
-    const [products, setProducts] = useState<Product[]>([]);
-    const [categoriesData, setCategoriesData] = useState<Omit<Category, 'icon'>[]>([]);
-    const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-    const [banners, setBanners] = useState<Banner[]>([]);
-    const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
-    const [allOrders, setAllOrders] = useState<Order[]>([]);
-    const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
-    const [coupons, setCoupons] = useState<Coupon[]>([]);
-    const [telegramConfigs, setTelegramConfigs] = useState<TelegramConfig[]>([]);
-    const [deliveryWorkers, setDeliveryWorkers] = useState<DeliveryWorker[]>([]);
+    const { products, isLoading: productsLoading } = useProducts();
+    const { categories, isLoading: categoriesLoading } = useCategories();
+    const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
+    const { banners, isLoading: bannersLoading } = useBanners();
+    const { deliveryZones, isLoading: zonesLoading } = useDeliveryZones();
+    const { allOrders, isLoading: ordersLoading } = useOrders();
+    const { supportTickets, isLoading: ticketsLoading } = useSupportTickets();
+    const { coupons, isLoading: couponsLoading } = useCoupons();
+    const { telegramConfigs, isLoading: telegramLoading } = useTelegramConfigs();
+    const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers();
+    
     const [allUsers, setAllUsers] = useState<any[]>([]); // Mocked for now
     
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -91,81 +99,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [userId, setUserId] = useState<string|null>(null);
     const [myCurrentSupportTicket, setMySupportTicket] = useState<SupportTicket|null>(null);
     
-    const [isLoading, setIsLoading] = useState(true);
-
-    const assignOrderToNextWorker = useCallback(async (order: Order) => {
-        try {
-            const excludedWorkerIds = order.rejectedBy || [];
-            
-            const busyWorkerIds = new Set(allOrders.filter(o => ['confirmed', 'preparing', 'on_the_way'].includes(o.status)).map(o => o.deliveryWorkerId).filter((id): id is string => !!id));
-            
-            const availableWorkers = deliveryWorkers.filter(w => w.isOnline && !busyWorkerIds.has(w.id) && !excludedWorkerIds.includes(w.id));
-
-            if (availableWorkers.length === 0) {
-                await updateDoc(doc(db, "orders", order.id), { status: 'unassigned' as OrderStatus, assignedToWorkerId: null, assignmentTimestamp: null });
-                return;
-            }
-
-            availableWorkers.sort((a, b) => new Date(a.lastDeliveredAt || 0).getTime() - new Date(b.lastDeliveredAt || 0).getTime());
-            const nextWorker = availableWorkers[0];
-            
-            await updateDoc(doc(db, "orders", order.id), { status: 'pending_assignment' as OrderStatus, assignedToWorkerId: nextWorker.id, assignmentTimestamp: new Date().toISOString() });
-            
-            const workerConfig = telegramConfigs.find(c => c.type === 'worker' && c.workerId === nextWorker.id);
-            if (workerConfig) {
-                sendTelegramMessage(workerConfig.chatId, `*لديك طلب جديد في الانتظار* 🛵\n*رقم الطلب:* \`${order.id.substring(0, 6)}\`\n*المنطقة:* ${order.address.deliveryZone}\n*ربحك من التوصيل:* ${formatCurrency(order.deliveryFee)}`);
-            }
-        } catch (error) {
-            console.error("Failed to assign order to next worker:", error);
-            toast({title: "فشل تعيين الطلب", description: "حدث خطأ أثناء محاولة تعيين الطلب لعامل آخر.", variant: "destructive"});
-        }
-    }, [deliveryWorkers, allOrders, telegramConfigs, toast]);
-
-    useEffect(() => {
-        const unsubscribers: (() => void)[] = [];
-    
-        const ordersUnsub = onSnapshot(collection(db, "orders"), 
-            (snap) => {
-                const newOrders = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
-                
-                const pendingOrders = newOrders.filter(o => o.status === 'pending_assignment' && o.assignmentTimestamp);
-                pendingOrders.forEach(order => {
-                    const assignmentTime = new Date(order.assignmentTimestamp!).getTime();
-                    const now = new Date().getTime();
-                    const timeout = 30000; // 30 seconds
-                    if (now - assignmentTime > timeout && order.assignedToWorkerId) {
-                        runTransaction(db, async (transaction) => {
-                            const orderRef = doc(db, "orders", order.id);
-                            transaction.update(orderRef, {
-                                status: 'unassigned',
-                                assignedToWorkerId: null,
-                                assignmentTimestamp: null,
-                                rejectedBy: arrayUnion(order.assignedToWorkerId)
-                            });
-                        }).catch(err => console.error("Timeout transaction failed:", err));
-                    }
-                });
-
-                const unassignedOrder = newOrders.find(
-                    (order) => order.status === 'unassigned' && !order.assignedToWorkerId
-                );
-                if (unassignedOrder) {
-                    assignOrderToNextWorker(unassignedOrder);
-                }
-
-                newOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                setAllOrders(newOrders);
-            },
-            (error) => {
-                console.error(`Error fetching orders:`, error);
-                toast({ title: `Error fetching orders`, description: error.message, variant: 'destructive'});
-            }
-        );
-        unsubscribers.push(ordersUnsub);
-
-        return () => unsubscribers.forEach(unsub => unsub());
-    }, [assignOrderToNextWorker, toast]);
-
+    const isLoading = productsLoading || categoriesLoading || restaurantsLoading || bannersLoading || zonesLoading || ordersLoading || ticketsLoading || couponsLoading || telegramLoading || workersLoading;
 
     useEffect(() => {
         let id = localStorage.getItem('speedShopUserId');
@@ -184,49 +118,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             const savedAddresses = localStorage.getItem('speedShopAddresses');
             if(savedAddresses) setAddresses(JSON.parse(savedAddresses));
         } catch (e) { console.error("Failed to parse addresses from localStorage", e); }
-
-        const unsubscribers: (()=>void)[] = [];
-        const collections: { [key: string]: React.Dispatch<React.SetStateAction<any>> } = {
-            products: setProducts,
-            categories: setCategoriesData,
-            restaurants: setRestaurants,
-            banners: setBanners,
-            deliveryZones: setDeliveryZones,
-            supportTickets: setSupportTickets,
-            coupons: setCoupons,
-            telegramConfigs: setTelegramConfigs,
-            deliveryWorkers: setDeliveryWorkers,
-        };
-
-        Object.entries(collections).forEach(([name, setter]) => {
-            const unsub = onSnapshot(collection(db, name), 
-                (snap) => {
-                    const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    setter(data as any);
-                },
-                (error) => {
-                    console.error(`Error fetching ${name}:`, error);
-                    toast({ title: `Error fetching ${name}`, description: error.message, variant: 'destructive'});
-                }
-            );
-            unsubscribers.push(unsub);
-        });
-        
-        setIsLoading(false);
-        
-        return () => unsubscribers.forEach(unsub => unsub());
-    }, [toast]);
-
-    const categories = useMemo(() => {
-        const iconMap = initialCategories.reduce((acc, cat) => {
-            acc[cat.iconName] = cat.icon;
-            return acc;
-        }, {} as {[key: string]: React.ComponentType<{ className?: string }>});
-        return categoriesData.map(cat => ({
-            ...cat,
-            icon: iconMap[cat.iconName] || ShoppingBasket
-        }));
-    }, [categoriesData]);
+    }, []);
 
     useEffect(() => {
         if (!isLoading) {
@@ -235,7 +127,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [cart, isLoading]);
 
     const addToCart = useCallback((product: Product, quantity: number, selectedSize?: ProductSize): boolean => {
-        if (product.sizes && product.sizes.length > 0 && !selectedSize) {
+         if (product.sizes && product.sizes.length > 0 && !selectedSize) {
             toast({
                 title: "الرجاء اختيار الحجم",
                 description: `لهذا المنتج أحجام متعددة. الرجاء الدخول لصفحة المنتج لاختيار الحجم.`,
@@ -428,7 +320,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     status: 'unassigned',
                     estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
                     address,
-                    profit: totalProfit,
+                    profit: totalProfit || 0,
                     deliveryFee,
                     deliveryWorkerId: null,
                     deliveryWorker: null,

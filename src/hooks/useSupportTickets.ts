@@ -29,7 +29,7 @@ export const useSupportTickets = () => {
             }
         );
         return () => unsub();
-    }, []);
+    }, [toast]);
 
     const addMessageToTicket = useCallback(async (ticketId: string, message: Message) => {
         await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
@@ -57,3 +57,5 @@ export const useSupportTickets = () => {
         createSupportTicket,
     };
 };
+
+    

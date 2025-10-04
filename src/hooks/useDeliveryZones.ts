@@ -26,7 +26,7 @@ export const useDeliveryZones = () => {
             }
         );
         return () => unsub();
-    }, []);
+    }, [toast]);
 
     const addDeliveryZone = useCallback(async (zoneData: Omit<DeliveryZone, 'id'>) => {
         try {
@@ -52,3 +52,5 @@ export const useDeliveryZones = () => {
 
     return { deliveryZones, isLoading, addDeliveryZone, updateDeliveryZone, deleteDeliveryZone };
 };
+
+    
