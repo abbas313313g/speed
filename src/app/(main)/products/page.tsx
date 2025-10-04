@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ProductCard } from "@/components/ProductCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
@@ -10,17 +11,15 @@ import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 
 export default function ProductsPage() {
+  const searchParams = useSearchParams();
+  const initialCategory = searchParams.get('category') || 'all';
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState(initialCategory);
 
   const { products, isLoading: productsLoading } = useProducts();
   const { categories, isLoading: categoriesLoading } = useCategories();
 
-
-  if (productsLoading || categoriesLoading) {
-    return <div>جار التحميل...</div>;
-  }
-  
   const filteredProducts = useMemo(() => {
       let prods = products;
 
@@ -35,6 +34,10 @@ export default function ProductsPage() {
       return prods;
   }, [products, activeTab, searchTerm]);
 
+  if (productsLoading || categoriesLoading) {
+    return <div>جار التحميل...</div>;
+  }
+  
   return (
     <div className="p-4">
       <header className="mb-6 space-y-4">
@@ -53,7 +56,7 @@ export default function ProductsPage() {
         </div>
       </header>
 
-      <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
+      <Tabs value={activeTab} className="w-full" onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3 md:grid-cols-4 lg:grid-cols-6 h-auto flex-wrap">
           <TabsTrigger value="all">الكل</TabsTrigger>
           {categories.map((category) => (
