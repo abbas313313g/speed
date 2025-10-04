@@ -92,21 +92,20 @@ export default function CartPage() {
     if (!selectedAddress) return;
 
     setIsSubmitting(true);
-    try {
-      await placeOrder(selectedAddress, deliveryFee, couponCode);
-      toast({
-        title: "تم استلام طلبك بنجاح!",
-        description: "يمكنك متابعة حالة طلبك من صفحة الطلبات. إذا لم يظهر الطلب فوراً، حاول إعادة فتح التطبيق.",
-        duration: 5000,
-      });
-      // Reset coupon code after successful order
-      setCouponCode("");
+    
+    const orderId = await placeOrder(selectedAddress, deliveryFee, couponCode);
 
-    } catch (error: any) {
-       toast({ title: "فشل إرسال الطلب", description: error.message, variant: "destructive" });
-    } finally {
-        setIsSubmitting(false);
+    if (orderId) {
+        toast({
+            title: "تم استلام طلبك بنجاح!",
+            description: "يمكنك متابعة حالة طلبك من صفحة الطلبات. إذا لم يظهر الطلب فوراً، حاول إعادة فتح التطبيق.",
+            duration: 5000,
+        });
+        setCouponCode("");
     }
+    // If orderId is null, the placeOrder function already showed an error toast.
+    
+    setIsSubmitting(false);
   };
 
   const displayDistance = useMemo(() => {

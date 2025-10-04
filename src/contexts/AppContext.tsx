@@ -47,7 +47,7 @@ interface AppContextType {
     
     isLoading: boolean;
 
-    placeOrder: (address: Address, deliveryFee: number, couponCode?: string) => Promise<string>;
+    placeOrder: (address: Address, deliveryFee: number, couponCode?: string) => Promise<string | null>;
     
     createSupportTicket: (firstMessage: Message) => Promise<void>;
     addMessageToTicket: (ticketId: string, message: Message) => Promise<void>;
@@ -341,9 +341,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         telegramConfigs.filter(c => c.type === 'owner').forEach(c => sendTelegramMessage(c.chatId, `*تذكرة دعم جديدة* 📩\n*من:* ${userName}\n*الرسالة:* ${firstMessage.content}`));
     }, [userId, mySupportTicket, addresses, telegramConfigs, addMessageToTicket]);
 
-    const placeOrder = useCallback(async (address: Address, deliveryFee: number, couponCode?: string): Promise<string> => {
-        if (!userId) throw new Error("User ID not found.");
-        if (cart.length === 0) throw new Error("السلة فارغة.");
+    const placeOrder = useCallback(async (address: Address, deliveryFee: number, couponCode?: string): Promise<string | null> => {
+        if (!userId) {
+            toast({ title: "User ID not found.", variant: "destructive" });
+            return null;
+        }
+        if (cart.length === 0) {
+            toast({ title: "السلة فارغة.", variant: "destructive" });
+            return null;
+        }
         
         let newOrderId: string | null = null;
         
@@ -440,7 +446,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 transaction.set(newOrderRef, newOrderData);
             });
             
-            if (!newOrderId) throw new Error("Failed to create new order ID.");
+            if (!newOrderId) {
+                throw new Error("Failed to create new order ID.");
+            }
 
             clearCart();
             
@@ -454,10 +462,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             return newOrderId;
         } catch (error) {
             console.error("Place order transaction failed: ", error);
-            throw error;
+            toast({
+              title: "فشل إرسال الطلب",
+              description: "الرجاء محاولة إعادة تشغيل التطبيق.",
+              variant: "destructive",
+            });
+            return null;
         }
-
-    }, [userId, clearCart, telegramConfigs, coupons, restaurants, cart]);
+    }, [userId, cart, coupons, restaurants, clearCart, telegramConfigs, toast]);
     
     const value = useMemo(() => ({
         products, categories, restaurants, banners, deliveryZones, allOrders, supportTickets, coupons, telegramConfigs, deliveryWorkers, allUsers,
@@ -478,4 +490,3 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
-
