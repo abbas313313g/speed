@@ -1,16 +1,17 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ProductCard } from "@/components/ProductCard";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
+import { Skeleton } from '@/components/ui/skeleton';
 
-export default function ProductsPage() {
+function ProductsPageContent() {
   const searchParams = useSearchParams();
   const initialCategory = searchParams.get('category') || 'all';
 
@@ -19,6 +20,8 @@ export default function ProductsPage() {
 
   const { products, isLoading: productsLoading } = useProducts();
   const { categories, isLoading: categoriesLoading } = useCategories();
+
+  const isLoading = productsLoading || categoriesLoading;
 
   const filteredProducts = useMemo(() => {
       let prods = products;
@@ -34,8 +37,21 @@ export default function ProductsPage() {
       return prods;
   }, [products, activeTab, searchTerm]);
 
-  if (productsLoading || categoriesLoading) {
-    return <div>جار التحميل...</div>;
+  if (isLoading) {
+    return (
+        <div className="p-4 space-y-4">
+            <div className="space-y-2">
+                <Skeleton className="h-8 w-48" />
+                <Skeleton className="h-4 w-64" />
+            </div>
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+             <div className="grid grid-cols-2 gap-4 mt-6">
+                <Skeleton className="h-64 w-full" />
+                <Skeleton className="h-64 w-full" />
+            </div>
+        </div>
+    );
   }
   
   return (
@@ -83,4 +99,23 @@ export default function ProductsPage() {
       </Tabs>
     </div>
   );
+}
+
+export default function ProductsPage() {
+    return (
+        <Suspense fallback={<div className="p-4 space-y-4">
+            <div className="space-y-2">
+                <Skeleton className="h-8 w-48" />
+                <Skeleton className="h-4 w-64" />
+            </div>
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+             <div className="grid grid-cols-2 gap-4 mt-6">
+                <Skeleton className="h-64 w-full" />
+                <Skeleton className="h-64 w-full" />
+            </div>
+        </div>}>
+            <ProductsPageContent />
+        </Suspense>
+    );
 }
