@@ -12,45 +12,28 @@ import { formatCurrency } from '@/lib/utils';
 import { ToastAction } from '@/components/ui/toast';
 import type { 
     Product, 
-    Category, 
     Restaurant, 
-    Banner, 
-    DeliveryZone, 
     Order, 
     SupportTicket, 
     Coupon, 
-    TelegramConfig, 
     Address, 
     CartItem, 
-    OrderStatus, 
     Message,
-    DeliveryWorker,
     ProductSize
 } from '@/lib/types';
-import { useOrders } from '@/hooks/useOrders';
-import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
-import { useTelegramConfigs } from '@/hooks/useTelegramConfigs';
-import { useRestaurants } from '@/hooks/useRestaurants';
 import { useProducts } from '@/hooks/useProducts';
 import { useSupportTickets } from '@/hooks/useSupportTickets';
 import { useCoupons } from '@/hooks/useCoupons';
-import { useDeliveryZones } from '@/hooks/useDeliveryZones';
-import { useBanners } from '@/hooks/useBanners';
-import { useCategories } from '@/hooks/useCategories';
+import { useTelegramConfigs } from '@/hooks/useTelegramConfigs';
+import { useRestaurants } from '@/hooks/useRestaurants';
 
 
 interface AppContextType {
     products: Product[];
-    categories: Category[];
     restaurants: Restaurant[];
-    banners: Banner[];
-    deliveryZones: DeliveryZone[];
     allOrders: Order[];
-    allUsers: any[]; // Mocked for now
     supportTickets: SupportTicket[];
     coupons: Coupon[];
-    telegramConfigs: TelegramConfig[];
-    deliveryWorkers: DeliveryWorker[];
     
     isLoading: boolean;
 
@@ -82,24 +65,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
     
     const { products, isLoading: productsLoading } = useProducts();
-    const { categories, isLoading: categoriesLoading } = useCategories();
     const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
-    const { banners, isLoading: bannersLoading } = useBanners();
-    const { deliveryZones, isLoading: zonesLoading } = useDeliveryZones();
-    const { allOrders, isLoading: ordersLoading } = useOrders();
-    const { supportTickets, isLoading: ticketsLoading } = useSupportTickets();
+    const { supportTickets, isLoading: ticketsLoading, createSupportTicket: createTicketHook } = useSupportTickets();
     const { coupons, isLoading: couponsLoading } = useCoupons();
     const { telegramConfigs, isLoading: telegramLoading } = useTelegramConfigs();
-    const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers();
-    
-    const [allUsers, setAllUsers] = useState<any[]>([]); // Mocked for now
+
+    const [allOrders, setAllOrders] = useState<Order[]>([]);
     
     const [cart, setCart] = useState<CartItem[]>([]);
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [userId, setUserId] = useState<string|null>(null);
     const [myCurrentSupportTicket, setMySupportTicket] = useState<SupportTicket|null>(null);
     
-    const isLoading = productsLoading || categoriesLoading || restaurantsLoading || bannersLoading || zonesLoading || ordersLoading || ticketsLoading || couponsLoading || telegramLoading || workersLoading;
+    const isLoading = productsLoading || restaurantsLoading || ticketsLoading || couponsLoading || telegramLoading;
 
     useEffect(() => {
         let id = localStorage.getItem('speedShopUserId');
@@ -119,6 +97,22 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             if(savedAddresses) setAddresses(JSON.parse(savedAddresses));
         } catch (e) { console.error("Failed to parse addresses from localStorage", e); }
     }, []);
+
+    useEffect(() => {
+        const unsub = onSnapshot(collection(db, 'orders'),
+            (snapshot) => {
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
+                data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                setAllOrders(data);
+            },
+            (error) => {
+                console.error("Error fetching orders:", error);
+                toast({ title: "Failed to fetch orders", variant: "destructive" });
+            }
+        );
+        return () => unsub();
+    }, [toast]);
+
 
     useEffect(() => {
         if (!isLoading) {
@@ -227,11 +221,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
              return;
         }
         const userName = addresses[0]?.name || `مستخدم ${userId.substring(0, 4)}`;
-        const newTicket: Omit<SupportTicket, 'id'> = { userId, userName, createdAt: new Date().toISOString(), isResolved: false, history: [firstMessage] };
-        const docRef = await addDoc(collection(db, "supportTickets"), newTicket);
-        setMySupportTicket({id: docRef.id, ...newTicket});
-        telegramConfigs.filter(c => c.type === 'owner').forEach(c => sendTelegramMessage(c.chatId, `*تذكرة دعم جديدة* 📩\n*من:* ${userName}\n*الرسالة:* ${firstMessage.content}`));
-    }, [userId, mySupportTicket, addresses, telegramConfigs, addMessageToTicket]);
+        await createTicketHook(firstMessage, userId, userName);
+        
+        const newTicket: Omit<SupportTicket, 'id'> & {id?: string} = { userId, userName, createdAt: new Date().toISOString(), isResolved: false, history: [firstMessage] };
+        
+        setMySupportTicket(newTicket as SupportTicket);
+    }, [userId, mySupportTicket, addresses, createTicketHook, addMessageToTicket]);
 
     const placeOrder = useCallback(async (address: Address, deliveryFee: number, couponCode?: string): Promise<string | null> => {
         if (!userId) {
@@ -344,6 +339,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
             clearCart();
             
+            toast({
+                title: "تم استلام طلبك بنجاح!",
+                description: "يمكنك متابعة حالة طلبك من صفحة الطلبات. إذا لم يظهر الطلب فوراً، حاول إعادة فتح التطبيق.",
+                duration: 5000,
+            });
+            
             const newOrderSnap = await getDoc(doc(db, "orders", newOrderId));
             if (newOrderSnap.exists()) {
                  const newOrder = newOrderSnap.data() as Order;
@@ -364,7 +365,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [userId, cart, coupons, restaurants, clearCart, telegramConfigs, toast]);
     
     const value = useMemo(() => ({
-        products, categories, restaurants, banners, deliveryZones, allOrders, supportTickets, coupons, telegramConfigs, deliveryWorkers, allUsers,
+        products, restaurants, allOrders, supportTickets, coupons, telegramConfigs,
         isLoading,
         placeOrder,
         createSupportTicket, addMessageToTicket,
@@ -372,7 +373,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         userId, addresses, addAddress, deleteAddress,
         mySupportTicket, startNewTicketClient,
     }), [
-        products, categories, restaurants, banners, deliveryZones, allOrders, supportTickets, coupons, telegramConfigs, deliveryWorkers, allUsers,
+        products, restaurants, allOrders, supportTickets, coupons, telegramConfigs,
         isLoading,
         placeOrder, createSupportTicket, addMessageToTicket,
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,

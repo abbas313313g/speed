@@ -12,14 +12,12 @@ import { useToast } from '@/hooks/use-toast';
 import { useOrders } from '@/hooks/useOrders';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 import Link from 'next/link';
-import { AppContext } from '@/contexts/AppContext';
+import { useRestaurants } from '@/hooks/useRestaurants';
 
 type DriverStatus = 'offline' | 'searching' | 'viewing_order';
 
 function OrderCard({ order, onAccept, onReject, isProcessing }: { order: Order, onAccept: (id: string) => void, onReject: (id: string) => void, isProcessing: boolean }) {
-    const context = useContext(AppContext);
-    if (!context) throw new Error("Context not available");
-    const { restaurants } = context;
+    const { restaurants } = useRestaurants();
 
     const { distance, mapUrl } = useMemo(() => {
         const orderRestaurant = restaurants.find(r => r.id === order.restaurant?.id);

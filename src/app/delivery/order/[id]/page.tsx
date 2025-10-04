@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useMemo, useContext } from 'react';
+import { useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -23,17 +23,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-import { AppContext } from '@/contexts/AppContext';
+import { useOrders } from '@/hooks/useOrders';
 
 
 export default function DeliveryOrderDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const context = useContext(AppContext);
-  
-  if (!context) throw new Error("useOrders must be used within an AppProvider");
-  const { allOrders, isLoading, updateOrderStatus } = context;
+  const { allOrders, isLoading, updateOrderStatus } = useOrders();
 
 
   const order = useMemo(() => allOrders.find(o => o.id === id), [id, allOrders]);
