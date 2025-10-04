@@ -30,8 +30,14 @@ export const useDeliveryWorkers = () => {
 
     const addDeliveryWorker = useCallback(async (workerData: {id: string, name: string}) => {
         try {
+            const completeWorkerData: Omit<DeliveryWorker, 'id'> = {
+                name: workerData.name,
+                isOnline: true,
+                unfreezeProgress: 0,
+                lastDeliveredAt: null,
+            };
             // Using phone number (id) as document id
-            await setDoc(doc(db, "deliveryWorkers", workerData.id), { name: workerData.name, isOnline: true });
+            await setDoc(doc(db, "deliveryWorkers", workerData.id), completeWorkerData);
             toast({ title: "تم تسجيل العامل بنجاح" });
         } catch (error) { 
             console.error("Error adding worker:", error);
