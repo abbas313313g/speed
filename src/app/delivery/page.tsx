@@ -103,6 +103,12 @@ export default function DeliveryPage() {
         if (!workerId || !allOrders) return null;
         return allOrders.find(o => o.status === 'pending_assignment' && o.assignedToWorkerId === workerId) || null;
     }, [workerId, allOrders]);
+    
+    const myCurrentOrder = useMemo(() => {
+        if (!workerId || !allOrders) return null;
+        return allOrders.find(o => o.deliveryWorkerId === workerId && ['confirmed', 'preparing', 'on_the_way'].includes(o.status));
+    }, [workerId, allOrders]);
+
 
     const driverStatus: DriverStatus = useMemo(() => {
         if (!worker?.isOnline) return 'offline';
@@ -157,6 +163,21 @@ export default function DeliveryPage() {
     if (isLoading) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
 
     const renderContent = () => {
+        if (myCurrentOrder) {
+            return (
+                 <div className="text-center space-y-4">
+                    <PackageCheck className="mx-auto h-16 w-16 text-primary"/>
+                    <h2 className="text-2xl font-bold">لديك طلب قيد التنفيذ</h2>
+                    <p className="text-muted-foreground">أكمل طلبك الحالي لمتابعة استلام طلبات جديدة.</p>
+                     <Button size="lg" asChild>
+                        <Link href={`/delivery/order/${myCurrentOrder.id}`}>
+                            متابعة الطلب الحالي
+                        </Link>
+                    </Button>
+                </div>
+            )
+        }
+
         switch (driverStatus) {
             case 'offline':
                 return (

@@ -92,12 +92,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [userId, setUserId] = useState<string|null>(null);
     const [myCurrentSupportTicket, setMySupportTicket] = useState<SupportTicket|null>(null);
-    const [lastProcessedOrderId, setLastProcessedOrderId] = useState<string | null>(null);
     
     const [isLoading, setIsLoading] = useState(true);
 
     const assignOrderToNextWorker = useCallback(async (order: Order) => {
-        setLastProcessedOrderId(order.id);
         try {
             const excludedWorkerIds = order.rejectedBy || [];
             
@@ -212,17 +210,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setIsLoading(false);
         
         return () => unsubscribers.forEach(unsub => unsub());
-    }, []);
+    }, [toast]);
 
      useEffect(() => {
         const orderToProcess = allOrders.find(
-            (order) => order.status === 'unassigned' && order.id !== lastProcessedOrderId && !order.assignedToWorkerId
+            (order) => order.status === 'unassigned' && !order.assignedToWorkerId
         );
 
         if (orderToProcess) {
             setTimeout(() => assignOrderToNextWorker(orderToProcess), 1000);
         }
-    }, [allOrders, assignOrderToNextWorker, lastProcessedOrderId]);
+    }, [allOrders, assignOrderToNextWorker]);
 
     const categories = useMemo(() => {
         const iconMap = initialCategories.reduce((acc, cat) => {
@@ -354,13 +352,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                         throw new Error("لم يعد هذا الطلب متاحًا لك.");
                     }
                     
-                    // Fetch worker doc within the transaction for consistency
                     const workerDocRef = doc(db, "deliveryWorkers", workerId);
                     const workerDoc = await transaction.get(workerDocRef);
-
-                    // Use worker ID as fallback for name to ensure reliability
+                    if (!workerDoc.exists()) {
+                         updateData.deliveryWorker = { id: workerId, name: workerId };
+                    } else {
+                        const workerData = workerDoc.data() as DeliveryWorker;
+                        updateData.deliveryWorker = { id: workerId, name: workerData.name || workerId };
+                    }
                     updateData.deliveryWorkerId = workerId;
-                    updateData.deliveryWorker = { id: workerId, name: workerDoc.data()?.name || workerId };
 
                 } else if (status === 'unassigned' && workerId) {
                     // This is a rejection, add worker to rejectedBy list
@@ -435,7 +435,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
                 }
 
-                let totalProfit = 0;
+                let calculatedProfit = 0;
 
                 for (let i = 0; i < productDocs.length; i++) {
                     const productDoc = productDocs[i];
@@ -444,12 +444,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     const serverProduct = productDoc.data() as Product;
                     
                     const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price;
-                    const wholesalePrice = serverProduct.wholesalePrice || 0;
-                    if(itemPrice < wholesalePrice) throw new Error(`سعر بيع المنتج ${serverProduct.name} أقل من سعر الجملة.`);
+                    const itemProfit = (itemPrice - (serverProduct.wholesalePrice || 0)) * item.quantity;
                     
-                    const itemProfit = (itemPrice - wholesalePrice) * item.quantity;
                     if (!isNaN(itemProfit)) {
-                        totalProfit += itemProfit;
+                        calculatedProfit += itemProfit;
                     }
 
                     if (item.selectedSize) {
@@ -490,7 +488,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     status: 'unassigned',
                     estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
                     address,
-                    profit: totalProfit || 0,
+                    profit: calculatedProfit || 0,
                     deliveryFee,
                     deliveryWorkerId: null,
                     deliveryWorker: null,
@@ -498,7 +496,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     assignmentTimestamp: null,
                     rejectedBy: [],
                     appliedCoupon: appliedCouponInfo,
-                    restaurant: orderRestaurant ? {id: orderRestaurant.id, name: orderRestaurant.name, latitude: orderRestaurant.latitude, longitude: orderRestaurant.longitude} : null,
+                    restaurant: orderRestaurant ? {
+                        id: orderRestaurant.id,
+                        name: orderRestaurant.name,
+                        latitude: orderRestaurant.latitude ?? null,
+                        longitude: orderRestaurant.longitude ?? null
+                    } : null,
                 };
                 transaction.set(newOrderRef, newOrderData);
             });
