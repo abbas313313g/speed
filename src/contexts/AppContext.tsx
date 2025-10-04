@@ -97,6 +97,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [isLoading, setIsLoading] = useState(true);
 
     const assignOrderToNextWorker = useCallback(async (order: Order) => {
+        setLastProcessedOrderId(order.id);
         try {
             const excludedWorkerIds = order.rejectedBy || [];
             
@@ -219,10 +220,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         );
 
         if (orderToProcess) {
-            setLastProcessedOrderId(orderToProcess.id);
             setTimeout(() => assignOrderToNextWorker(orderToProcess), 1000);
         }
-    }, [allOrders, assignOrderToNextWorker, lastProcessedOrderId]);
+    }, [allOrders, assignOrderToNextWorker]);
 
     const categories = useMemo(() => {
         const iconMap = initialCategories.reduce((acc, cat) => {
@@ -517,5 +517,3 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
-
-    
