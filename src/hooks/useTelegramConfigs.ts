@@ -1,18 +1,46 @@
 
 "use client";
 
-import { useContext } from 'react';
-import { AppContext } from '@/contexts/AppContext';
+import { useState, useEffect, useCallback } from 'react';
+import { collection, addDoc, deleteDoc, onSnapshot, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { TelegramConfig } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 export const useTelegramConfigs = () => {
-    const context = useContext(AppContext);
-    if (!context) {
-        throw new Error('useTelegramConfigs must be used within an AppProvider');
-    }
-    return {
-        telegramConfigs: context.telegramConfigs,
-        isLoading: context.isLoading,
-        addTelegramConfig: context.addTelegramConfig,
-        deleteTelegramConfig: context.deleteTelegramConfig,
-    };
+    const [telegramConfigs, setTelegramConfigs] = useState<TelegramConfig[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        const unsub = onSnapshot(collection(db, 'telegramConfigs'),
+            (snapshot) => {
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as TelegramConfig[];
+                setTelegramConfigs(data);
+                setIsLoading(false);
+            },
+            (error) => {
+                console.error("Error fetching telegram configs:", error);
+                toast({ title: "Failed to fetch Telegram configs", variant: "destructive" });
+                setIsLoading(false);
+            }
+        );
+        return () => unsub();
+    }, []);
+
+    const addTelegramConfig = useCallback(async (configData: Omit<TelegramConfig, 'id'>) => {
+        try {
+            await addDoc(collection(db, "telegramConfigs"), configData);
+            toast({ title: "تمت إضافة المعرف بنجاح" });
+        } catch (error) { toast({ title: "فشل إضافة المعرف", variant: "destructive" }); }
+    }, [toast]);
+
+    const deleteTelegramConfig = useCallback(async (configId: string) => {
+        try {
+            await deleteDoc(doc(db, "telegramConfigs", configId));
+            toast({ title: "تم حذف المعرف بنجاح" });
+        } catch (error) { toast({ title: "فشل حذف المعرف", variant: "destructive" }); }
+    }, [toast]);
+
+    return { telegramConfigs, isLoading, addTelegramConfig, deleteTelegramConfig };
 };

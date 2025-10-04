@@ -1,40 +1,59 @@
 
 "use client";
 
-import { useContext } from 'react';
-import { AppContext } from '@/contexts/AppContext';
-import type { Message } from '@/lib/types';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { collection, addDoc, updateDoc, onSnapshot, doc, arrayUnion } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { Message, SupportTicket } from '@/lib/types';
 import { useToast } from './use-toast';
+import { useTelegramConfigs } from './useTelegramConfigs';
+import { sendTelegramMessage } from '@/lib/telegram';
 
 export const useSupportTickets = () => {
-    const context = useContext(AppContext);
-    const {toast} = useToast();
+    const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const { toast } = useToast();
+    const { telegramConfigs } = useTelegramConfigs();
 
-    if (!context) {
-        throw new Error('useSupportTickets must be used within an AppProvider');
-    }
+    useEffect(() => {
+        const unsub = onSnapshot(collection(db, 'supportTickets'),
+            (snapshot) => {
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as SupportTicket[];
+                setSupportTickets(data);
+                setIsLoading(false);
+            },
+            (error) => {
+                console.error("Error fetching support tickets:", error);
+                toast({ title: "Failed to fetch support tickets", variant: "destructive" });
+                setIsLoading(false);
+            }
+        );
+        return () => unsub();
+    }, []);
 
-    const handleCreateSupportTicket = async (firstMessage: Message) => {
-        try {
-            await context.createSupportTicket(firstMessage);
-            toast({ title: "تم إرسال رسالتك", description: "سيقوم فريق الدعم بالرد عليك قريبًا." });
-        } catch (error) {
-            toast({
-                title: "فشل إرسال الرسالة",
-                description: "حدث خطأ ما. الرجاء المحاولة مرة أخرى.",
-                variant: "destructive"
-            });
-        }
-    };
+    const addMessageToTicket = useCallback(async (ticketId: string, message: Message) => {
+        await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
+    }, []);
+    
+    const resolveSupportTicket = useCallback(async (ticketId: string) => {
+        await updateDoc(doc(db, "supportTickets", ticketId), { isResolved: true });
+    }, []);
+    
+    const createSupportTicket = useCallback(async (firstMessage: Message, userId: string, userName: string) => {
+        if (!userId) return;
 
+        const newTicket: Omit<SupportTicket, 'id'> = { userId, userName, createdAt: new Date().toISOString(), isResolved: false, history: [firstMessage] };
+        await addDoc(collection(db, "supportTickets"), newTicket);
+        
+        telegramConfigs.filter(c => c.type === 'owner').forEach(c => sendTelegramMessage(c.chatId, `*تذكرة دعم جديدة* 📩\n*من:* ${userName}\n*الرسالة:* ${firstMessage.content}`));
+
+    }, [telegramConfigs]);
 
     return { 
-        supportTickets: context.supportTickets, 
-        isLoading: context.isLoading, 
-        mySupportTicket: context.mySupportTicket, 
-        createSupportTicket: handleCreateSupportTicket, 
-        addMessageToTicket: context.addMessageToTicket, 
-        resolveSupportTicket: context.resolveSupportTicket, 
-        startNewTicketClient: context.startNewTicketClient,
+        supportTickets, 
+        isLoading, 
+        addMessageToTicket, 
+        resolveSupportTicket,
+        createSupportTicket,
     };
 };

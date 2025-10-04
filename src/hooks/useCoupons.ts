@@ -26,7 +26,7 @@ export const useCoupons = () => {
             }
         );
         return () => unsub();
-    }, [toast]);
+    }, []);
 
     const addCoupon = useCallback(async (couponData: Omit<Coupon, 'id' | 'usedCount' | 'usedBy'>) => {
         try {
@@ -45,5 +45,3 @@ export const useCoupons = () => {
 
     return { coupons, isLoading, addCoupon, deleteCoupon };
 };
-
-    

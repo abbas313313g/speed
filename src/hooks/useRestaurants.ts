@@ -28,7 +28,7 @@ export const useRestaurants = () => {
             }
         );
         return () => unsub();
-    }, [toast]);
+    }, []);
 
     const uploadImage = useCallback(async (base64: string, path: string): Promise<string> => {
         if (!base64 || !base64.startsWith('data:')) {
@@ -70,5 +70,3 @@ export const useRestaurants = () => {
 
     return { restaurants, isLoading, addRestaurant, updateRestaurant, deleteRestaurant };
 };
-
-    

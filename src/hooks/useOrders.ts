@@ -2,18 +2,31 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, onSnapshot, doc, runTransaction, arrayUnion } from 'firebase/firestore';
+import { collection, onSnapshot, doc, runTransaction, arrayUnion, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
 import { getWorkerLevel } from '@/lib/workerLevels';
-import { useDeliveryWorkers } from './useDeliveryWorkers';
 
 export const useOrders = () => {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
-    const { deliveryWorkers } = useDeliveryWorkers(); // Using the hook to get workers
+    
+    // We can't use useDeliveryWorkers here as it would create a circular dependency
+    const [deliveryWorkers, setDeliveryWorkers] = useState<DeliveryWorker[]>([]);
+     useEffect(() => {
+        const unsub = onSnapshot(collection(db, 'deliveryWorkers'),
+            (snapshot) => {
+                setDeliveryWorkers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DeliveryWorker[]);
+            },
+            (error) => {
+                console.error("Error fetching delivery workers in useOrders:", error);
+            }
+        );
+        return () => unsub();
+    }, []);
+
 
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'orders'),
@@ -30,7 +43,7 @@ export const useOrders = () => {
             }
         );
         return () => unsub();
-    }, [toast]);
+    }, []);
     
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
@@ -113,5 +126,3 @@ export const useOrders = () => {
         deleteOrder,
     };
 };
-
-    
