@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, onSnapshot, doc, runTransaction, arrayUnion, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, runTransaction, arrayUnion, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
@@ -43,7 +43,7 @@ export const useOrders = () => {
             }
         );
         return () => unsub();
-    }, []);
+    }, [toast]);
     
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
@@ -59,13 +59,18 @@ export const useOrders = () => {
                     if (currentOrder.status !== 'pending_assignment' || currentOrder.assignedToWorkerId !== workerId) {
                         throw new Error("لم يعد هذا الطلب متاحًا لك.");
                     }
-                    const worker = deliveryWorkers.find(w => w.id === workerId);
-                    if (!worker || !worker.name) {
+                    
+                    // Fetch worker doc within the transaction for consistency
+                    const workerDocRef = doc(db, "deliveryWorkers", workerId);
+                    const workerDoc = await transaction.get(workerDocRef);
+
+                    if (!workerDoc.exists() || !workerDoc.data()?.name) {
                         throw new Error("لم يتم العثور على بيانات العامل أو أن الاسم مفقود.");
                     }
 
+                    const workerData = workerDoc.data() as DeliveryWorker;
                     updateData.deliveryWorkerId = workerId;
-                    updateData.deliveryWorker = { id: workerId, name: worker.name };
+                    updateData.deliveryWorker = { id: workerId, name: workerData.name };
 
                 } else if (status === 'unassigned' && workerId) {
                     // This is a rejection, add worker to rejectedBy list
@@ -109,7 +114,7 @@ export const useOrders = () => {
             toast({title: "فشل تحديث الطلب", description: error.message, variant: "destructive"});
             throw error;
         }
-    }, [toast, allOrders, deliveryWorkers]);
+    }, [toast, allOrders]);
 
     const deleteOrder = useCallback(async (orderId: string) => {
         try {
