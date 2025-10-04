@@ -43,7 +43,7 @@ export const useOrders = () => {
             }
         );
         return () => unsub();
-    }, []);
+    }, [toast]);
     
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
