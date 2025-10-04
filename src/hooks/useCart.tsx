@@ -20,8 +20,8 @@ export const useCart = () => {
             await context.placeOrder(context.cart, address, deliveryFee, couponCode);
             toast({
                 title: "تم استلام طلبك بنجاح!",
-                description: "يمكنك متابعة حالة طلبك من صفحة الطلبات.",
-                duration: 5000,
+                description: "يمكنك متابعة حالة طلبك من صفحة الطلبات. إذا لم يظهر الطلب فوراً، حاول إعادة فتح التطبيق.",
+                duration: 7000,
             });
         } catch (error: any) {
             toast({ title: "فشل إرسال الطلب", description: error.message, variant: "destructive" });
