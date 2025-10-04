@@ -26,11 +26,12 @@ export const useDeliveryWorkers = () => {
             }
         );
         return () => unsub();
-    }, []);
+    }, [toast]);
 
     const addDeliveryWorker = useCallback(async (workerData: {id: string, name: string}) => {
         try {
-            const completeWorkerData: Omit<DeliveryWorker, 'id'> = {
+            const completeWorkerData: DeliveryWorker = {
+                id: workerData.id,
                 name: workerData.name,
                 isOnline: true,
                 unfreezeProgress: 0,

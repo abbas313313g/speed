@@ -49,7 +49,6 @@ interface AppContextType {
 
     // Functions are now primarily for CLIENT-side operations, not admin panel
     placeOrder: (currentCart: CartItem[], address: Address, deliveryFee: number, couponCode?: string) => Promise<string>;
-    updateOrderStatus: (orderId: string, status: OrderStatus, workerId?: string) => Promise<void>;
     
     createSupportTicket: (firstMessage: Message) => Promise<void>;
     addMessageToTicket: (ticketId: string, message: Message) => Promise<void>;
@@ -95,7 +94,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     
     const [isLoading, setIsLoading] = useState(true);
 
+    const [lastProcessedOrderId, setLastProcessedOrderId] = useState<string | null>(null);
+
     const assignOrderToNextWorker = useCallback(async (order: Order) => {
+        setLastProcessedOrderId(order.id);
         try {
             const excludedWorkerIds = order.rejectedBy || [];
             
@@ -212,13 +214,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         return () => unsubscribers.forEach(unsub => unsub());
     }, [toast]);
 
-     useEffect(() => {
+    useEffect(() => {
         const orderToProcess = allOrders.find(
             (order) => order.status === 'unassigned' && !order.assignedToWorkerId
         );
 
         if (orderToProcess) {
-            setTimeout(() => assignOrderToNextWorker(orderToProcess), 1000);
+            assignOrderToNextWorker(orderToProcess);
         }
     }, [allOrders, assignOrderToNextWorker]);
 
@@ -337,76 +339,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         telegramConfigs.filter(c => c.type === 'owner').forEach(c => sendTelegramMessage(c.chatId, `*تذكرة دعم جديدة* 📩\n*من:* ${userName}\n*الرسالة:* ${firstMessage.content}`));
     }, [userId, mySupportTicket, addresses, telegramConfigs, addMessageToTicket]);
 
-    const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
-        try {
-            await runTransaction(db, async (transaction) => {
-                const orderRef = doc(db, "orders", orderId);
-                const orderDoc = await transaction.get(orderRef);
-                if (!orderDoc.exists()) throw new Error("لم يتم العثور على الطلب.");
-                const currentOrder = orderDoc.data() as Order;
-                
-                const updateData: any = { status };
-
-                if (status === 'confirmed' && workerId) {
-                    if (currentOrder.status !== 'pending_assignment' || currentOrder.assignedToWorkerId !== workerId) {
-                        throw new Error("لم يعد هذا الطلب متاحًا لك.");
-                    }
-                    
-                    const workerDocRef = doc(db, "deliveryWorkers", workerId);
-                    const workerDoc = await transaction.get(workerDocRef);
-                    if (!workerDoc.exists()) {
-                         updateData.deliveryWorker = { id: workerId, name: workerId };
-                    } else {
-                        const workerData = workerDoc.data() as DeliveryWorker;
-                        updateData.deliveryWorker = { id: workerId, name: workerData.name || workerId };
-                    }
-                    updateData.deliveryWorkerId = workerId;
-
-                } else if (status === 'unassigned' && workerId) {
-                    // This is a rejection, add worker to rejectedBy list
-                    updateData.rejectedBy = arrayUnion(workerId);
-                }
-                
-                if (status !== 'pending_assignment') {
-                    updateData.assignedToWorkerId = null;
-                    updateData.assignmentTimestamp = null;
-                }
-
-                if (status === 'delivered' && currentOrder.deliveryWorkerId) {
-                    const currentWorkerId = currentOrder.deliveryWorkerId;
-                    const workerDocRef = doc(db, "deliveryWorkers", currentWorkerId);
-                    const workerDoc = await transaction.get(workerDocRef); // reading inside transaction
-                    
-                    if (workerDoc.exists()) {
-                        const worker = workerDoc.data() as DeliveryWorker;
-                        const now = new Date();
-                        const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === currentWorkerId && o.status === 'delivered').length + 1;
-                        const { isFrozen } = getWorkerLevel(worker, myDeliveredOrders, now);
-                        
-                        let workerUpdate: Partial<DeliveryWorker> = {};
-                        if (isFrozen) {
-                            const unfreezeProgress = (worker.unfreezeProgress || 0) + 1;
-                            workerUpdate = (unfreezeProgress >= 10) ? { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 } : { unfreezeProgress };
-                        } else {
-                            workerUpdate = { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 };
-                        }
-                        transaction.update(workerDocRef, workerUpdate);
-                    }
-                }
-
-                transaction.update(orderRef, updateData);
-            });
-            
-            toast({ title: `تم تحديث حالة الطلب بنجاح` });
-
-        } catch (error: any) {
-            console.error("Failed to update order status:", error);
-            toast({title: "فشل تحديث الطلب", description: error.message, variant: "destructive"});
-            throw error;
-        }
-    }, [toast, allOrders]);
-    
-    
     const placeOrder = useCallback(async (currentCart: CartItem[], address: Address, deliveryFee: number, couponCode?: string): Promise<string> => {
         if (!userId) throw new Error("User ID not found.");
         if (currentCart.length === 0) throw new Error("السلة فارغة.");
@@ -435,7 +367,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
                 }
 
-                let calculatedProfit = 0;
+                let totalProfit = 0;
 
                 for (let i = 0; i < productDocs.length; i++) {
                     const productDoc = productDocs[i];
@@ -447,7 +379,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     const itemProfit = (itemPrice - (serverProduct.wholesalePrice || 0)) * item.quantity;
                     
                     if (!isNaN(itemProfit)) {
-                        calculatedProfit += itemProfit;
+                        totalProfit += itemProfit;
                     }
 
                     if (item.selectedSize) {
@@ -488,7 +420,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     status: 'unassigned',
                     estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
                     address,
-                    profit: calculatedProfit || 0,
+                    profit: totalProfit || 0,
                     deliveryFee,
                     deliveryWorkerId: null,
                     deliveryWorker: null,
@@ -528,7 +460,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const value = useMemo(() => ({
         products, categories, restaurants, banners, deliveryZones, allOrders, supportTickets, coupons, telegramConfigs, deliveryWorkers, allUsers,
         isLoading,
-        updateOrderStatus,
         placeOrder,
         createSupportTicket, addMessageToTicket,
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
@@ -536,7 +467,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         mySupportTicket, startNewTicketClient,
     }), [
         products, categories, restaurants, banners, deliveryZones, allOrders, supportTickets, coupons, telegramConfigs, deliveryWorkers, allUsers,
-        isLoading, updateOrderStatus,
+        isLoading,
         placeOrder, createSupportTicket, addMessageToTicket,
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress,
@@ -546,4 +477,3 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
-    

@@ -28,7 +28,7 @@ export const useOrders = () => {
             }
         );
         return () => unsub();
-    }, []);
+    }, [toast]);
     
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
@@ -50,13 +50,12 @@ export const useOrders = () => {
                     const workerDoc = await transaction.get(workerDocRef);
 
                     if (!workerDoc.exists()) {
-                        throw new Error("لم يتم العثور على بيانات العامل أو أن الاسم مفقود.");
+                         updateData.deliveryWorker = { id: workerId, name: workerId };
+                    } else {
+                        const workerData = workerDoc.data() as DeliveryWorker;
+                        updateData.deliveryWorker = { id: workerId, name: workerData.name || workerId };
                     }
-
-                    const workerData = workerDoc.data() as DeliveryWorker;
                     updateData.deliveryWorkerId = workerId;
-                    // Use worker ID as fallback for name to ensure reliability
-                    updateData.deliveryWorker = { id: workerId, name: workerData.name || workerId };
 
                 } else if (status === 'unassigned' && workerId) {
                     // This is a rejection, add worker to rejectedBy list

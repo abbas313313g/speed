@@ -107,8 +107,8 @@ export interface Order {
     restaurant: {
         id: string;
         name: string;
-        latitude?: number;
-        longitude?: number;
+        latitude?: number | null;
+        longitude?: number | null;
     } | null;
 }
 
