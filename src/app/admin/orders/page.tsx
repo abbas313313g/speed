@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from 'react';
@@ -104,7 +105,7 @@ export default function AdminOrdersPage() {
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">#{order.id.substring(0, 6)}</TableCell>
                   <TableCell>{order.address.name}</TableCell>
-                  <TableCell>{order.deliveryWorker?.name || 'لم يعين'}</TableCell>
+                  <TableCell>{order.deliveryWorker?.name || order.deliveryWorker?.id || 'لم يعين'}</TableCell>
                   <TableCell>{new Date(order.date).toLocaleString('ar-IQ')}</TableCell>
                   <TableCell>{formatCurrency(order.total)}</TableCell>
                   <TableCell>
@@ -161,5 +162,3 @@ export default function AdminOrdersPage() {
     </div>
   );
 }
-
-    

@@ -13,21 +13,6 @@ export const useOrders = () => {
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
     
-    // We can't use useDeliveryWorkers here as it would create a circular dependency
-    const [deliveryWorkers, setDeliveryWorkers] = useState<DeliveryWorker[]>([]);
-     useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'deliveryWorkers'),
-            (snapshot) => {
-                setDeliveryWorkers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DeliveryWorker[]);
-            },
-            (error) => {
-                console.error("Error fetching delivery workers in useOrders:", error);
-            }
-        );
-        return () => unsub();
-    }, []);
-
-
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'orders'),
             (snapshot) => {
@@ -43,7 +28,7 @@ export const useOrders = () => {
             }
         );
         return () => unsub();
-    }, [toast]);
+    }, []);
     
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
@@ -64,13 +49,14 @@ export const useOrders = () => {
                     const workerDocRef = doc(db, "deliveryWorkers", workerId);
                     const workerDoc = await transaction.get(workerDocRef);
 
-                    if (!workerDoc.exists() || !workerDoc.data()?.name) {
+                    if (!workerDoc.exists()) {
                         throw new Error("لم يتم العثور على بيانات العامل أو أن الاسم مفقود.");
                     }
 
                     const workerData = workerDoc.data() as DeliveryWorker;
                     updateData.deliveryWorkerId = workerId;
-                    updateData.deliveryWorker = { id: workerId, name: workerData.name };
+                    // Use worker ID as fallback for name to ensure reliability
+                    updateData.deliveryWorker = { id: workerId, name: workerData.name || workerId };
 
                 } else if (status === 'unassigned' && workerId) {
                     // This is a rejection, add worker to rejectedBy list
