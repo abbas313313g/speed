@@ -94,10 +94,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     
     const [isLoading, setIsLoading] = useState(true);
 
-    const [lastProcessedOrderId, setLastProcessedOrderId] = useState<string | null>(null);
-
     const assignOrderToNextWorker = useCallback(async (order: Order) => {
-        setLastProcessedOrderId(order.id);
         try {
             const excludedWorkerIds = order.rejectedBy || [];
             
@@ -106,12 +103,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             const availableWorkers = deliveryWorkers.filter(w => w.isOnline && !busyWorkerIds.has(w.id) && !excludedWorkerIds.includes(w.id));
 
             if (availableWorkers.length === 0) {
-                // If no workers available, keep it as unassigned. Another trigger will try again later.
                 await updateDoc(doc(db, "orders", order.id), { status: 'unassigned' as OrderStatus, assignedToWorkerId: null, assignmentTimestamp: null });
                 return;
             }
 
-            // Simple sorting logic, can be improved
             availableWorkers.sort((a, b) => new Date(a.lastDeliveredAt || 0).getTime() - new Date(b.lastDeliveredAt || 0).getTime());
             const nextWorker = availableWorkers[0];
             
@@ -127,7 +122,52 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, [deliveryWorkers, allOrders, telegramConfigs, toast]);
 
-    // This effect runs once to set up listeners for all data collections.
+    useEffect(() => {
+        const unsubscribers: (() => void)[] = [];
+    
+        const ordersUnsub = onSnapshot(collection(db, "orders"), 
+            (snap) => {
+                const newOrders = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
+                
+                const pendingOrders = newOrders.filter(o => o.status === 'pending_assignment' && o.assignmentTimestamp);
+                pendingOrders.forEach(order => {
+                    const assignmentTime = new Date(order.assignmentTimestamp!).getTime();
+                    const now = new Date().getTime();
+                    const timeout = 30000; // 30 seconds
+                    if (now - assignmentTime > timeout && order.assignedToWorkerId) {
+                        runTransaction(db, async (transaction) => {
+                            const orderRef = doc(db, "orders", order.id);
+                            transaction.update(orderRef, {
+                                status: 'unassigned',
+                                assignedToWorkerId: null,
+                                assignmentTimestamp: null,
+                                rejectedBy: arrayUnion(order.assignedToWorkerId)
+                            });
+                        }).catch(err => console.error("Timeout transaction failed:", err));
+                    }
+                });
+
+                newOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                setAllOrders(newOrders);
+            },
+            (error) => {
+                console.error(`Error fetching orders:`, error);
+                toast({ title: `Error fetching orders`, description: error.message, variant: 'destructive'});
+            }
+        );
+        unsubscribers.push(ordersUnsub);
+
+        const unassignedOrder = allOrders.find(
+            (order) => order.status === 'unassigned' && !order.assignedToWorkerId
+        );
+        if (unassignedOrder) {
+            assignOrderToNextWorker(unassignedOrder);
+        }
+
+        return () => unsubscribers.forEach(unsub => unsub());
+    }, [allOrders, assignOrderToNextWorker, toast]);
+
+
     useEffect(() => {
         let id = localStorage.getItem('speedShopUserId');
         if (!id) {
@@ -172,57 +212,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             );
             unsubscribers.push(unsub);
         });
-
-        // Special handler for orders
-        const ordersUnsub = onSnapshot(collection(db, "orders"), 
-            (snap) => {
-                const newOrders = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
-                
-                 // Handle timeouts for pending orders
-                const pendingOrders = newOrders.filter(o => o.status === 'pending_assignment' && o.assignmentTimestamp);
-                pendingOrders.forEach(order => {
-                    const assignmentTime = new Date(order.assignmentTimestamp!).getTime();
-                    const now = new Date().getTime();
-                    const timeout = 30000; // 30 seconds
-                    if (now - assignmentTime > timeout && order.assignedToWorkerId) {
-                        console.log(`Order ${order.id} timed out for worker ${order.assignedToWorkerId}. Reassigning...`);
-                        // Use a transaction to safely update the order
-                        runTransaction(db, async (transaction) => {
-                            const orderRef = doc(db, "orders", order.id);
-                            transaction.update(orderRef, {
-                                status: 'unassigned',
-                                assignedToWorkerId: null,
-                                assignmentTimestamp: null,
-                                rejectedBy: arrayUnion(order.assignedToWorkerId)
-                            });
-                        }).catch(err => console.error("Timeout transaction failed:", err));
-                    }
-                });
-
-                newOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                setAllOrders(newOrders);
-            },
-            (error) => {
-                console.error(`Error fetching orders:`, error);
-                toast({ title: `Error fetching orders`, description: error.message, variant: 'destructive'});
-            }
-        );
-        unsubscribers.push(ordersUnsub);
         
         setIsLoading(false);
         
         return () => unsubscribers.forEach(unsub => unsub());
     }, [toast]);
-
-    useEffect(() => {
-        const orderToProcess = allOrders.find(
-            (order) => order.status === 'unassigned' && !order.assignedToWorkerId
-        );
-
-        if (orderToProcess) {
-            assignOrderToNextWorker(orderToProcess);
-        }
-    }, [allOrders, assignOrderToNextWorker]);
 
     const categories = useMemo(() => {
         const iconMap = initialCategories.reduce((acc, cat) => {
@@ -242,6 +236,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [cart, isLoading]);
 
     const addToCart = useCallback((product: Product, quantity: number, selectedSize?: ProductSize): boolean => {
+        if (product.sizes && product.sizes.length > 0 && !selectedSize) {
+            toast({
+                title: "الرجاء اختيار الحجم",
+                description: `لهذا المنتج أحجام متعددة. الرجاء الدخول لصفحة المنتج لاختيار الحجم.`,
+                variant: "default",
+            })
+            return false;
+        }
+
         const restaurantId = product.restaurantId;
         const cartIsFromDifferentRestaurant = cart.length > 0 && cart[0].product.restaurantId !== restaurantId;
 
@@ -290,7 +293,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const clearCart = useCallback(() => setCart([]), []);
 
     const cartTotal = useMemo(() => cart.reduce((total, item) => {
-        const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
+        const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price ?? 0;
         return total + price * item.quantity;
     }, 0), [cart]);
 
@@ -472,6 +475,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress,
         mySupportTicket, startNewTicketClient,
+        assignOrderToNextWorker
     ]);
     
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
