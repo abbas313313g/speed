@@ -43,7 +43,7 @@ export const useOrders = () => {
             }
         );
         return () => unsub();
-    }, [toast]);
+    }, []);
     
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
@@ -60,7 +60,9 @@ export const useOrders = () => {
                         throw new Error("لم يعد هذا الطلب متاحًا لك.");
                     }
                     const worker = deliveryWorkers.find(w => w.id === workerId);
-                    if (!worker) throw new Error("لم يتم العثور على العامل.");
+                    if (!worker || !worker.name) {
+                        throw new Error("لم يتم العثور على بيانات العامل أو أن الاسم مفقود.");
+                    }
 
                     updateData.deliveryWorkerId = workerId;
                     updateData.deliveryWorker = { id: workerId, name: worker.name };
