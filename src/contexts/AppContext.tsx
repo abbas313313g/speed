@@ -212,7 +212,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setIsLoading(false);
         
         return () => unsubscribers.forEach(unsub => unsub());
-    }, [toast]); // assignOrderToNextWorker is stable due to useCallback
+    }, []);
 
      useEffect(() => {
         const orderToProcess = allOrders.find(
@@ -222,7 +222,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         if (orderToProcess) {
             setTimeout(() => assignOrderToNextWorker(orderToProcess), 1000);
         }
-    }, [allOrders, assignOrderToNextWorker]);
+    }, [allOrders, assignOrderToNextWorker, lastProcessedOrderId]);
 
     const categories = useMemo(() => {
         const iconMap = initialCategories.reduce((acc, cat) => {
@@ -353,13 +353,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     if (currentOrder.status !== 'pending_assignment' || currentOrder.assignedToWorkerId !== workerId) {
                         throw new Error("لم يعد هذا الطلب متاحًا لك.");
                     }
+                    
+                    // Fetch worker doc within the transaction for consistency
                     const workerDocRef = doc(db, "deliveryWorkers", workerId);
                     const workerDoc = await transaction.get(workerDocRef);
-                    if (!workerDoc.exists()) throw new Error("لم يتم العثور على العامل.");
 
-                    const workerData = workerDoc.data() as DeliveryWorker;
+                    // Use worker ID as fallback for name to ensure reliability
                     updateData.deliveryWorkerId = workerId;
-                    updateData.deliveryWorker = { id: workerId, name: workerData.name };
+                    updateData.deliveryWorker = { id: workerId, name: workerDoc.data()?.name || workerId };
+
                 } else if (status === 'unassigned' && workerId) {
                     // This is a rejection, add worker to rejectedBy list
                     updateData.rejectedBy = arrayUnion(workerId);
@@ -370,13 +372,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     updateData.assignmentTimestamp = null;
                 }
 
-                if (status === 'delivered' && workerId) {
-                    const workerDocRef = doc(db, "deliveryWorkers", workerId);
-                    const workerDoc = await transaction.get(workerDocRef);
+                if (status === 'delivered' && currentOrder.deliveryWorkerId) {
+                    const currentWorkerId = currentOrder.deliveryWorkerId;
+                    const workerDocRef = doc(db, "deliveryWorkers", currentWorkerId);
+                    const workerDoc = await transaction.get(workerDocRef); // reading inside transaction
+                    
                     if (workerDoc.exists()) {
                         const worker = workerDoc.data() as DeliveryWorker;
                         const now = new Date();
-                        const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered').length + 1;
+                        const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === currentWorkerId && o.status === 'delivered').length + 1;
                         const { isFrozen } = getWorkerLevel(worker, myDeliveredOrders, now);
                         
                         let workerUpdate: Partial<DeliveryWorker> = {};
@@ -431,7 +435,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
                 }
 
-                let calculatedProfit = 0;
+                let totalProfit = 0;
 
                 for (let i = 0; i < productDocs.length; i++) {
                     const productDoc = productDocs[i];
@@ -440,9 +444,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     const serverProduct = productDoc.data() as Product;
                     
                     const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price;
-                    const wholesalePrice = serverProduct.wholesalePrice ?? 0;
+                    const wholesalePrice = serverProduct.wholesalePrice || 0;
                     if(itemPrice < wholesalePrice) throw new Error(`سعر بيع المنتج ${serverProduct.name} أقل من سعر الجملة.`);
-                    calculatedProfit += (itemPrice - wholesalePrice) * item.quantity;
+                    
+                    const itemProfit = (itemPrice - wholesalePrice) * item.quantity;
+                    if (!isNaN(itemProfit)) {
+                        totalProfit += itemProfit;
+                    }
 
                     if (item.selectedSize) {
                         const size = serverProduct.sizes?.find(s => s.name === item.selectedSize!.name);
@@ -474,7 +482,24 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 
                 const orderRestaurant = restaurants.find(r => r.id === currentCart[0].product.restaurantId);
 
-                const newOrderData: Omit<Order, 'id'> = { userId, items: currentCart, total: finalTotal, date: new Date().toISOString(), status: 'unassigned', estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(), address, profit: calculatedProfit, deliveryFee, deliveryWorkerId: null, deliveryWorker: null, assignedToWorkerId: null, assignmentTimestamp: null, rejectedBy: [], appliedCoupon: appliedCouponInfo, restaurant: orderRestaurant ? {id: orderRestaurant.id, name: orderRestaurant.name, latitude: orderRestaurant.latitude, longitude: orderRestaurant.longitude} : null, };
+                const newOrderData: Omit<Order, 'id'> = {
+                    userId,
+                    items: currentCart,
+                    total: finalTotal,
+                    date: new Date().toISOString(),
+                    status: 'unassigned',
+                    estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
+                    address,
+                    profit: totalProfit || 0,
+                    deliveryFee,
+                    deliveryWorkerId: null,
+                    deliveryWorker: null,
+                    assignedToWorkerId: null,
+                    assignmentTimestamp: null,
+                    rejectedBy: [],
+                    appliedCoupon: appliedCouponInfo,
+                    restaurant: orderRestaurant ? {id: orderRestaurant.id, name: orderRestaurant.name, latitude: orderRestaurant.latitude, longitude: orderRestaurant.longitude} : null,
+                };
                 transaction.set(newOrderRef, newOrderData);
             });
             
@@ -517,3 +542,5 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
+
+    
