@@ -96,7 +96,7 @@ export default function CartPage() {
       await placeOrder(selectedAddress, deliveryFee, couponCode);
       toast({
         title: "تم استلام طلبك بنجاح!",
-        description: "يمكنك متابعة حالة طلبك من صفحة الطلبات.",
+        description: "يمكنك متابعة حالة طلبك من صفحة الطلبات. إذا لم يظهر الطلب فوراً، حاول إعادة فتح التطبيق.",
         duration: 5000,
       });
       // Reset coupon code after successful order

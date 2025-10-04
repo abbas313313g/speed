@@ -3,7 +3,7 @@
 
 import { useContext } from 'react';
 import { AppContext } from '@/contexts/AppContext';
-import type { Product, ProductSize } from '@/lib/types';
+import type { Address } from '@/lib/types';
 
 
 export const useCart = () => {
@@ -13,6 +13,10 @@ export const useCart = () => {
         throw new Error('useCart must be used within an AppProvider');
     }
 
+    const placeOrder = (address: Address, deliveryFee: number, couponCode?: string) => {
+        return context.placeOrder(address, deliveryFee, couponCode);
+    };
+
     return { 
         cart: context.cart, 
         addToCart: context.addToCart, 
@@ -20,7 +24,6 @@ export const useCart = () => {
         updateCartQuantity: context.updateCartQuantity, 
         clearCart: context.clearCart, 
         cartTotal: context.cartTotal,
-        placeOrder: context.placeOrder,
+        placeOrder,
     };
 };
-

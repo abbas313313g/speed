@@ -47,8 +47,7 @@ interface AppContextType {
     
     isLoading: boolean;
 
-    // Functions are now primarily for CLIENT-side operations, not admin panel
-    placeOrder: (currentCart: CartItem[], address: Address, deliveryFee: number, couponCode?: string) => Promise<string>;
+    placeOrder: (address: Address, deliveryFee: number, couponCode?: string) => Promise<string>;
     
     createSupportTicket: (firstMessage: Message) => Promise<void>;
     addMessageToTicket: (ticketId: string, message: Message) => Promise<void>;
@@ -147,6 +146,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     }
                 });
 
+                const unassignedOrder = newOrders.find(
+                    (order) => order.status === 'unassigned' && !order.assignedToWorkerId
+                );
+                if (unassignedOrder) {
+                    assignOrderToNextWorker(unassignedOrder);
+                }
+
                 newOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 setAllOrders(newOrders);
             },
@@ -157,15 +163,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         );
         unsubscribers.push(ordersUnsub);
 
-        const unassignedOrder = allOrders.find(
-            (order) => order.status === 'unassigned' && !order.assignedToWorkerId
-        );
-        if (unassignedOrder) {
-            assignOrderToNextWorker(unassignedOrder);
-        }
-
         return () => unsubscribers.forEach(unsub => unsub());
-    }, [allOrders, assignOrderToNextWorker, toast]);
+    }, [assignOrderToNextWorker, toast]);
 
 
     useEffect(() => {
@@ -241,7 +240,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 title: "الرجاء اختيار الحجم",
                 description: `لهذا المنتج أحجام متعددة. الرجاء الدخول لصفحة المنتج لاختيار الحجم.`,
                 variant: "default",
-            })
+            });
             return false;
         }
 
@@ -342,15 +341,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         telegramConfigs.filter(c => c.type === 'owner').forEach(c => sendTelegramMessage(c.chatId, `*تذكرة دعم جديدة* 📩\n*من:* ${userName}\n*الرسالة:* ${firstMessage.content}`));
     }, [userId, mySupportTicket, addresses, telegramConfigs, addMessageToTicket]);
 
-    const placeOrder = useCallback(async (currentCart: CartItem[], address: Address, deliveryFee: number, couponCode?: string): Promise<string> => {
+    const placeOrder = useCallback(async (address: Address, deliveryFee: number, couponCode?: string): Promise<string> => {
         if (!userId) throw new Error("User ID not found.");
-        if (currentCart.length === 0) throw new Error("السلة فارغة.");
+        if (cart.length === 0) throw new Error("السلة فارغة.");
         
         let newOrderId: string | null = null;
         
         try {
             await runTransaction(db, async (transaction) => {
-                const productRefs = currentCart.map(item => doc(db, "products", item.product.id));
+                const productRefs = cart.map(item => doc(db, "products", item.product.id));
                 const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
                 let couponDoc: any = null;
@@ -374,7 +373,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
                 for (let i = 0; i < productDocs.length; i++) {
                     const productDoc = productDocs[i];
-                    const item = currentCart[i];
+                    const item = cart[i];
                     if (!productDoc.exists()) throw new Error(`منتج "${item.product.name}" لم يعد متوفرًا.`);
                     const serverProduct = productDoc.data() as Product;
                     
@@ -404,7 +403,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     transaction.update(couponDoc, { usedCount: couponData.usedCount + 1, usedBy: arrayUnion(userId) });
                 }
 
-                const subtotal = currentCart.reduce((total, item) => {
+                const subtotal = cart.reduce((total, item) => {
                     const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
                     return total + price * item.quantity;
                 }, 0);
@@ -413,11 +412,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 const newOrderRef = doc(collection(db, "orders"));
                 newOrderId = newOrderRef.id;
                 
-                const orderRestaurant = restaurants.find(r => r.id === currentCart[0].product.restaurantId);
+                const orderRestaurant = restaurants.find(r => r.id === cart[0].product.restaurantId);
 
                 const newOrderData: Omit<Order, 'id'> = {
                     userId,
-                    items: currentCart,
+                    items: cart,
                     total: finalTotal,
                     date: new Date().toISOString(),
                     status: 'unassigned',
@@ -458,7 +457,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             throw error;
         }
 
-    }, [userId, clearCart, telegramConfigs, coupons, restaurants]);
+    }, [userId, clearCart, telegramConfigs, coupons, restaurants, cart]);
     
     const value = useMemo(() => ({
         products, categories, restaurants, banners, deliveryZones, allOrders, supportTickets, coupons, telegramConfigs, deliveryWorkers, allUsers,
@@ -475,7 +474,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress,
         mySupportTicket, startNewTicketClient,
-        assignOrderToNextWorker
     ]);
     
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
