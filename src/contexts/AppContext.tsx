@@ -428,7 +428,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     status: 'unassigned',
                     estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
                     address,
-                    profit: totalProfit || 0,
+                    profit: totalProfit,
                     deliveryFee,
                     deliveryWorkerId: null,
                     deliveryWorker: null,
