@@ -16,7 +16,7 @@ export default function AdminDashboard() {
   const { allUsers, isLoading: usersLoading } = useUsers();
 
   const stats = useMemo(() => {
-    if (!allOrders) return { totalRevenue: 0, totalOrders: 0, newCustomers: 0, avgOrderValue: 0, totalProfit: 0 };
+    if (!allOrders || !allUsers) return { totalRevenue: 0, totalOrders: 0, newCustomers: 0, avgOrderValue: 0, totalProfit: 0 };
     
     const totalRevenue = allOrders.reduce((acc, order) => acc + (order.total || 0), 0);
     const totalProfit = allOrders.reduce((acc, order) => acc + (order.profit || 0), 0);
