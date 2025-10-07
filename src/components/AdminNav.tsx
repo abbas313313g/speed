@@ -25,7 +25,8 @@ import {
   Bike,
   TicketPercent,
   UserCog,
-  Send
+  Send,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -47,6 +48,7 @@ const navItems = [
   { href: "/admin/delivery-workers", label: "عمال التوصيل", icon: UserCog },
   { href: "/admin/support-tickets", label: "تذاكر الدعم", icon: MessageSquareWarning, notificationKey: 'openTickets' },
   { href: "/admin/telegram", label: "إشعارات تليجرام", icon: Send },
+  { href: "/admin/settings", label: "الإعدادات", icon: Settings },
 ];
 
 export function AdminNav({ isSheet = false }: { isSheet?: boolean }) {

@@ -1,4 +1,3 @@
-
 import { z } from 'zod';
 
 export interface User {
@@ -53,6 +52,9 @@ export interface Restaurant {
   rating: number;
   latitude?: number;
   longitude?: number;
+  openTime?: string; // e.g., "09:00"
+  closeTime?: string; // e.g., "23:00"
+  isStoreOpen?: boolean; // This will be calculated on the client
 }
 
 export interface Banner {
@@ -143,6 +145,11 @@ export interface TelegramConfig {
     type: 'owner' | 'worker';
     workerId?: string; // only if type is 'worker'
     name: string; // For display purposes (e.g., "Owner 1", "Ahmed's Phone")
+}
+
+export interface AppSettings {
+    id?: string;
+    isMaintenanceMode: boolean;
 }
 
 // AI Support Schemas

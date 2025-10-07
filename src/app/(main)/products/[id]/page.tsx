@@ -15,17 +15,25 @@ import type { ProductSize } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { useProducts } from '@/hooks/useProducts';
 import { useCart } from '@/hooks/useCart';
+import { ProductCard } from '@/components/ProductCard';
+import { useRestaurants } from '@/hooks/useRestaurants';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const { toast } = useToast();
   const { products, isLoading } = useProducts();
+  const { restaurants } = useRestaurants();
   const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(undefined);
 
   const product = useMemo(() => products.find(p => p.id === id), [id, products]);
+  const restaurant = useMemo(() => product ? restaurants.find(r => r.id === product.restaurantId) : null, [product, restaurants]);
+  const relatedProducts = useMemo(() => {
+    if (!product) return [];
+    return products.filter(p => p.restaurantId === product.restaurantId && p.id !== product.id).slice(0, 4);
+  }, [product, products]);
 
   // Set default selected size when product loads
   useEffect(() => {
@@ -52,7 +60,7 @@ export default function ProductDetailPage() {
   if (isLoading || !product) {
     return (
         <div className="p-4 space-y-4">
-            <Skeleton className="h-64 w-full rounded-lg" />
+            <Skeleton className="w-full aspect-square rounded-lg" />
             <Skeleton className="h-8 w-3/4" />
             <Skeleton className="h-6 w-1/2" />
             <Skeleton className="h-12 w-full" />
@@ -62,6 +70,10 @@ export default function ProductDetailPage() {
   }
 
   const handleAddToCart = () => {
+      if (restaurant && !restaurant.isStoreOpen) {
+        toast({ title: "المتجر مغلق حاليًا", description: "لا يمكنك إضافة منتجات من هذا المتجر الآن.", variant: "destructive" });
+        return;
+      }
       if (isOutOfStock) return;
       if (product.sizes && product.sizes.length > 0 && !selectedSize) {
         toast({
@@ -101,16 +113,18 @@ export default function ProductDetailPage() {
               <ArrowRight className="h-5 w-5"/>
           </Button>
        </div>
-      <div className="relative h-64 w-full">
+      <div className="relative w-full aspect-square">
         <Image
           src={imageUrl}
           alt={product.name}
           fill
           className="object-cover"
+          sizes="100vw"
+          priority
           data-ai-hint="food meal"
           unoptimized={true}
         />
-        {hasDiscount && <Badge variant="destructive" className="absolute top-4 right-4 text-lg">خصم!</Badge>}
+        {hasDiscount && <Badge variant="destructive" className="absolute top-4 left-4 text-lg">خصم!</Badge>}
       </div>
 
       <div className="p-4 space-y-4">
@@ -174,11 +188,20 @@ export default function ProductDetailPage() {
             </div>
         </div>
         
-        <Button size="lg" className="w-full text-lg" onClick={handleAddToCart} disabled={isOutOfStock}>
+        <Button size="lg" className="w-full text-lg" onClick={handleAddToCart} disabled={isOutOfStock || (restaurant && !restaurant.isStoreOpen)}>
           <ShoppingCart className="ml-2 h-5 w-5"/>
-          {isOutOfStock ? "نفدت الكمية" : "إضافة إلى السلة"}
+          {restaurant && !restaurant.isStoreOpen ? "المتجر مغلق" : (isOutOfStock ? "نفدت الكمية" : "إضافة إلى السلة")}
         </Button>
       </div>
+      
+       {relatedProducts.length > 0 && (
+         <div className="pt-6 border-t">
+            <h2 className="text-xl font-bold px-4 mb-4">منتجات أخرى من هذا المتجر</h2>
+            <div className="grid grid-cols-2 gap-4 px-4">
+                {relatedProducts.map(p => <ProductCard key={p.id} product={p}/>)}
+            </div>
+         </div>
+       )}
     </div>
   );
 }

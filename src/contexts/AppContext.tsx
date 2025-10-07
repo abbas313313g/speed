@@ -2,9 +2,8 @@
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, doc, runTransaction, arrayUnion, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
-import { db, storage } from '@/lib/firebase';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { collection, doc, runTransaction, arrayUnion, updateDoc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
 import { sendTelegramMessage } from '@/lib/telegram';
@@ -26,17 +25,11 @@ import { useSupportTickets } from '@/hooks/useSupportTickets';
 import { useCoupons } from '@/hooks/useCoupons';
 import { useTelegramConfigs } from '@/hooks/useTelegramConfigs';
 import { useRestaurants } from '@/hooks/useRestaurants';
+import { useOrders } from '@/hooks/useOrders';
 
 
 interface AppContextType {
-    products: Product[];
-    restaurants: Restaurant[];
-    allOrders: Order[];
-    supportTickets: SupportTicket[];
-    coupons: Coupon[];
-    
     isLoading: boolean;
-
     placeOrder: (address: Address, deliveryFee: number, couponCode?: string) => Promise<string | null>;
     
     createSupportTicket: (firstMessage: Message) => Promise<void>;
@@ -69,15 +62,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const { supportTickets, isLoading: ticketsLoading, createSupportTicket: createTicketHook } = useSupportTickets();
     const { coupons, isLoading: couponsLoading } = useCoupons();
     const { telegramConfigs, isLoading: telegramLoading } = useTelegramConfigs();
+    const { allOrders: ordersData, isLoading: ordersLoading } = useOrders();
 
-    const [allOrders, setAllOrders] = useState<Order[]>([]);
     
     const [cart, setCart] = useState<CartItem[]>([]);
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [userId, setUserId] = useState<string|null>(null);
     const [myCurrentSupportTicket, setMySupportTicket] = useState<SupportTicket|null>(null);
     
-    const isLoading = productsLoading || restaurantsLoading || ticketsLoading || couponsLoading || telegramLoading;
+    const isLoading = productsLoading || restaurantsLoading || ticketsLoading || couponsLoading || telegramLoading || ordersLoading;
 
     useEffect(() => {
         let id = localStorage.getItem('speedShopUserId');
@@ -97,22 +90,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             if(savedAddresses) setAddresses(JSON.parse(savedAddresses));
         } catch (e) { console.error("Failed to parse addresses from localStorage", e); }
     }, []);
-
-    useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'orders'),
-            (snapshot) => {
-                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
-                data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                setAllOrders(data);
-            },
-            (error) => {
-                console.error("Error fetching orders:", error);
-                toast({ title: "Failed to fetch orders", variant: "destructive" });
-            }
-        );
-        return () => unsub();
-    }, [toast]);
-
 
     useEffect(() => {
         if (!isLoading) {
@@ -296,10 +273,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     transaction.update(couponDoc, { usedCount: couponData.usedCount + 1, usedBy: arrayUnion(userId) });
                 }
 
-                const subtotal = cart.reduce((total, item) => {
-                    const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
-                    return total + price * item.quantity;
-                }, 0);
+                const subtotal = cartTotal;
                 const finalTotal = Math.max(0, subtotal - discountAmount) + deliveryFee;
                 
                 const newOrderRef = doc(collection(db, "orders"));
@@ -339,12 +313,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
             clearCart();
             
-            toast({
-                title: "تم استلام طلبك بنجاح!",
-                description: "يمكنك متابعة حالة طلبك من صفحة الطلبات. إذا لم يظهر الطلب فوراً، حاول إعادة فتح التطبيق.",
-                duration: 5000,
-            });
-            
             const newOrderSnap = await getDoc(doc(db, "orders", newOrderId));
             if (newOrderSnap.exists()) {
                  const newOrder = newOrderSnap.data() as Order;
@@ -362,10 +330,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             });
             return null;
         }
-    }, [userId, cart, coupons, restaurants, clearCart, telegramConfigs, toast]);
+    }, [userId, cart, coupons, restaurants, clearCart, telegramConfigs, toast, cartTotal]);
     
     const value = useMemo(() => ({
-        products, restaurants, allOrders, supportTickets, coupons, telegramConfigs,
         isLoading,
         placeOrder,
         createSupportTicket, addMessageToTicket,
@@ -373,7 +340,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         userId, addresses, addAddress, deleteAddress,
         mySupportTicket, startNewTicketClient,
     }), [
-        products, restaurants, allOrders, supportTickets, coupons, telegramConfigs,
         isLoading,
         placeOrder, createSupportTicket, addMessageToTicket,
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,

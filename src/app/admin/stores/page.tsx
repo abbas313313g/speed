@@ -44,6 +44,8 @@ const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     rating: 0,
     latitude: undefined,
     longitude: undefined,
+    openTime: '09:00',
+    closeTime: '23:00',
 };
 
 export default function AdminStoresPage() {
@@ -134,7 +136,7 @@ export default function AdminStoresPage() {
       </header>
 
       <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'تعديل المتجر' : 'إضافة متجر جديد'}</DialogTitle>
                 </DialogHeader>
@@ -157,7 +159,21 @@ export default function AdminStoresPage() {
                     </div>
                      {currentStore.image && <Image src={currentStore.image} alt="preview" width={100} height={100} className="col-span-4 justify-self-center object-contain" unoptimized={true} />}
 
-                    <div className="col-span-4 space-y-2">
+                    <div className="col-span-4 space-y-2 border-t pt-4">
+                         <Label>أوقات العمل</Label>
+                         <div className="grid grid-cols-2 gap-2">
+                            <div>
+                                <Label htmlFor="openTime" className="text-xs text-muted-foreground">وقت الفتح</Label>
+                                <Input id="openTime" type="time" value={currentStore.openTime || ''} onChange={(e) => setCurrentStore({...currentStore, openTime: e.target.value})} />
+                            </div>
+                             <div>
+                                <Label htmlFor="closeTime" className="text-xs text-muted-foreground">وقت الإغلاق</Label>
+                                <Input id="closeTime" type="time" value={currentStore.closeTime || ''} onChange={(e) => setCurrentStore({...currentStore, closeTime: e.target.value})} />
+                            </div>
+                         </div>
+                    </div>
+
+                    <div className="col-span-4 space-y-2 border-t pt-4">
                         <Label>موقع المتجر (خط العرض والطول)</Label>
                         <div className="grid grid-cols-2 gap-2">
                             <Input placeholder="Latitude" type="number" value={currentStore.latitude || ''} onChange={(e) => setCurrentStore({...currentStore, latitude: parseFloat(e.target.value) || undefined})} />
@@ -182,6 +198,7 @@ export default function AdminStoresPage() {
                 <TableHead>صورة</TableHead>
                 <TableHead>اسم المتجر</TableHead>
                 <TableHead>التقييم</TableHead>
+                <TableHead>أوقات العمل</TableHead>
                 <TableHead>إجراءات</TableHead>
               </TableRow>
             </TableHeader>
@@ -199,6 +216,9 @@ export default function AdminStoresPage() {
                             <Star className="h-5 w-5 fill-amber-500 text-amber-500" />
                             {store.rating.toFixed(1)}
                         </div>
+                    </TableCell>
+                    <TableCell>
+                        {store.openTime && store.closeTime ? `${store.openTime} - ${store.closeTime}` : 'غير محدد'}
                     </TableCell>
                     <TableCell>
                         <div className="flex items-center gap-2">
@@ -237,5 +257,3 @@ export default function AdminStoresPage() {
     </div>
   );
 }
-
-    

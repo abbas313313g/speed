@@ -12,6 +12,7 @@ import type { Product } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/hooks/useCart";
+import { useRestaurants } from "@/hooks/useRestaurants";
 
 interface ProductCardProps {
   product: Product;
@@ -20,6 +21,9 @@ interface ProductCardProps {
 function ProductCardComponent({ product }: ProductCardProps) {
   const { toast } = useToast();
   const { addToCart } = useCart();
+  const { restaurants } = useRestaurants();
+
+  const restaurant = useMemo(() => restaurants.find(r => r.id === product.restaurantId), [product, restaurants]);
 
   const isOutOfStock = useMemo(() => {
     if (product.sizes && product.sizes.length > 0) {
@@ -30,18 +34,17 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
+
+    if (restaurant && !restaurant.isStoreOpen) {
+        toast({ title: "المتجر مغلق حاليًا", description: `لا يمكنك الطلب من "${restaurant.name}" في هذا الوقت.`, variant: "destructive" });
+        return;
+    }
+
     if (isOutOfStock) {
         toast({ title: "نفدت الكمية", description: `منتج "${product.name}" غير متوفر حالياً.`, variant: "destructive" });
         return;
     }
-    if (product.sizes && product.sizes.length > 0) {
-        toast({
-            title: "الرجاء اختيار الحجم",
-            description: `لمنتج "${product.name}" أحجام متعددة. الرجاء الدخول لصفحة المنتج لاختيار الحجم.`,
-            variant: "default",
-        })
-        return;
-    }
+
     const wasAdded = addToCart(product, 1);
     if (wasAdded) {
         toast({
@@ -57,18 +60,20 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   return (
     <Link href={`/products/${product.id}`} className="group block">
-      <Card className={`overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${isOutOfStock ? 'opacity-60' : ''}`}>
+      <Card className={`overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${isOutOfStock || !restaurant?.isStoreOpen ? 'opacity-60' : ''}`}>
         <CardContent className="p-0">
-          <div className="relative h-40 w-full">
+          <div className="relative w-full aspect-square">
             <Image
               src={imageUrl}
               alt={product.name}
               fill
               className="object-cover"
+              sizes="(max-width: 768px) 50vw, 33vw"
               data-ai-hint="product item"
               unoptimized={true}
             />
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 text-sm">نفدت الكمية</Badge>}
+            {!restaurant?.isStoreOpen && <Badge variant="destructive" className="absolute top-2 left-2 text-sm">المتجر مغلق</Badge>}
             {hasDiscount && <Badge variant="destructive" className="absolute top-2 right-2">خصم</Badge>}
           </div>
           <div className="p-4">
@@ -84,7 +89,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
                     {formatCurrency(displayPrice)}
                   </p>
               </div>
-              <Button size="icon" variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10" onClick={handleAddToCart} disabled={isOutOfStock}>
+              <Button size="icon" variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10" onClick={handleAddToCart} disabled={isOutOfStock || !restaurant?.isStoreOpen}>
                 <PlusCircle className="h-6 w-6" />
               </Button>
             </div>

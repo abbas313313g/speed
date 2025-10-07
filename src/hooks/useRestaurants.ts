@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -9,8 +9,30 @@ import { db, storage } from '@/lib/firebase';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
+function isStoreOpen(openTimeStr?: string, closeTimeStr?: string): boolean {
+    if (!openTimeStr || !closeTimeStr) return true; // Default to open if times are not set
+    
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+
+    const [openHours, openMinutes] = openTimeStr.split(':').map(Number);
+    const openTime = openHours * 60 + openMinutes;
+
+    const [closeHours, closeMinutes] = closeTimeStr.split(':').map(Number);
+    let closeTime = closeHours * 60 + closeMinutes;
+    
+    // Handle overnight closing times (e.g., 22:00 to 02:00)
+    if (closeTime < openTime) {
+       // If current time is after open time OR before close time (on the next day)
+       return currentTime >= openTime || currentTime < closeTime;
+    }
+
+    return currentTime >= openTime && currentTime < closeTime;
+}
+
+
 export const useRestaurants = () => {
-    const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+    const [restaurantsData, setRestaurantsData] = useState<Restaurant[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
 
@@ -18,7 +40,7 @@ export const useRestaurants = () => {
         const unsub = onSnapshot(collection(db, 'restaurants'),
             (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Restaurant[];
-                setRestaurants(data);
+                setRestaurantsData(data);
                 setIsLoading(false);
             },
             (error) => {
@@ -29,6 +51,13 @@ export const useRestaurants = () => {
         );
         return () => unsub();
     }, [toast]);
+    
+    const restaurants = useMemo(() => {
+        return restaurantsData.map(r => ({
+            ...r,
+            isStoreOpen: isStoreOpen(r.openTime, r.closeTime)
+        }));
+    }, [restaurantsData]);
 
     const uploadImage = useCallback(async (base64: string, path: string): Promise<string> => {
         if (!base64 || !base64.startsWith('data:')) {
@@ -70,5 +99,3 @@ export const useRestaurants = () => {
 
     return { restaurants, isLoading, addRestaurant, updateRestaurant, deleteRestaurant };
 };
-
-    

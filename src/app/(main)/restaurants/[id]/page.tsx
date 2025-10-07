@@ -6,10 +6,11 @@ import { useParams, useRouter } from 'next/navigation';
 import { ProductCard } from '@/components/ProductCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
-import { Star, ArrowRight, MapPin } from 'lucide-react';
+import { Star, ArrowRight, MapPin, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useProducts } from '@/hooks/useProducts';
+import { Badge } from '@/components/ui/badge';
 
 export default function RestaurantProductsPage() {
   const { id } = useParams();
@@ -57,7 +58,7 @@ export default function RestaurantProductsPage() {
             <h1 className="text-3xl font-bold">{restaurant.name}</h1>
       </header>
 
-      <div className="flex items-center gap-4 p-4 rounded-lg bg-card">
+      <div className="flex items-start gap-4 p-4 rounded-lg bg-card border">
          <div className="relative h-24 w-24 flex-shrink-0">
           <Image
             src={imageUrl}
@@ -68,11 +69,20 @@ export default function RestaurantProductsPage() {
             unoptimized={true}
           />
         </div>
-        <div className="space-y-2">
-             <div className="flex items-center gap-1 text-amber-500">
+        <div className="space-y-2 flex-grow">
+            <Badge variant={restaurant.isStoreOpen ? 'secondary' : 'destructive'} className={`mb-2 ${restaurant.isStoreOpen ? "bg-green-100 text-green-800 border-green-200" : ""}`}>
+              {restaurant.isStoreOpen ? 'مفتوح الآن' : 'مغلق حاليًا'}
+            </Badge>
+            <div className="flex items-center gap-1 text-amber-500">
                 <Star className="h-5 w-5 fill-current" />
                 <span className="font-semibold text-foreground text-lg">{restaurant.rating.toFixed(1)}</span>
             </div>
+            {restaurant.openTime && restaurant.closeTime && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4"/>
+                    <span>{restaurant.openTime} - {restaurant.closeTime}</span>
+                </div>
+            )}
              {restaurant.latitude && restaurant.longitude && (
                  <a href={`https://www.google.com/maps?q=${restaurant.latitude},${restaurant.longitude}`} target="_blank" rel="noopener noreferrer">
                     <Button variant="outline" size="sm">

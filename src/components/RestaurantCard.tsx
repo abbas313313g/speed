@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import type { Restaurant } from "@/lib/types";
+import { Badge } from "./ui/badge";
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
@@ -14,6 +15,7 @@ interface RestaurantCardProps {
 
 function RestaurantCardComponent({ restaurant }: RestaurantCardProps) {
   const imageUrl = restaurant.image && (restaurant.image.startsWith('http') || restaurant.image.startsWith('data:')) ? restaurant.image : 'https://placehold.co/100x100.png';
+  
   return (
     <Link href={`/restaurants/${restaurant.id}`} className="group block">
       <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex items-center gap-4 p-4">
@@ -34,6 +36,9 @@ function RestaurantCardComponent({ restaurant }: RestaurantCardProps) {
             <span className="font-semibold text-foreground">{restaurant.rating.toFixed(1)}</span>
           </div>
         </div>
+         <Badge variant={restaurant.isStoreOpen ? 'secondary' : 'destructive'} className={restaurant.isStoreOpen ? "bg-green-100 text-green-800 border-green-200" : ""}>
+              {restaurant.isStoreOpen ? 'مفتوح' : 'مغلق'}
+          </Badge>
       </Card>
     </Link>
   );
