@@ -27,15 +27,28 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
     const [isProcessing, setIsProcessing] = useState(false);
     const [isInitialCheckDone, setIsInitialCheckDone] = useState(false);
 
-    useEffect(() => {
+     useEffect(() => {
+        if (restaurantsLoading) {
+            return; // Wait until restaurants are loaded
+        }
+
         const storedId = sessionStorage.getItem('restaurantId');
-        if (storedId && restaurants.length > 0) {
+        const isLoginPage = window.location.pathname.includes('/login');
+
+        if (storedId) {
             const found = restaurants.find(r => r.id === storedId);
-            if(found) setRestaurant(found);
-        } else if (!restaurantsLoading) {
-            // If no ID is stored and data has loaded, redirect
-             const isLoginPage = window.location.pathname.includes('/login');
-            if (!storedId && !isLoginPage) {
+            if (found) {
+                setRestaurant(found);
+            } else {
+                // Stored ID is invalid, clear it and redirect
+                sessionStorage.removeItem('restaurantId');
+                if (!isLoginPage) {
+                    router.replace('/restaurant/login');
+                }
+            }
+        } else {
+            // No stored ID, redirect to login if not already there
+            if (!isLoginPage) {
                 router.replace('/restaurant/login');
             }
         }
