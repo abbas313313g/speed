@@ -144,7 +144,7 @@ export default function AdminStoresPage() {
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="name" className="text-right">اسم المتجر</Label>
-                        <Input id="name" value={currentStore.name} onChange={(e) => setCurrentStore({...currentStore, name: e.target.value})} className="col-span-3" />
+                        <Input id="name" value={currentStore.name || ''} onChange={(e) => setCurrentStore({...currentStore, name: e.target.value})} className="col-span-3" />
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="rating" className="text-right">التقييم</Label>
@@ -152,12 +152,12 @@ export default function AdminStoresPage() {
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="loginCode" className="text-right">رمز الدخول</Label>
-                        <Input id="loginCode" value={currentStore.loginCode} onChange={(e) => setCurrentStore({...currentStore, loginCode: e.target.value})} className="col-span-3" />
+                        <Input id="loginCode" value={currentStore.loginCode || ''} onChange={(e) => setCurrentStore({...currentStore, loginCode: e.target.value})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                          <Label htmlFor="imageUrl" className="text-right">الصورة</Label>
                          <div className="col-span-3 flex gap-2">
-                             <Input id="imageUrl" value={currentStore.image} onChange={(e) => setCurrentStore({...currentStore, image: e.target.value})} placeholder="أدخل رابط صورة أو ارفع ملفًا"/>
+                             <Input id="imageUrl" value={currentStore.image || ''} onChange={(e) => setCurrentStore({...currentStore, image: e.target.value})} placeholder="أدخل رابط صورة أو ارفع ملفًا"/>
                              <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4"/></Button>
                              <Input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
                          </div>
@@ -262,3 +262,5 @@ export default function AdminStoresPage() {
     </div>
   );
 }
+
+    
