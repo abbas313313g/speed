@@ -178,7 +178,7 @@ export default function OrdersPage() {
                                                         <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
                                                         <AlertDialogDescription>
                                                             هل تريد بالتأكيد إلغاء هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.
-                                                        </D escription>
+                                                        </AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
                                                         <AlertDialogCancel>تراجع</AlertDialogCancel>
