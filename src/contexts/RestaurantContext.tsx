@@ -25,14 +25,22 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
     const { updateOrderStatus, isLoading: ordersLoading } = useOrders();
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isInitialCheckDone, setIsInitialCheckDone] = useState(false);
 
     useEffect(() => {
         const storedId = sessionStorage.getItem('restaurantId');
         if (storedId && restaurants.length > 0) {
             const found = restaurants.find(r => r.id === storedId);
             if(found) setRestaurant(found);
+        } else if (!restaurantsLoading) {
+            // If no ID is stored and data has loaded, redirect
+             const isLoginPage = window.location.pathname.includes('/login');
+            if (!storedId && !isLoginPage) {
+                router.replace('/restaurant/login');
+            }
         }
-    }, [restaurants]);
+        setIsInitialCheckDone(true);
+    }, [restaurants, restaurantsLoading, router]);
 
     const login = useCallback(async (id: string, code: string): Promise<boolean> => {
         const selectedRestaurant = restaurants.find(r => r.id === id);
@@ -65,7 +73,7 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
         login,
         logout,
         updateRestaurantOrderStatus,
-        isProcessing: isProcessing || restaurantsLoading || ordersLoading,
+        isProcessing: isProcessing || restaurantsLoading || ordersLoading || !isInitialCheckDone,
     };
 
     return <RestaurantContext.Provider value={value}>{children}</RestaurantContext.Provider>;
