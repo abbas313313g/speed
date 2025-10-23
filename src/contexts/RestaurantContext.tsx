@@ -31,6 +31,8 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
         if (restaurantsLoading) {
             return; // Wait until restaurants are loaded
         }
+        
+        setIsInitialCheckDone(true); // Mark check as done once restaurants are loaded, even if empty
 
         const storedId = sessionStorage.getItem('restaurantId');
         const isLoginPage = window.location.pathname.includes('/login');
@@ -39,6 +41,9 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
             const found = restaurants.find(r => r.id === storedId);
             if (found) {
                 setRestaurant(found);
+                 if (isLoginPage) {
+                    router.replace('/restaurant');
+                }
             } else {
                 // Stored ID is invalid, clear it and redirect
                 sessionStorage.removeItem('restaurantId');
@@ -52,7 +57,6 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
                 router.replace('/restaurant/login');
             }
         }
-        setIsInitialCheckDone(true);
     }, [restaurants, restaurantsLoading, router]);
 
     const login = useCallback(async (id: string, code: string): Promise<boolean> => {
