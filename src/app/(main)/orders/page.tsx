@@ -65,6 +65,7 @@ export default function OrdersPage() {
             case 'pending_assignment': return 'bg-purple-500';
             case 'confirmed': return 'bg-blue-500';
             case 'preparing': return 'bg-yellow-500';
+            case 'ready_for_pickup': return 'bg-teal-500';
             case 'on_the_way': return 'bg-orange-500';
             case 'delivered': return 'bg-green-500';
             case 'cancelled': return 'bg-red-500';
@@ -77,6 +78,7 @@ export default function OrdersPage() {
             case 'pending_assignment': return "جارِ التعيين...";
             case 'confirmed': return "تم التأكيد";
             case 'preparing': return "تحضير الطلب";
+            case 'ready_for_pickup': return "جاهز للاستلام";
             case 'on_the_way': return "في الطريق";
             case 'delivered': return "تم التوصيل";
             case 'cancelled': return "ملغي";
@@ -176,7 +178,7 @@ export default function OrdersPage() {
                                                         <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
                                                         <AlertDialogDescription>
                                                             هل تريد بالتأكيد إلغاء هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.
-                                                        </AlertDialogDescription>
+                                                        </D escription>
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
                                                         <AlertDialogCancel>تراجع</AlertDialogCancel>

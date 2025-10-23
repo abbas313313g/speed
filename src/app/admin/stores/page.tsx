@@ -46,6 +46,7 @@ const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     longitude: undefined,
     openTime: '09:00',
     closeTime: '23:00',
+    loginCode: '',
 };
 
 export default function AdminStoresPage() {
@@ -82,8 +83,8 @@ export default function AdminStoresPage() {
   };
 
   const handleSave = async () => {
-    if (!currentStore.name || !currentStore.image) {
-        toast({ title: "بيانات غير مكتملة", description: "اسم المتجر وصورته مطلوبان.", variant: "destructive" });
+    if (!currentStore.name || !currentStore.image || !currentStore.loginCode) {
+        toast({ title: "بيانات غير مكتملة", description: "اسم المتجر، صورته، ورمز الدخول مطلوبون.", variant: "destructive" });
         return;
     }
 
@@ -148,6 +149,10 @@ export default function AdminStoresPage() {
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="rating" className="text-right">التقييم</Label>
                         <Input id="rating" type="text" inputMode="decimal" step="0.1" value={currentStore.rating || ''} onChange={(e) => setCurrentStore({...currentStore, rating: parseFloat(e.target.value.replace(/[^0-9.]/g, '')) || 0})} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="loginCode" className="text-right">رمز الدخول</Label>
+                        <Input id="loginCode" value={currentStore.loginCode} onChange={(e) => setCurrentStore({...currentStore, loginCode: e.target.value})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                          <Label htmlFor="imageUrl" className="text-right">الصورة</Label>

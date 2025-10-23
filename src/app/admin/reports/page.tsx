@@ -17,17 +17,30 @@ import { Card } from '@/components/ui/card';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useOrders } from '@/hooks/useOrders';
 import { useProducts } from '@/hooks/useProducts';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface StoreReport {
     restaurant: Restaurant;
     totalRevenue: number;
     totalProfit: number;
     orderCount: number;
+    unpaidOrderIds: string[];
 }
 
 export default function AdminReportsPage() {
   const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
-  const { allOrders, isLoading: ordersLoading } = useOrders();
+  const { allOrders, isLoading: ordersLoading, markOrdersAsPaid } = useOrders();
   const { products, isLoading: productsLoading } = useProducts();
 
   const isLoading = restaurantsLoading || ordersLoading || productsLoading;
@@ -37,6 +50,7 @@ export default function AdminReportsPage() {
 
     return restaurants.map(restaurant => {
         const storeOrders = allOrders.filter(order => 
+            !order.isPaid && order.status === 'delivered' &&
             order.items.some(item => {
                 const product = products.find(p => p.id === item.product.id);
                 return product?.restaurantId === restaurant.id;
@@ -64,19 +78,25 @@ export default function AdminReportsPage() {
             restaurant,
             totalRevenue,
             totalProfit,
-            orderCount: storeOrders.length
+            orderCount: storeOrders.length,
+            unpaidOrderIds: storeOrders.map(o => o.id),
         };
     }).sort((a,b) => b.totalRevenue - a.totalRevenue);
 
   }, [restaurants, allOrders, products, isLoading]);
+  
+  const handleMarkAsPaid = async (orderIds: string[]) => {
+      if (orderIds.length === 0) return;
+      await markOrdersAsPaid(orderIds);
+  }
 
   if (isLoading) return <div>جار التحميل...</div>;
 
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="text-3xl font-bold">تقارير المتاجر</h1>
-        <p className="text-muted-foreground">نظرة مفصلة على أداء كل متجر.</p>
+        <h1 className="text-3xl font-bold">تقارير المتاجر (الأرباح المستحقة)</h1>
+        <p className="text-muted-foreground">نظرة على الدخل المستحق لكل متجر من الطلبات المكتملة والتي لم يتم تسويتها بعد.</p>
       </header>
 
       {reports.length === 0 ? (
@@ -90,6 +110,7 @@ export default function AdminReportsPage() {
                   <TableHead>إجمالي المبيعات (الإيرادات)</TableHead>
                   <TableHead>إجمالي الأرباح</TableHead>
                   <TableHead>عدد الطلبات</TableHead>
+                  <TableHead>إجراء</TableHead>
               </TableRow>
               </TableHeader>
               <TableBody>
@@ -104,6 +125,25 @@ export default function AdminReportsPage() {
                   <TableCell>{formatCurrency(report.totalRevenue)}</TableCell>
                   <TableCell>{formatCurrency(report.totalProfit)}</TableCell>
                   <TableCell>{report.orderCount}</TableCell>
+                  <TableCell>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                         <Button variant="outline" size="sm" disabled={report.unpaidOrderIds.length === 0}>تسوية ومسح السجل</Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                          <AlertDialogHeader>
+                              <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                  سيؤدي هذا الإجراء إلى وضع علامة "مدفوع" على {report.orderCount} طلبات لمطعم "{report.restaurant.name}" وإزالتها من هذا التقرير. لا يمكن التراجع عن هذا الإجراء.
+                              </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                              <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleMarkAsPaid(report.unpaidOrderIds)}>نعم، قم بالتسوية</AlertDialogAction>
+                          </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </TableCell>
                   </TableRow>
               ))}
               </TableBody>
@@ -113,5 +153,3 @@ export default function AdminReportsPage() {
     </div>
   );
 }
-
-    

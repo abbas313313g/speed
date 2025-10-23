@@ -61,6 +61,7 @@ export default function AdminOrdersPage() {
       case 'pending_assignment': return 'bg-purple-500';
       case 'confirmed': return 'bg-blue-500';
       case 'preparing': return 'bg-yellow-500';
+      case 'ready_for_pickup': return 'bg-teal-500';
       case 'on_the_way': return 'bg-orange-500';
       case 'delivered': return 'bg-green-500';
       case 'cancelled': return 'bg-red-500';
@@ -74,6 +75,7 @@ export default function AdminOrdersPage() {
             case 'pending_assignment': return "جارِ التعيين...";
             case 'confirmed': return "تم التأكيد";
             case 'preparing': return "تحضير الطلب";
+            case 'ready_for_pickup': return "جاهز للاستلام";
             case 'on_the_way': return "في الطريق";
             case 'delivered': return "تم التوصيل";
             case 'cancelled': return "ملغي";
@@ -105,7 +107,7 @@ export default function AdminOrdersPage() {
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">#{order.id.substring(0, 6)}</TableCell>
                   <TableCell>{order.address.name}</TableCell>
-                  <TableCell>{order.deliveryWorker?.name || order.deliveryWorker?.id || 'لم يعين'}</TableCell>
+                  <TableCell>{order.deliveryWorker?.name || 'لم يعين'}</TableCell>
                   <TableCell>{new Date(order.date).toLocaleString('ar-IQ')}</TableCell>
                   <TableCell>{formatCurrency(order.total)}</TableCell>
                   <TableCell>
@@ -126,6 +128,7 @@ export default function AdminOrdersPage() {
                           <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'unassigned')}>بانتظار سائق</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'confirmed')}>تم التأكيد</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'preparing')}>تحضير الطلب</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'ready_for_pickup')}>جاهز للاستلام</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'on_the_way')}>في الطريق</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'delivered')}>تم التوصيل</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'cancelled')}>إلغاء الطلب</DropdownMenuItem>

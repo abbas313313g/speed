@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, onSnapshot, doc, runTransaction, arrayUnion, deleteDoc, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, runTransaction, arrayUnion, deleteDoc, getDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
@@ -111,10 +111,26 @@ export const useOrders = () => {
         }
     }, [toast]);
     
+    const markOrdersAsPaid = useCallback(async (orderIds: string[]) => {
+        try {
+            const batch = writeBatch(db);
+            orderIds.forEach(id => {
+                const orderRef = doc(db, "orders", id);
+                batch.update(orderRef, { isPaid: true });
+            });
+            await batch.commit();
+            toast({ title: "تم تحديث سجل الطلبات بنجاح" });
+        } catch (e) {
+            console.error("Failed to mark orders as paid:", e);
+            toast({ title: "فشل تحديث السجل", variant: "destructive" });
+        }
+    }, [toast]);
+
     return {
         allOrders,
         isLoading,
         updateOrderStatus,
         deleteOrder,
+        markOrdersAsPaid,
     };
 };

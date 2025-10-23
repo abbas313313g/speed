@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 
 export interface User {
@@ -55,6 +56,7 @@ export interface Restaurant {
   openTime?: string; // e.g., "09:00"
   closeTime?: string; // e.g., "23:00"
   isStoreOpen?: boolean; // This will be calculated on the client
+  loginCode: string;
 }
 
 export interface Banner {
@@ -84,7 +86,7 @@ export interface DeliveryWorker {
     isOnline?: boolean;
 }
 
-export type OrderStatus = 'unassigned' | 'pending_assignment' | 'confirmed' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled';
+export type OrderStatus = 'unassigned' | 'pending_assignment' | 'confirmed' | 'preparing' | 'ready_for_pickup' | 'on_the_way' | 'delivered' | 'cancelled';
 
 export interface Order {
     id: string;
@@ -102,6 +104,7 @@ export interface Order {
     assignedToWorkerId: string | null;
     assignmentTimestamp: string | null;
     rejectedBy?: string[];
+    isPaid?: boolean;
     appliedCoupon: {
       code: string;
       discountAmount: number;
