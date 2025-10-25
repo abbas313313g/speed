@@ -48,6 +48,7 @@ export const useOrders = () => {
 
                 // Scenario: Driver accepts an available order
                 if (status === 'confirmed' && workerId) {
+                    if (currentOrder.deliveryWorkerId) throw new Error("This order has already been taken.");
                     const workerDocRef = doc(db, "deliveryWorkers", workerId);
                     const workerDoc = await transaction.get(workerDocRef);
                     if (!workerDoc.exists()) throw new Error("Driver not found");
@@ -115,7 +116,7 @@ export const useOrders = () => {
             toast({title: "فشل تحديث الطلب", description: error.message, variant: "destructive"});
             throw error;
         }
-    }, [toast, telegramConfigs, deliveryWorkers]);
+    }, [toast, telegramConfigs]);
 
     const deleteOrder = useCallback(async (orderId: string) => {
         try {
