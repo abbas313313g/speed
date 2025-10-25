@@ -44,5 +44,3 @@ export const useTelegramConfigs = () => {
 
     return { telegramConfigs, isLoading, addTelegramConfig, deleteTelegramConfig };
 };
-
-    

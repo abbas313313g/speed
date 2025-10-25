@@ -10,12 +10,14 @@ import { getWorkerLevel } from '@/lib/workerLevels';
 import { sendTelegramMessage } from '@/lib/telegram';
 import { useTelegramConfigs } from './useTelegramConfigs';
 import { formatCurrency } from '@/lib/utils';
+import { useDeliveryWorkers } from './useDeliveryWorkers';
 
 export const useOrders = () => {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
     const { telegramConfigs } = useTelegramConfigs();
+    const { deliveryWorkers } = useDeliveryWorkers();
     
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'orders'),
@@ -42,6 +44,7 @@ export const useOrders = () => {
                 if (!orderDoc.exists()) throw new Error("لم يتم العثور على الطلب.");
                 
                 const updateData: Partial<Order> = { status };
+                const currentOrder = orderDoc.data() as Order;
 
                 // Scenario: Driver accepts an available order
                 if (status === 'confirmed' && workerId) {
@@ -55,7 +58,6 @@ export const useOrders = () => {
                 
                 // Scenario: Driver marks order as delivered
                 if (status === 'delivered') {
-                    const currentOrder = orderDoc.data() as Order;
                     const currentWorkerId = currentOrder.deliveryWorkerId;
                     if (currentWorkerId) {
                         const workerDocRef = doc(db, "deliveryWorkers", currentWorkerId);
@@ -87,13 +89,23 @@ export const useOrders = () => {
             
             toast({ title: `تم تحديث حالة الطلب بنجاح` });
 
+            // Fetch the updated order for notifications
+            const updatedOrderSnap = await getDoc(doc(db, "orders", orderId));
+            if(!updatedOrderSnap.exists()) return;
+            const updatedOrder = updatedOrderSnap.data() as Order;
+
+            // Notify owner when restaurant accepts
             if (status === 'preparing') {
-                 const orderSnap = await getDoc(doc(db, "orders", orderId));
-                 if(orderSnap.exists()) {
-                     const orderData = orderSnap.data() as Order;
-                      telegramConfigs.filter(c => c.type === 'owner').forEach(c => {
-                        sendTelegramMessage(c.chatId, `✅ تم قبول الطلب \`${orderId.substring(0, 6)}\` من قبل مطعم *${orderData.restaurant?.name}*.`);
-                    });
+                telegramConfigs.filter(c => c.type === 'owner').forEach(c => {
+                    sendTelegramMessage(c.chatId, `✅ تم قبول الطلب \`${orderId.substring(0, 6)}\` من قبل مطعم *${updatedOrder.restaurant?.name}*.\nالطلب الآن متاح للسائقين.`);
+                });
+            }
+
+            // Notify restaurant when driver accepts
+            if (status === 'confirmed' && updatedOrder.deliveryWorker) {
+                 const restaurantTelegramConfig = telegramConfigs.find(c => c.type === 'restaurant' && c.restaurantId === updatedOrder.restaurant?.id);
+                 if (restaurantTelegramConfig) {
+                     sendTelegramMessage(restaurantTelegramConfig.chatId, `🚴 الطلب \`${orderId.substring(0, 6)}\` تم قبوله من قبل السائق *${updatedOrder.deliveryWorker.name}*.`);
                  }
             }
 
@@ -103,7 +115,7 @@ export const useOrders = () => {
             toast({title: "فشل تحديث الطلب", description: error.message, variant: "destructive"});
             throw error;
         }
-    }, [toast, telegramConfigs]);
+    }, [toast, telegramConfigs, deliveryWorkers]);
 
     const deleteOrder = useCallback(async (orderId: string) => {
         try {
@@ -138,5 +150,3 @@ export const useOrders = () => {
         markOrdersAsPaid,
     };
 };
-
-    

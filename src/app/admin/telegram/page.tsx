@@ -44,6 +44,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useTelegramConfigs } from '@/hooks/useTelegramConfigs';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
+import { useRestaurants } from '@/hooks/useRestaurants';
 
 
 const EMPTY_CONFIG: Omit<TelegramConfig, 'id'> = {
@@ -56,12 +57,14 @@ export default function AdminTelegramPage() {
   const { toast } = useToast();
   const { telegramConfigs, isLoading: configsLoading, addTelegramConfig, deleteTelegramConfig } = useTelegramConfigs();
   const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers();
+  const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
   
   const [open, setOpen] = useState(false);
   const [currentConfig, setCurrentConfig] = useState<Omit<TelegramConfig, 'id'>>({ ...EMPTY_CONFIG });
   const [isSaving, setIsSaving] = useState(false);
 
-  if (configsLoading || workersLoading) return <div>جار التحميل...</div>;
+  const isLoading = configsLoading || workersLoading || restaurantsLoading;
+  if (isLoading) return <div>جار التحميل...</div>;
   
   const handleSave = async () => {
     if (!currentConfig.name || !currentConfig.chatId) {
@@ -72,6 +75,10 @@ export default function AdminTelegramPage() {
         toast({ title: "بيانات غير صحيحة", description: "الرجاء اختيار عامل توصيل.", variant: "destructive"});
         return;
     }
+     if (currentConfig.type === 'restaurant' && !currentConfig.restaurantId) {
+        toast({ title: "بيانات غير صحيحة", description: "الرجاء اختيار مطعم.", variant: "destructive"});
+        return;
+    }
     setIsSaving(true);
     await addTelegramConfig(currentConfig);
     setIsSaving(false);
@@ -79,9 +86,14 @@ export default function AdminTelegramPage() {
     setCurrentConfig({...EMPTY_CONFIG});
   };
 
-  const getWorkerName = (workerId?: string) => {
-      if (!workerId) return '-';
-      return deliveryWorkers.find(w => w.id === workerId)?.name || 'غير معروف';
+  const getAssociatedName = (config: TelegramConfig) => {
+      if (config.type === 'worker' && config.workerId) {
+          return deliveryWorkers.find(w => w.id === config.workerId)?.name || 'غير معروف';
+      }
+      if (config.type === 'restaurant' && config.restaurantId) {
+          return restaurants.find(r => r.id === config.restaurantId)?.name || 'غير معروف';
+      }
+      return '-';
   }
 
   return (
@@ -110,13 +122,14 @@ export default function AdminTelegramPage() {
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="type" className="text-right">النوع</Label>
-                         <Select value={currentConfig.type} onValueChange={(value: 'owner' | 'worker') => setCurrentConfig({...currentConfig, type: value, workerId: undefined })}>
+                         <Select value={currentConfig.type} onValueChange={(value: 'owner' | 'worker' | 'restaurant') => setCurrentConfig({...currentConfig, type: value, workerId: undefined, restaurantId: undefined })}>
                             <SelectTrigger className="col-span-3">
                                 <SelectValue placeholder="اختر النوع" />
                             </SelectTrigger>
                             <SelectContent>
                                <SelectItem value="owner">مالك (كل الطلبات)</SelectItem>
                                <SelectItem value="worker">عامل توصيل (طلباته فقط)</SelectItem>
+                               <SelectItem value="restaurant">مطعم</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -129,6 +142,19 @@ export default function AdminTelegramPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     {deliveryWorkers.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+                     {currentConfig.type === 'restaurant' && (
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="restaurantId" className="text-right">المطعم</Label>
+                            <Select value={currentConfig.restaurantId} onValueChange={(value) => setCurrentConfig({...currentConfig, restaurantId: value})}>
+                                <SelectTrigger className="col-span-3">
+                                    <SelectValue placeholder="اختر المطعم" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {restaurants.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -149,7 +175,7 @@ export default function AdminTelegramPage() {
             <TableHead>الاسم</TableHead>
             <TableHead>Chat ID</TableHead>
             <TableHead>النوع</TableHead>
-            <TableHead>العامل المرتبط</TableHead>
+            <TableHead>الاسم المرتبط</TableHead>
             <TableHead>إجراءات</TableHead>
           </TableRow>
         </TableHeader>
@@ -160,10 +186,21 @@ export default function AdminTelegramPage() {
               <TableCell dir="ltr">{config.chatId}</TableCell>
               <TableCell>
                 <Badge variant={config.type === 'owner' ? 'default' : 'secondary'}>
-                  {config.type === 'owner' ? <><User className="ml-1 h-3 w-3"/> مالك</> : <><UserCog className="ml-1 h-3 w-3"/> عامل</>}
+                  <div className="flex items-center gap-1">
+                      {config.type === 'owner' && <User className="h-3 w-3"/>}
+                      {config.type === 'worker' && <UserCog className="h-3 w-3"/>}
+                      {config.type === 'restaurant' && <UserCog className="h-3 w-3"/>}
+                      {
+                        {
+                            'owner': 'مالك',
+                            'worker': 'عامل',
+                            'restaurant': 'مطعم'
+                        }[config.type]
+                      }
+                  </div>
                 </Badge>
               </TableCell>
-              <TableCell>{getWorkerName(config.workerId)}</TableCell>
+              <TableCell>{getAssociatedName(config)}</TableCell>
               <TableCell>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>

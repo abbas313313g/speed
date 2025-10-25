@@ -142,8 +142,9 @@ export interface Coupon {
 export interface TelegramConfig {
     id: string;
     chatId: string;
-    type: 'owner' | 'worker';
-    workerId?: string; // only if type is 'worker'
+    type: 'owner' | 'worker' | 'restaurant';
+    workerId?: string;
+    restaurantId?: string;
     name: string; // For display purposes (e.g., "Owner 1", "Ahmed's Phone")
 }
 
@@ -166,5 +167,3 @@ export const AiSupportOutputSchema = z.object({
   response: z.string().describe("The AI's response to the user."),
 });
 export type AiSupportOutput = z.infer<typeof AiSupportOutputSchema>;
-
-    
