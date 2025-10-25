@@ -1,12 +1,12 @@
 
 "use client";
 
-import { useEffect, useState, useMemo, useContext } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatCurrency, calculateDistance } from '@/lib/utils';
-import { LogOut, CircleDot, Loader2, PackageCheck, AlertTriangle, Shield, Check, X, Map } from 'lucide-react';
+import { LogOut, CircleDot, Loader2, PackageCheck, AlertTriangle, Shield, Check, X, Map, Inbox } from 'lucide-react';
 import type { Order, OrderStatus } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useOrders } from '@/hooks/useOrders';
@@ -14,9 +14,7 @@ import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 import Link from 'next/link';
 import { useRestaurants } from '@/hooks/useRestaurants';
 
-type DriverStatus = 'offline' | 'searching' | 'viewing_order';
-
-function OrderCard({ order, onAccept, onReject, isProcessing }: { order: Order, onAccept: (id: string) => void, onReject: (id: string) => void, isProcessing: boolean }) {
+function AvailableOrderCard({ order, onAccept, isProcessing }: { order: Order, onAccept: (id: string) => void, isProcessing: boolean }) {
     const { restaurants } = useRestaurants();
 
     const { distance, mapUrl } = useMemo(() => {
@@ -30,21 +28,17 @@ function OrderCard({ order, onAccept, onReject, isProcessing }: { order: Order, 
     }, [order.address, order.restaurant, restaurants]);
 
     return (
-        <Card className="w-full max-w-md animate-in fade-in-50">
+        <Card className="w-full animate-in fade-in-50">
             <CardHeader>
-                <CardTitle>لديك طلب جديد!</CardTitle>
-                <CardDescription>الرجاء مراجعة تفاصيل الطلب وقبوله أو رفضه.</CardDescription>
+                 <CardTitle>طلب جديد متاح!</CardTitle>
+                 <CardDescription>من مطعم: {order.restaurant?.name}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
                     <span className="font-semibold">ربحك من التوصيل</span>
                     <span className="text-lg font-bold text-green-600">{formatCurrency(order.deliveryFee)}</span>
                 </div>
-                 <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                    <span className="font-semibold">المبلغ الإجمالي للاستلام</span>
-                    <span className="text-lg font-bold text-primary">{formatCurrency(order.total)}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
+                 <div className="flex justify-between items-center text-sm">
                     <span className="text-muted-foreground">المنطقة</span>
                     <span className="font-semibold">{order.address.deliveryZone}</span>
                 </div>
@@ -53,20 +47,15 @@ function OrderCard({ order, onAccept, onReject, isProcessing }: { order: Order, 
                     <span className="font-semibold">{distance ? `~${distance.toFixed(1)} كم` : 'غير معروفة'}</span>
                 </div>
 
-                {mapUrl && (
-                    <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="w-full">
-                         <Button variant="outline" className="w-full"><Map className="ml-2 h-4 w-4"/>عرض المسار على الخريطة</Button>
-                    </a>
-                )}
-
-                <div className="grid grid-cols-2 gap-2 pt-4">
-                    <Button variant="destructive" size="lg" onClick={() => onReject(order.id)} disabled={isProcessing}>
-                        {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <X className="ml-2 h-4 w-4"/>}
-                        رفض
-                    </Button>
-                    <Button size="lg" className="bg-green-600 hover:bg-green-700" onClick={() => onAccept(order.id)} disabled={isProcessing}>
+                <div className="grid grid-cols-2 gap-2 pt-2">
+                    {mapUrl && (
+                        <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="w-full col-span-2">
+                             <Button variant="outline" className="w-full"><Map className="ml-2 h-4 w-4"/>عرض المسار على الخريطة</Button>
+                        </a>
+                    )}
+                     <Button size="lg" className="bg-green-600 hover:bg-green-700 col-span-2" onClick={() => onAccept(order.id)} disabled={isProcessing}>
                          {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Check className="ml-2 h-4 w-4"/>}
-                        قبول
+                        قبول الطلب
                     </Button>
                 </div>
             </CardContent>
@@ -97,27 +86,30 @@ export default function DeliveryPage() {
         return deliveryWorkers.find(w => w.id === workerId);
     }, [workerId, deliveryWorkers]);
 
-    const assignedOrder = useMemo(() => {
-        if (!workerId || !allOrders) return null;
-        return allOrders.find(o => o.status === 'pending_assignment' && o.assignedToWorkerId === workerId) || null;
+    const availableOrders = useMemo(() => {
+        if (!workerId || !allOrders) return [];
+        // Orders are available for pickup if they are in 'preparing' state
+        return allOrders.filter(o => o.status === 'preparing');
     }, [workerId, allOrders]);
     
     const myCurrentOrder = useMemo(() => {
         if (!workerId || !allOrders) return null;
-        return allOrders.find(o => o.deliveryWorkerId === workerId && ['confirmed', 'preparing', 'on_the_way'].includes(o.status));
+        // The driver's current active order is one they've confirmed or are delivering
+        return allOrders.find(o => o.deliveryWorkerId === workerId && ['confirmed', 'ready_for_pickup', 'on_the_way'].includes(o.status));
     }, [workerId, allOrders]);
 
 
-    const driverStatus: DriverStatus = useMemo(() => {
+    const driverStatus: 'offline' | 'searching' | 'has_active_order' = useMemo(() => {
         if (!worker?.isOnline) return 'offline';
-        if (assignedOrder) return 'viewing_order';
+        if (myCurrentOrder) return 'has_active_order';
         return 'searching';
-    }, [worker, assignedOrder]);
+    }, [worker, myCurrentOrder]);
 
     const handleAcceptOrder = async (orderId: string) => {
         if (!workerId) return;
         setIsProcessing(true);
         try {
+            // Driver accepts, status moves to 'confirmed', and workerId is assigned
             await updateOrderStatus(orderId, 'confirmed', workerId);
             toast({ title: "تم قبول الطلب بنجاح!" });
             router.push(`/delivery/order/${orderId}`);
@@ -125,19 +117,6 @@ export default function DeliveryPage() {
             // Error is already toasted by the hook
         } finally {
             setIsProcessing(false);
-        }
-    };
-    
-    const handleRejectOrder = async (orderId: string) => {
-        if (!workerId) return;
-        setIsProcessing(true);
-        try {
-            await updateOrderStatus(orderId, 'unassigned', workerId);
-            toast({ title: "تم رفض الطلب" });
-        } catch (error: any) {
-             // Error is already toasted by the hook
-        } finally {
-             setIsProcessing(false);
         }
     };
     
@@ -161,21 +140,6 @@ export default function DeliveryPage() {
     if (isLoading) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
 
     const renderContent = () => {
-        if (myCurrentOrder) {
-            return (
-                 <div className="text-center space-y-4">
-                    <PackageCheck className="mx-auto h-16 w-16 text-primary"/>
-                    <h2 className="text-2xl font-bold">لديك طلب قيد التنفيذ</h2>
-                    <p className="text-muted-foreground">أكمل طلبك الحالي لمتابعة استلام طلبات جديدة.</p>
-                     <Button size="lg" asChild>
-                        <Link href={`/delivery/order/${myCurrentOrder.id}`}>
-                            متابعة الطلب الحالي
-                        </Link>
-                    </Button>
-                </div>
-            )
-        }
-
         switch (driverStatus) {
             case 'offline':
                 return (
@@ -188,19 +152,37 @@ export default function DeliveryPage() {
                         </Button>
                     </div>
                 );
-            case 'searching':
-                return (
+            case 'has_active_order':
+                 return (
                      <div className="text-center space-y-4">
-                        <Loader2 className="mx-auto h-16 w-16 animate-spin text-primary"/>
-                        <h2 className="text-2xl font-bold">جارِ البحث عن طلب...</h2>
-                        <p className="text-muted-foreground">سيتم إشعارك فور توفر طلب جديد في منطقتك.</p>
+                        <PackageCheck className="mx-auto h-16 w-16 text-primary"/>
+                        <h2 className="text-2xl font-bold">لديك طلب قيد التنفيذ</h2>
+                        <p className="text-muted-foreground">أكمل طلبك الحالي لمتابعة استلام طلبات جديدة.</p>
+                         <Button size="lg" asChild>
+                            <Link href={`/delivery/order/${myCurrentOrder!.id}`}>
+                                متابعة الطلب الحالي
+                            </Link>
+                        </Button>
                     </div>
                 );
-            case 'viewing_order':
-                if (assignedOrder) {
-                    return <OrderCard order={assignedOrder} onAccept={handleAcceptOrder} onReject={handleRejectOrder} isProcessing={isProcessing}/>;
+            case 'searching':
+                if (availableOrders.length > 0) {
+                    return (
+                        <div className="w-full space-y-4">
+                            <h2 className="text-xl font-bold text-center">الطلبات المتاحة ({availableOrders.length})</h2>
+                            {availableOrders.map(order => (
+                                <AvailableOrderCard key={order.id} order={order} onAccept={handleAcceptOrder} isProcessing={isProcessing} />
+                            ))}
+                        </div>
+                    );
                 }
-                return null;
+                return (
+                     <div className="text-center space-y-4">
+                        <Inbox className="mx-auto h-16 w-16 text-muted-foreground"/>
+                        <h2 className="text-2xl font-bold">لا توجد طلبات متاحة حاليًا</h2>
+                        <p className="text-muted-foreground">سيتم إشعارك فور توفر طلبات جديدة.</p>
+                    </div>
+                );
         }
     }
 

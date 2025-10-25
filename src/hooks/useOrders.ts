@@ -2,16 +2,20 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, onSnapshot, doc, runTransaction, arrayUnion, deleteDoc, getDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, doc, runTransaction, arrayUnion, deleteDoc, getDoc, writeBatch, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
 import { getWorkerLevel } from '@/lib/workerLevels';
+import { sendTelegramMessage } from '@/lib/telegram';
+import { useTelegramConfigs } from './useTelegramConfigs';
+import { formatCurrency } from '@/lib/utils';
 
 export const useOrders = () => {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
+    const { telegramConfigs } = useTelegramConfigs();
     
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'orders'),
@@ -36,92 +40,70 @@ export const useOrders = () => {
                 const orderRef = doc(db, "orders", orderId);
                 const orderDoc = await transaction.get(orderRef);
                 if (!orderDoc.exists()) throw new Error("لم يتم العثور على الطلب.");
-                const currentOrder = orderDoc.data() as Order;
                 
-                const updateData: any = { status };
+                const updateData: Partial<Order> = { status };
 
-                // Restaurant accepts the order, find a driver
-                if (currentOrder.status === 'unassigned' && status === 'preparing') {
-                    const workersSnapshot = await getDocs(collection(db, 'deliveryWorkers'));
-                    const allWorkers = workersSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as DeliveryWorker);
-                    
-                    const availableWorkers = allWorkers.filter(w => w.isOnline && !currentOrder.rejectedBy?.includes(w.id));
-                    
-                    // Simple assignment: pick the first available worker
-                    // A more complex strategy (e.g., location-based, round-robin) could be implemented here.
-                    const assignedWorker = availableWorkers[0];
-
-                    if (assignedWorker) {
-                        updateData.status = 'confirmed'; // Move to confirmed so driver can see it
-                        updateData.deliveryWorkerId = assignedWorker.id;
-                        updateData.deliveryWorker = { id: assignedWorker.id, name: assignedWorker.name || assignedWorker.id };
-                    }
-                    // If no worker is found, it stays in 'preparing' state and waits. 
-                    // An admin or an automated process could re-trigger assignment later.
-                }
-
+                // Scenario: Driver accepts an available order
                 if (status === 'confirmed' && workerId) {
-                    if (currentOrder.status !== 'pending_assignment' || currentOrder.assignedToWorkerId !== workerId) {
-                        throw new Error("لم يعد هذا الطلب متاحًا لك.");
-                    }
-                    
                     const workerDocRef = doc(db, "deliveryWorkers", workerId);
                     const workerDoc = await transaction.get(workerDocRef);
-
-                    if (!workerDoc.exists()) {
-                         updateData.deliveryWorker = { id: workerId, name: workerId };
-                    } else {
-                        const workerData = workerDoc.data() as DeliveryWorker;
-                        updateData.deliveryWorker = { id: workerId, name: workerData.name || workerId };
-                    }
+                    if (!workerDoc.exists()) throw new Error("Driver not found");
+                    const workerData = workerDoc.data() as DeliveryWorker;
                     updateData.deliveryWorkerId = workerId;
-
-                } else if (status === 'unassigned' && workerId) {
-                    // This is a rejection, add worker to rejectedBy list
-                    updateData.rejectedBy = arrayUnion(workerId);
+                    updateData.deliveryWorker = { id: workerId, name: workerData.name || workerId };
                 }
                 
-                if (status !== 'pending_assignment') {
-                    updateData.assignedToWorkerId = null;
-                    updateData.assignmentTimestamp = null;
-                }
-
-                if (status === 'delivered' && currentOrder.deliveryWorkerId) {
+                // Scenario: Driver marks order as delivered
+                if (status === 'delivered') {
+                    const currentOrder = orderDoc.data() as Order;
                     const currentWorkerId = currentOrder.deliveryWorkerId;
-                    const workerDocRef = doc(db, "deliveryWorkers", currentWorkerId);
-                    const workerDoc = await transaction.get(workerDocRef); 
-                    
-                    if (workerDoc.exists()) {
-                        const worker = workerDoc.data() as DeliveryWorker;
-                        const now = new Date();
+                    if (currentWorkerId) {
+                        const workerDocRef = doc(db, "deliveryWorkers", currentWorkerId);
+                        const workerDoc = await transaction.get(workerDocRef); 
                         
-                        const myDeliveredOrdersSnapshot = await getDocs(query(collection(db, "orders"), where("deliveryWorkerId", "==", currentWorkerId), where("status", "==", "delivered")));
-                        const deliveredCount = myDeliveredOrdersSnapshot.size;
+                        if (workerDoc.exists()) {
+                            const worker = workerDoc.data() as DeliveryWorker;
+                            const now = new Date();
+                            
+                             const myDeliveredOrdersSnapshot = await getDocs(query(collection(db, "orders"), where("deliveryWorkerId", "==", currentWorkerId), where("status", "==", "delivered")));
+                             const deliveredCount = myDeliveredOrdersSnapshot.size;
 
-                        const { isFrozen } = getWorkerLevel(worker, deliveredCount, now);
-                        
-                        let workerUpdate: Partial<DeliveryWorker> = {};
-                        if (isFrozen) {
-                            const unfreezeProgress = (worker.unfreezeProgress || 0) + 1;
-                            workerUpdate = (unfreezeProgress >= 10) ? { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 } : { unfreezeProgress };
-                        } else {
-                            workerUpdate = { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 };
+                            const { isFrozen } = getWorkerLevel(worker, deliveredCount, now);
+                            
+                            let workerUpdate: Partial<DeliveryWorker> = {};
+                            if (isFrozen) {
+                                const unfreezeProgress = (worker.unfreezeProgress || 0) + 1;
+                                workerUpdate = (unfreezeProgress >= 10) ? { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 } : { unfreezeProgress };
+                            } else {
+                                workerUpdate = { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 };
+                            }
+                            transaction.update(workerDocRef, workerUpdate);
                         }
-                        transaction.update(workerDocRef, workerUpdate);
                     }
                 }
-
+                
                 transaction.update(orderRef, updateData);
             });
             
             toast({ title: `تم تحديث حالة الطلب بنجاح` });
+
+            if (status === 'preparing') {
+                 const orderSnap = await getDoc(doc(db, "orders", orderId));
+                 if(orderSnap.exists()) {
+                     const orderData = orderSnap.data() as Order;
+                      telegramConfigs.filter(c => c.type === 'owner').forEach(c => {
+                        sendTelegramMessage(c.chatId, `✅ تم قبول الطلب \`${orderId.substring(0, 6)}\` من قبل مطعم *${orderData.restaurant?.name}*.`);
+                    });
+                 }
+            }
+
 
         } catch (error: any) {
             console.error("Failed to update order status:", error);
             toast({title: "فشل تحديث الطلب", description: error.message, variant: "destructive"});
             throw error;
         }
-    }, [toast]);
+    }, [toast, telegramConfigs]);
 
     const deleteOrder = useCallback(async (orderId: string) => {
         try {
@@ -156,3 +138,5 @@ export const useOrders = () => {
         markOrdersAsPaid,
     };
 };
+
+    

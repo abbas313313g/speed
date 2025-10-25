@@ -58,8 +58,9 @@ export default function DeliveryOrderDetailPage() {
         switch (status) {
             case 'unassigned': return "بانتظار سائق";
             case 'pending_assignment': return "جارِ التعيين...";
-            case 'confirmed': return "تم التأكيد";
-            case 'preparing': return "تحضير الطلب";
+            case 'confirmed': return "تم التأكيد من قبل السائق";
+            case 'preparing': return "قيد التحضير";
+            case 'ready_for_pickup': return "جاهز للاستلام";
             case 'on_the_way': return "في الطريق";
             case 'delivered': return "تم التوصيل";
             case 'cancelled': return "ملغي";
@@ -68,8 +69,7 @@ export default function DeliveryOrderDetailPage() {
     }
 
   const nextStatus: {[key in OrderStatus]?: OrderStatus} = {
-      'confirmed': 'preparing',
-      'preparing': 'on_the_way',
+      'ready_for_pickup': 'on_the_way',
       'on_the_way': 'delivered',
   }
 
@@ -174,6 +174,10 @@ export default function DeliveryOrderDetailPage() {
             </CardContent>
         </Card>
         
+        {order.status === 'confirmed' && (
+             <p className="text-center font-semibold text-blue-600 p-4 bg-blue-100 rounded-lg">تم تأكيد الطلب. بانتظار أن يصبح جاهزاً للاستلام من المطعم.</p>
+        )}
+
         {nextStatus[order.status] && (
             <div className="grid grid-cols-1 gap-2">
                 <Button size="lg" className="w-full" onClick={handleUpdateStatus}>
@@ -212,3 +216,5 @@ export default function DeliveryOrderDetailPage() {
     </div>
   );
 }
+
+    

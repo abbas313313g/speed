@@ -86,7 +86,7 @@ export interface DeliveryWorker {
     isOnline?: boolean;
 }
 
-export type OrderStatus = 'unassigned' | 'pending_assignment' | 'confirmed' | 'preparing' | 'ready_for_pickup' | 'on_the_way' | 'delivered' | 'cancelled';
+export type OrderStatus = 'unassigned' | 'preparing' | 'confirmed' | 'ready_for_pickup' | 'on_the_way' | 'delivered' | 'cancelled';
 
 export interface Order {
     id: string;
@@ -101,9 +101,6 @@ export interface Order {
     deliveryFee: number;
     deliveryWorkerId: string | null;
     deliveryWorker: {id: string; name: string} | null;
-    assignedToWorkerId: string | null;
-    assignmentTimestamp: string | null;
-    rejectedBy?: string[];
     isPaid?: boolean;
     appliedCoupon: {
       code: string;
@@ -169,3 +166,5 @@ export const AiSupportOutputSchema = z.object({
   response: z.string().describe("The AI's response to the user."),
 });
 export type AiSupportOutput = z.infer<typeof AiSupportOutputSchema>;
+
+    
