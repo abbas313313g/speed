@@ -18,11 +18,12 @@ export default function AdminDashboard() {
   const stats = useMemo(() => {
     if (!allOrders || !allUsers) return { totalRevenue: 0, totalOrders: 0, newCustomers: 0, avgOrderValue: 0, totalProfit: 0 };
     
-    const totalRevenue = allOrders.reduce((acc, order) => acc + (order.total || 0), 0);
-    const totalProfit = allOrders.reduce((acc, order) => acc + (order.profit || 0), 0);
+    const deliveredOrders = allOrders.filter(o => o.status === 'delivered');
+    const totalRevenue = deliveredOrders.reduce((acc, order) => acc + (order.total || 0), 0);
+    const totalProfit = deliveredOrders.reduce((acc, order) => acc + (order.profit || 0), 0);
     const totalOrders = allOrders.length;
     const newCustomers = allUsers.filter(u => !u.isAdmin).length;
-    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    const avgOrderValue = deliveredOrders.length > 0 ? totalRevenue / deliveredOrders.length : 0;
     
     return { totalRevenue, totalOrders, newCustomers, avgOrderValue, totalProfit };
   }, [allOrders, allUsers]);
@@ -30,7 +31,8 @@ export default function AdminDashboard() {
   const chartData = useMemo(() => {
      if (!allOrders) return [];
      const monthlyData: {[key: string]: { revenue: number, profit: number }} = {};
-     allOrders.forEach(order => {
+     const deliveredOrders = allOrders.filter(o => o.status === 'delivered');
+     deliveredOrders.forEach(order => {
         const month = new Date(order.date).toLocaleString('default', { month: 'short' });
         if (!monthlyData[month]) {
             monthlyData[month] = { revenue: 0, profit: 0 };
@@ -71,7 +73,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div>
-            <p className="text-xs text-muted-foreground">من جميع الطلبات</p>
+            <p className="text-xs text-muted-foreground">من الطلبات المكتملة</p>
           </CardContent>
         </Card>
          <Card>
@@ -81,7 +83,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.totalProfit)}</div>
-            <p className="text-xs text-muted-foreground">بعد خصم سعر الجملة</p>
+            <p className="text-xs text-muted-foreground">من الطلبات المكتملة</p>
           </CardContent>
         </Card>
         <Card>
@@ -111,7 +113,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.avgOrderValue)}</div>
-             <p className="text-xs text-muted-foreground">متوسط قيمة الطلب الواحد</p>
+             <p className="text-xs text-muted-foreground">من الطلبات المكتملة</p>
           </CardContent>
         </Card>
       </div>

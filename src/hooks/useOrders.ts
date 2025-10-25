@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, onSnapshot, doc, runTransaction, arrayUnion, deleteDoc, getDoc, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, runTransaction, arrayUnion, deleteDoc, getDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
@@ -40,12 +40,31 @@ export const useOrders = () => {
                 
                 const updateData: any = { status };
 
+                // Restaurant accepts the order, find a driver
+                if (currentOrder.status === 'unassigned' && status === 'preparing') {
+                    const workersSnapshot = await getDocs(collection(db, 'deliveryWorkers'));
+                    const allWorkers = workersSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as DeliveryWorker);
+                    
+                    const availableWorkers = allWorkers.filter(w => w.isOnline && !currentOrder.rejectedBy?.includes(w.id));
+                    
+                    // Simple assignment: pick the first available worker
+                    // A more complex strategy (e.g., location-based, round-robin) could be implemented here.
+                    const assignedWorker = availableWorkers[0];
+
+                    if (assignedWorker) {
+                        updateData.status = 'confirmed'; // Move to confirmed so driver can see it
+                        updateData.deliveryWorkerId = assignedWorker.id;
+                        updateData.deliveryWorker = { id: assignedWorker.id, name: assignedWorker.name || assignedWorker.id };
+                    }
+                    // If no worker is found, it stays in 'preparing' state and waits. 
+                    // An admin or an automated process could re-trigger assignment later.
+                }
+
                 if (status === 'confirmed' && workerId) {
                     if (currentOrder.status !== 'pending_assignment' || currentOrder.assignedToWorkerId !== workerId) {
                         throw new Error("لم يعد هذا الطلب متاحًا لك.");
                     }
                     
-                    // Fetch worker doc within the transaction for consistency
                     const workerDocRef = doc(db, "deliveryWorkers", workerId);
                     const workerDoc = await transaction.get(workerDocRef);
 
@@ -70,13 +89,16 @@ export const useOrders = () => {
                 if (status === 'delivered' && currentOrder.deliveryWorkerId) {
                     const currentWorkerId = currentOrder.deliveryWorkerId;
                     const workerDocRef = doc(db, "deliveryWorkers", currentWorkerId);
-                    const workerDoc = await transaction.get(workerDocRef); // reading inside transaction
+                    const workerDoc = await transaction.get(workerDocRef); 
                     
                     if (workerDoc.exists()) {
                         const worker = workerDoc.data() as DeliveryWorker;
                         const now = new Date();
-                        const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === currentWorkerId && o.status === 'delivered').length + 1;
-                        const { isFrozen } = getWorkerLevel(worker, myDeliveredOrders, now);
+                        
+                        const myDeliveredOrdersSnapshot = await getDocs(query(collection(db, "orders"), where("deliveryWorkerId", "==", currentWorkerId), where("status", "==", "delivered")));
+                        const deliveredCount = myDeliveredOrdersSnapshot.size;
+
+                        const { isFrozen } = getWorkerLevel(worker, deliveredCount, now);
                         
                         let workerUpdate: Partial<DeliveryWorker> = {};
                         if (isFrozen) {
@@ -99,7 +121,7 @@ export const useOrders = () => {
             toast({title: "فشل تحديث الطلب", description: error.message, variant: "destructive"});
             throw error;
         }
-    }, [toast, allOrders]);
+    }, [toast]);
 
     const deleteOrder = useCallback(async (orderId: string) => {
         try {

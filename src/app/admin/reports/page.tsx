@@ -50,7 +50,8 @@ export default function AdminReportsPage() {
 
     return restaurants.map(restaurant => {
         const storeOrders = allOrders.filter(order => 
-            !order.isPaid && order.status === 'delivered' &&
+            order.status === 'delivered' &&
+            !order.isPaid &&
             order.items.some(item => {
                 const product = products.find(p => p.id === item.product.id);
                 return product?.restaurantId === restaurant.id;
@@ -92,6 +93,8 @@ export default function AdminReportsPage() {
 
   if (isLoading) return <div>جار التحميل...</div>;
 
+  const validReports = reports.filter(r => r.orderCount > 0);
+
   return (
     <div className="space-y-8">
       <header>
@@ -99,8 +102,8 @@ export default function AdminReportsPage() {
         <p className="text-muted-foreground">نظرة على الدخل المستحق لكل متجر من الطلبات المكتملة والتي لم يتم تسويتها بعد.</p>
       </header>
 
-      {reports.length === 0 ? (
-        <p className="text-center text-muted-foreground py-8">لا توجد بيانات تقارير لعرضها.</p>
+      {validReports.length === 0 ? (
+        <p className="text-center text-muted-foreground py-8">لا توجد أرباح مستحقة للمتاجر حالياً.</p>
       ) : (
         <Card>
           <Table>
@@ -114,7 +117,7 @@ export default function AdminReportsPage() {
               </TableRow>
               </TableHeader>
               <TableBody>
-              {reports.map((report) => (
+              {validReports.map((report) => (
                   <TableRow key={report.restaurant.id}>
                   <TableCell>
                       <div className="flex items-center gap-3">
