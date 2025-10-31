@@ -26,7 +26,7 @@ import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function AdminUsersPage() {
-  const { deliveryWorkers, isLoading: workersLoading, deleteAllWorkers } = useDeliveryWorkers();
+  const { deliveryWorkers, isLoading: workersLoading, deleteAllWorkers, deleteWorker } = useDeliveryWorkers();
 
   if (workersLoading) return <div>جار التحميل...</div>;
   
@@ -74,6 +74,7 @@ export default function AdminUsersPage() {
                         <TableHead>اسم العامل</TableHead>
                         <TableHead>رقم الهاتف (المعرف)</TableHead>
                         <TableHead>حالة الاتصال</TableHead>
+                        <TableHead>إجراءات</TableHead>
                     </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -82,6 +83,27 @@ export default function AdminUsersPage() {
                         <TableCell className="font-medium">{worker.name}</TableCell>
                         <TableCell dir="ltr">{worker.id}</TableCell>
                         <TableCell>{worker.isOnline ? 'متصل' : 'غير متصل'}</TableCell>
+                        <TableCell>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="icon">
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            سيتم حذف العامل "{worker.name}" بشكل نهائي. لا يمكن التراجع عن هذا الإجراء.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => deleteWorker(worker.id)}>حذف</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </TableCell>
                         </TableRow>
                     ))}
                     </TableBody>

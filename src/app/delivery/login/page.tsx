@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Bike, KeyRound, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function DeliveryLoginPage() {
     const [step, setStep] = useState(1); // 1 for login, 2 for register
@@ -19,22 +21,31 @@ export default function DeliveryLoginPage() {
     
     const router = useRouter();
     const { toast } = useToast();
-    const { deliveryWorkers, addDeliveryWorker, updateWorkerStatus } = useDeliveryWorkers();
+    const { addDeliveryWorker, updateWorkerStatus } = useDeliveryWorkers();
 
 
     const handleLogin = async (e: FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
-        const worker = deliveryWorkers.find(w => w.id === phone);
-        if (worker) {
-            localStorage.setItem('deliveryWorkerId', worker.id);
-            await updateWorkerStatus(worker.id, true); // Set as online
-            toast({ title: `مرحباً بعودتك ${worker.name}` });
-            router.push('/delivery');
-        } else {
-            setStep(2); // Worker not found, move to registration step
+        try {
+            const workerDocRef = doc(db, "deliveryWorkers", phone);
+            const workerDoc = await getDoc(workerDocRef);
+
+            if (workerDoc.exists()) {
+                const worker = workerDoc.data();
+                localStorage.setItem('deliveryWorkerId', phone);
+                await updateWorkerStatus(phone, true); // Set as online
+                toast({ title: `مرحباً بعودتك ${worker.name}` });
+                router.push('/delivery');
+            } else {
+                setStep(2); // Worker not found, move to registration step
+            }
+        } catch (error) {
+            console.error("Login failed:", error);
+            toast({ title: "فشل تسجيل الدخول", description: "حدث خطأ ما، الرجاء المحاولة مرة أخرى", variant: "destructive" });
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     };
     
     const handleRegister = async (e: FormEvent) => {

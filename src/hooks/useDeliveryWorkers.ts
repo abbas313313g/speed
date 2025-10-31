@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, onSnapshot, doc, setDoc, getDoc, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, getDoc, getDocs, writeBatch, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { DeliveryWorker } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +17,6 @@ export const useDeliveryWorkers = () => {
             (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DeliveryWorker[];
                 
-                // De-duplication logic: Ensure all worker IDs are unique.
                 const uniqueWorkers: DeliveryWorker[] = [];
                 const seenIds = new Set<string>();
                 for (const worker of data) {
@@ -45,7 +44,6 @@ export const useDeliveryWorkers = () => {
             const docSnap = await getDoc(workerDocRef);
 
             if (docSnap.exists()) {
-                // Worker already exists, just log it, no need to toast.
                 console.log("Worker already exists:", workerData.id);
                 return; 
             }
@@ -57,7 +55,6 @@ export const useDeliveryWorkers = () => {
                 unfreezeProgress: 0,
                 lastDeliveredAt: null,
             };
-            // Using phone number (id) as document id
             await setDoc(workerDocRef, completeWorkerData);
             toast({ title: "تم تسجيل العامل بنجاح" });
         } catch (error) { 
@@ -92,7 +89,17 @@ export const useDeliveryWorkers = () => {
             toast({ title: "فشل حذف العمال", description: "حدث خطأ ما أثناء محاولة حذف جميع العمال.", variant: "destructive"});
         }
     }, [toast]);
+    
+    const deleteWorker = useCallback(async (workerId: string) => {
+        try {
+            await deleteDoc(doc(db, "deliveryWorkers", workerId));
+            toast({ title: "تم حذف العامل بنجاح" });
+        } catch(e) {
+            console.error("Error deleting worker:", e);
+            toast({ title: "فشل حذف العامل", variant: "destructive"});
+        }
+    }, [toast]);
 
 
-    return { deliveryWorkers, isLoading, addDeliveryWorker, updateWorkerStatus, deleteAllWorkers };
+    return { deliveryWorkers, isLoading, addDeliveryWorker, updateWorkerStatus, deleteAllWorkers, deleteWorker };
 };
