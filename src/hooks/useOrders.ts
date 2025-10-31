@@ -142,6 +142,22 @@ export const useOrders = () => {
             toast({ title: "فشل تحديث السجل", variant: "destructive" });
         }
     }, [toast]);
+    
+    const markDeliveryFeesAsPaid = useCallback(async (orderIds: string[]) => {
+        try {
+            const batch = writeBatch(db);
+            orderIds.forEach(id => {
+                const orderRef = doc(db, "orders", id);
+                batch.update(orderRef, { isFeePaid: true });
+            });
+            await batch.commit();
+            toast({ title: "تم تحديث سجل أجور التوصيل بنجاح" });
+        } catch (e) {
+            console.error("Failed to mark delivery fees as paid:", e);
+            toast({ title: "فشل تحديث السجل", variant: "destructive" });
+        }
+    }, [toast]);
+
 
     return {
         allOrders,
@@ -149,5 +165,6 @@ export const useOrders = () => {
         updateOrderStatus,
         deleteOrder,
         markOrdersAsPaid,
+        markDeliveryFeesAsPaid,
     };
 };

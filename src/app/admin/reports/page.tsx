@@ -98,20 +98,20 @@ export default function AdminReportsPage() {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="text-3xl font-bold">تقارير المتاجر (الأرباح المستحقة)</h1>
-        <p className="text-muted-foreground">نظرة على الدخل المستحق لكل متجر من الطلبات المكتملة والتي لم يتم تسويتها بعد.</p>
+        <h1 className="text-3xl font-bold">تسوية حسابات المتاجر</h1>
+        <p className="text-muted-foreground">عرض وتسوية المبالغ المستحقة لكل متجر من الطلبات المكتملة.</p>
       </header>
 
       {validReports.length === 0 ? (
-        <p className="text-center text-muted-foreground py-8">لا توجد أرباح مستحقة للمتاجر حالياً.</p>
+        <p className="text-center text-muted-foreground py-8">لا توجد مبالغ مستحقة للمتاجر حالياً.</p>
       ) : (
         <Card>
           <Table>
               <TableHeader>
               <TableRow>
                   <TableHead>المتجر</TableHead>
-                  <TableHead>إجمالي المبيعات (الإيرادات)</TableHead>
-                  <TableHead>إجمالي الأرباح</TableHead>
+                  <TableHead>إجمالي الإيرادات</TableHead>
+                  <TableHead>أرباح التطبيق</TableHead>
                   <TableHead>عدد الطلبات</TableHead>
                   <TableHead>إجراء</TableHead>
               </TableRow>

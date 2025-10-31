@@ -97,11 +97,12 @@ export interface Order {
     status: OrderStatus;
     estimatedDelivery: string;
     address: Address;
-    profit: number | null;
+    profit: number;
     deliveryFee: number;
     deliveryWorkerId: string | null;
     deliveryWorker: {id: string; name: string} | null;
     isPaid?: boolean;
+    isFeePaid?: boolean;
     appliedCoupon: {
       code: string;
       discountAmount: number;
