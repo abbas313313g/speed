@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useRef } from "react";
+import { useRef, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Autoplay from "embla-carousel-autoplay"
@@ -12,8 +12,6 @@ import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -39,6 +37,35 @@ export default function HomePage() {
   
   const isLoading = categoriesLoading || bannersLoading || productsLoading || restaurantsLoading || ordersLoading;
 
+  const bestSellersByCategory = useMemo(() => {
+    if (isLoading) return [];
+    
+    const salesCount: { [productId: string]: number } = {};
+    allOrders.forEach(order => {
+        order.items.forEach(item => {
+            salesCount[item.product.id] = (salesCount[item.product.id] || 0) + item.quantity;
+        });
+    });
+
+    const categoryGroups: { category: typeof categories[0]; products: typeof products }[] = [];
+
+    categories.forEach(category => {
+      const categoryProducts = products
+        .filter(p => p.categoryId === category.id && salesCount[p.id] > 0)
+        .sort((a, b) => salesCount[b.id] - salesCount[a.id])
+        .slice(0, 10); // Get top 10 best sellers per category
+
+      if (categoryProducts.length > 0) {
+        categoryGroups.push({
+          category: category,
+          products: categoryProducts
+        });
+      }
+    });
+
+    return categoryGroups;
+  }, [isLoading, allOrders, products, categories]);
+
   if (isLoading) {
     return (
         <div className="p-4 space-y-8">
@@ -58,17 +85,6 @@ export default function HomePage() {
         </div>
     );
   }
-
-  const bestSellers = (() => {
-        const salesCount: { [productId: string]: number } = {};
-        allOrders.forEach(order => {
-            order.items.forEach(item => {
-                salesCount[item.product.id] = (salesCount[item.product.id] || 0) + item.quantity;
-            });
-        });
-        const soldProducts = products.filter(p => salesCount[p.id] > 0);
-        return soldProducts.sort((a, b) => salesCount[b.id] - salesCount[a.id]);
-    })();
   
   return (
     <div className="space-y-8 p-4">
@@ -98,8 +114,6 @@ export default function HomePage() {
               </CarouselItem>
             ))}
           </CarouselContent>
-          <CarouselPrevious className="right-4 left-auto" />
-          <CarouselNext className="left-4 right-auto" />
         </Carousel>
       </section>
 
@@ -135,18 +149,28 @@ export default function HomePage() {
         </ScrollArea>
       </section>
       
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">الأكثر مبيعاً</h2>
-          <Link href="/products" className="text-sm font-semibold text-primary">
-            عرض الكل
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          {bestSellers.slice(0, 4).map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+      <section className="space-y-6">
+        <h2 className="text-xl font-bold">الأكثر مبيعاً</h2>
+        {bestSellersByCategory.map(({ category, products: categoryProducts }) => (
+          <div key={category.id}>
+            <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold">{category.name}</h3>
+                <Link href={`/products?category=${category.id}`} className="text-sm font-semibold text-primary">
+                    عرض الكل
+                </Link>
+            </div>
+            <ScrollArea className="w-full whitespace-nowrap rounded-md">
+                <div className="flex w-max space-x-4 pb-4">
+                    {categoryProducts.map((product) => (
+                        <div key={product.id} className="w-40 flex-shrink-0">
+                          <ProductCard product={product} />
+                        </div>
+                    ))}
+                </div>
+                <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          </div>
+        ))}
       </section>
 
       <section>
@@ -156,11 +180,16 @@ export default function HomePage() {
                 عرض الكل
             </Link>
         </div>
-        <div className="space-y-4">
-          {restaurants.map((restaurant) => (
-            <RestaurantCard key={restaurant.id} restaurant={restaurant} />
-          ))}
-        </div>
+        <ScrollArea className="w-full whitespace-nowrap rounded-md">
+            <div className="flex w-max space-x-4 pb-4">
+              {restaurants.map((restaurant) => (
+                <div key={restaurant.id} className="w-80 flex-shrink-0">
+                  <RestaurantCard restaurant={restaurant} />
+                </div>
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       </section>
     </div>
   );
