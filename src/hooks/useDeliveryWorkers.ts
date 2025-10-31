@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { DeliveryWorker } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -30,6 +30,15 @@ export const useDeliveryWorkers = () => {
 
     const addDeliveryWorker = useCallback(async (workerData: {id: string, name: string}) => {
         try {
+            const workerDocRef = doc(db, "deliveryWorkers", workerData.id);
+            const docSnap = await getDoc(workerDocRef);
+
+            if (docSnap.exists()) {
+                // Worker already exists, just log it, no need to toast.
+                console.log("Worker already exists:", workerData.id);
+                return; 
+            }
+
             const completeWorkerData: DeliveryWorker = {
                 id: workerData.id,
                 name: workerData.name,
@@ -38,7 +47,7 @@ export const useDeliveryWorkers = () => {
                 lastDeliveredAt: null,
             };
             // Using phone number (id) as document id
-            await setDoc(doc(db, "deliveryWorkers", workerData.id), completeWorkerData);
+            await setDoc(workerDocRef, completeWorkerData);
             toast({ title: "تم تسجيل العامل بنجاح" });
         } catch (error) { 
             console.error("Error adding worker:", error);
