@@ -27,6 +27,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Trash2 } from 'lucide-react';
 
 interface WorkerStats {
     worker: DeliveryWorker;
@@ -36,7 +37,7 @@ interface WorkerStats {
 }
 
 export default function AdminDeliveryWorkersPage() {
-  const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers();
+  const { deliveryWorkers, isLoading: workersLoading, deleteAllWorkers } = useDeliveryWorkers();
   const { allOrders, isLoading: ordersLoading, markDeliveryFeesAsPaid } = useOrders();
 
   const stats: WorkerStats[] = useMemo(() => {
@@ -72,13 +73,37 @@ export default function AdminDeliveryWorkersPage() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-3xl font-bold">تسوية حسابات عمال التوصيل</h1>
-        <p className="text-muted-foreground">عرض وتسوية أجور التوصيل المستحقة للعمال.</p>
+      <header className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold">تسوية حسابات عمال التوصيل</h1>
+          <p className="text-muted-foreground">عرض وتسوية أجور التوصيل المستحقة للعمال.</p>
+        </div>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive">
+              <Trash2 className="ml-2 h-4 w-4" />
+              حذف جميع العمال
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>هل أنت متأكد تمامًا؟</AlertDialogTitle>
+              <AlertDialogDescription>
+                هذا الإجراء سيقوم بحذف **جميع** حسابات عمال التوصيل بشكل نهائي من قاعدة البيانات. لا يمكن التراجع عن هذا الإجراء. سيحتاج جميع العمال إلى التسجيل مرة أخرى.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>إلغاء</AlertDialogCancel>
+              <AlertDialogAction onClick={deleteAllWorkers} className="bg-destructive hover:bg-destructive/90">نعم، قم بالحذف</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </header>
 
-      {validStats.length === 0 ? (
+      {validStats.length === 0 && deliveryWorkers.length > 0 ? (
           <p className="text-center text-muted-foreground py-8">لا توجد أجور مستحقة للعمال حالياً.</p>
+      ) : deliveryWorkers.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">لا يوجد عمال توصيل مسجلون في النظام حاليًا.</p>
       ) : (
         <Card>
             <Table>

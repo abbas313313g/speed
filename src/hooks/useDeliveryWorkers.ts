@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, onSnapshot, doc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, setDoc, getDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { DeliveryWorker } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -76,7 +76,23 @@ export const useDeliveryWorkers = () => {
             throw error;
         }
     }, [toast]);
+    
+    const deleteAllWorkers = useCallback(async () => {
+        try {
+            const workersCollection = collection(db, "deliveryWorkers");
+            const workersSnapshot = await getDocs(workersCollection);
+            const batch = writeBatch(db);
+            workersSnapshot.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+            toast({ title: "تم حذف جميع العمال بنجاح", description: "يمكن للعمال الآن التسجيل من جديد." });
+        } catch(e) {
+            console.error("Error deleting all workers:", e);
+            toast({ title: "فشل حذف العمال", description: "حدث خطأ ما أثناء محاولة حذف جميع العمال.", variant: "destructive"});
+        }
+    }, [toast]);
 
 
-    return { deliveryWorkers, isLoading, addDeliveryWorker, updateWorkerStatus };
+    return { deliveryWorkers, isLoading, addDeliveryWorker, updateWorkerStatus, deleteAllWorkers };
 };
