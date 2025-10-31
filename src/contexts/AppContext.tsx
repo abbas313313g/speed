@@ -322,7 +322,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             console.error("Place order transaction failed: ", error);
             toast({
               title: "فشل إرسال الطلب",
-              description: "الرجاء محاولة إعادة تشغيل التطبيق.",
+              description: error instanceof Error ? error.message : "الرجاء محاولة إعادة تشغيل التطبيق.",
               variant: "destructive",
             });
             return null;
