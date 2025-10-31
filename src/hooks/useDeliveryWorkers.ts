@@ -16,7 +16,18 @@ export const useDeliveryWorkers = () => {
         const unsub = onSnapshot(collection(db, 'deliveryWorkers'),
             (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DeliveryWorker[];
-                setDeliveryWorkers(data);
+                
+                // De-duplication logic: Ensure all worker IDs are unique.
+                const uniqueWorkers: DeliveryWorker[] = [];
+                const seenIds = new Set<string>();
+                for (const worker of data) {
+                    if (!seenIds.has(worker.id)) {
+                        seenIds.add(worker.id);
+                        uniqueWorkers.push(worker);
+                    }
+                }
+                
+                setDeliveryWorkers(uniqueWorkers);
                 setIsLoading(false);
             },
             (error) => {
