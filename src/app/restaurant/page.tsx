@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useContext, useMemo } from 'react';
@@ -6,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, Check, X } from 'lucide-react';
+import { LogOut, Loader2, Check, X, Bike } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
 import Image from 'next/image';
@@ -32,7 +31,8 @@ export default function RestaurantDashboardPage() {
     
     const myPreparingOrders = useMemo(() => {
         if (!restaurant || !allOrders) return [];
-        return allOrders.filter(order => order.restaurant?.id === restaurant.id && order.status === 'preparing');
+        // Show orders that are being prepared OR have been confirmed by a driver but not yet picked up
+        return allOrders.filter(order => order.restaurant?.id === restaurant.id && ['preparing', 'confirmed'].includes(order.status));
     }, [restaurant, allOrders]);
     
      const myReadyOrders = useMemo(() => {
@@ -106,6 +106,16 @@ export default function RestaurantDashboardPage() {
                                     <CardTitle>طلب #{order.id.substring(0,6)}</CardTitle>
                                     <CardDescription>{new Date(order.date).toLocaleTimeString('ar-IQ')}</CardDescription>
                                 </CardHeader>
+                                 <CardContent>
+                                    {order.status === 'confirmed' && order.deliveryWorker ? (
+                                        <Badge variant="secondary" className="flex items-center gap-2">
+                                            <Bike className="h-4 w-4" />
+                                            <span>تم تعيين السائق: {order.deliveryWorker.name}</span>
+                                        </Badge>
+                                    ) : (
+                                        <Badge variant="outline">بانتظار قبول سائق</Badge>
+                                    )}
+                                </CardContent>
                                 <CardFooter>
                                     <Button className="w-full" onClick={() => updateRestaurantOrderStatus(order.id, 'ready_for_pickup')} disabled={isProcessing}>
                                          {isProcessing ? <Loader2 className="animate-spin"/> : null}
@@ -128,7 +138,13 @@ export default function RestaurantDashboardPage() {
                                     <CardDescription>{new Date(order.date).toLocaleTimeString('ar-IQ')}</CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <Badge>بانتظار السائق</Badge>
+                                    <Badge>بانتظار السائق للاستلام</Badge>
+                                     {order.deliveryWorker && (
+                                        <div className="text-sm text-muted-foreground mt-2 flex items-center gap-2">
+                                            <Bike className="h-4 w-4" />
+                                            <span>{order.deliveryWorker.name}</span>
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
                          )) : <p className="text-center text-muted-foreground pt-10">لا توجد طلبات جاهزة.</p>}
