@@ -1,10 +1,10 @@
 
 "use client";
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { DollarSign, ShoppingCart, ArrowRight, ShieldAlert } from 'lucide-react';
+import { DollarSign, ShoppingCart, ArrowRight, ShieldAlert, Wallet, Landmark } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { getWorkerLevel } from '@/lib/workerLevels';
@@ -12,13 +12,17 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 import { useOrders } from '@/hooks/useOrders';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Loader2 } from 'lucide-react';
 
 export default function DeliveryStatsPage() {
   const router = useRouter();
   const [workerId, setWorkerId] = useState<string | null>(null);
-
-  const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers();
+  const { deliveryWorkers, isLoading: workersLoading, updateWorkerDetails } = useDeliveryWorkers();
   const { allOrders, isLoading: ordersLoading } = useOrders();
+  const [name, setName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
 
   useEffect(() => {
@@ -32,22 +36,36 @@ export default function DeliveryStatsPage() {
 
   const { stats, worker, level, isFrozen } = useMemo(() => {
     if (!workerId || !deliveryWorkers || !allOrders) {
-        return { stats: { totalEarnings: 0, deliveredOrders: 0 }, worker: null, level: null, isFrozen: false };
+        return { stats: { totalEarnings: 0, deliveredOrders: 0, unpaidEarnings: 0 }, worker: null, level: null, isFrozen: false };
     }
     
     const worker = deliveryWorkers.find(w => w.id === workerId);
     if (!worker) {
-        return { stats: { totalEarnings: 0, deliveredOrders: 0 }, worker: null, level: null, isFrozen: false };
+        return { stats: { totalEarnings: 0, deliveredOrders: 0, unpaidEarnings: 0 }, worker: null, level: null, isFrozen: false };
     }
 
     const myDeliveredOrders = allOrders.filter(order => order.deliveryWorkerId === workerId && order.status === 'delivered');
     const totalEarnings = myDeliveredOrders.reduce((acc, order) => acc + (order.deliveryFee || 0), 0);
+    const unpaidEarnings = myDeliveredOrders.filter(o => !o.isFeePaid).reduce((acc, order) => acc + (order.deliveryFee || 0), 0);
     const deliveredOrders = myDeliveredOrders.length;
     
     const {level, isFrozen} = getWorkerLevel(worker, deliveredOrders, new Date());
     
-    return { stats: { totalEarnings, deliveredOrders }, worker, level, isFrozen };
+    return { stats: { totalEarnings, deliveredOrders, unpaidEarnings }, worker, level, isFrozen };
   }, [workerId, deliveryWorkers, allOrders]);
+
+  useEffect(() => {
+    if(worker) {
+        setName(worker.name);
+    }
+  }, [worker]);
+
+  const handleSaveChanges = useCallback(async () => {
+    if (!workerId || !name.trim()) return;
+    setIsSaving(true);
+    await updateWorkerDetails(workerId, { name });
+    setIsSaving(false);
+  }, [workerId, name, updateWorkerDetails]);
 
 
   if (workersLoading || ordersLoading || !workerId) {
@@ -117,15 +135,25 @@ export default function DeliveryStatsPage() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">إجمالي الأرباح</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">إجمالي الأرباح المستحقة</CardTitle>
+            <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.totalEarnings)}</div>
-            <p className="text-xs text-muted-foreground">من جميع الطلبات المكتملة</p>
+            <div className="text-2xl font-bold text-primary">{formatCurrency(stats.unpaidEarnings)}</div>
+            <p className="text-xs text-muted-foreground">المبلغ الذي لم يتم تسويته بعد</p>
           </CardContent>
         </Card>
         <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">الأرباح التي تم استلامها</CardTitle>
+            <Landmark className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(stats.totalEarnings - stats.unpaidEarnings)}</div>
+            <p className="text-xs text-muted-foreground">إجمالي المبالغ التي استلمتها</p>
+          </CardContent>
+        </Card>
+        <Card className="md:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">الطلبات المكتملة</CardTitle>
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
@@ -136,6 +164,22 @@ export default function DeliveryStatsPage() {
           </CardContent>
         </Card>
       </div>
+
+       <Card>
+          <CardHeader>
+            <CardTitle>تعديل المعلومات الشخصية</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+             <div className="space-y-2">
+                <Label htmlFor="name">الاسم</Label>
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+             </div>
+             <Button onClick={handleSaveChanges} disabled={isSaving}>
+                {isSaving && <Loader2 className="ml-2 h-4 w-4 animate-spin"/>}
+                حفظ التغييرات
+             </Button>
+          </CardContent>
+        </Card>
 
     </div>
   );

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, onSnapshot, doc, setDoc, getDoc, getDocs, writeBatch, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, getDoc, getDocs, writeBatch, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { DeliveryWorker } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -73,6 +73,16 @@ export const useDeliveryWorkers = () => {
             throw error;
         }
     }, [toast]);
+
+    const updateWorkerDetails = useCallback(async (workerId: string, details: Partial<DeliveryWorker>) => {
+        try {
+            await updateDoc(doc(db, 'deliveryWorkers', workerId), details);
+            toast({ title: 'تم تحديث البيانات بنجاح' });
+        } catch (error) {
+            console.error('Error updating worker details:', error);
+            toast({ title: 'فشل تحديث البيانات', variant: 'destructive' });
+        }
+    }, [toast]);
     
     const deleteAllWorkers = useCallback(async () => {
         try {
@@ -101,5 +111,5 @@ export const useDeliveryWorkers = () => {
     }, [toast]);
 
 
-    return { deliveryWorkers, isLoading, addDeliveryWorker, updateWorkerStatus, deleteAllWorkers, deleteWorker };
+    return { deliveryWorkers, isLoading, addDeliveryWorker, updateWorkerStatus, deleteAllWorkers, deleteWorker, updateWorkerDetails };
 };
