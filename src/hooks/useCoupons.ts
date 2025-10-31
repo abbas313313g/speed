@@ -21,7 +21,7 @@ export const useCoupons = () => {
             },
             (error) => {
                 console.error("Error fetching coupons:", error);
-                toast({ title: "Failed to fetch coupons", variant: "destructive" });
+                toast({ title: "فشل جلب أكواد الخصم", description: "حدث خطأ أثناء تحميل البيانات.", variant: "destructive" });
                 setIsLoading(false);
             }
         );
@@ -33,17 +33,21 @@ export const useCoupons = () => {
             const finalData = { ...couponData, usedCount: 0, usedBy: [] };
             await addDoc(collection(db, "coupons"), finalData);
             toast({ title: "تمت إضافة الكود بنجاح" });
-        } catch (error) { toast({ title: "فشل إضافة الكود", variant: "destructive" }); }
+        } catch (error) { 
+            console.error("Error adding coupon:", error);
+            toast({ title: "فشل إضافة الكود", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
+        }
     }, [toast]);
 
     const deleteCoupon = useCallback(async (couponId: string) => {
         try {
             await deleteDoc(doc(db, "coupons", couponId));
             toast({ title: "تم حذف الكود بنجاح" });
-        } catch (error) { toast({ title: "فشل حذف الكود", variant: "destructive" }); }
+        } catch (error) { 
+            console.error("Error deleting coupon:", error);
+            toast({ title: "فشل حذف الكود", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
+        }
     }, [toast]);
 
     return { coupons, isLoading, addCoupon, deleteCoupon };
 };
-
-    

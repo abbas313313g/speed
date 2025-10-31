@@ -23,7 +23,7 @@ export const useBanners = () => {
             },
             (error) => {
                 console.error("Error fetching banners:", error);
-                toast({ title: "Failed to fetch banners", variant: "destructive" });
+                toast({ title: "فشل جلب البنرات", description: "حدث خطأ أثناء تحميل البيانات.", variant: "destructive" });
                 setIsLoading(false);
             }
         );
@@ -44,7 +44,10 @@ export const useBanners = () => {
             const imageUrl = await uploadImage(bannerData.image, `banners/${uuidv4()}`);
             await addDoc(collection(db, "banners"), { ...bannerData, image: imageUrl });
             toast({ title: "تمت إضافة البنر بنجاح" });
-        } catch (error) { toast({ title: "فشل إضافة البنر", variant: "destructive" }); }
+        } catch (error) { 
+            console.error("Error adding banner:", error);
+            toast({ title: "فشل إضافة البنر", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
+        }
     }, [toast, uploadImage]);
 
     const updateBanner = useCallback(async (banner: Banner) => {
@@ -56,17 +59,21 @@ export const useBanners = () => {
             }
             await updateDoc(doc(db, "banners", id), { ...bannerData, image: finalImageUrl });
             toast({ title: "تم تحديث البنر بنجاح" });
-        } catch (error) { toast({ title: "فشل تحديث البنر", variant: "destructive" }); }
+        } catch (error) { 
+            console.error("Error updating banner:", error);
+            toast({ title: "فشل تحديث البنر", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
+        }
     }, [toast, uploadImage]);
 
     const deleteBanner = useCallback(async (bannerId: string) => {
         try {
             await deleteDoc(doc(db, "banners", bannerId));
             toast({ title: "تم حذف البنر بنجاح" });
-        } catch (error) { toast({ title: "فشل حذف البنر", variant: "destructive" }); }
+        } catch (error) { 
+            console.error("Error deleting banner:", error);
+            toast({ title: "فشل حذف البنر", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
+        }
     }, [toast]);
 
     return { banners, isLoading, addBanner, updateBanner, deleteBanner };
 };
-
-    

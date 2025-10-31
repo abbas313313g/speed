@@ -45,7 +45,7 @@ export const useRestaurants = () => {
             },
             (error) => {
                 console.error("Error fetching restaurants:", error);
-                toast({ title: "Failed to fetch restaurants", variant: "destructive" });
+                toast({ title: "فشل جلب المتاجر", description: "حدث خطأ أثناء تحميل البيانات.", variant: "destructive" });
                 setIsLoading(false);
             }
         );
@@ -73,7 +73,10 @@ export const useRestaurants = () => {
             const imageUrl = await uploadImage(restaurantData.image, `restaurants/${uuidv4()}`);
             await addDoc(collection(db, "restaurants"), { ...restaurantData, image: imageUrl });
             toast({ title: "تمت إضافة المتجر بنجاح" });
-        } catch (error) { toast({ title: "فشل إضافة المتجر", variant: "destructive" }); }
+        } catch (error) { 
+            console.error("Error adding restaurant:", error);
+            toast({ title: "فشل إضافة المتجر", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
+        }
     }, [toast, uploadImage]);
 
     const updateRestaurant = useCallback(async (updatedRestaurant: Partial<Restaurant> & { id: string }) => {
@@ -87,14 +90,20 @@ export const useRestaurants = () => {
             }
             await updateDoc(doc(db, "restaurants", id), finalData as any);
             toast({ title: "تم تحديث المتجر بنجاح" });
-        } catch (error) { console.error(error); toast({ title: "فشل تحديث المتجر", variant: "destructive" }); }
+        } catch (error) { 
+            console.error("Error updating restaurant:", error);
+            toast({ title: "فشل تحديث المتجر", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
+        }
     }, [toast, uploadImage]);
 
     const deleteRestaurant = useCallback(async (restaurantId: string) => {
         try {
             await deleteDoc(doc(db, "restaurants", restaurantId));
             toast({ title: "تم حذف المتجر بنجاح" });
-        } catch (error) { toast({ title: "فشل حذف المتجر", variant: "destructive" }); }
+        } catch (error) { 
+            console.error("Error deleting restaurant:", error);
+            toast({ title: "فشل حذف المتجر", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
+        }
     }, [toast]);
 
     return { restaurants, isLoading, addRestaurant, updateRestaurant, deleteRestaurant };

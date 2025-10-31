@@ -21,7 +21,7 @@ export const useTelegramConfigs = () => {
             },
             (error) => {
                 console.error("Error fetching telegram configs:", error);
-                toast({ title: "Failed to fetch Telegram configs", variant: "destructive" });
+                toast({ title: "فشل جلب إعدادات تليجرام", description: "حدث خطأ أثناء تحميل البيانات.", variant: "destructive" });
                 setIsLoading(false);
             }
         );
@@ -32,14 +32,20 @@ export const useTelegramConfigs = () => {
         try {
             await addDoc(collection(db, "telegramConfigs"), configData);
             toast({ title: "تمت إضافة المعرف بنجاح" });
-        } catch (error) { toast({ title: "فشل إضافة المعرف", variant: "destructive" }); }
+        } catch (error) { 
+            console.error("Error adding Telegram config:", error);
+            toast({ title: "فشل إضافة المعرف", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
+        }
     }, [toast]);
 
     const deleteTelegramConfig = useCallback(async (configId: string) => {
         try {
             await deleteDoc(doc(db, "telegramConfigs", configId));
             toast({ title: "تم حذف المعرف بنجاح" });
-        } catch (error) { toast({ title: "فشل حذف المعرف", variant: "destructive" }); }
+        } catch (error) { 
+            console.error("Error deleting Telegram config:", error);
+            toast({ title: "فشل حذف المعرف", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
+        }
     }, [toast]);
 
     return { telegramConfigs, isLoading, addTelegramConfig, deleteTelegramConfig };

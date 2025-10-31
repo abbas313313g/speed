@@ -78,8 +78,9 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
     const updateRestaurantOrderStatus = useCallback(async (orderId: string, status: OrderStatus) => {
         setIsProcessing(true);
         try {
-            // We don't pass workerId, so this is safe for restaurant use
             await updateOrderStatus(orderId, status);
+        } catch (error) {
+            // The hook already shows a toast on failure.
         } finally {
             setIsProcessing(false);
         }

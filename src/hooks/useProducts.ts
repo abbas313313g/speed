@@ -23,7 +23,7 @@ export const useProducts = () => {
             },
             (error) => {
                 console.error("Error fetching products:", error);
-                toast({ title: "Failed to fetch products", variant: "destructive" });
+                toast({ title: "فشل جلب المنتجات", description: "حدث خطأ أثناء تحميل البيانات.", variant: "destructive" });
                 setIsLoading(false);
             }
         );
@@ -44,7 +44,10 @@ export const useProducts = () => {
             const imageUrl = await uploadImage(productData.image, `products/${uuidv4()}`);
             await addDoc(collection(db, "products"), { ...productData, image: imageUrl });
             toast({ title: "تمت إضافة المنتج بنجاح" });
-        } catch (error) { console.error(error); toast({ title: "فشل إضافة المنتج", variant: "destructive" }); }
+        } catch (error) { 
+            console.error("Error adding product:", error);
+            toast({ title: "فشل إضافة المنتج", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
+        }
     }, [toast, uploadImage]);
 
     const updateProduct = useCallback(async (updatedProduct: Partial<Product> & { id: string }) => {
@@ -56,17 +59,21 @@ export const useProducts = () => {
             }
             await updateDoc(doc(db, "products", id), finalData);
             toast({ title: "تم تحديث المنتج بنجاح" });
-        } catch (error) { console.error(error); toast({ title: "فشل تحديث المنتج", variant: "destructive" }); }
+        } catch (error) { 
+            console.error("Error updating product:", error);
+            toast({ title: "فشل تحديث المنتج", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
+        }
     }, [toast, uploadImage]);
 
     const deleteProduct = useCallback(async (productId: string) => {
         try {
             await deleteDoc(doc(db, "products", productId));
             toast({ title: "تم حذف المنتج بنجاح" });
-        } catch (error) { toast({ title: "فشل حذف المنتج", variant: "destructive" }); }
+        } catch (error) { 
+            console.error("Error deleting product:", error);
+            toast({ title: "فشل حذف المنتج", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
+        }
     }, [toast]);
 
     return { products, isLoading, addProduct, updateProduct, deleteProduct };
 };
-
-    

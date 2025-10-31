@@ -101,7 +101,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
          if (product.sizes && product.sizes.length > 0 && !selectedSize) {
             toast({
                 title: "الرجاء اختيار الحجم",
-                description: `لهذا المنتج أحجام متعددة. الرجاء الدخول لصفحة المنتج لاختيار الحجم.`,
+                description: `لهذا المنتج أحجام متعددة. الرجاء الدخول لصفحة المنتج لاختيار الحجم المناسب.`,
                 variant: "default",
             });
             return false;
@@ -187,8 +187,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const startNewTicketClient = useCallback(() => setMySupportTicket(null), []);
 
     const addMessageToTicket = useCallback(async (ticketId: string, message: Message) => {
-        await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
-    }, []);
+        try {
+            await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
+        } catch (error) {
+             toast({ title: "فشل إرسال الرسالة", description: "حدث خطأ ما. الرجاء المحاولة مرة أخرى.", variant: "destructive" });
+        }
+    }, [toast]);
     
     const createSupportTicket = useCallback(async (firstMessage: Message) => {
         if (!userId) return;
@@ -207,11 +211,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const placeOrder = useCallback(async (address: Address, deliveryFee: number, couponCode?: string): Promise<string | null> => {
         if (!userId) {
-            toast({ title: "User ID not found.", variant: "destructive" });
+            toast({ title: "خطأ في تعريف المستخدم", description: "الرجاء إعادة تشغيل التطبيق.", variant: "destructive" });
             return null;
         }
         if (cart.length === 0) {
-            toast({ title: "السلة فارغة.", variant: "destructive" });
+            toast({ title: "السلة فارغة", description: "لا يمكنك إرسال طلب بسلة فارغة.", variant: "destructive" });
             return null;
         }
         
@@ -235,7 +239,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 }
 
                 if (couponData) {
-                    if (couponData.usedCount >= couponData.maxUses) throw new Error("تم استخدام هذا الكود بالكامل.");
+                    if (couponData.usedCount >= couponData.maxUses) throw new Error("عذرًا، لقد تم استنفاذ هذا الكود بالكامل.");
                     if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
                 }
 
@@ -244,7 +248,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 for (let i = 0; i < productDocs.length; i++) {
                     const productDoc = productDocs[i];
                     const item = cart[i];
-                    if (!productDoc.exists()) throw new Error(`منتج "${item.product.name}" لم يعد متوفرًا.`);
+                    if (!productDoc.exists()) throw new Error(`عذرًا، منتج "${item.product.name}" لم يعد متوفرًا.`);
                     const serverProduct = productDoc.data() as Product;
                     
                     const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price;
@@ -293,6 +297,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     deliveryFee,
                     deliveryWorkerId: null,
                     deliveryWorker: null,
+                    isPaid: false,
+                    isFeePaid: false,
                     appliedCoupon: appliedCouponInfo,
                     restaurant: orderRestaurant ? {
                         id: orderRestaurant.id,
@@ -305,7 +311,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             });
             
             if (!newOrderId) {
-                throw new Error("Failed to create new order ID.");
+                throw new Error("حدث خطأ أثناء إنشاء الطلب. لم يتم إنشاء رقم طلب.");
             }
 
             clearCart();
@@ -322,7 +328,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             console.error("Place order transaction failed: ", error);
             toast({
               title: "فشل إرسال الطلب",
-              description: error instanceof Error ? error.message : "الرجاء محاولة إعادة تشغيل التطبيق.",
+              description: error instanceof Error ? error.message : "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.",
               variant: "destructive",
             });
             return null;

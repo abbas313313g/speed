@@ -29,7 +29,7 @@ export const useOrders = () => {
             },
             (error) => {
                 console.error("Error fetching orders:", error);
-                toast({ title: "Failed to fetch orders", variant: "destructive" });
+                toast({ title: "فشل جلب الطلبات", description: "حدث خطأ أثناء تحميل البيانات.", variant: "destructive" });
                 setIsLoading(false);
             }
         );
@@ -48,10 +48,10 @@ export const useOrders = () => {
 
                 // Scenario: Driver accepts an available order
                 if (status === 'confirmed' && workerId) {
-                    if (currentOrder.deliveryWorkerId) throw new Error("This order has already been taken.");
+                    if (currentOrder.deliveryWorkerId) throw new Error("عذرًا، لقد تم قبول هذا الطلب من قبل سائق آخر.");
                     const workerDocRef = doc(db, "deliveryWorkers", workerId);
                     const workerDoc = await transaction.get(workerDocRef);
-                    if (!workerDoc.exists()) throw new Error("Driver not found");
+                    if (!workerDoc.exists()) throw new Error("عذرًا، حساب السائق غير موجود.");
                     const workerData = workerDoc.data() as DeliveryWorker;
                     updateData.deliveryWorkerId = workerId;
                     updateData.deliveryWorker = { id: workerId, name: workerData.name || workerId };
@@ -124,7 +124,7 @@ export const useOrders = () => {
             toast({ title: "تم حذف الطلب بنجاح" });
         } catch(e) {
             console.error(e);
-            toast({title: "فشل حذف الطلب", variant: "destructive"})
+            toast({title: "فشل حذف الطلب", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive"})
         }
     }, [toast]);
     
@@ -139,7 +139,7 @@ export const useOrders = () => {
             toast({ title: "تم تحديث سجل الطلبات بنجاح" });
         } catch (e) {
             console.error("Failed to mark orders as paid:", e);
-            toast({ title: "فشل تحديث السجل", variant: "destructive" });
+            toast({ title: "فشل تحديث السجل", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" });
         }
     }, [toast]);
     
@@ -154,7 +154,7 @@ export const useOrders = () => {
             toast({ title: "تم تحديث سجل أجور التوصيل بنجاح" });
         } catch (e) {
             console.error("Failed to mark delivery fees as paid:", e);
-            toast({ title: "فشل تحديث السجل", variant: "destructive" });
+            toast({ title: "فشل تحديث السجل", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" });
         }
     }, [toast]);
 

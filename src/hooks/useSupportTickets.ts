@@ -24,7 +24,7 @@ export const useSupportTickets = () => {
             },
             (error) => {
                 console.error("Error fetching support tickets:", error);
-                toast({ title: "Failed to fetch support tickets", variant: "destructive" });
+                toast({ title: "فشل جلب تذاكر الدعم", description: "حدث خطأ أثناء تحميل البيانات.", variant: "destructive" });
                 setIsLoading(false);
             }
         );
@@ -32,22 +32,37 @@ export const useSupportTickets = () => {
     }, [toast]);
 
     const addMessageToTicket = useCallback(async (ticketId: string, message: Message) => {
-        await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
-    }, []);
+        try {
+            await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
+        } catch (error) {
+            console.error("Error adding message to ticket:", error);
+            toast({ title: "فشل إرسال الرسالة", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" });
+        }
+    }, [toast]);
     
     const resolveSupportTicket = useCallback(async (ticketId: string) => {
-        await updateDoc(doc(db, "supportTickets", ticketId), { isResolved: true });
-    }, []);
+        try {
+            await updateDoc(doc(db, "supportTickets", ticketId), { isResolved: true });
+        } catch (error) {
+            console.error("Error resolving ticket:", error);
+            toast({ title: "فشل إغلاق التذكرة", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" });
+        }
+    }, [toast]);
     
     const createSupportTicket = useCallback(async (firstMessage: Message, userId: string, userName: string) => {
         if (!userId) return;
 
-        const newTicket: Omit<SupportTicket, 'id'> = { userId, userName, createdAt: new Date().toISOString(), isResolved: false, history: [firstMessage] };
-        await addDoc(collection(db, "supportTickets"), newTicket);
-        
-        telegramConfigs.filter(c => c.type === 'owner').forEach(c => sendTelegramMessage(c.chatId, `*تذكرة دعم جديدة* 📩\n*من:* ${userName}\n*الرسالة:* ${firstMessage.content}`));
+        try {
+            const newTicket: Omit<SupportTicket, 'id'> = { userId, userName, createdAt: new Date().toISOString(), isResolved: false, history: [firstMessage] };
+            await addDoc(collection(db, "supportTickets"), newTicket);
+            
+            telegramConfigs.filter(c => c.type === 'owner').forEach(c => sendTelegramMessage(c.chatId, `*تذكرة دعم جديدة* 📩\n*من:* ${userName}\n*الرسالة:* ${firstMessage.content}`));
+        } catch (error) {
+             console.error("Error creating support ticket:", error);
+             toast({ title: "فشل إنشاء تذكرة الدعم", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" });
+        }
 
-    }, [telegramConfigs]);
+    }, [telegramConfigs, toast]);
 
     return { 
         supportTickets, 
@@ -57,5 +72,3 @@ export const useSupportTickets = () => {
         createSupportTicket,
     };
 };
-
-    

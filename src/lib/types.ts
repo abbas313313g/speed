@@ -81,12 +81,12 @@ export interface DeliveryZone {
 export interface DeliveryWorker {
     id: string; // phone number
     name: string;
-    lastDeliveredAt?: string; // ISO String
+    lastDeliveredAt?: string | null; // ISO String
     unfreezeProgress?: number;
     isOnline?: boolean;
 }
 
-export type OrderStatus = 'unassigned' | 'preparing' | 'confirmed' | 'ready_for_pickup' | 'on_the_way' | 'delivered' | 'cancelled';
+export type OrderStatus = 'unassigned' | 'pending_assignment' | 'preparing' | 'confirmed' | 'ready_for_pickup' | 'on_the_way' | 'delivered' | 'cancelled';
 
 export interface Order {
     id: string;
@@ -101,8 +101,8 @@ export interface Order {
     deliveryFee: number;
     deliveryWorkerId: string | null;
     deliveryWorker: {id: string; name: string} | null;
-    isPaid?: boolean;
-    isFeePaid?: boolean;
+    isPaid: boolean;
+    isFeePaid: boolean;
     appliedCoupon: {
       code: string;
       discountAmount: number;

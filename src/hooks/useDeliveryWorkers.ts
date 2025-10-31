@@ -31,7 +31,7 @@ export const useDeliveryWorkers = () => {
             },
             (error) => {
                 console.error("Error fetching delivery workers:", error);
-                toast({ title: "Failed to fetch delivery workers", variant: "destructive" });
+                toast({ title: "فشل جلب بيانات العمال", description: "حدث خطأ أثناء تحميل البيانات.", variant: "destructive" });
                 setIsLoading(false);
             }
         );
@@ -59,7 +59,7 @@ export const useDeliveryWorkers = () => {
             toast({ title: "تم تسجيل العامل بنجاح" });
         } catch (error) { 
             console.error("Error adding worker:", error);
-            toast({ title: "فشل تسجيل العامل", variant: "destructive" }); 
+            toast({ title: "فشل تسجيل العامل", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
             throw error;
         }
     }, [toast]);
@@ -69,7 +69,7 @@ export const useDeliveryWorkers = () => {
             await setDoc(doc(db, "deliveryWorkers", workerId), { isOnline }, { merge: true });
         } catch (error) { 
             console.error("Error updating worker status:", error);
-            toast({ title: "فشل تحديث حالة العامل", variant: "destructive" }); 
+            toast({ title: "فشل تحديث حالة العامل", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
             throw error;
         }
     }, [toast]);
@@ -80,7 +80,7 @@ export const useDeliveryWorkers = () => {
             toast({ title: 'تم تحديث البيانات بنجاح' });
         } catch (error) {
             console.error('Error updating worker details:', error);
-            toast({ title: 'فشل تحديث البيانات', variant: 'destructive' });
+            toast({ title: 'فشل تحديث البيانات', description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: 'destructive' });
         }
     }, [toast]);
     
@@ -106,7 +106,7 @@ export const useDeliveryWorkers = () => {
             toast({ title: "تم حذف العامل بنجاح" });
         } catch(e) {
             console.error("Error deleting worker:", e);
-            toast({ title: "فشل حذف العامل", variant: "destructive"});
+            toast({ title: "فشل حذف العامل", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive"});
         }
     }, [toast]);
 
