@@ -55,37 +55,34 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground overflow-x-hidden;
+    @apply bg-background text-foreground overflow-hidden;
     -webkit-tap-highlight-color: transparent;
   }
 }
 
-/* تحسين استجابة الأزرار */
+/* تحسين استجابة الأزرار اللحظية */
 button, a {
   @apply transition-transform duration-75 active:scale-95;
 }
 
-/* حركات انتقالية سريعة للأقسام */
-.view-enter {
-  opacity: 0;
-  transform: translateY(10px);
-}
-.view-enter-active {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 200ms ease-out, transform 200ms ease-out;
+/* حاوية الصفحات الجانبية */
+.page-stack-container {
+  display: flex;
+  width: 500%; /* 5 pages */
+  height: 100%;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
 }
 
-main {
-  animation: fadeIn 0.3s ease-out;
+.page-view {
+  width: 20%; /* 100% / 5 pages */
+  height: 100vh;
+  overflow-y: auto;
+  padding-bottom: 5rem;
+  -webkit-overflow-scrolling: touch;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* إخفاء السكرول بار */
+/* إخفاء السكرول بار للمظهر الجمالي */
 ::-webkit-scrollbar {
   display: none;
 }

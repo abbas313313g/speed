@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import { BottomNav } from '@/components/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
@@ -13,6 +13,13 @@ import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { isLocationInAllowedZones } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+
+// نقوم باستيراد محتويات الصفحات لاستخدامها كمكونات (SPA)
+import HomePage from './home/page';
+import RestaurantsPage from './restaurants/page';
+import CartPage from './cart/page';
+import OrdersPage from './orders/page';
+import AccountPage from './account/page';
 
 export default function MainAppLayout({
   children,
@@ -29,7 +36,16 @@ export default function MainAppLayout({
   const [newAddr, setNewAddr] = useState({ name: '', phone: '', details: '' });
   const [islocLoading, setIslocLoading] = useState(false);
 
-  // التحقق من وجود عنوان عند الدخول
+  // تحديد الاندكس للقسم الحالي للحركة الجانبية
+  const activeIndex = useMemo(() => {
+    if (pathname === '/home' || pathname === '/') return 0;
+    if (pathname.startsWith('/restaurants')) return 1;
+    if (pathname.startsWith('/cart')) return 2;
+    if (pathname.startsWith('/orders')) return 3;
+    if (pathname.startsWith('/account')) return 4;
+    return 0;
+  }, [pathname]);
+
   useEffect(() => {
     if (!settingsLoading && addresses.length === 0) {
       setShowAddressPrompt(true);
@@ -111,16 +127,35 @@ export default function MainAppLayout({
     )
   }
 
+  // إذا كنا في صفحة فرعية (مثل تفاصيل منتج)، نعرض الـ children الطبيعي
+  const isSubPage = pathname.split('/').length > 2;
+
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-card shadow-xl relative overflow-hidden">
-      {/* الحاوية الرئيسية مع الأنيميشن السريع */}
-      <main className="flex-1 pb-20 relative z-0 transition-opacity duration-200">
-        {children}
+    <div className="mx-auto flex h-screen max-w-md flex-col bg-card shadow-xl relative overflow-hidden">
+      
+      <main className="flex-1 relative z-0">
+        {isSubPage ? (
+          <div className="h-full overflow-y-auto pb-20">
+            {children}
+          </div>
+        ) : (
+          <div 
+            className="page-stack-container" 
+            style={{ transform: `translateX(${activeIndex * 20}%)` }} // RTL logic: positive translateX
+          >
+            {/* الأقسام الخمسة محملة مسبقاً */}
+            <div className="page-view"><HomePage /></div>
+            <div className="page-view"><RestaurantsPage /></div>
+            <div className="page-view"><CartPage /></div>
+            <div className="page-view"><OrdersPage /></div>
+            <div className="page-view"><AccountPage /></div>
+          </div>
+        )}
       </main>
       
       <BottomNav />
 
-      {/* شاشة إضافة عنوان إلزامية - تصميم احترافي */}
+      {/* شاشة إضافة عنوان إلزامية */}
       <Sheet open={showAddressPrompt} onOpenChange={() => {}}>
         <SheetContent side="bottom" className="h-[75vh] rounded-t-[2.5rem] p-8 border-none shadow-2xl">
           <SheetHeader className="text-right">
