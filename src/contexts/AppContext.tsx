@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -99,8 +98,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const addToCart = useCallback((product: Product, quantity: number, selectedSize?: ProductSize): boolean => {
          if (product.sizes && product.sizes.length > 0 && !selectedSize) {
             toast({
-                title: "اختيار الحجم",
-                description: `يرجى اختيار حجم المنتج أولاً.`,
+                title: "تنبيه",
+                description: `يرجى اختيار حجم المنتج أولاً من صفحة التفاصيل.`,
             });
             return false;
         }
@@ -187,7 +186,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
         } catch (error) {
-             toast({ title: "خطأ في الإرسال", description: "يرجى التحقق من اتصال الإنترنت وحاول مجدداً.", variant: "destructive" });
+             toast({ title: "فشل الإرسال", description: "يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.", variant: "destructive" });
         }
     }, [toast]);
     
@@ -207,19 +206,20 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const placeOrder = useCallback(async (address: Address, deliveryFee: number, couponCode?: string): Promise<string | null> => {
         if (!userId) {
-            toast({ title: "خلل في الحساب", description: "يرجى إعادة فتح التطبيق للتعرف على حسابك.", variant: "destructive" });
+            toast({ title: "خلل في الهوية", description: "يرجى إغلاق التطبيق وفتحه مجدداً للتعرف على حسابك.", variant: "destructive" });
             return null;
         }
         if (cart.length === 0) {
-            toast({ title: "السلة فارغة", description: "أضف منتجات أولاً لتتمكن من الطلب.", variant: "destructive" });
+            toast({ title: "السلة فارغة", description: "أضف بعض المنتجات لتبدأ طلبك.", variant: "destructive" });
             return null;
         }
         
         let newOrderId: string | null = null;
         
         try {
+            // استخدام Transaction لضمان القراءة والكتابة الذرية
             await runTransaction(db, async (transaction) => {
-                // المرحلة 1: القراءة فقط (Firestore تمنع الكتابة قبل القراءة في الـ Transaction)
+                // 1. القراءة أولاً (قانون Firestore الصارم)
                 const productRefs = cart.map(item => doc(db, "products", item.product.id));
                 const productSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
@@ -236,20 +236,20 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     }
                 }
 
-                // المرحلة 2: التحقق من البيانات
-                if (couponCode?.trim() && !couponData) throw new Error("كود الخصم غير صحيح.");
+                // 2. التحقق من المنطق
+                if (couponCode?.trim() && !couponData) throw new Error("كود الخصم هذا غير صحيح.");
                 if (couponData) {
-                    if (couponData.usedCount >= couponData.maxUses) throw new Error("عذراً، كود الخصم انتهت صلاحيته.");
+                    if (couponData.usedCount >= couponData.maxUses) throw new Error("نعتذر، انتهت صلاحية هذا الكود.");
                     if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت كود الخصم هذا مسبقاً.");
                 }
 
                 let totalProfit = 0;
-                const pendingUpdates: {ref: any, data: any}[] = [];
+                const updates: {ref: any, data: any}[] = [];
 
                 for (let i = 0; i < productSnaps.length; i++) {
                     const snap = productSnaps[i];
                     const item = cart[i];
-                    if (!snap.exists()) throw new Error(`المنتج "${item.product.name}" غير متاح حالياً.`);
+                    if (!snap.exists()) throw new Error(`المنتج "${item.product.name}" لم يعد متوفراً حالياً.`);
                     
                     const serverProduct = snap.data() as Product;
                     const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price;
@@ -258,19 +258,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     if (item.selectedSize) {
                         const sizeIdx = serverProduct.sizes?.findIndex(s => s.name === item.selectedSize!.name);
                         if (sizeIdx === undefined || sizeIdx === -1 || serverProduct.sizes![sizeIdx].stock < item.quantity) {
-                            throw new Error(`الكمية المطلوبة من "${item.product.name} - ${item.selectedSize.name}" غير متوفرة.`);
+                            throw new Error(`عذراً، الكمية المطلوبة من "${item.product.name} - ${item.selectedSize.name}" غير متوفرة حالياً.`);
                         }
                         const newSizes = [...serverProduct.sizes!];
                         newSizes[sizeIdx] = { ...newSizes[sizeIdx], stock: newSizes[sizeIdx].stock - item.quantity };
-                        pendingUpdates.push({ ref: productRefs[i], data: { sizes: newSizes } });
+                        updates.push({ ref: productRefs[i], data: { sizes: newSizes } });
                     } else {
-                        if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
-                        pendingUpdates.push({ ref: productRefs[i], data: { stock: (serverProduct.stock || 0) - item.quantity } });
+                        if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`نعتذر، الكمية المطلوبة من "${item.product.name}" غير متوفرة حالياً.`);
+                        updates.push({ ref: productRefs[i], data: { stock: (serverProduct.stock || 0) - item.quantity } });
                     }
                 }
 
-                // المرحلة 3: الكتابة
-                pendingUpdates.forEach(u => transaction.update(u.ref, u.data));
+                // 3. الكتابة أخيراً
+                updates.forEach(u => transaction.update(u.ref, u.data));
 
                 let discountAmount = 0;
                 let appliedCouponInfo: Order['appliedCoupon'] = null;
@@ -324,7 +324,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (error: any) {
             toast({
               title: "فشل إرسال الطلب",
-              description: error.message || "حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى.",
+              description: error.message || "حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى لاحقاً.",
               variant: "destructive",
             });
             return null;

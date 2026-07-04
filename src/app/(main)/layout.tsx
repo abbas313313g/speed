@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -14,7 +13,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { isLocationInAllowedZones } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
-// نقوم باستيراد محتويات الصفحات لاستخدامها كمكونات (SPA)
+// استيراد الصفحات لاستخدامها كمكونات في الـ SPA
 import HomePage from './home/page';
 import RestaurantsPage from './restaurants/page';
 import CartPage from './cart/page';
@@ -36,7 +35,7 @@ export default function MainAppLayout({
   const [newAddr, setNewAddr] = useState({ name: '', phone: '', details: '' });
   const [islocLoading, setIslocLoading] = useState(false);
 
-  // تحديد الاندكس للقسم الحالي للحركة الجانبية
+  // تحديد ترتيب الصفحة الحالية للحركة الجانبية (RTL)
   const activeIndex = useMemo(() => {
     if (pathname === '/home' || pathname === '/') return 0;
     if (pathname.startsWith('/restaurants')) return 1;
@@ -73,16 +72,16 @@ export default function MainAppLayout({
         setIslocLoading(false);
       },
       () => {
-        toast({ title: "فشل تحديد الموقع", description: "يرجى تفعيل الـ GPS وإعطاء الإذن للمتصفح", variant: "destructive" });
+        toast({ title: "فشل تحديد الموقع", description: "يرجى تفعيل الـ GPS وإعطاء الإذن للمتصفح في الإعدادات", variant: "destructive" });
         setIslocLoading(false);
       },
-      { enableHighAccuracy: true, timeout: 5000 }
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
   const handleSaveAddress = () => {
     if (!newAddr.name || !newAddr.phone) {
-      toast({ title: "بيانات ناقصة", description: "يرجى كتابة الاسم ورقم الهاتف", variant: "destructive" });
+      toast({ title: "بيانات ناقصة", description: "يرجى كتابة الاسم ورقم الهاتف لإكمال التسجيل", variant: "destructive" });
       return;
     }
     addAddress({
@@ -92,14 +91,14 @@ export default function MainAppLayout({
       longitude: (newAddr as any).lng || 0
     });
     setShowAddressPrompt(false);
-    toast({ title: "أهلاً بك!", description: "تم حفظ عنوانك بنجاح" });
+    toast({ title: "أهلاً بك في سبيد!", description: "تم حفظ عنوانك، استمتع بالتسوق" });
   };
 
   if (settingsLoading) {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
             <Loader2 className="h-8 w-8 animate-spin text-primary"/>
-            <p className="mt-4 text-muted-foreground animate-pulse">جارِ تشغيل سبيد شوب...</p>
+            <p className="mt-4 text-muted-foreground animate-pulse">جارِ تحميل سبيد شوب...</p>
         </div>
     );
   }
@@ -108,7 +107,7 @@ export default function MainAppLayout({
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background p-6 text-center animate-in fade-in zoom-in duration-300">
         <AlertCircle className="h-20 w-20 text-destructive mb-4" />
-        <h1 className="text-2xl font-bold mb-2 text-foreground">نعتذر منك بشدة</h1>
+        <h1 className="text-2xl font-bold mb-2">نعتذر منك</h1>
         <p className="text-muted-foreground text-lg leading-relaxed">
           تطبيق سبيد شوب غير متوفر حالياً في منطقتك الجغرافية. نحن نغطي حالياً (المدحتية، الهاشمية، القاسم) فقط.
           <br/> انتظرنا قريباً في منطقتك!
@@ -121,13 +120,13 @@ export default function MainAppLayout({
     return (
          <div className="flex h-screen w-full flex-col items-center justify-center bg-muted/40 p-4 text-center">
             <HardHat className="h-20 w-20 text-primary mb-6 animate-bounce"/>
-            <h1 className="text-3xl font-bold mb-2">التطبيق في وضع الصيانة</h1>
-            <p className="text-muted-foreground text-lg">نحن نقوم ببعض التحسينات لنخدمك بشكل أفضل. سنعود خلال دقائق!</p>
+            <h1 className="text-3xl font-bold mb-2">نحن في صيانة قصيرة</h1>
+            <p className="text-muted-foreground text-lg">نعمل على تحسين الخدمة لنصلك أسرع. سنعود خلال دقائق!</p>
         </div>
     )
   }
 
-  // إذا كنا في صفحة فرعية (مثل تفاصيل منتج)، نعرض الـ children الطبيعي
+  // إذا كنا في صفحة فرعية (تفاصيل منتج مثلاً)، نعرض الـ children بشكل طبيعي
   const isSubPage = pathname.split('/').length > 2;
 
   return (
@@ -135,15 +134,15 @@ export default function MainAppLayout({
       
       <main className="flex-1 relative z-0">
         {isSubPage ? (
-          <div className="h-full overflow-y-auto pb-20">
+          <div className="h-full overflow-y-auto pb-20 animate-in slide-in-from-left duration-300">
             {children}
           </div>
         ) : (
           <div 
             className="page-stack-container" 
-            style={{ transform: `translateX(${activeIndex * 20}%)` }} // RTL logic: positive translateX
+            style={{ transform: `translateX(${activeIndex * 20}%)` }} // منطق RTL: الازاحة موجبة لتحريك المحتوى لليسار
           >
-            {/* الأقسام الخمسة محملة مسبقاً */}
+            {/* الصفحات الخمس الأساسية محملة مسبقاً للانتقال اللحظي */}
             <div className="page-view"><HomePage /></div>
             <div className="page-view"><RestaurantsPage /></div>
             <div className="page-view"><CartPage /></div>
@@ -155,12 +154,12 @@ export default function MainAppLayout({
       
       <BottomNav />
 
-      {/* شاشة إضافة عنوان إلزامية */}
+      {/* شاشة العنوان الإلزامية الاحترافية */}
       <Sheet open={showAddressPrompt} onOpenChange={() => {}}>
-        <SheetContent side="bottom" className="h-[75vh] rounded-t-[2.5rem] p-8 border-none shadow-2xl">
+        <SheetContent side="bottom" className="h-[70vh] rounded-t-[2.5rem] p-8 border-none shadow-2xl overflow-y-auto">
           <SheetHeader className="text-right">
             <SheetTitle className="text-3xl font-black text-primary">مرحباً بك في سبيد!</SheetTitle>
-            <p className="text-muted-foreground">لنبدأ، نحتاج لمعرفة أين نسلم طلباتك</p>
+            <p className="text-muted-foreground text-lg">لنبدأ، نحتاج لمعرفة موقعك لتوصيل طلباتك</p>
           </SheetHeader>
           
           <div className="space-y-6 mt-8">
@@ -169,8 +168,8 @@ export default function MainAppLayout({
               <Input 
                 value={newAddr.name} 
                 onChange={(e) => setNewAddr({...newAddr, name: e.target.value})} 
-                placeholder="مثلاً: المنزل، المحل، العمل" 
-                className="h-12 text-lg"
+                placeholder="مثلاً: المنزل، العمل، المحل" 
+                className="h-12 text-lg border-2"
               />
             </div>
             
@@ -182,7 +181,7 @@ export default function MainAppLayout({
                 placeholder="07XXXXXXXX" 
                 type="tel" 
                 dir="ltr"
-                className="h-12 text-lg text-left"
+                className="h-12 text-lg text-left border-2"
               />
             </div>
 
@@ -194,9 +193,9 @@ export default function MainAppLayout({
                     disabled={islocLoading}
                 >
                 {islocLoading ? (
-                    <><Loader2 className="animate-spin ml-3 h-6 w-6 text-primary" /> جارِ تحديد موقعك...</>
+                    <><Loader2 className="animate-spin ml-3 h-6 w-6 text-primary" /> تحديد الموقع...</>
                 ) : (
-                    <><MapPin className="ml-3 h-6 w-6 text-primary" /> تحديد موقعي الآن (GPS)</>
+                    <><MapPin className="ml-3 h-6 w-6 text-primary" /> تحديد موقعي الحالي (GPS)</>
                 )}
                 </Button>
             </div>
@@ -206,7 +205,7 @@ export default function MainAppLayout({
                 className="w-full py-8 text-xl font-bold rounded-2xl shadow-lg shadow-primary/20"
                 disabled={islocLoading}
             >
-                حفظ ومتابعة التسوق
+                حفظ ودخول التطبيق
             </Button>
           </div>
         </SheetContent>
