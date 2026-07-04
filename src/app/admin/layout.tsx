@@ -75,11 +75,11 @@ export default function AdminLayout() {
   }
   
   return (
-    <div className="flex min-h-screen w-full bg-muted/20">
+    <div className="flex h-screen w-full bg-muted/20 overflow-hidden">
       <AdminNav onTabChange={setActiveTab} activeTab={activeTab} />
-      {/* sm:pr-16 isoloates the sidebar width from the content area in RTL */}
-      <div className="flex flex-1 flex-col sm:pr-16">
-         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 sm:py-4">
+      
+      <div className="flex flex-1 flex-col sm:pr-16 relative">
+         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-4 border-b bg-background px-4 sm:h-16 sm:px-6">
           <Sheet>
             <SheetTrigger asChild>
               <Button size="icon" variant="outline" className="sm:hidden">
@@ -97,27 +97,28 @@ export default function AdminLayout() {
           <div className="text-xl font-black text-primary sm:hidden">سبيد شوب - إشراف</div>
           <div className="hidden sm:block text-2xl font-black text-primary">لوحة التحكم الإدارية</div>
         </header>
+
         <main className="flex-1 relative overflow-hidden">
           <div 
-            className="spa-stack-container h-full" 
+            className="spa-stack-container" 
             style={{ 
               transform: `translateX(${activeTab * 100}%)` 
             }} 
           >
-            <div className="spa-page-view px-4 sm:px-6"><AdminDashboard /></div>
-            <div className="spa-page-view px-4 sm:px-6"><AdminOrdersPage /></div>
-            <div className="spa-page-view px-4 sm:px-6"><AdminProductsPage /></div>
-            <div className="spa-page-view px-4 sm:px-6"><AdminCategoriesPage /></div>
-            <div className="spa-page-view px-4 sm:px-6"><AdminStoresPage /></div>
-            <div className="spa-page-view px-4 sm:px-6"><AdminBannersPage /></div>
-            <div className="spa-page-view px-4 sm:px-6"><AdminDeliveryZonesPage /></div>
-            <div className="spa-page-view px-4 sm:px-6"><AdminCouponsPage /></div>
-            <div className="spa-page-view px-4 sm:px-6"><AdminUsersPage /></div>
-            <div className="spa-page-view px-4 sm:px-6"><AdminDeliveryWorkersPage /></div>
-            <div className="spa-page-view px-4 sm:px-6"><AdminReportsPage /></div>
-            <div className="spa-page-view px-4 sm:px-6"><AdminSupportTicketsPage /></div>
-            <div className="spa-page-view px-4 sm:px-6"><AdminTelegramPage /></div>
-            <div className="spa-page-view px-4 sm:px-6"><AdminSettingsPage /></div>
+            <div className="spa-page-view px-4 py-6 sm:px-6"><AdminDashboard /></div>
+            <div className="spa-page-view px-4 py-6 sm:px-6"><AdminOrdersPage /></div>
+            <div className="spa-page-view px-4 py-6 sm:px-6"><AdminProductsPage /></div>
+            <div className="spa-page-view px-4 py-6 sm:px-6"><AdminCategoriesPage /></div>
+            <div className="spa-page-view px-4 py-6 sm:px-6"><AdminStoresPage /></div>
+            <div className="spa-page-view px-4 py-6 sm:px-6"><AdminBannersPage /></div>
+            <div className="spa-page-view px-4 py-6 sm:px-6"><AdminDeliveryZonesPage /></div>
+            <div className="spa-page-view px-4 py-6 sm:px-6"><AdminCouponsPage /></div>
+            <div className="spa-page-view px-4 py-6 sm:px-6"><AdminUsersPage /></div>
+            <div className="spa-page-view px-4 py-6 sm:px-6"><AdminDeliveryWorkersPage /></div>
+            <div className="spa-page-view px-4 py-6 sm:px-6"><AdminReportsPage /></div>
+            <div className="spa-page-view px-4 py-6 sm:px-6"><AdminSupportTicketsPage /></div>
+            <div className="spa-page-view px-4 py-6 sm:px-6"><AdminTelegramPage /></div>
+            <div className="spa-page-view px-4 py-6 sm:px-6"><AdminSettingsPage /></div>
           </div>
         </main>
       </div>

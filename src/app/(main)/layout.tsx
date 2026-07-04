@@ -124,7 +124,7 @@ export default function MainAppLayout() {
   return (
     <div className="mx-auto flex h-screen max-w-md flex-col bg-card shadow-2xl relative overflow-hidden">
       
-      <main className="flex-1 relative z-0">
+      <main className="flex-1 relative z-0 overflow-hidden">
         <div 
           className="spa-stack-container" 
           style={{ 
@@ -145,7 +145,9 @@ export default function MainAppLayout() {
         </div>
       </main>
       
-      <BottomNav />
+      <div className="h-20 shrink-0">
+        <BottomNav />
+      </div>
 
       <Sheet open={showAddressPrompt} onOpenChange={() => {}}>
         <SheetContent side="bottom" className="h-[75vh] rounded-t-[3rem] p-8 border-none shadow-2xl overflow-y-auto">
