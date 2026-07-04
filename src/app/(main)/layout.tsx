@@ -1,7 +1,7 @@
+
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
-import { usePathname } from 'next/navigation';
+import { useState, useEffect, useContext } from 'react';
 import { BottomNav } from '@/components/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useAddresses } from '@/hooks/useAddresses';
@@ -12,10 +12,12 @@ import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { isLocationInAllowedZones } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { AppContext } from '@/contexts/AppContext';
 
-// استيراد الصفحات لاستخدامها كمكونات في الـ SPA
+// استيراد الصفحات لاستخدامها كمكونات في الـ SPA المحترف
 import HomePage from './home/page';
 import RestaurantsPage from './restaurants/page';
+import ProductsPage from './products/page';
 import CartPage from './cart/page';
 import OrdersPage from './orders/page';
 import AccountPage from './account/page';
@@ -25,25 +27,18 @@ export default function MainAppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
+  const context = useContext(AppContext);
   const { settings, isLoading: settingsLoading } = useAppSettings();
   const { addresses, addAddress } = useAddresses();
   const { toast } = useToast();
   
   const [showAddressPrompt, setShowAddressPrompt] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
-  const [newAddr, setNewAddr] = useState({ name: '', phone: '', details: '' });
+  const [newAddr, setNewAddr] = useState({ name: '', phone: '' });
   const [islocLoading, setIslocLoading] = useState(false);
 
-  // تحديد ترتيب الصفحة الحالية للحركة الجانبية (RTL)
-  const activeIndex = useMemo(() => {
-    if (pathname === '/home' || pathname === '/') return 0;
-    if (pathname.startsWith('/restaurants')) return 1;
-    if (pathname.startsWith('/cart')) return 2;
-    if (pathname.startsWith('/orders')) return 3;
-    if (pathname.startsWith('/account')) return 4;
-    return 0;
-  }, [pathname]);
+  if (!context) return null;
+  const { activeTab } = context;
 
   useEffect(() => {
     if (!settingsLoading && addresses.length === 0) {
@@ -72,7 +67,7 @@ export default function MainAppLayout({
         setIslocLoading(false);
       },
       () => {
-        toast({ title: "فشل تحديد الموقع", description: "يرجى تفعيل الـ GPS وإعطاء الإذن للمتصفح في الإعدادات", variant: "destructive" });
+        toast({ title: "فشل تحديد الموقع", description: "يرجى تفعيل الـ GPS وإعطاء الإذن للمتصفح", variant: "destructive" });
         setIslocLoading(false);
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -91,25 +86,25 @@ export default function MainAppLayout({
       longitude: (newAddr as any).lng || 0
     });
     setShowAddressPrompt(false);
-    toast({ title: "أهلاً بك في سبيد!", description: "تم حفظ عنوانك، استمتع بالتسوق" });
+    toast({ title: "أهلاً بك!", description: "تم حفظ عنوانك، استمتع بالتسوق" });
   };
 
   if (settingsLoading) {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
-            <Loader2 className="h-8 w-8 animate-spin text-primary"/>
-            <p className="mt-4 text-muted-foreground animate-pulse">جارِ تحميل سبيد شوب...</p>
+            <Loader2 className="h-10 w-10 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground animate-pulse font-bold">جارِ تشغيل سبيد شوب...</p>
         </div>
     );
   }
 
   if (isBlocked) {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center bg-background p-6 text-center animate-in fade-in zoom-in duration-300">
-        <AlertCircle className="h-20 w-20 text-destructive mb-4" />
-        <h1 className="text-2xl font-bold mb-2">نعتذر منك</h1>
-        <p className="text-muted-foreground text-lg leading-relaxed">
-          تطبيق سبيد شوب غير متوفر حالياً في منطقتك الجغرافية. نحن نغطي حالياً (المدحتية، الهاشمية، القاسم) فقط.
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-background p-8 text-center animate-in fade-in zoom-in duration-500">
+        <AlertCircle className="h-24 w-24 text-destructive mb-6" />
+        <h1 className="text-3xl font-black mb-4 text-primary">نعتذر منك جداً</h1>
+        <p className="text-muted-foreground text-xl leading-relaxed">
+          تطبيق سبيد شوب مخصص حالياً لخدمة مناطق <br/><span className="text-foreground font-black underline">(المدحتية، الهاشمية، القاسم)</span> فقط.
           <br/> انتظرنا قريباً في منطقتك!
         </p>
       </div>
@@ -120,68 +115,60 @@ export default function MainAppLayout({
     return (
          <div className="flex h-screen w-full flex-col items-center justify-center bg-muted/40 p-4 text-center">
             <HardHat className="h-20 w-20 text-primary mb-6 animate-bounce"/>
-            <h1 className="text-3xl font-bold mb-2">نحن في صيانة قصيرة</h1>
+            <h1 className="text-3xl font-bold mb-2 text-primary">نحن في صيانة قصيرة</h1>
             <p className="text-muted-foreground text-lg">نعمل على تحسين الخدمة لنصلك أسرع. سنعود خلال دقائق!</p>
         </div>
     )
   }
 
-  // إذا كنا في صفحة فرعية (تفاصيل منتج مثلاً)، نعرض الـ children بشكل طبيعي
-  const isSubPage = pathname.split('/').length > 2;
-
   return (
-    <div className="mx-auto flex h-screen max-w-md flex-col bg-card shadow-xl relative overflow-hidden">
+    <div className="mx-auto flex h-screen max-w-md flex-col bg-card shadow-2xl relative overflow-hidden">
       
       <main className="flex-1 relative z-0">
-        {isSubPage ? (
-          <div className="h-full overflow-y-auto pb-20 animate-in slide-in-from-left duration-300">
-            {children}
-          </div>
-        ) : (
-          <div 
-            className="page-stack-container" 
-            style={{ transform: `translateX(${activeIndex * 20}%)` }} // منطق RTL: الازاحة موجبة لتحريك المحتوى لليسار
-          >
-            {/* الصفحات الخمس الأساسية محملة مسبقاً للانتقال اللحظي */}
-            <div className="page-view"><HomePage /></div>
-            <div className="page-view"><RestaurantsPage /></div>
-            <div className="page-view"><CartPage /></div>
-            <div className="page-view"><OrdersPage /></div>
-            <div className="page-view"><AccountPage /></div>
-          </div>
-        )}
+        {/* حاوية الصفحات الـ SPA الاحترافية */}
+        <div 
+          className="page-stack-container" 
+          style={{ transform: `translateX(${activeTab * (100 / 6)}%)` }} 
+        >
+          <div className="page-view"><HomePage /></div>
+          <div className="page-view"><RestaurantsPage /></div>
+          <div className="page-view"><ProductsPage /></div>
+          <div className="page-view"><CartPage /></div>
+          <div className="page-view"><OrdersPage /></div>
+          <div className="page-view"><AccountPage /></div>
+        </div>
       </main>
       
       <BottomNav />
 
-      {/* شاشة العنوان الإلزامية الاحترافية */}
+      {/* شاشة العنوان الإلزامية بنمط تطبيقات الهاتف */}
       <Sheet open={showAddressPrompt} onOpenChange={() => {}}>
-        <SheetContent side="bottom" className="h-[70vh] rounded-t-[2.5rem] p-8 border-none shadow-2xl overflow-y-auto">
+        <SheetContent side="bottom" className="h-[75vh] rounded-t-[3rem] p-8 border-none shadow-2xl overflow-y-auto">
           <SheetHeader className="text-right">
             <SheetTitle className="text-3xl font-black text-primary">مرحباً بك في سبيد!</SheetTitle>
-            <p className="text-muted-foreground text-lg">لنبدأ، نحتاج لمعرفة موقعك لتوصيل طلباتك</p>
+            <p className="text-muted-foreground text-lg">تحتاج لمعرفة موقعك لنتمكن من توصيل طلباتك</p>
           </SheetHeader>
           
           <div className="space-y-6 mt-8">
             <div className="space-y-3">
-              <Label className="text-md font-bold">اسم العنوان</Label>
+              <Label className="text-lg font-bold">اسم العنوان</Label>
               <Input 
                 value={newAddr.name} 
                 onChange={(e) => setNewAddr({...newAddr, name: e.target.value})} 
-                placeholder="مثلاً: المنزل، العمل، المحل" 
-                className="h-12 text-lg border-2"
+                placeholder="مثلاً: المنزل، المحل، المكتب" 
+                className="h-14 text-lg border-2 rounded-2xl"
               />
             </div>
             
             <div className="space-y-3">
-              <Label className="text-md font-bold">رقم الهاتف</Label>
+              <Label className="text-lg font-bold">رقم الهاتف</Label>
               <Input 
                 value={newAddr.phone} 
                 onChange={(e) => setNewAddr({...newAddr, phone: e.target.value})} 
                 placeholder="07XXXXXXXX" 
                 type="tel" 
                 dir="ltr"
-                className="h-12 text-lg text-left border-2"
+                className="h-14 text-lg text-left border-2 rounded-2xl"
               />
             </div>
 
@@ -189,23 +176,23 @@ export default function MainAppLayout({
                 <Button 
                     onClick={handleGetLocation} 
                     variant="outline" 
-                    className={`w-full py-8 text-lg border-2 border-dashed ${islocLoading ? 'border-primary' : 'border-muted-foreground/30'}`}
+                    className={`w-full py-10 text-xl border-2 border-dashed rounded-2xl ${islocLoading ? 'border-primary' : 'border-muted-foreground/30'}`}
                     disabled={islocLoading}
                 >
                 {islocLoading ? (
-                    <><Loader2 className="animate-spin ml-3 h-6 w-6 text-primary" /> تحديد الموقع...</>
+                    <><Loader2 className="animate-spin ml-3 h-8 w-8 text-primary" /> جارِ تحديد موقعك...</>
                 ) : (
-                    <><MapPin className="ml-3 h-6 w-6 text-primary" /> تحديد موقعي الحالي (GPS)</>
+                    <><MapPin className="ml-3 h-8 w-8 text-primary" /> تحديد موقعي (GPS)</>
                 )}
                 </Button>
             </div>
 
             <Button 
                 onClick={handleSaveAddress} 
-                className="w-full py-8 text-xl font-bold rounded-2xl shadow-lg shadow-primary/20"
+                className="w-full py-8 text-2xl font-black rounded-3xl shadow-xl shadow-primary/20 mt-4"
                 disabled={islocLoading}
             >
-                حفظ ودخول التطبيق
+                بدء التسوق الآن
             </Button>
           </div>
         </SheetContent>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -47,6 +48,9 @@ interface AppContextType {
 
     mySupportTicket: SupportTicket | null;
     startNewTicketClient: () => void;
+
+    activeTab: number;
+    setActiveTab: (index: number) => void;
 }
 
 
@@ -67,6 +71,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [userId, setUserId] = useState<string|null>(null);
     const [myCurrentSupportTicket, setMySupportTicket] = useState<SupportTicket|null>(null);
+    const [activeTab, setActiveTab] = useState(0);
     
     const isLoading = productsLoading || restaurantsLoading || ticketsLoading || couponsLoading || telegramLoading || ordersLoading;
 
@@ -110,10 +115,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         if (cartIsFromDifferentRestaurant) {
             toast({
                 title: "بدء سلة جديدة؟",
-                description: "لديك منتجات من متجر آخر. هل تريد إفراغ السلة والبدء من هذا المتجر؟",
-                action: <ToastAction altText="نعم، ابدأ" onClick={() => {
+                description: "لديك منتجات من متجر آخر في السلة. هل تريد إفراغها والبدء من هذا المتجر؟",
+                action: <ToastAction altText="نعم" onClick={() => {
                     setCart([{ product, quantity, selectedSize }]);
-                }}>نعم، ابدأ</ToastAction>,
+                }}>نعم</ToastAction>,
             });
             return false;
         }
@@ -206,20 +211,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const placeOrder = useCallback(async (address: Address, deliveryFee: number, couponCode?: string): Promise<string | null> => {
         if (!userId) {
-            toast({ title: "خلل في الهوية", description: "يرجى إغلاق التطبيق وفتحه مجدداً للتعرف على حسابك.", variant: "destructive" });
+            toast({ title: "خلل في الهوية", description: "يرجى إغلاق التطبيق وفتحه مجدداً.", variant: "destructive" });
             return null;
         }
         if (cart.length === 0) {
-            toast({ title: "السلة فارغة", description: "أضف بعض المنتجات لتبدأ طلبك.", variant: "destructive" });
+            toast({ title: "السلة فارغة", description: "أضف بعض المنتجات أولاً.", variant: "destructive" });
             return null;
         }
         
         let newOrderId: string | null = null;
         
         try {
-            // استخدام Transaction لضمان القراءة والكتابة الذرية
             await runTransaction(db, async (transaction) => {
-                // 1. القراءة أولاً (قانون Firestore الصارم)
+                // 1. القراءة أولاً
                 const productRefs = cart.map(item => doc(db, "products", item.product.id));
                 const productSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
@@ -236,7 +240,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     }
                 }
 
-                // 2. التحقق من المنطق
+                // 2. التحقق
                 if (couponCode?.trim() && !couponData) throw new Error("كود الخصم هذا غير صحيح.");
                 if (couponData) {
                     if (couponData.usedCount >= couponData.maxUses) throw new Error("نعتذر، انتهت صلاحية هذا الكود.");
@@ -249,7 +253,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 for (let i = 0; i < productSnaps.length; i++) {
                     const snap = productSnaps[i];
                     const item = cart[i];
-                    if (!snap.exists()) throw new Error(`المنتج "${item.product.name}" لم يعد متوفراً حالياً.`);
+                    if (!snap.exists()) throw new Error(`المنتج "${item.product.name}" لم يعد متوفراً.`);
                     
                     const serverProduct = snap.data() as Product;
                     const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price;
@@ -264,12 +268,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                         newSizes[sizeIdx] = { ...newSizes[sizeIdx], stock: newSizes[sizeIdx].stock - item.quantity };
                         updates.push({ ref: productRefs[i], data: { sizes: newSizes } });
                     } else {
-                        if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`نعتذر، الكمية المطلوبة من "${item.product.name}" غير متوفرة حالياً.`);
+                        if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`نعتذر، الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
                         updates.push({ ref: productRefs[i], data: { stock: (serverProduct.stock || 0) - item.quantity } });
                     }
                 }
 
-                // 3. الكتابة أخيراً
+                // 3. الكتابة
                 updates.forEach(u => transaction.update(u.ref, u.data));
 
                 let discountAmount = 0;
@@ -324,7 +328,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (error: any) {
             toast({
               title: "فشل إرسال الطلب",
-              description: error.message || "حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى لاحقاً.",
+              description: error.message || "حدث خطأ غير متوقع، يرجى المحاولة لاحقاً.",
               variant: "destructive",
             });
             return null;
@@ -338,12 +342,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress,
         mySupportTicket, startNewTicketClient,
+        activeTab, setActiveTab
     }), [
         isLoading,
         placeOrder, createSupportTicket, addMessageToTicket,
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress,
         mySupportTicket, startNewTicketClient,
+        activeTab, setActiveTab
     ]);
     
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

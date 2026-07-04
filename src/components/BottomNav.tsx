@@ -1,40 +1,43 @@
 
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Home, User, ShoppingCart, ClipboardList, Store } from "lucide-react";
+import { Home, User, ShoppingCart, ClipboardList, Store, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import React from "react";
+import React, { useContext } from "react";
+import { AppContext } from "@/contexts/AppContext";
 
 const navItems = [
-  { href: "/home", label: "الرئيسية", icon: Home },
-  { href: "/restaurants", label: "المتاجر", icon: Store },
-  { href: "/cart", label: "السلة", icon: ShoppingCart, isCart: true },
-  { href: "/orders", label: "الطلبات", icon: ClipboardList },
-  { href: "/account", label: "حسابي", icon: User },
+  { index: 0, label: "الرئيسية", icon: Home },
+  { index: 1, label: "المتاجر", icon: Store },
+  { index: 2, label: "البحث", icon: Search },
+  { index: 3, label: "السلة", icon: ShoppingCart },
+  { index: 4, label: "الطلبات", icon: ClipboardList },
+  { index: 5, label: "حسابي", icon: User },
 ];
 
 function BottomNavComponent() {
-  const pathname = usePathname();
+  const context = useContext(AppContext);
+  if (!context) return null;
+  
+  const { activeTab, setActiveTab } = context;
 
   return (
     <nav className="fixed bottom-0 right-0 z-50 w-full border-t bg-card shadow-t-lg">
-      <div className="mx-auto grid h-16 max-w-md grid-cols-5 items-center justify-around">
+      <div className="mx-auto grid h-16 max-w-md grid-cols-6 items-center justify-around">
         {navItems.map((item) => {
-          const isActive = pathname.startsWith(item.href) && (item.href !== '/home' || pathname === '/home');
+          const isActive = activeTab === item.index;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
+            <button
+              key={item.index}
+              onClick={() => setActiveTab(item.index)}
               className={cn(
-                "group flex flex-col items-center justify-center text-muted-foreground transition-colors duration-200 hover:text-primary",
+                "group flex flex-col items-center justify-center text-muted-foreground transition-all duration-200 hover:text-primary active:scale-90",
                 isActive && "text-primary"
               )}
             >
-              <item.icon className="h-6 w-6" />
-              <span className="mt-1 text-xs font-medium">{item.label}</span>
-            </Link>
+              <item.icon className={cn("h-5 w-5 transition-transform", isActive && "scale-110")} />
+              <span className="mt-1 text-[10px] font-bold">{item.label}</span>
+            </button>
           );
         })}
       </div>
