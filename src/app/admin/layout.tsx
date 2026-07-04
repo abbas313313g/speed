@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -74,10 +75,11 @@ export default function AdminLayout() {
   }
   
   return (
-    <div className="flex min-h-screen w-full justify-center bg-muted/20">
+    <div className="flex min-h-screen w-full bg-muted/20">
       <AdminNav onTabChange={setActiveTab} activeTab={activeTab} />
-      <div className="flex w-full max-w-screen-xl flex-col sm:gap-4 sm:py-4 sm:pl-14">
-         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+      {/* sm:pr-16 isoloates the sidebar width from the content area in RTL */}
+      <div className="flex flex-1 flex-col sm:pr-16">
+         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 sm:py-4">
           <Sheet>
             <SheetTrigger asChild>
               <Button size="icon" variant="outline" className="sm:hidden">
@@ -85,36 +87,37 @@ export default function AdminLayout() {
                 <span className="sr-only">القائمة</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="sm:max-w-xs p-0">
-               <SheetHeader className="p-4 border-b">
-                 <SheetTitle>القائمة الرئيسية</SheetTitle>
+            <SheetContent side="right" className="sm:max-w-xs p-0">
+               <SheetHeader className="p-4 border-b text-right">
+                 <SheetTitle>لوحة التحكم</SheetTitle>
                </SheetHeader>
                <AdminNav isSheet={true} onTabChange={setActiveTab} activeTab={activeTab} />
             </SheetContent>
           </Sheet>
           <div className="text-xl font-black text-primary sm:hidden">سبيد شوب - إشراف</div>
+          <div className="hidden sm:block text-2xl font-black text-primary">لوحة التحكم الإدارية</div>
         </header>
         <main className="flex-1 relative overflow-hidden">
           <div 
-            className="spa-stack-container" 
+            className="spa-stack-container h-full" 
             style={{ 
               transform: `translateX(${activeTab * 100}%)` 
             }} 
           >
-            <div className="spa-page-view px-4"><AdminDashboard /></div>
-            <div className="spa-page-view px-4"><AdminOrdersPage /></div>
-            <div className="spa-page-view px-4"><AdminProductsPage /></div>
-            <div className="spa-page-view px-4"><AdminCategoriesPage /></div>
-            <div className="spa-page-view px-4"><AdminStoresPage /></div>
-            <div className="spa-page-view px-4"><AdminBannersPage /></div>
-            <div className="spa-page-view px-4"><AdminDeliveryZonesPage /></div>
-            <div className="spa-page-view px-4"><AdminCouponsPage /></div>
-            <div className="spa-page-view px-4"><AdminUsersPage /></div>
-            <div className="spa-page-view px-4"><AdminDeliveryWorkersPage /></div>
-            <div className="spa-page-view px-4"><AdminReportsPage /></div>
-            <div className="spa-page-view px-4"><AdminSupportTicketsPage /></div>
-            <div className="spa-page-view px-4"><AdminTelegramPage /></div>
-            <div className="spa-page-view px-4"><AdminSettingsPage /></div>
+            <div className="spa-page-view px-4 sm:px-6"><AdminDashboard /></div>
+            <div className="spa-page-view px-4 sm:px-6"><AdminOrdersPage /></div>
+            <div className="spa-page-view px-4 sm:px-6"><AdminProductsPage /></div>
+            <div className="spa-page-view px-4 sm:px-6"><AdminCategoriesPage /></div>
+            <div className="spa-page-view px-4 sm:px-6"><AdminStoresPage /></div>
+            <div className="spa-page-view px-4 sm:px-6"><AdminBannersPage /></div>
+            <div className="spa-page-view px-4 sm:px-6"><AdminDeliveryZonesPage /></div>
+            <div className="spa-page-view px-4 sm:px-6"><AdminCouponsPage /></div>
+            <div className="spa-page-view px-4 sm:px-6"><AdminUsersPage /></div>
+            <div className="spa-page-view px-4 sm:px-6"><AdminDeliveryWorkersPage /></div>
+            <div className="spa-page-view px-4 sm:px-6"><AdminReportsPage /></div>
+            <div className="spa-page-view px-4 sm:px-6"><AdminSupportTicketsPage /></div>
+            <div className="spa-page-view px-4 sm:px-6"><AdminTelegramPage /></div>
+            <div className="spa-page-view px-4 sm:px-6"><AdminSettingsPage /></div>
           </div>
         </main>
       </div>
