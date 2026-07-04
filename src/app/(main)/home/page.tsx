@@ -1,9 +1,8 @@
 
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useContext } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import Autoplay from "embla-carousel-autoplay"
 
 import { ProductCard } from "@/components/ProductCard";
@@ -22,9 +21,11 @@ import { useBanners } from "@/hooks/useBanners";
 import { useProducts } from "@/hooks/useProducts";
 import { useRestaurants } from "@/hooks/useRestaurants";
 import { useOrders } from "@/hooks/useOrders";
+import { AppContext } from "@/contexts/AppContext";
 
 
 export default function HomePage() {
+  const context = useContext(AppContext);
   const { categories, isLoading: categoriesLoading } = useCategories();
   const { banners, isLoading: bannersLoading } = useBanners();
   const { products, isLoading: productsLoading } = useProducts();
@@ -35,6 +36,9 @@ export default function HomePage() {
     Autoplay({ delay: 3000, stopOnInteraction: true })
   )
   
+  if (!context) return null;
+  const { setActiveTab } = context;
+
   const isLoading = categoriesLoading || bannersLoading || productsLoading || restaurantsLoading || ordersLoading;
 
   const bestSellersByCategory = useMemo(() => {
@@ -53,7 +57,7 @@ export default function HomePage() {
       const categoryProducts = products
         .filter(p => p.categoryId === category.id && salesCount[p.id] > 0)
         .sort((a, b) => salesCount[b.id] - salesCount[a.id])
-        .slice(0, 10); // Get top 10 best sellers per category
+        .slice(0, 10);
 
       if (categoryProducts.length > 0) {
         categoryGroups.push({
@@ -77,11 +81,6 @@ export default function HomePage() {
             <Skeleton className="h-32 w-24" />
             <Skeleton className="h-32 w-24" />
         </div>
-        <Skeleton className="h-8 w-1/3" />
-        <div className="grid grid-cols-2 gap-4">
-            <Skeleton className="h-64 w-full" />
-            <Skeleton className="h-64 w-full" />
-        </div>
         </div>
     );
   }
@@ -89,8 +88,8 @@ export default function HomePage() {
   return (
     <div className="space-y-8 p-4">
       <header>
-        <h1 className="text-2xl font-bold">مرحباً بك في سبيد شوب!</h1>
-        <p className="text-muted-foreground">اطلب ما تشتهي، نصلك بأسرع وقت.</p>
+        <h1 className="text-3xl font-black text-primary">سبيد شوب</h1>
+        <p className="text-muted-foreground text-lg">أسرع توصيل في منطقتك!</p>
       </header>
 
       <section>
@@ -98,19 +97,15 @@ export default function HomePage() {
             className="w-full" 
             opts={{ loop: true, direction: 'rtl' }}
             plugins={[plugin.current]}
-            onMouseEnter={plugin.current.stop}
-            onMouseLeave={plugin.current.reset}
         >
           <CarouselContent>
             {(banners.length > 0 ? banners : [{id: 'placeholder', image: 'https://placehold.co/600x300.png', link: '#'}]).map((banner, index) => (
               <CarouselItem key={banner.id}>
-                <Link href={banner.link}>
-                    <Card>
-                    <CardContent className="relative flex aspect-video items-center justify-center p-0">
-                        <Image src={banner.image} fill alt={`Promotion ${index + 1}`} className="rounded-lg object-cover" data-ai-hint="shopping promotion" unoptimized={true}/>
-                    </CardContent>
-                    </Card>
-                </Link>
+                <Card className="border-none shadow-none overflow-hidden rounded-[2rem]">
+                <CardContent className="relative flex aspect-video items-center justify-center p-0">
+                    <Image src={banner.image} fill alt="Promotion" className="object-cover" unoptimized={true}/>
+                </CardContent>
+                </Card>
               </CarouselItem>
             ))}
           </CarouselContent>
@@ -119,30 +114,28 @@ export default function HomePage() {
 
       <section>
         <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">الأقسام</h2>
-            <Link href="/products" className="text-sm font-semibold text-primary">
-                عرض الكل
-            </Link>
+            <h2 className="text-2xl font-black">الأقسام</h2>
+            <button onClick={() => setActiveTab(2)} className="text-primary font-bold">عرض الكل</button>
         </div>
-        <ScrollArea className="w-full whitespace-nowrap rounded-md">
-            <div className="flex w-max space-x-4 pb-4">
-                <Link href="/products" className="flex-shrink-0">
-                    <div className="w-24 text-center group">
-                        <div className="p-4 bg-secondary rounded-lg flex items-center justify-center aspect-square transition-colors group-hover:bg-primary">
-                            <Layers className="h-10 w-10 text-primary transition-colors group-hover:text-primary-foreground" />
+        <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex w-max space-x-4 space-x-reverse pb-4">
+                <button onClick={() => setActiveTab(2)} className="flex-shrink-0 group">
+                    <div className="w-24 text-center">
+                        <div className="p-4 bg-secondary rounded-[1.5rem] flex items-center justify-center aspect-square transition-all group-active:scale-90">
+                            <Layers className="h-10 w-10 text-primary" />
                         </div>
-                        <p className="mt-2 text-sm font-medium truncate">الكل</p>
+                        <p className="mt-2 text-sm font-bold truncate">الكل</p>
                     </div>
-                </Link>
+                </button>
                 {categories.map((category) => (
-                    <Link href={`/products?category=${category.id}`} key={category.id} className="flex-shrink-0">
-                        <div className="w-24 text-center group">
-                            <div className="p-4 bg-secondary rounded-lg flex items-center justify-center aspect-square transition-colors group-hover:bg-primary">
-                                <category.icon className="h-10 w-10 text-primary transition-colors group-hover:text-primary-foreground" />
+                    <button key={category.id} onClick={() => setActiveTab(2)} className="flex-shrink-0 group">
+                        <div className="w-24 text-center">
+                            <div className="p-4 bg-secondary rounded-[1.5rem] flex items-center justify-center aspect-square transition-all group-active:scale-90">
+                                <category.icon className="h-10 w-10 text-primary" />
                             </div>
-                            <p className="mt-2 text-sm font-medium truncate">{category.name}</p>
+                            <p className="mt-2 text-sm font-bold truncate">{category.name}</p>
                         </div>
-                    </Link>
+                    </button>
                 ))}
             </div>
             <ScrollBar orientation="horizontal" />
@@ -150,19 +143,19 @@ export default function HomePage() {
       </section>
       
       <section className="space-y-6">
-        <h2 className="text-xl font-bold">الأكثر مبيعاً</h2>
+        <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-black">الأكثر مبيعاً</h2>
+        </div>
         {bestSellersByCategory.map(({ category, products: categoryProducts }) => (
-          <div key={category.id}>
-            <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold">{category.name}</h3>
-                <Link href={`/products?category=${category.id}`} className="text-sm font-semibold text-primary">
-                    عرض الكل
-                </Link>
+          <div key={category.id} className="space-y-3">
+            <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-muted-foreground">{category.name}</h3>
+                <button onClick={() => setActiveTab(2)} className="text-sm font-bold text-primary">مشاهدة الكل</button>
             </div>
-            <ScrollArea className="w-full whitespace-nowrap rounded-md">
-                <div className="flex w-max space-x-4 pb-4">
+            <ScrollArea className="w-full whitespace-nowrap">
+                <div className="flex w-max space-x-4 space-x-reverse pb-4">
                     {categoryProducts.map((product) => (
-                        <div key={product.id} className="w-40 flex-shrink-0">
+                        <div key={product.id} className="w-44 flex-shrink-0">
                           <ProductCard product={product} />
                         </div>
                     ))}
@@ -173,17 +166,15 @@ export default function HomePage() {
         ))}
       </section>
 
-      <section>
+      <section className="pb-8">
          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">أشهر المتاجر</h2>
-             <Link href="/restaurants" className="text-sm font-semibold text-primary">
-                عرض الكل
-            </Link>
+            <h2 className="text-2xl font-black">أشهر المتاجر</h2>
+             <button onClick={() => setActiveTab(1)} className="text-primary font-bold">عرض الكل</button>
         </div>
-        <ScrollArea className="w-full whitespace-nowrap rounded-md">
-            <div className="flex w-max space-x-4 pb-4">
+        <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex w-max space-x-4 space-x-reverse pb-4">
               {restaurants.map((restaurant) => (
-                <div key={restaurant.id} className="w-80 flex-shrink-0">
+                <div key={restaurant.id} className="w-72 flex-shrink-0">
                   <RestaurantCard restaurant={restaurant} />
                 </div>
               ))}

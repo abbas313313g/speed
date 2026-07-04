@@ -1,46 +1,51 @@
 
 "use client";
 
-import React from "react";
+import React, { useContext } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { Star } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import type { Restaurant } from "@/lib/types";
 import { Badge } from "./ui/badge";
+import { AppContext } from "@/contexts/AppContext";
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
 }
 
 function RestaurantCardComponent({ restaurant }: RestaurantCardProps) {
+  const context = useContext(AppContext);
   const imageUrl = restaurant.image && (restaurant.image.startsWith('http') || restaurant.image.startsWith('data:')) ? restaurant.image : 'https://placehold.co/100x100.png';
   
+  const handleOpenRestaurant = () => {
+    // لم يتم تطبيق صفحة تفاصيل المطعم بعد في مكدس الـ SPA، لذا نوجهه للمنتجات حالياً
+    if (context) context.setActiveTab(2);
+  };
+
   return (
-    <Link href={`/restaurants/${restaurant.id}`} className="group block">
-      <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex items-center gap-4 p-4">
+    <div onClick={handleOpenRestaurant} className="group cursor-pointer">
+      <Card className="overflow-hidden border-none shadow-md rounded-[1.5rem] bg-card p-3 flex items-center gap-4 transition-all active:scale-95">
         <div className="relative h-20 w-20 flex-shrink-0">
           <Image
             src={imageUrl}
             alt={restaurant.name}
             fill
-            className="object-cover rounded-md"
-            data-ai-hint="store logo"
+            className="object-cover rounded-2xl"
             unoptimized={true}
           />
         </div>
         <div className="flex-grow">
-          <CardTitle className="text-lg">{restaurant.name}</CardTitle>
-          <div className="mt-2 flex items-center gap-1 text-amber-500">
-            <Star className="h-5 w-5 fill-current" />
-            <span className="font-semibold text-foreground">{restaurant.rating.toFixed(1)}</span>
+          <CardTitle className="text-lg font-black">{restaurant.name}</CardTitle>
+          <div className="mt-1 flex items-center gap-1 text-amber-500">
+            <Star className="h-4 w-4 fill-current" />
+            <span className="font-bold text-foreground text-sm">{restaurant.rating.toFixed(1)}</span>
           </div>
         </div>
-         <Badge variant={restaurant.isStoreOpen ? 'secondary' : 'destructive'} className={restaurant.isStoreOpen ? "bg-green-100 text-green-800 border-green-200" : ""}>
+         <Badge variant={restaurant.isStoreOpen ? 'secondary' : 'destructive'} className={`rounded-xl ${restaurant.isStoreOpen ? "bg-green-100 text-green-700" : ""}`}>
               {restaurant.isStoreOpen ? 'مفتوح' : 'مغلق'}
           </Badge>
       </Card>
-    </Link>
+    </div>
   );
 }
 

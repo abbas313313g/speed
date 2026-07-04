@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useContext } from 'react';
@@ -23,11 +24,7 @@ import AddAddressPage from './account/add-address/page';
 import SupportPage from './support/page';
 import PrivacyPolicyPage from './privacy-policy/page';
 
-export default function MainAppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function MainAppLayout() {
   const context = useContext(AppContext);
   const { settings, isLoading: settingsLoading } = useAppSettings();
   const { addresses, addAddress } = useAddresses();
@@ -50,7 +47,7 @@ export default function MainAppLayout({
   const handleGetLocation = () => {
     setIslocLoading(true);
     if (!navigator.geolocation) {
-      toast({ title: "الموقع غير مدعوم", description: "متصفحك لا يدعم خدمة تحديد الموقع", variant: "destructive" });
+      toast({ title: "الموقع غير مدعوم", description: "عذراً، متصفحك لا يدعم خدمة تحديد المواقع.", variant: "destructive" });
       setIslocLoading(false);
       return;
     }
@@ -62,13 +59,13 @@ export default function MainAppLayout({
           setIsBlocked(true);
           setShowAddressPrompt(false);
         } else {
-          toast({ title: "تم تحديد الموقع بنجاح" });
+          toast({ title: "تم التحديد بنجاح", description: "تم التعرف على موقعك الجغرافي." });
           setNewAddr(prev => ({ ...prev, lat: latitude, lng: longitude } as any));
         }
         setIslocLoading(false);
       },
       () => {
-        toast({ title: "فشل تحديد الموقع", description: "يرجى تفعيل الـ GPS وإعطاء الإذن للمتصفح", variant: "destructive" });
+        toast({ title: "فشل تحديد الموقع", description: "يرجى تفعيل الـ GPS في جهازك وإعطاء الإذن للمتصفح.", variant: "destructive" });
         setIslocLoading(false);
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -77,7 +74,7 @@ export default function MainAppLayout({
 
   const handleSaveAddress = () => {
     if (!newAddr.name || !newAddr.phone) {
-      toast({ title: "بيانات ناقصة", description: "يرجى كتابة الاسم ورقم الهاتف لإكمال التسجيل", variant: "destructive" });
+      toast({ title: "بيانات ناقصة", description: "يرجى إكمال كتابة اسمك ورقم هاتفك للمتابعة.", variant: "destructive" });
       return;
     }
     addAddress({
@@ -87,7 +84,7 @@ export default function MainAppLayout({
       longitude: (newAddr as any).lng || 0
     });
     setShowAddressPrompt(false);
-    toast({ title: "أهلاً بك!", description: "تم حفظ عنوانك، استمتع بالتسوق" });
+    toast({ title: "مرحباً بك!", description: "تم حفظ عنوانك، يمكنك البدء بالتسوق الآن." });
   };
 
   if (settingsLoading) {
@@ -106,7 +103,7 @@ export default function MainAppLayout({
         <h1 className="text-3xl font-black mb-4 text-primary">نعتذر منك جداً</h1>
         <p className="text-muted-foreground text-xl leading-relaxed">
           تطبيق سبيد شوب مخصص حالياً لخدمة مناطق <br/><span className="text-foreground font-black underline">(المدحتية، الهاشمية، القاسم)</span> فقط.
-          <br/> انتظرنا قريباً في منطقتك!
+          <br/> سنصل إليك قريباً في منطقتك!
         </p>
       </div>
     );

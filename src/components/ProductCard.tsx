@@ -1,9 +1,8 @@
 
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useContext } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { PlusCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/hooks/useCart";
 import { useRestaurants } from "@/hooks/useRestaurants";
+import { AppContext } from "@/contexts/AppContext";
 
 interface ProductCardProps {
   product: Product;
@@ -22,6 +22,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
   const { toast } = useToast();
   const { addToCart } = useCart();
   const { restaurants } = useRestaurants();
+  const context = useContext(AppContext);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === product.restaurantId), [product, restaurants]);
 
@@ -34,6 +35,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
 
     if (restaurant && !restaurant.isStoreOpen) {
         toast({ title: "المتجر مغلق حاليًا", description: `لا يمكنك الطلب من "${restaurant.name}" في هذا الوقت.`, variant: "destructive" });
@@ -41,15 +43,15 @@ function ProductCardComponent({ product }: ProductCardProps) {
     }
 
     if (isOutOfStock) {
-        toast({ title: "نفدت الكمية", description: `منتج "${product.name}" غير متوفر حالياً.`, variant: "destructive" });
+        toast({ title: "نفدت الكمية", description: `عذراً، منتج "${product.name}" غير متوفر حالياً.`, variant: "destructive" });
         return;
     }
 
     const wasAdded = addToCart(product, 1);
     if (wasAdded) {
         toast({
-            title: "تمت الإضافة إلى السلة",
-            description: `تمت إضافة ${product.name} إلى سلتك.`,
+            title: "تمت الإضافة",
+            description: `تمت إضافة ${product.name} إلى سلتك بنجاح.`,
         });
     }
   };
@@ -59,8 +61,8 @@ function ProductCardComponent({ product }: ProductCardProps) {
   const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/600x400.png';
 
   return (
-    <Link href={`/products/${product.id}`} className="group block">
-      <Card className={`overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${isOutOfStock || !restaurant?.isStoreOpen ? 'opacity-60' : ''}`}>
+    <div className={`group cursor-pointer transition-all active:scale-95 ${isOutOfStock || !restaurant?.isStoreOpen ? 'opacity-60' : ''}`}>
+      <Card className="overflow-hidden border-none shadow-md rounded-[1.5rem] bg-card">
         <CardContent className="p-0">
           <div className="relative w-full aspect-square">
             <Image
@@ -68,35 +70,33 @@ function ProductCardComponent({ product }: ProductCardProps) {
               alt={product.name}
               fill
               className="object-cover"
-              sizes="(max-width: 768px) 50vw, 33vw"
-              data-ai-hint="product item"
               unoptimized={true}
             />
-            {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 text-sm">نفدت الكمية</Badge>}
-            {!restaurant?.isStoreOpen && <Badge variant="destructive" className="absolute top-2 left-2 text-sm">المتجر مغلق</Badge>}
-            {hasDiscount && <Badge variant="destructive" className="absolute top-2 right-2">خصم</Badge>}
+            {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2">نفد</Badge>}
+            {!restaurant?.isStoreOpen && <Badge variant="destructive" className="absolute top-2 left-2">مغلق</Badge>}
+            {hasDiscount && <Badge className="absolute top-2 right-2 bg-red-500">خصم</Badge>}
           </div>
-          <div className="p-4">
-            <h3 className="truncate font-semibold text-lg">{product.name}</h3>
-            <div className="mt-2 flex items-center justify-between">
-              <div className="flex flex-col items-start">
+          <div className="p-3">
+            <h3 className="truncate font-bold text-base">{product.name}</h3>
+            <div className="mt-1 flex items-center justify-between">
+              <div className="flex flex-col">
                   {hasDiscount && (
-                     <p className="text-sm text-muted-foreground line-through">
+                     <p className="text-[10px] text-muted-foreground line-through">
                         {formatCurrency(product.price)}
                      </p>
                   )}
-                  <p className="text-xl font-bold text-primary">
+                  <p className="text-base font-black text-primary">
                     {formatCurrency(displayPrice)}
                   </p>
               </div>
-              <Button size="icon" variant="ghost" className="text-primary hover:text-primary hover:bg-primary/10" onClick={handleAddToCart} disabled={isOutOfStock || !restaurant?.isStoreOpen}>
-                <PlusCircle className="h-6 w-6" />
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-primary bg-primary/10 rounded-xl" onClick={handleAddToCart} disabled={isOutOfStock || !restaurant?.isStoreOpen}>
+                <PlusCircle className="h-5 w-5" />
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
-    </Link>
+    </div>
   );
 }
 
