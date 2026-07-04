@@ -47,6 +47,28 @@ export const isLocationInAllowedZones = (lat: number, lng: number) => {
     return dist <= 18;
 }
 
+// دالة لتحديد اسم المنطقة نصاً بناءً على الإحداثيات
+export const getZoneNameFromCoordinates = (lat: number, lng: number): string => {
+    const zones = [
+        { name: "المدحتية", lat: 32.4172, lng: 44.6644 },
+        { name: "الهاشمية", lat: 32.3500, lng: 44.6167 },
+        { name: "القاسم", lat: 32.3000, lng: 44.6833 }
+    ];
+    
+    let nearestZone = zones[0];
+    let minDistance = calculateDistance(lat, lng, zones[0].lat, zones[0].lng);
+    
+    for (let i = 1; i < zones.length; i++) {
+        const dist = calculateDistance(lat, lng, zones[i].lat, zones[i].lng);
+        if (dist < minDistance) {
+            minDistance = dist;
+            nearestZone = zones[i];
+        }
+    }
+    
+    return nearestZone.name;
+}
+
 // حساب سعر التوصيل بناءً على المسافة
 export const calculateDeliveryFee = (distanceInKm: number) => {
     const minFee = 1000; // الحد الأدنى 1,000 دينار

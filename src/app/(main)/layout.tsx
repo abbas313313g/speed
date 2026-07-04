@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { isLocationInAllowedZones } from '@/lib/utils';
+import { isLocationInAllowedZones, getZoneNameFromCoordinates } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { AppContext } from '@/contexts/AppContext';
 
@@ -34,7 +34,7 @@ export default function MainAppLayout() {
   
   const [showAddressPrompt, setShowAddressPrompt] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
-  const [newAddr, setNewAddr] = useState({ name: '', phone: '', details: '', lat: 0, lng: 0 });
+  const [newAddr, setNewAddr] = useState({ name: '', phone: '', details: '', lat: 0, lng: 0, detectedZone: '' });
   const [islocLoading, setIslocLoading] = useState(false);
 
   if (!context) return null;
@@ -61,8 +61,9 @@ export default function MainAppLayout() {
           setIsBlocked(true);
           setShowAddressPrompt(false);
         } else {
-          toast({ title: "تم التحديد بنجاح", description: "تم التعرف على موقعك الجغرافي بدقة." });
-          setNewAddr(prev => ({ ...prev, lat: latitude, lng: longitude }));
+          const zoneName = getZoneNameFromCoordinates(latitude, longitude);
+          toast({ title: "تم التحديد بنجاح", description: `أهلاً بك في منطقة: ${zoneName}` });
+          setNewAddr(prev => ({ ...prev, lat: latitude, lng: longitude, detectedZone: zoneName }));
         }
         setIslocLoading(false);
       },
@@ -86,7 +87,7 @@ export default function MainAppLayout() {
     addAddress({
       name: newAddr.name,
       phone: newAddr.phone,
-      deliveryZone: "تلقائي",
+      deliveryZone: newAddr.detectedZone || "جنوب بابل",
       details: newAddr.details,
       latitude: newAddr.lat || 0,
       longitude: newAddr.lng || 0
@@ -156,80 +157,80 @@ export default function MainAppLayout() {
       </div>
 
       <Sheet open={showAddressPrompt} onOpenChange={() => {}}>
-        <SheetContent side="bottom" className="h-[82vh] w-full p-0 border-none shadow-none flex flex-col bg-background rounded-t-[3rem]">
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-            <SheetHeader className="text-right">
+        <SheetContent side="bottom" className="h-auto max-h-[85vh] w-full p-0 border-none shadow-none flex flex-col bg-background rounded-t-[3rem]">
+          <div className="flex-1 overflow-y-auto px-6 pt-6 pb-4 space-y-3">
+            <SheetHeader className="text-right pb-2">
                 <div className="flex items-center gap-3">
-                    <div className="p-3 bg-primary/10 rounded-2xl">
-                        <ShoppingBag className="h-6 w-6 text-primary" />
+                    <div className="p-2 bg-primary/10 rounded-xl">
+                        <ShoppingBag className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                        <SheetTitle className="text-xl font-black text-primary">أهلاً بك في سبيد!</SheetTitle>
-                        <p className="text-muted-foreground text-xs">املأ بياناتك لمرة واحدة فقط للبدء بالطلب.</p>
+                        <SheetTitle className="text-lg font-black text-primary leading-none">أهلاً بك في سبيد!</SheetTitle>
+                        <p className="text-muted-foreground text-[10px] mt-1">املأ بياناتك لمرة واحدة فقط للبدء بالطلب.</p>
                     </div>
                 </div>
             </SheetHeader>
             
-            <div className="space-y-3">
+            <div className="space-y-2">
                 <div className="space-y-1">
-                    <Label className="text-xs font-bold flex items-center gap-2 pr-1"><User className="h-3 w-3 text-primary"/> الاسم الكامل</Label>
+                    <Label className="text-[10px] font-bold flex items-center gap-2 pr-1"><User className="h-3 w-3 text-primary"/> الاسم الكامل</Label>
                     <Input 
                         value={newAddr.name} 
                         onChange={(e) => setNewAddr({...newAddr, name: e.target.value})} 
                         placeholder="اكتب اسمك الثلاثي..." 
-                        className="h-11 text-base border-2 rounded-xl bg-card px-4"
+                        className="h-10 text-sm border-2 rounded-xl bg-card px-4"
                     />
                 </div>
                 
                 <div className="space-y-1">
-                    <Label className="text-xs font-bold flex items-center gap-2 pr-1"><Phone className="h-3 w-3 text-primary"/> رقم الهاتف</Label>
+                    <Label className="text-[10px] font-bold flex items-center gap-2 pr-1"><Phone className="h-3 w-3 text-primary"/> رقم الهاتف</Label>
                     <Input 
                         value={newAddr.phone} 
                         onChange={(e) => setNewAddr({...newAddr, phone: e.target.value})} 
                         placeholder="07XXXXXXXX" 
                         type="tel" 
                         dir="ltr"
-                        className="h-11 text-base text-left border-2 rounded-xl bg-card px-4"
+                        className="h-10 text-sm text-left border-2 rounded-xl bg-card px-4"
                     />
                 </div>
 
                 <div className="space-y-1">
-                    <Label className="text-xs font-bold flex items-center gap-2 pr-1"><Home className="h-3 w-3 text-primary"/> تفاصيل العنوان (المنطقة / أقرب نقطة دالة)</Label>
+                    <Label className="text-[10px] font-bold flex items-center gap-2 pr-1"><Home className="h-3 w-3 text-primary"/> تفاصيل العنوان (أقرب نقطة دالة)</Label>
                     <Input 
                         value={newAddr.details} 
                         onChange={(e) => setNewAddr({...newAddr, details: e.target.value})} 
-                        placeholder="مثال: المدحتية - قرب مكتبة الطالب" 
-                        className="h-11 text-base border-2 rounded-xl bg-card px-4"
+                        placeholder="مثال: قرب مكتبة الطالب" 
+                        className="h-10 text-sm border-2 rounded-xl bg-card px-4"
                     />
                 </div>
 
-                <div className="pt-2">
+                <div className="pt-1">
                     <button 
                         onClick={handleGetLocation} 
-                        className={`w-full py-4 flex flex-row items-center justify-center gap-3 text-sm border-2 border-dashed rounded-2xl transition-all active:scale-95 ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50' : 'border-primary/40 bg-card'}`}
+                        className={`w-full py-3 flex flex-row items-center justify-center gap-3 text-xs border-2 border-dashed rounded-xl transition-all active:scale-95 ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50' : 'border-primary/40 bg-card'}`}
                         disabled={islocLoading}
                     >
                     {islocLoading ? (
-                        <><Loader2 className="animate-spin h-5 w-5 text-primary" /> <span className="font-bold">جارِ تحديد موقعك...</span></>
+                        <><Loader2 className="animate-spin h-4 w-4 text-primary" /> <span className="font-bold">جارِ تحديد منطقتك...</span></>
                     ) : (
                         newAddr.lat !== 0 ? (
-                            <><CheckCircle2 className="h-5 w-5 text-green-500" /> <span className="font-bold text-green-600">تم تحديد موقعك بنجاح!</span></>
+                            <><CheckCircle2 className="h-4 w-4 text-green-500" /> <span className="font-bold text-green-600">المنطقة: {newAddr.detectedZone}</span></>
                         ) : (
-                            <><MapPin className="h-5 w-5 text-primary" /> <span className="font-bold text-primary">تحديد موقعي الجغرافي (GPS)</span></>
+                            <><MapPin className="h-4 w-4 text-primary" /> <span className="font-bold text-primary">تحديد موقعي التلقائي (GPS)</span></>
                         )
                     )}
                     </button>
                     {newAddr.lat === 0 && (
-                        <p className="text-center text-[10px] text-muted-foreground mt-1">يجب الضغط هنا لتتمكن من إرسال الطلبات لاحقاً.</p>
+                        <p className="text-center text-[9px] text-muted-foreground mt-1">يجب الضغط هنا لتتمكن من إرسال الطلبات لاحقاً.</p>
                     )}
                 </div>
             </div>
           </div>
 
-          <div className="p-6 bg-background border-t">
+          <div className="p-4 bg-background border-t">
               <Button 
                 onClick={handleSaveAddress} 
-                className="w-full py-7 text-xl font-black rounded-2xl shadow-xl shadow-primary/20"
+                className="w-full py-6 text-lg font-black rounded-xl shadow-lg shadow-primary/20"
                 disabled={islocLoading}
               >
                 حفظ وابدأ التسوق

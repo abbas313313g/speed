@@ -63,7 +63,12 @@ button, a, [role="button"] {
   position: relative;
 }
 
-/* لضمان عدم اختفاء أجزاء من الجداول في الأدمن */
+/* لضمان ثبات عرض الصفحات في الأدمن والواجهة */
+.spa-stack-container > div {
+  min-width: 100% !important;
+  flex-shrink: 0 !important;
+}
+
 .admin-table-container {
   @apply w-full overflow-x-auto;
 }
