@@ -5,7 +5,7 @@ import { useState, useEffect, useContext } from 'react';
 import { BottomNav } from '@/components/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useAddresses } from '@/hooks/useAddresses';
-import { HardHat, Loader2, MapPin, AlertCircle } from 'lucide-react';
+import { HardHat, Loader2, MapPin, AlertCircle, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,6 +41,7 @@ export default function MainAppLayout() {
   const { activeTab } = context;
 
   useEffect(() => {
+    // إظهار نافذة العنوان إذا لم يكن للمستخدم أي عنوان مسجل
     if (!settingsLoading && addresses.length === 0) {
       setShowAddressPrompt(true);
     }
@@ -149,57 +150,68 @@ export default function MainAppLayout() {
         <BottomNav />
       </div>
 
+      {/* نافذة العنوان الإجبارية - ملء الشاشة لضمان ظهور الأزرار */}
       <Sheet open={showAddressPrompt} onOpenChange={() => {}}>
-        <SheetContent side="bottom" className="h-[75vh] rounded-t-[3rem] p-8 border-none shadow-2xl overflow-y-auto">
-          <SheetHeader className="text-right">
-            <SheetTitle className="text-3xl font-black text-primary">مرحباً بك في سبيد!</SheetTitle>
-            <p className="text-muted-foreground text-lg">نحتاج لمعرفة موقعك لنتمكن من توصيل طلباتك بدقة</p>
-          </SheetHeader>
-          
-          <div className="space-y-6 mt-8">
-            <div className="space-y-3">
-              <Label className="text-lg font-bold">اسم العنوان</Label>
-              <Input 
-                value={newAddr.name} 
-                onChange={(e) => setNewAddr({...newAddr, name: e.target.value})} 
-                placeholder="مثلاً: المنزل، المحل، المكتب" 
-                className="h-14 text-lg border-2 rounded-2xl"
-              />
-            </div>
+        <SheetContent side="bottom" className="h-full w-full p-0 border-none shadow-none flex flex-col bg-background">
+          <div className="flex-1 overflow-y-auto p-8 space-y-8">
+            <SheetHeader className="text-right">
+                <div className="p-4 bg-primary/10 w-fit rounded-3xl mb-4">
+                    <ShoppingBag className="h-10 w-10 text-primary" />
+                </div>
+                <SheetTitle className="text-4xl font-black text-primary">مرحباً بك في سبيد!</SheetTitle>
+                <p className="text-muted-foreground text-xl">نحتاج لمعرفة موقعك لنتمكن من توصيل طلباتك بدقة فائقة.</p>
+            </SheetHeader>
             
-            <div className="space-y-3">
-              <Label className="text-lg font-bold">رقم الهاتف</Label>
-              <Input 
-                value={newAddr.phone} 
-                onChange={(e) => setNewAddr({...newAddr, phone: e.target.value})} 
-                placeholder="07XXXXXXXX" 
-                type="tel" 
-                dir="ltr"
-                className="h-14 text-lg text-left border-2 rounded-2xl"
-              />
-            </div>
+            <div className="space-y-6 mt-8">
+                <div className="space-y-3">
+                <Label className="text-lg font-bold">اسمك الكامل</Label>
+                <Input 
+                    value={newAddr.name} 
+                    onChange={(e) => setNewAddr({...newAddr, name: e.target.value})} 
+                    placeholder="اكتب اسمك هنا..." 
+                    className="h-16 text-xl border-2 rounded-2xl bg-card px-6"
+                />
+                </div>
+                
+                <div className="space-y-3">
+                <Label className="text-lg font-bold">رقم الهاتف</Label>
+                <Input 
+                    value={newAddr.phone} 
+                    onChange={(e) => setNewAddr({...newAddr, phone: e.target.value})} 
+                    placeholder="07XXXXXXXX" 
+                    type="tel" 
+                    dir="ltr"
+                    className="h-16 text-xl text-left border-2 rounded-2xl bg-card px-6"
+                />
+                </div>
 
-            <div className="pt-2">
-                <button 
-                    onClick={handleGetLocation} 
-                    className={`w-full py-6 flex items-center justify-center text-xl border-2 border-dashed rounded-2xl ${islocLoading ? 'border-primary' : 'border-muted-foreground/30'}`}
-                    disabled={islocLoading}
-                >
-                {islocLoading ? (
-                    <><Loader2 className="animate-spin ml-3 h-8 w-8 text-primary" /> تحديد الموقع...</>
-                ) : (
-                    <><MapPin className="ml-3 h-8 w-8 text-primary" /> تحديد موقعي (GPS)</>
-                )}
-                </button>
+                <div className="pt-4">
+                    <button 
+                        onClick={handleGetLocation} 
+                        className={`w-full py-8 flex flex-col items-center justify-center text-xl border-2 border-dashed rounded-[2rem] transition-all active:scale-95 ${islocLoading ? 'border-primary bg-primary/5' : 'border-muted-foreground/30 bg-card'}`}
+                        disabled={islocLoading}
+                    >
+                    {islocLoading ? (
+                        <><Loader2 className="animate-spin mb-2 h-10 w-10 text-primary" /> <span className="font-bold">جارِ تحديد الموقع...</span></>
+                    ) : (
+                        <><MapPin className="mb-2 h-10 w-10 text-primary" /> <span className="font-bold text-primary">تحديد موقعي التلقائي (GPS)</span></>
+                    )}
+                    </button>
+                    {(newAddr as any).lat && (
+                        <p className="text-center text-green-600 font-bold mt-3 animate-pulse">✓ تم التقاط موقعك بنجاح!</p>
+                    )}
+                </div>
             </div>
+          </div>
 
-            <Button 
+          <div className="p-6 bg-background border-t">
+              <Button 
                 onClick={handleSaveAddress} 
-                className="w-full py-8 text-2xl font-black rounded-3xl shadow-xl shadow-primary/20 mt-4"
+                className="w-full py-10 text-2xl font-black rounded-[2rem] shadow-2xl shadow-primary/30"
                 disabled={islocLoading}
-            >
-                ابدأ التسوق الآن
-            </Button>
+              >
+                حفظ وابدأ التسوق
+              </Button>
           </div>
         </SheetContent>
       </Sheet>

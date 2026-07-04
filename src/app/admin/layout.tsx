@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -38,7 +39,6 @@ export default function AdminLayout() {
         setIsAuthenticated(true);
         toast({ title: "تم الدخول بنجاح" });
     } else {
-        // تم استبدال الفاصلة العربية بالفاصلة البرمجية الصحيحة هنا
         toast({ title: "الرمز السري غير صحيح", variant: "destructive" });
     }
   };
@@ -76,7 +76,7 @@ export default function AdminLayout() {
   
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden" dir="rtl">
-      {/* القائمة الجانبية معزولة تماماً ولا تضغط المحتوى */}
+      {/* القائمة الجانبية */}
       <AdminNav onTabChange={setActiveTab} activeTab={activeTab} />
       
       <div className="flex flex-1 flex-col relative overflow-hidden">
@@ -99,7 +99,7 @@ export default function AdminLayout() {
           <div className="hidden sm:block text-2xl font-black text-primary">لوحة التحكم الإدارية</div>
         </header>
 
-        {/* المكدس اللحظي - يضمن أن كل صفحة تظهر كاملة بحجم الشاشة */}
+        {/* محتوى الصفحات - ثابت 100% عرض */}
         <main className="flex-1 relative overflow-hidden bg-muted/10">
           <div 
             className="spa-stack-container" 
