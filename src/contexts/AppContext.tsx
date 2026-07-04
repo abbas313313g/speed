@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -215,7 +214,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             return null;
         }
         if (cart.length === 0) {
-            toast({ title: "السلة فارغة", description: "أضف بعض المنتجات أولاً.", variant: "destructive" });
+            toast({ title: "السلة فارغة", description: "أضف بعض المنتجات أولاً لتتمكن من الطلب.", variant: "destructive" });
             return null;
         }
         
@@ -223,7 +222,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         
         try {
             await runTransaction(db, async (transaction) => {
-                // 1. القراءة أولاً
                 const productRefs = cart.map(item => doc(db, "products", item.product.id));
                 const productSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
@@ -240,11 +238,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     }
                 }
 
-                // 2. التحقق
-                if (couponCode?.trim() && !couponData) throw new Error("كود الخصم هذا غير صحيح.");
+                if (couponCode?.trim() && !couponData) throw new Error("نعتذر، كود الخصم هذا غير صحيح.");
                 if (couponData) {
-                    if (couponData.usedCount >= couponData.maxUses) throw new Error("نعتذر، انتهت صلاحية هذا الكود.");
-                    if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت كود الخصم هذا مسبقاً.");
+                    if (couponData.usedCount >= couponData.maxUses) throw new Error("عذراً، لقد انتهت صلاحية كود الخصم هذا.");
+                    if (couponData.usedBy?.includes(userId)) throw new Error("لقد قمت باستخدام هذا الكود مسبقاً.");
                 }
 
                 let totalProfit = 0;
@@ -253,7 +250,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 for (let i = 0; i < productSnaps.length; i++) {
                     const snap = productSnaps[i];
                     const item = cart[i];
-                    if (!snap.exists()) throw new Error(`المنتج "${item.product.name}" لم يعد متوفراً.`);
+                    if (!snap.exists()) throw new Error(`المنتج "${item.product.name}" غير متوفر حالياً.`);
                     
                     const serverProduct = snap.data() as Product;
                     const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price;
@@ -268,12 +265,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                         newSizes[sizeIdx] = { ...newSizes[sizeIdx], stock: newSizes[sizeIdx].stock - item.quantity };
                         updates.push({ ref: productRefs[i], data: { sizes: newSizes } });
                     } else {
-                        if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`نعتذر، الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
+                        if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`نعتذر، الكمية المطلوبة من "${item.product.name}" غير متوفرة حالياً.`);
                         updates.push({ ref: productRefs[i], data: { stock: (serverProduct.stock || 0) - item.quantity } });
                     }
                 }
 
-                // 3. الكتابة
                 updates.forEach(u => transaction.update(u.ref, u.data));
 
                 let discountAmount = 0;

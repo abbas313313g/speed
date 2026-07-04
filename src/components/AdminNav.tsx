@@ -1,8 +1,5 @@
-
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   Tooltip,
   TooltipContent,
@@ -14,7 +11,6 @@ import {
   ShoppingCart,
   Package,
   Users,
-  LogOut,
   Shield,
   LayoutGrid,
   Store,
@@ -36,24 +32,23 @@ import { useSupportTickets } from "@/hooks/useSupportTickets";
 
 
 const navItems = [
-  { href: "/admin", label: "لوحة التحكم", icon: Home },
-  { href: "/admin/orders", label: "الطلبات", icon: ShoppingCart },
-  { href: "/admin/products", label: "المنتجات", icon: Package },
-  { href: "/admin/categories", label: "الأقسام", icon: LayoutGrid },
-  { href: "/admin/stores", label: "المتاجر", icon: Store },
-  { href: "/admin/banners", label: "البنرات", icon: GalleryHorizontal },
-  { href: "/admin/delivery-zones", label: "مناطق التوصيل", icon: Map },
-  { href: "/admin/coupons", label: "أكواد الخصم", icon: TicketPercent },
-  { href: "/admin/users", label: "المستخدمين والعمال", icon: Users },
-  { href: "/admin/delivery-workers", label: "تسوية حسابات العمال", icon: UserCog },
-  { href: "/admin/reports", label: "تسوية حسابات المتاجر", icon: AreaChart },
-  { href: "/admin/support-tickets", label: "تذاكر الدعم", icon: MessageSquareWarning, notificationKey: 'openTickets' },
-  { href: "/admin/telegram", label: "إشعارات تليجرام", icon: Send },
-  { href: "/admin/settings", label: "الإعدادات", icon: Settings },
+  { index: 0, label: "لوحة التحكم", icon: Home },
+  { index: 1, label: "الطلبات", icon: ShoppingCart },
+  { index: 2, label: "المنتجات", icon: Package },
+  { index: 3, label: "الأقسام", icon: LayoutGrid },
+  { index: 4, label: "المتاجر", icon: Store },
+  { index: 5, label: "البنرات", icon: GalleryHorizontal },
+  { index: 6, label: "مناطق التوصيل", icon: Map },
+  { index: 7, label: "أكواد الخصم", icon: TicketPercent },
+  { index: 8, label: "المستخدمين والعمال", icon: Users },
+  { index: 9, label: "تسوية حسابات العمال", icon: UserCog },
+  { index: 10, label: "تسوية حسابات المتاجر", icon: AreaChart },
+  { index: 11, label: "تذاكر الدعم", icon: MessageSquareWarning, notificationKey: 'openTickets' },
+  { index: 12, label: "إشعارات تليجرام", icon: Send },
+  { index: 13, label: "الإعدادات", icon: Settings },
 ];
 
-export function AdminNav({ isSheet = false }: { isSheet?: boolean }) {
-  const pathname = usePathname();
+export function AdminNav({ isSheet = false, onTabChange, activeTab }: { isSheet?: boolean, onTabChange: (idx: number) => void, activeTab: number }) {
   const { supportTickets } = useSupportTickets();
   
   const openTicketsCount = useMemo(() => {
@@ -62,123 +57,70 @@ export function AdminNav({ isSheet = false }: { isSheet?: boolean }) {
 
   const navContent = (
     <nav className={cn("flex flex-col items-center gap-4 px-2 sm:py-5", isSheet && "items-stretch text-lg font-medium px-4")}>
-      <Link
-        href="/admin"
-        className="group flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:h-8 md:w-8 md:text-base"
-      >
-        <Shield className="h-4 w-4 transition-all group-hover:scale-110" />
-        <span className="sr-only">Speed Shop Admin</span>
-      </Link>
+      <div className="group flex h-12 w-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-primary text-primary-foreground mb-4">
+        <Shield className="h-6 w-6" />
+      </div>
       {navItems.map((item) => {
-        const isActive = item.href === '/admin' ? pathname === item.href : pathname.startsWith(item.href);
+        const isActive = activeTab === item.index;
         const hasNotification = item.notificationKey === 'openTickets' && openTicketsCount > 0;
         
         if (isSheet) {
           return (
-             <Link
-              key={item.href}
-              href={item.href}
+             <button
+              key={item.index}
+              onClick={() => onTabChange(item.index)}
               className={cn(
-                "flex items-center justify-between gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground",
-                isActive && "bg-accent text-accent-foreground"
+                "flex items-center justify-between gap-4 rounded-xl px-4 py-3 text-right text-muted-foreground transition-all active:scale-95",
+                isActive && "bg-primary text-primary-foreground font-bold shadow-lg"
               )}
             >
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 text-right">
                 <item.icon className="h-5 w-5" />
                 {item.label}
               </div>
-              {hasNotification && <Badge variant="destructive">{openTicketsCount}</Badge>}
-            </Link>
+              {hasNotification && <Badge variant="destructive" className="mr-auto">{openTicketsCount}</Badge>}
+            </button>
           )
         }
         return (
-          <Tooltip key={item.href}>
+          <Tooltip key={item.index}>
             <TooltipTrigger asChild>
-              <Link
-                href={item.href}
+              <button
+                onClick={() => onTabChange(item.index)}
                 className={cn(
-                  "relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8",
-                  isActive && "bg-accent text-accent-foreground"
+                  "relative flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-accent hover:text-foreground active:scale-90",
+                  isActive && "bg-primary text-primary-foreground shadow-lg"
                 )}
               >
-                <item.icon className="h-5 w-5" />
+                <item.icon className="h-6 w-6" />
                 {hasNotification && (
-                  <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs">{openTicketsCount}</Badge>
+                  <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs animate-bounce">{openTicketsCount}</Badge>
                 )}
-                <span className="sr-only">{item.label}</span>
-              </Link>
+              </button>
             </TooltipTrigger>
-            <TooltipContent side="right">{item.label}</TooltipContent>
+            <TooltipContent side="left">{item.label}</TooltipContent>
           </Tooltip>
         );
       })}
     </nav>
   );
 
-  const bottomNavContent = (
-     <nav className={cn("mt-auto flex flex-col items-center gap-4 px-2 sm:py-5", isSheet && "items-stretch text-lg font-medium px-4")}>
-        {isSheet ? (
-          <>
-             <Link href="/delivery" className="flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground">
-                <Bike className="h-5 w-5" />
-                بوابة التوصيل
-              </Link>
-              <Link href="/home" className="flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground">
-                <Home className="h-5 w-5" />
-                العودة للتطبيق
-            </Link>
-          </>
-        ) : (
-          <>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href="/delivery"
-                    className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8"
-                  >
-                    <Bike className="h-5 w-5" />
-                    <span className="sr-only">بوابة التوصيل</span>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right">بوابة التوصيل</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href="/home"
-                    className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8"
-                  >
-                    <Home className="h-5 w-5" />
-                    <span className="sr-only">العودة للتطبيق</span>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right">العودة للتطبيق</TooltipContent>
-            </Tooltip>
-          </>
-        )}
-      </nav>
-  )
-
   if (isSheet) {
     return (
       <ScrollArea className="h-full w-full">
         <div className="flex flex-col h-full py-4">
           {navContent}
-          <div className="flex-grow"/>
-          {bottomNavContent}
         </div>
       </ScrollArea>
     )
   }
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
+    <aside className="fixed inset-y-0 right-0 z-10 hidden w-16 flex-col border-l bg-card sm:flex shadow-xl">
       <TooltipProvider>
         <ScrollArea className="h-full w-full">
             <div className="flex flex-col h-full">
               {navContent}
-              <div className="flex-grow"/>
-              {bottomNavContent}
             </div>
         </ScrollArea>
       </TooltipProvider>

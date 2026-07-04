@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useContext } from 'react';
@@ -14,13 +13,16 @@ import { isLocationInAllowedZones } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { AppContext } from '@/contexts/AppContext';
 
-// استيراد الصفحات لاستخدامها كمكونات في الـ SPA المحترف
+// استيراد الصفحات لاستخدامها كمكونات في الـ SPA
 import HomePage from './home/page';
 import RestaurantsPage from './restaurants/page';
 import ProductsPage from './products/page';
 import CartPage from './cart/page';
 import OrdersPage from './orders/page';
 import AccountPage from './account/page';
+import AddAddressPage from './account/add-address/page';
+import SupportPage from './support/page';
+import PrivacyPolicyPage from './privacy-policy/page';
 
 export default function MainAppLayout({
   children,
@@ -49,7 +51,7 @@ export default function MainAppLayout({
   const handleGetLocation = () => {
     setIslocLoading(true);
     if (!navigator.geolocation) {
-      toast({ title: "الموقع غير مدعوم", description: "متصفحك لا يدعم تحديد الموقع", variant: "destructive" });
+      toast({ title: "الموقع غير مدعوم", description: "متصفحك لا يدعم خدمة تحديد الموقع", variant: "destructive" });
       setIslocLoading(false);
       return;
     }
@@ -125,28 +127,32 @@ export default function MainAppLayout({
     <div className="mx-auto flex h-screen max-w-md flex-col bg-card shadow-2xl relative overflow-hidden">
       
       <main className="flex-1 relative z-0">
-        {/* حاوية الصفحات الـ SPA الاحترافية */}
         <div 
-          className="page-stack-container" 
-          style={{ transform: `translateX(${activeTab * (100 / 6)}%)` }} 
+          className="spa-stack-container" 
+          style={{ 
+            width: '900%',
+            transform: `translateX(${activeTab * (100 / 9)}%)` 
+          }} 
         >
-          <div className="page-view"><HomePage /></div>
-          <div className="page-view"><RestaurantsPage /></div>
-          <div className="page-view"><ProductsPage /></div>
-          <div className="page-view"><CartPage /></div>
-          <div className="page-view"><OrdersPage /></div>
-          <div className="page-view"><AccountPage /></div>
+          <div className="spa-page-view"><HomePage /></div>
+          <div className="spa-page-view"><RestaurantsPage /></div>
+          <div className="spa-page-view"><ProductsPage /></div>
+          <div className="spa-page-view"><CartPage /></div>
+          <div className="spa-page-view"><OrdersPage /></div>
+          <div className="spa-page-view"><AccountPage /></div>
+          <div className="spa-page-view"><AddAddressPage /></div>
+          <div className="spa-page-view"><SupportPage /></div>
+          <div className="spa-page-view"><PrivacyPolicyPage /></div>
         </div>
       </main>
       
       <BottomNav />
 
-      {/* شاشة العنوان الإلزامية بنمط تطبيقات الهاتف */}
       <Sheet open={showAddressPrompt} onOpenChange={() => {}}>
         <SheetContent side="bottom" className="h-[75vh] rounded-t-[3rem] p-8 border-none shadow-2xl overflow-y-auto">
           <SheetHeader className="text-right">
             <SheetTitle className="text-3xl font-black text-primary">مرحباً بك في سبيد!</SheetTitle>
-            <p className="text-muted-foreground text-lg">تحتاج لمعرفة موقعك لنتمكن من توصيل طلباتك</p>
+            <p className="text-muted-foreground text-lg">نحتاج لمعرفة موقعك لنتمكن من توصيل طلباتك بدقة</p>
           </SheetHeader>
           
           <div className="space-y-6 mt-8">
@@ -173,18 +179,17 @@ export default function MainAppLayout({
             </div>
 
             <div className="pt-2">
-                <Button 
+                <button 
                     onClick={handleGetLocation} 
-                    variant="outline" 
-                    className={`w-full py-10 text-xl border-2 border-dashed rounded-2xl ${islocLoading ? 'border-primary' : 'border-muted-foreground/30'}`}
+                    className={`w-full py-6 flex items-center justify-center text-xl border-2 border-dashed rounded-2xl ${islocLoading ? 'border-primary' : 'border-muted-foreground/30'}`}
                     disabled={islocLoading}
                 >
                 {islocLoading ? (
-                    <><Loader2 className="animate-spin ml-3 h-8 w-8 text-primary" /> جارِ تحديد موقعك...</>
+                    <><Loader2 className="animate-spin ml-3 h-8 w-8 text-primary" /> تحديد الموقع...</>
                 ) : (
                     <><MapPin className="ml-3 h-8 w-8 text-primary" /> تحديد موقعي (GPS)</>
                 )}
-                </Button>
+                </button>
             </div>
 
             <Button 
@@ -192,7 +197,7 @@ export default function MainAppLayout({
                 className="w-full py-8 text-2xl font-black rounded-3xl shadow-xl shadow-primary/20 mt-4"
                 disabled={islocLoading}
             >
-                بدء التسوق الآن
+                ابدأ التسوق الآن
             </Button>
           </div>
         </SheetContent>
