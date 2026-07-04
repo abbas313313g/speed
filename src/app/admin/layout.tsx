@@ -76,7 +76,7 @@ export default function AdminLayout() {
   
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden" dir="rtl">
-      {/* القائمة الجانبية الثابتة المعزولة */}
+      {/* القائمة الجانبية الثابتة */}
       <aside className="sticky inset-y-0 right-0 z-50 hidden w-16 flex-col border-l bg-card sm:flex shadow-xl shrink-0">
          <AdminNav onTabChange={setActiveTab} activeTab={activeTab} />
       </aside>
@@ -101,28 +101,28 @@ export default function AdminLayout() {
           <div className="hidden sm:block text-2xl font-black text-primary">لوحة التحكم الإدارية</div>
         </header>
 
-        {/* مكدس الصفحات - يملأ المساحة المتبقية بدقة 100% */}
-        <main className="flex-1 relative overflow-hidden bg-muted/10">
+        {/* مكدس الصفحات - يملأ المساحة بدقة 100% */}
+        <main className="flex-1 relative overflow-hidden bg-muted/5">
           <div 
             className="spa-stack-container" 
             style={{ 
               transform: `translateX(${activeTab * 100}%)` 
             }} 
           >
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-6"><AdminDashboard /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-6"><AdminOrdersPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-6"><AdminProductsPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-6"><AdminCategoriesPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-6"><AdminStoresPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-6"><AdminBannersPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-6"><AdminDeliveryZonesPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-6"><AdminCouponsPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-6"><AdminUsersPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-6"><AdminDeliveryWorkersPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-6"><AdminReportsPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-6"><AdminSupportTicketsPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-6"><AdminTelegramPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-6"><AdminSettingsPage /></div>
+            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminDashboard /></div>
+            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminOrdersPage /></div>
+            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminProductsPage /></div>
+            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminCategoriesPage /></div>
+            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminStoresPage /></div>
+            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminBannersPage /></div>
+            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminDeliveryZonesPage /></div>
+            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminCouponsPage /></div>
+            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminUsersPage /></div>
+            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminDeliveryWorkersPage /></div>
+            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminReportsPage /></div>
+            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminSupportTicketsPage /></div>
+            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminTelegramPage /></div>
+            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminSettingsPage /></div>
           </div>
         </main>
       </div>

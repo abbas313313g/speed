@@ -5,7 +5,7 @@ import { useState, useEffect, useContext } from 'react';
 import { BottomNav } from '@/components/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useAddresses } from '@/hooks/useAddresses';
-import { HardHat, Loader2, MapPin, AlertCircle, ShoppingBag, User, Phone, Home } from 'lucide-react';
+import { HardHat, Loader2, MapPin, AlertCircle, ShoppingBag, User, Phone, Home, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -156,72 +156,80 @@ export default function MainAppLayout() {
       </div>
 
       <Sheet open={showAddressPrompt} onOpenChange={() => {}}>
-        <SheetContent side="bottom" className="h-[90vh] w-full p-0 border-none shadow-none flex flex-col bg-background rounded-t-[3rem]">
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <SheetContent side="bottom" className="h-[82vh] w-full p-0 border-none shadow-none flex flex-col bg-background rounded-t-[3rem]">
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
             <SheetHeader className="text-right">
-                <div className="p-4 bg-primary/10 w-fit rounded-3xl mb-2">
-                    <ShoppingBag className="h-8 w-8 text-primary" />
+                <div className="flex items-center gap-3">
+                    <div className="p-3 bg-primary/10 rounded-2xl">
+                        <ShoppingBag className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                        <SheetTitle className="text-xl font-black text-primary">أهلاً بك في سبيد!</SheetTitle>
+                        <p className="text-muted-foreground text-xs">املأ بياناتك لمرة واحدة فقط للبدء بالطلب.</p>
+                    </div>
                 </div>
-                <SheetTitle className="text-2xl font-black text-primary">أهلاً بك في سبيد!</SheetTitle>
-                <p className="text-muted-foreground text-base">نحتاج لبياناتك لنتمكن من توصيل طلباتك بسرعة.</p>
             </SheetHeader>
             
-            <div className="space-y-4">
-                <div className="space-y-2">
-                    <Label className="text-sm font-bold flex items-center gap-2"><User className="h-4 w-4 text-primary"/> الاسم الكامل</Label>
+            <div className="space-y-3">
+                <div className="space-y-1">
+                    <Label className="text-xs font-bold flex items-center gap-2 pr-1"><User className="h-3 w-3 text-primary"/> الاسم الكامل</Label>
                     <Input 
                         value={newAddr.name} 
                         onChange={(e) => setNewAddr({...newAddr, name: e.target.value})} 
                         placeholder="اكتب اسمك الثلاثي..." 
-                        className="h-12 text-lg border-2 rounded-xl bg-card px-4"
+                        className="h-11 text-base border-2 rounded-xl bg-card px-4"
                     />
                 </div>
                 
-                <div className="space-y-2">
-                    <Label className="text-sm font-bold flex items-center gap-2"><Phone className="h-4 w-4 text-primary"/> رقم الهاتف</Label>
+                <div className="space-y-1">
+                    <Label className="text-xs font-bold flex items-center gap-2 pr-1"><Phone className="h-3 w-3 text-primary"/> رقم الهاتف</Label>
                     <Input 
                         value={newAddr.phone} 
                         onChange={(e) => setNewAddr({...newAddr, phone: e.target.value})} 
                         placeholder="07XXXXXXXX" 
                         type="tel" 
                         dir="ltr"
-                        className="h-12 text-lg text-left border-2 rounded-xl bg-card px-4"
+                        className="h-11 text-base text-left border-2 rounded-xl bg-card px-4"
                     />
                 </div>
 
-                <div className="space-y-2">
-                    <Label className="text-sm font-bold flex items-center gap-2"><Home className="h-4 w-4 text-primary"/> تفاصيل العنوان</Label>
+                <div className="space-y-1">
+                    <Label className="text-xs font-bold flex items-center gap-2 pr-1"><Home className="h-3 w-3 text-primary"/> تفاصيل العنوان (المنطقة / أقرب نقطة دالة)</Label>
                     <Input 
                         value={newAddr.details} 
                         onChange={(e) => setNewAddr({...newAddr, details: e.target.value})} 
-                        placeholder="المنطقة، أقرب نقطة دالة..." 
-                        className="h-12 text-lg border-2 rounded-xl bg-card px-4"
+                        placeholder="مثال: المدحتية - قرب مكتبة الطالب" 
+                        className="h-11 text-base border-2 rounded-xl bg-card px-4"
                     />
                 </div>
 
                 <div className="pt-2">
                     <button 
                         onClick={handleGetLocation} 
-                        className={`w-full py-4 flex flex-col items-center justify-center text-base border-2 border-dashed rounded-2xl transition-all active:scale-95 ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50' : 'border-primary/40 bg-card'}`}
+                        className={`w-full py-4 flex flex-row items-center justify-center gap-3 text-sm border-2 border-dashed rounded-2xl transition-all active:scale-95 ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50' : 'border-primary/40 bg-card'}`}
                         disabled={islocLoading}
                     >
                     {islocLoading ? (
-                        <><Loader2 className="animate-spin mb-1 h-6 w-6 text-primary" /> <span className="font-bold">جارِ تحديد الموقع...</span></>
+                        <><Loader2 className="animate-spin h-5 w-5 text-primary" /> <span className="font-bold">جارِ تحديد موقعك...</span></>
                     ) : (
-                        <><MapPin className={`mb-1 h-6 w-6 ${newAddr.lat !== 0 ? 'text-green-500' : 'text-primary'}`} /> <span className={`font-bold ${newAddr.lat !== 0 ? 'text-green-600' : 'text-primary'}`}>تحديد موقعي التلقائي (GPS)</span></>
+                        newAddr.lat !== 0 ? (
+                            <><CheckCircle2 className="h-5 w-5 text-green-500" /> <span className="font-bold text-green-600">تم تحديد موقعك بنجاح!</span></>
+                        ) : (
+                            <><MapPin className="h-5 w-5 text-primary" /> <span className="font-bold text-primary">تحديد موقعي الجغرافي (GPS)</span></>
+                        )
                     )}
                     </button>
-                    {newAddr.lat !== 0 && (
-                        <p className="text-center text-green-600 font-bold text-sm mt-2 animate-bounce">✓ تم التقاط موقعك بنجاح!</p>
+                    {newAddr.lat === 0 && (
+                        <p className="text-center text-[10px] text-muted-foreground mt-1">يجب الضغط هنا لتتمكن من إرسال الطلبات لاحقاً.</p>
                     )}
                 </div>
             </div>
           </div>
 
-          <div className="p-4 bg-background border-t">
+          <div className="p-6 bg-background border-t">
               <Button 
                 onClick={handleSaveAddress} 
-                className="w-full py-6 text-xl font-black rounded-2xl shadow-xl shadow-primary/20"
+                className="w-full py-7 text-xl font-black rounded-2xl shadow-xl shadow-primary/20"
                 disabled={islocLoading}
               >
                 حفظ وابدأ التسوق

@@ -24,7 +24,7 @@
     --border: 148 20% 88%;
     --input: 0 0% 100%;
     --ring: 151 100% 35%;
-    --radius: 0.75rem;
+    --radius: 1.25rem;
   }
 }
  
@@ -61,6 +61,11 @@ button, a, [role="button"] {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   position: relative;
+}
+
+/* لضمان عدم اختفاء أجزاء من الجداول في الأدمن */
+.admin-table-container {
+  @apply w-full overflow-x-auto;
 }
 
 ::-webkit-scrollbar {
