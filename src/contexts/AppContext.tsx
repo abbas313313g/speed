@@ -99,8 +99,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const addToCart = useCallback((product: Product, quantity: number, selectedSize?: ProductSize): boolean => {
          if (product.sizes && product.sizes.length > 0 && !selectedSize) {
             toast({
-                title: "الرجاء اختيار الحجم",
-                description: `هذا المنتج يتطلب اختيار حجم معين أولاً.`,
+                title: "تنبيه",
+                description: `يرجى اختيار الحجم المطلوب أولاً.`,
             });
             return false;
         }
@@ -111,7 +111,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         if (cartIsFromDifferentRestaurant) {
             toast({
                 title: "بدء سلة جديدة؟",
-                description: "لديك منتجات من متجر آخر. هل تريد حذفها وبدء سلة جديدة من هذا المتجر؟",
+                description: "لديك منتجات من متجر آخر في السلة. هل تريد إفراغ السلة والبدء من هذا المتجر؟",
                 action: <ToastAction altText="نعم، ابدأ" onClick={() => {
                     setCart([{ product, quantity, selectedSize }]);
                 }}>نعم، ابدأ</ToastAction>,
@@ -187,7 +187,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
         } catch (error) {
-             toast({ title: "فشل إرسال الرسالة", description: "تأكد من اتصالك بالإنترنت.", variant: "destructive" });
+             toast({ title: "خطأ في الإرسال", description: "يرجى التحقق من اتصال الإنترنت وحاول مجدداً.", variant: "destructive" });
         }
     }, [toast]);
     
@@ -207,11 +207,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const placeOrder = useCallback(async (address: Address, deliveryFee: number, couponCode?: string): Promise<string | null> => {
         if (!userId) {
-            toast({ title: "عذراً", description: "لم نتمكن من التعرف على حسابك. أعد تشغيل التطبيق.", variant: "destructive" });
+            toast({ title: "عذراً", description: "حدث خلل في التعرف على حسابك. يرجى إغلاق التطبيق وفتحه مجدداً.", variant: "destructive" });
             return null;
         }
         if (cart.length === 0) {
-            toast({ title: "السلة فارغة", description: "أضف منتجات أولاً لتتمكن من الطلب.", variant: "destructive" });
+            toast({ title: "السلة فارغة", description: "أضف بعض المنتجات لتبدأ طلبك.", variant: "destructive" });
             return null;
         }
         
@@ -219,6 +219,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         
         try {
             await runTransaction(db, async (transaction) => {
+                // 1. القراءة أولاً (Read Phase)
                 const productRefs = cart.map(item => doc(db, "products", item.product.id));
                 const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
@@ -229,40 +230,49 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     if (foundCoupon) {
                         couponDoc = doc(db, "coupons", foundCoupon.id);
                         const couponSnap = await transaction.get(couponDoc);
-                        if (!couponSnap.exists()) throw new Error(`كود الخصم "${couponCode}" غير صحيح.`);
-                        couponData = { id: couponSnap.id, ...couponSnap.data() } as Coupon;
-                    } else { throw new Error(`كود الخصم "${couponCode}" غير صحيح.`); }
+                        if (couponSnap.exists()) {
+                            couponData = { id: couponSnap.id, ...couponSnap.data() } as Coupon;
+                        }
+                    }
+                }
+
+                // 2. التحقق من البيانات
+                if (couponCode?.trim() && !couponData) {
+                    throw new Error("كود الخصم الذي أدخلته غير صحيح.");
                 }
 
                 if (couponData) {
-                    if (couponData.usedCount >= couponData.maxUses) throw new Error("عذراً، هذا الكود تم استخدامه بالكامل.");
-                    if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود سابقاً.");
+                    if (couponData.usedCount >= couponData.maxUses) throw new Error("عذراً، وصل كود الخصم للحد الأقصى للاستخدام.");
+                    if (couponData.usedBy?.includes(userId)) throw new Error("لقد قمت باستخدام كود الخصم هذا مسبقاً.");
                 }
 
                 let totalProfit = 0;
+                const updates: {ref: any, data: any}[] = [];
 
                 for (let i = 0; i < productDocs.length; i++) {
                     const productDoc = productDocs[i];
                     const item = cart[i];
-                    if (!productDoc.exists()) throw new Error(`عذراً، منتج "${item.product.name}" لم يعد متوفراً في المتجر.`);
+                    if (!productDoc.exists()) throw new Error(`المنتج "${item.product.name}" غير متاح حالياً.`);
                     const serverProduct = productDoc.data() as Product;
                     
                     const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price;
                     const itemProfit = (itemPrice - (serverProduct.wholesalePrice || 0)) * item.quantity;
-                    
-                    if (!isNaN(itemProfit)) totalProfit += itemProfit;
+                    totalProfit += itemProfit;
 
                     if (item.selectedSize) {
                         const size = serverProduct.sizes?.find(s => s.name === item.selectedSize!.name);
-                        if (!size || size.stock < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name} (${item.selectedSize.name})" غير متوفرة.`);
+                        if (!size || size.stock < item.quantity) throw new Error(`عذراً، الكمية من "${item.product.name} - ${item.selectedSize.name}" نفدت.`);
                         const newSizes = serverProduct.sizes?.map(s => s.name === item.selectedSize!.name ? { ...s, stock: s.stock - item.quantity } : s) ?? [];
-                        transaction.update(productRefs[i], { sizes: newSizes });
+                        updates.push({ ref: productRefs[i], data: { sizes: newSizes } });
                     } else {
-                        if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة.`);
-                        transaction.update(productRefs[i], { stock: (serverProduct.stock || 0) - item.quantity });
+                        if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`عذراً، الكمية من "${item.product.name}" غير متوفرة حالياً.`);
+                        updates.push({ ref: productRefs[i], data: { stock: (serverProduct.stock || 0) - item.quantity } });
                     }
                 }
                 
+                // 3. الكتابة (Write Phase)
+                updates.forEach(u => transaction.update(u.ref, u.data));
+
                 let discountAmount = 0;
                 let appliedCouponInfo: Order['appliedCoupon'] = null;
                 if (couponData && couponDoc) {
@@ -306,7 +316,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             
             clearCart();
             
-            // Notifications
             if (newOrderId) {
                  telegramConfigs.filter(c => c.type === 'owner').forEach(c => {
                     sendTelegramMessage(c.chatId, `*طلب جديد!* 🎉\n*رقم الطلب:* \`${newOrderId?.substring(0, 6)}\`\n*الزبون:* ${address.name}\n*المبلغ:* ${formatCurrency(cartTotal)}`);
@@ -316,7 +325,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (error: any) {
             toast({
               title: "فشل إرسال الطلب",
-              description: error.message || "تأكد من جودة اتصالك بالإنترنت وحاول مجدداً.",
+              description: error.message || "حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى لاحقاً.",
               variant: "destructive",
             });
             return null;

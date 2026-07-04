@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { BottomNav } from '@/components/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useAddresses } from '@/hooks/useAddresses';
@@ -18,6 +19,7 @@ export default function MainAppLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const { settings, isLoading: settingsLoading } = useAppSettings();
   const { addresses, addAddress } = useAddresses();
   const { toast } = useToast();
@@ -27,6 +29,7 @@ export default function MainAppLayout({
   const [newAddr, setNewAddr] = useState({ name: '', phone: '', details: '' });
   const [islocLoading, setIslocLoading] = useState(false);
 
+  // التحقق من وجود عنوان عند الدخول
   useEffect(() => {
     if (!settingsLoading && addresses.length === 0) {
       setShowAddressPrompt(true);
@@ -35,6 +38,12 @@ export default function MainAppLayout({
 
   const handleGetLocation = () => {
     setIslocLoading(true);
+    if (!navigator.geolocation) {
+      toast({ title: "الموقع غير مدعوم", description: "متصفحك لا يدعم تحديد الموقع", variant: "destructive" });
+      setIslocLoading(false);
+      return;
+    }
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
@@ -43,45 +52,50 @@ export default function MainAppLayout({
           setShowAddressPrompt(false);
         } else {
           toast({ title: "تم تحديد الموقع بنجاح" });
+          setNewAddr(prev => ({ ...prev, lat: latitude, lng: longitude } as any));
         }
         setIslocLoading(false);
       },
       () => {
-        toast({ title: "فشل تحديد الموقع", description: "الرجاء تفعيل الـ GPS", variant: "destructive" });
+        toast({ title: "فشل تحديد الموقع", description: "يرجى تفعيل الـ GPS وإعطاء الإذن للمتصفح", variant: "destructive" });
         setIslocLoading(false);
-      }
+      },
+      { enableHighAccuracy: true, timeout: 5000 }
     );
   };
 
   const handleSaveAddress = () => {
     if (!newAddr.name || !newAddr.phone) {
-      toast({ title: "الرجاء ملء الحقول المطلوبة", variant: "destructive" });
+      toast({ title: "بيانات ناقصة", description: "يرجى كتابة الاسم ورقم الهاتف", variant: "destructive" });
       return;
     }
     addAddress({
       ...newAddr,
       deliveryZone: "تلقائي",
-      latitude: 0,
-      longitude: 0
+      latitude: (newAddr as any).lat || 0,
+      longitude: (newAddr as any).lng || 0
     });
     setShowAddressPrompt(false);
+    toast({ title: "أهلاً بك!", description: "تم حفظ عنوانك بنجاح" });
   };
 
   if (settingsLoading) {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
             <Loader2 className="h-8 w-8 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground animate-pulse">جارِ تشغيل سبيد شوب...</p>
         </div>
     );
   }
 
   if (isBlocked) {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center bg-background p-6 text-center">
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-background p-6 text-center animate-in fade-in zoom-in duration-300">
         <AlertCircle className="h-20 w-20 text-destructive mb-4" />
-        <h1 className="text-2xl font-bold mb-2">نعتذر منك</h1>
-        <p className="text-muted-foreground text-lg">
-          التطبيق غير متوفر حالياً في مدينتك (نحن نغطي جنوب بابل فقط). انتظرنا قريباً!
+        <h1 className="text-2xl font-bold mb-2 text-foreground">نعتذر منك بشدة</h1>
+        <p className="text-muted-foreground text-lg leading-relaxed">
+          تطبيق سبيد شوب غير متوفر حالياً في منطقتك الجغرافية. نحن نغطي حالياً (المدحتية، الهاشمية، القاسم) فقط.
+          <br/> انتظرنا قريباً في منطقتك!
         </p>
       </div>
     );
@@ -90,38 +104,75 @@ export default function MainAppLayout({
   if (settings?.isMaintenanceMode) {
     return (
          <div className="flex h-screen w-full flex-col items-center justify-center bg-muted/40 p-4 text-center">
-            <HardHat className="h-20 w-20 text-primary mb-6"/>
+            <HardHat className="h-20 w-20 text-primary mb-6 animate-bounce"/>
             <h1 className="text-3xl font-bold mb-2">التطبيق في وضع الصيانة</h1>
-            <p className="text-muted-foreground text-lg">نحن نعمل على تحسين تجربتك. سنعود قريبًا!</p>
+            <p className="text-muted-foreground text-lg">نحن نقوم ببعض التحسينات لنخدمك بشكل أفضل. سنعود خلال دقائق!</p>
         </div>
     )
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-card shadow-lg relative">
-      <main className="flex-1 pb-20">{children}</main>
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-card shadow-xl relative overflow-hidden">
+      {/* الحاوية الرئيسية مع الأنيميشن السريع */}
+      <main className="flex-1 pb-20 relative z-0 transition-opacity duration-200">
+        {children}
+      </main>
+      
       <BottomNav />
 
-      {/* شاشة إضافة عنوان إلزامية */}
+      {/* شاشة إضافة عنوان إلزامية - تصميم احترافي */}
       <Sheet open={showAddressPrompt} onOpenChange={() => {}}>
-        <SheetContent side="bottom" className="h-[70vh] rounded-t-3xl p-6">
-          <SheetHeader>
-            <SheetTitle className="text-2xl font-bold">أهلاً بك! نحتاج لعنوانك</SheetTitle>
+        <SheetContent side="bottom" className="h-[75vh] rounded-t-[2.5rem] p-8 border-none shadow-2xl">
+          <SheetHeader className="text-right">
+            <SheetTitle className="text-3xl font-black text-primary">مرحباً بك في سبيد!</SheetTitle>
+            <p className="text-muted-foreground">لنبدأ، نحتاج لمعرفة أين نسلم طلباتك</p>
           </SheetHeader>
-          <div className="space-y-4 mt-6">
-            <div className="space-y-2">
-              <Label>اسم العنوان (مثال: المنزل)</Label>
-              <Input value={newAddr.name} onChange={(e) => setNewAddr({...newAddr, name: e.target.value})} placeholder="المنزل، العمل..." />
+          
+          <div className="space-y-6 mt-8">
+            <div className="space-y-3">
+              <Label className="text-md font-bold">اسم العنوان</Label>
+              <Input 
+                value={newAddr.name} 
+                onChange={(e) => setNewAddr({...newAddr, name: e.target.value})} 
+                placeholder="مثلاً: المنزل، المحل، العمل" 
+                className="h-12 text-lg"
+              />
             </div>
-            <div className="space-y-2">
-              <Label>رقم الهاتف</Label>
-              <Input value={newAddr.phone} onChange={(e) => setNewAddr({...newAddr, phone: e.target.value})} placeholder="07XXXXXXXX" type="tel" />
+            
+            <div className="space-y-3">
+              <Label className="text-md font-bold">رقم الهاتف</Label>
+              <Input 
+                value={newAddr.phone} 
+                onChange={(e) => setNewAddr({...newAddr, phone: e.target.value})} 
+                placeholder="07XXXXXXXX" 
+                type="tel" 
+                dir="ltr"
+                className="h-12 text-lg text-left"
+              />
             </div>
-            <Button onClick={handleGetLocation} variant="outline" className="w-full py-6" disabled={islocLoading}>
-              {islocLoading ? <Loader2 className="animate-spin ml-2" /> : <MapPin className="ml-2" />}
-              تحديد موقعي الحالي (GPS)
+
+            <div className="pt-2">
+                <Button 
+                    onClick={handleGetLocation} 
+                    variant="outline" 
+                    className={`w-full py-8 text-lg border-2 border-dashed ${islocLoading ? 'border-primary' : 'border-muted-foreground/30'}`}
+                    disabled={islocLoading}
+                >
+                {islocLoading ? (
+                    <><Loader2 className="animate-spin ml-3 h-6 w-6 text-primary" /> جارِ تحديد موقعك...</>
+                ) : (
+                    <><MapPin className="ml-3 h-6 w-6 text-primary" /> تحديد موقعي الآن (GPS)</>
+                )}
+                </Button>
+            </div>
+
+            <Button 
+                onClick={handleSaveAddress} 
+                className="w-full py-8 text-xl font-bold rounded-2xl shadow-lg shadow-primary/20"
+                disabled={islocLoading}
+            >
+                حفظ ومتابعة التسوق
             </Button>
-            <Button onClick={handleSaveAddress} className="w-full py-6 text-lg">حفظ ومتابعة</Button>
           </div>
         </SheetContent>
       </Sheet>

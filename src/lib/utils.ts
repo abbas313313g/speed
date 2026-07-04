@@ -16,10 +16,10 @@ export const formatCurrency = (amount: number) => {
 };
 
 
-// Function to calculate distance between two lat/lng points in kilometers
+// دالة حساب المسافة بين نقطتين بالكيلومتر
 export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const toRad = (value: number) => (value * Math.PI) / 180;
-    const R = 6371; // Radius of the Earth in km
+    const R = 6371; // نصف قطر الأرض بالكيلومتر
 
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
@@ -31,40 +31,34 @@ export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2
         Math.cos(radLat1) * Math.cos(radLat2) *
         Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c; // Distance in km
+    const distance = R * c; 
     return distance;
 }
 
-// التحقق من الموقع الجغرافي (جنوب بابل: المدحتية، الهاشمية، القاسم)
+// التحقق من النطاق الجغرافي لجنوب بابل (المدحتية، الهاشمية، القاسم)
 export const isLocationInAllowedZones = (lat: number, lng: number) => {
-    // إحداثيات تقريبية لمركز المنطقة المستهدفة في جنوب بابل
-    const centerLat = 32.33;
-    const centerLng = 44.65;
-    const dist = calculateDistance(lat, lng, centerLat, centerLng);
-    // السماح بنطاق 20 كم لتغطية المدحتية والهاشمية والقاسم
-    return dist <= 20;
+    // إحداثيات مركزية تقريبية لجنوب بابل
+    const babilSouthCenterLat = 32.3333;
+    const babilSouthCenterLng = 44.6500;
+    
+    const dist = calculateDistance(lat, lng, babilSouthCenterLat, babilSouthCenterLng);
+    
+    // السماح بنطاق 18 كم لتغطية المدن الثلاث بشكل دقيق
+    return dist <= 18;
 }
 
-// Function to calculate delivery fee based on distance
+// حساب سعر التوصيل بناءً على المسافة
 export const calculateDeliveryFee = (distanceInKm: number) => {
-    const feePerThreeKm = 1000; // 1000 IQD for every 3 km
-    const feePerKm = feePerThreeKm / 3;
-    const minFee = 1000; // Min fee is 1,000 IQD
-    const maxFee = 20000; // Max fee is 20,000 IQD
+    const minFee = 1000; // الحد الأدنى 1,000 دينار
+    const maxFee = 15000; // الحد الأقصى 15,000 دينار
+    const ratePerKm = 500; // 500 دينار لكل كيلومتر إضافي
 
-    if (distanceInKm <= 0) {
-        return minFee;
-    }
+    if (distanceInKm <= 2) return minFee;
 
-    // Calculate the raw fee based on distance
-    let totalFee = distanceInKm * feePerKm;
-
-    // Round the fee to the nearest 250
+    let totalFee = minFee + (distanceInKm - 2) * ratePerKm;
+    
+    // تقريب السعر لأقرب 250 دينار لسهولة التعامل
     totalFee = Math.round(totalFee / 250) * 250;
     
-    // Apply min and max fee constraints
-    totalFee = Math.max(minFee, totalFee);
-    totalFee = Math.min(totalFee, maxFee);
-
-    return totalFee;
+    return Math.min(Math.max(totalFee, minFee), maxFee);
 }
