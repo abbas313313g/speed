@@ -1,8 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useMemo, useEffect, useContext } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
@@ -17,33 +16,37 @@ import { useProducts } from '@/hooks/useProducts';
 import { useCart } from '@/hooks/useCart';
 import { ProductCard } from '@/components/ProductCard';
 import { useRestaurants } from '@/hooks/useRestaurants';
+import { AppContext } from '@/contexts/AppContext';
 
 export default function ProductDetailPage() {
-  const { id } = useParams();
-  const router = useRouter();
-  const { toast } = useToast();
+  const context = useContext(AppContext);
   const { products, isLoading } = useProducts();
   const { restaurants } = useRestaurants();
   const { addToCart } = useCart();
+  const { toast } = useToast();
+  
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(undefined);
 
-  const product = useMemo(() => products.find(p => p.id === id), [id, products]);
+  if (!context) return null;
+  const { selectedProductId, setActiveTab } = context;
+
+  const product = useMemo(() => products.find(p => p.id === selectedProductId), [selectedProductId, products]);
   const restaurant = useMemo(() => product ? restaurants.find(r => r.id === product.restaurantId) : null, [product, restaurants]);
   const relatedProducts = useMemo(() => {
     if (!product) return [];
     return products.filter(p => p.restaurantId === product.restaurantId && p.id !== product.id).slice(0, 4);
   }, [product, products]);
 
-  // Set default selected size when product loads
   useEffect(() => {
-    if (product?.sizes && product.sizes.length > 0 && !selectedSize) {
-      // Find the first available size
+    if (product?.sizes && product.sizes.length > 0) {
       const firstAvailableSize = product.sizes.find(s => s.stock > 0);
       setSelectedSize(firstAvailableSize);
+    } else {
+        setSelectedSize(undefined);
     }
-  }, [product, selectedSize]);
-
+    setQuantity(1);
+  }, [product]);
 
   const displayPrice = useMemo(() => {
     if (selectedSize) return selectedSize.price;
@@ -64,7 +67,6 @@ export default function ProductDetailPage() {
             <Skeleton className="h-8 w-3/4" />
             <Skeleton className="h-6 w-1/2" />
             <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
         </div>
     );
   }
@@ -75,14 +77,7 @@ export default function ProductDetailPage() {
         return;
       }
       if (isOutOfStock) return;
-      if (product.sizes && product.sizes.length > 0 && !selectedSize) {
-        toast({
-          title: "الرجاء اختيار الحجم",
-          description: "يجب اختيار حجم المنتج قبل إضافته للسلة.",
-          variant: "destructive"
-        });
-        return;
-      }
+      
       const wasAdded = addToCart(product, quantity, selectedSize);
       if (wasAdded) {
           toast({
@@ -102,16 +97,18 @@ export default function ProductDetailPage() {
     }
   };
 
-
   const hasDiscount = !!product.discountPrice && !selectedSize;
   const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/600x400.png';
 
   return (
-    <div className="pb-4">
+    <div className="pb-10 relative bg-background h-full overflow-y-auto">
        <div className="absolute top-4 right-4 z-10">
-          <Button variant="outline" size="icon" className="bg-white/80" onClick={() => router.back()}>
-              <ArrowRight className="h-5 w-5"/>
-          </Button>
+          <button 
+            onClick={() => setActiveTab(0)} 
+            className="p-3 bg-white/90 rounded-full shadow-lg text-primary active:scale-75 transition-all"
+          >
+              <ArrowRight className="h-6 w-6"/>
+          </button>
        </div>
       <div className="relative w-full aspect-square">
         <Image
@@ -121,83 +118,86 @@ export default function ProductDetailPage() {
           className="object-cover"
           sizes="100vw"
           priority
-          data-ai-hint="food meal"
           unoptimized={true}
         />
-        {hasDiscount && <Badge variant="destructive" className="absolute top-4 left-4 text-lg">خصم!</Badge>}
+        {hasDiscount && <Badge variant="destructive" className="absolute top-4 left-4 text-lg rounded-xl">خصم!</Badge>}
       </div>
 
-      <div className="p-4 space-y-4">
+      <div className="p-6 space-y-6">
         <div className="flex justify-between items-start">
-            <h1 className="text-3xl font-bold">{product.name}</h1>
-            <Badge variant={isOutOfStock ? "destructive" : "secondary"}>
+            <h1 className="text-3xl font-black text-primary">{product.name}</h1>
+            <Badge variant={isOutOfStock ? "destructive" : "secondary"} className="rounded-xl">
                 {isOutOfStock ? "نفدت الكمية" : `المتوفر: ${availableStock}`}
             </Badge>
         </div>
-        <p className="text-muted-foreground text-lg">{product.description}</p>
+        <p className="text-muted-foreground text-lg leading-relaxed">{product.description}</p>
         
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-center gap-3">
              {hasDiscount && (
                  <p className="text-2xl font-bold text-muted-foreground line-through">
                     {formatCurrency(product.price)}
                  </p>
              )}
-             <p className="text-3xl font-bold text-primary">{formatCurrency(displayPrice)}</p>
+             <p className="text-4xl font-black text-primary">{formatCurrency(displayPrice)}</p>
         </div>
         
         {product.sizes && product.sizes.length > 0 && (
-          <div className="space-y-2">
-            <Label className="font-bold text-lg">اختر الحجم:</Label>
-            <RadioGroup 
-              value={selectedSize?.name} 
-              onValueChange={(value) => setSelectedSize(product.sizes?.find(s => s.name === value))}
-              className="flex gap-2 flex-wrap"
-            >
+          <div className="space-y-4">
+            <Label className="font-black text-xl">اختر الحجم:</Label>
+            <div className="grid grid-cols-2 gap-3">
               {product.sizes.map((size) => (
-                <div key={size.name} className="flex items-center">
-                   <RadioGroupItem 
-                        value={size.name} 
-                        id={size.name} 
-                        className="peer sr-only"
-                        disabled={size.stock <= 0}
-                    />
-                   <Label 
-                        htmlFor={size.name} 
-                        className={`flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary ${size.stock <= 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                    >
-                        <span>{size.name}</span>
-                        <span className="font-bold text-primary mt-1">{formatCurrency(size.price)}</span>
-                        {size.stock <= 0 && <Badge variant="destructive" className="mt-1 text-xs">نفد</Badge>}
-                   </Label>
-                </div>
+                <button
+                    key={size.name}
+                    disabled={size.stock <= 0}
+                    onClick={() => setSelectedSize(size)}
+                    className={`flex flex-col items-center gap-1 p-4 rounded-3xl border-2 transition-all active:scale-95 ${
+                        selectedSize?.name === size.name 
+                        ? 'border-primary bg-primary/5 text-primary' 
+                        : 'border-muted bg-card text-muted-foreground'
+                    } ${size.stock <= 0 ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
+                >
+                    <span className="font-bold">{size.name}</span>
+                    <span className="font-black">{formatCurrency(size.price)}</span>
+                </button>
               ))}
-            </RadioGroup>
+            </div>
           </div>
         )}
 
-        <div className="flex items-center gap-4">
-            <p className="font-semibold">الكمية:</p>
-            <div className="flex items-center gap-2 rounded-lg border p-1">
-                <Button variant="ghost" size="icon" onClick={() => handleQuantityChange(quantity - 1)} disabled={isOutOfStock}>
-                    <Minus className="h-4 w-4"/>
-                </Button>
-                <span className="w-10 text-center font-bold text-lg">{isOutOfStock ? 0 : quantity}</span>
-                <Button variant="ghost" size="icon" onClick={() => handleQuantityChange(quantity + 1)} disabled={isOutOfStock}>
-                    <Plus className="h-4 w-4"/>
-                </Button>
+        <div className="flex items-center justify-between p-4 bg-muted/20 rounded-[2rem] border-2 border-dashed">
+            <p className="font-bold text-lg">الكمية المطلوبة:</p>
+            <div className="flex items-center gap-4">
+                <button 
+                    onClick={() => handleQuantityChange(quantity - 1)} 
+                    className="p-3 bg-secondary rounded-2xl text-primary font-black text-2xl active:scale-75 transition-all"
+                >
+                    <Minus className="h-6 w-6"/>
+                </button>
+                <span className="w-8 text-center font-black text-2xl">{isOutOfStock ? 0 : quantity}</span>
+                <button 
+                    onClick={() => handleQuantityChange(quantity + 1)} 
+                    className="p-3 bg-primary rounded-2xl text-white font-black text-2xl active:scale-75 transition-all"
+                >
+                    <Plus className="h-6 w-6"/>
+                </button>
             </div>
         </div>
         
-        <Button size="lg" className="w-full text-lg" onClick={handleAddToCart} disabled={isOutOfStock || (restaurant && !restaurant.isStoreOpen)}>
-          <ShoppingCart className="ml-2 h-5 w-5"/>
+        <Button 
+            size="lg" 
+            className="w-full h-16 text-2xl font-black rounded-[2rem] shadow-xl shadow-primary/20" 
+            onClick={handleAddToCart} 
+            disabled={isOutOfStock || (restaurant && !restaurant.isStoreOpen)}
+        >
+          <ShoppingCart className="ml-3 h-8 w-8"/>
           {restaurant && !restaurant.isStoreOpen ? "المتجر مغلق" : (isOutOfStock ? "نفدت الكمية" : "إضافة إلى السلة")}
         </Button>
       </div>
       
        {relatedProducts.length > 0 && (
-         <div className="pt-6 border-t">
-            <h2 className="text-xl font-bold px-4 mb-4">منتجات أخرى من هذا المتجر</h2>
-            <div className="grid grid-cols-2 gap-4 px-4">
+         <div className="pt-8 border-t px-6">
+            <h2 className="text-2xl font-black mb-6">منتجات أخرى قد تعجبك</h2>
+            <div className="grid grid-cols-2 gap-4 pb-12">
                 {relatedProducts.map(p => <ProductCard key={p.id} product={p}/>)}
             </div>
          </div>

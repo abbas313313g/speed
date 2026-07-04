@@ -1,7 +1,8 @@
+
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, doc, runTransaction, arrayUnion, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
+import { collection, doc, runTransaction, arrayUnion, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
@@ -50,6 +51,11 @@ interface AppContextType {
 
     activeTab: number;
     setActiveTab: (index: number) => void;
+
+    selectedProductId: string | null;
+    setSelectedProductId: (id: string | null) => void;
+    selectedRestaurantId: string | null;
+    setSelectedRestaurantId: (id: string | null) => void;
 }
 
 
@@ -65,13 +71,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const { telegramConfigs, isLoading: telegramLoading } = useTelegramConfigs();
     const { allOrders: ordersData, isLoading: ordersLoading } = useOrders();
 
-    
     const [cart, setCart] = useState<CartItem[]>([]);
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [userId, setUserId] = useState<string|null>(null);
     const [myCurrentSupportTicket, setMySupportTicket] = useState<SupportTicket|null>(null);
     const [activeTab, setActiveTab] = useState(0);
     
+    const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
+    const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
+
     const isLoading = productsLoading || restaurantsLoading || ticketsLoading || couponsLoading || telegramLoading || ordersLoading;
 
     useEffect(() => {
@@ -338,14 +346,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress,
         mySupportTicket, startNewTicketClient,
-        activeTab, setActiveTab
+        activeTab, setActiveTab,
+        selectedProductId, setSelectedProductId,
+        selectedRestaurantId, setSelectedRestaurantId
     }), [
         isLoading,
         placeOrder, createSupportTicket, addMessageToTicket,
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress,
         mySupportTicket, startNewTicketClient,
-        activeTab, setActiveTab
+        activeTab, setActiveTab,
+        selectedProductId, setSelectedProductId,
+        selectedRestaurantId, setSelectedRestaurantId
     ]);
     
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

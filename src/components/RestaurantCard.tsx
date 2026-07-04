@@ -18,8 +18,10 @@ function RestaurantCardComponent({ restaurant }: RestaurantCardProps) {
   const imageUrl = restaurant.image && (restaurant.image.startsWith('http') || restaurant.image.startsWith('data:')) ? restaurant.image : 'https://placehold.co/100x100.png';
   
   const handleOpenRestaurant = () => {
-    // لم يتم تطبيق صفحة تفاصيل المطعم بعد في مكدس الـ SPA، لذا نوجهه للمنتجات حالياً
-    if (context) context.setActiveTab(2);
+    if (context) {
+        context.setSelectedRestaurantId(restaurant.id);
+        context.setActiveTab(10); // 10 is RestaurantProductsPage in the stack
+    }
   };
 
   return (

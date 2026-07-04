@@ -23,6 +23,8 @@ import AccountPage from './account/page';
 import AddAddressPage from './account/add-address/page';
 import SupportPage from './support/page';
 import PrivacyPolicyPage from './privacy-policy/page';
+import ProductDetailPage from './products/[id]/page';
+import RestaurantProductsPage from './restaurants/[id]/page';
 
 export default function MainAppLayout() {
   const context = useContext(AppContext);
@@ -138,6 +140,8 @@ export default function MainAppLayout() {
           <div className="spa-page-view"><AddAddressPage /></div>
           <div className="spa-page-view"><SupportPage /></div>
           <div className="spa-page-view"><PrivacyPolicyPage /></div>
+          <div className="spa-page-view"><ProductDetailPage /></div>
+          <div className="spa-page-view"><RestaurantProductsPage /></div>
         </div>
       </main>
       

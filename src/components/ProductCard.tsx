@@ -33,6 +33,13 @@ function ProductCardComponent({ product }: ProductCardProps) {
     return product.stock <= 0;
   }, [product]);
 
+  const handleOpenProduct = () => {
+    if (context) {
+        context.setSelectedProductId(product.id);
+        context.setActiveTab(9); // 9 is ProductDetailPage in the stack
+    }
+  };
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -61,7 +68,10 @@ function ProductCardComponent({ product }: ProductCardProps) {
   const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/600x400.png';
 
   return (
-    <div className={`group cursor-pointer transition-all active:scale-95 ${isOutOfStock || !restaurant?.isStoreOpen ? 'opacity-60' : ''}`}>
+    <div 
+        onClick={handleOpenProduct}
+        className={`group cursor-pointer transition-all active:scale-95 ${isOutOfStock || !restaurant?.isStoreOpen ? 'opacity-60' : ''}`}
+    >
       <Card className="overflow-hidden border-none shadow-md rounded-[1.5rem] bg-card">
         <CardContent className="p-0">
           <div className="relative w-full aspect-square">

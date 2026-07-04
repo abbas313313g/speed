@@ -1,25 +1,26 @@
 
 "use client";
 
-import { useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useMemo, useContext } from 'react';
 import { ProductCard } from '@/components/ProductCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
 import { Star, ArrowRight, MapPin, Clock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useProducts } from '@/hooks/useProducts';
 import { Badge } from '@/components/ui/badge';
+import { AppContext } from '@/contexts/AppContext';
 
 export default function RestaurantProductsPage() {
-  const { id } = useParams();
-  const router = useRouter();
+  const context = useContext(AppContext);
   const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
   const { products, isLoading: productsLoading } = useProducts();
 
-  const restaurant = useMemo(() => restaurants.find(r => r.id === id), [id, restaurants]);
-  const restaurantProducts = useMemo(() => products.filter(p => p.restaurantId === id), [id, products]);
+  if (!context) return null;
+  const { selectedRestaurantId, setActiveTab } = context;
+
+  const restaurant = useMemo(() => restaurants.find(r => r.id === selectedRestaurantId), [selectedRestaurantId, restaurants]);
+  const restaurantProducts = useMemo(() => products.filter(p => p.restaurantId === selectedRestaurantId), [selectedRestaurantId, products]);
   
   const isLoading = restaurantsLoading || productsLoading;
 
@@ -33,69 +34,57 @@ export default function RestaurantProductsPage() {
                     <Skeleton className="h-6 w-24" />
                 </div>
             </div>
-            <div className="grid grid-cols-2 gap-4 mt-6">
-                <Skeleton className="h-64 w-full" />
-                <Skeleton className="h-64 w-full" />
-                <Skeleton className="h-64 w-full" />
-                <Skeleton className="h-64 w-full" />
-            </div>
         </div>
     );
   }
 
   if (!restaurant) {
-      return <div className="text-center py-10">لم يتم العثور على المتجر.</div>
+      return <div className="text-center py-10 font-bold">لم يتم اختيار متجر بعد.</div>
   }
 
   const imageUrl = restaurant.image && (restaurant.image.startsWith('http') || restaurant.image.startsWith('data:')) ? restaurant.image : 'https://placehold.co/100x100.png';
 
   return (
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-6 bg-background h-full overflow-y-auto pb-20">
        <header className="flex items-center gap-4">
-            <Button variant="outline" size="icon" onClick={() => router.back()}>
-                <ArrowRight className="h-5 w-5"/>
-            </Button>
-            <h1 className="text-3xl font-bold">{restaurant.name}</h1>
+            <button 
+                onClick={() => setActiveTab(1)} 
+                className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all"
+            >
+                <ArrowRight className="h-6 w-6"/>
+            </button>
+            <h1 className="text-3xl font-black text-primary">{restaurant.name}</h1>
       </header>
 
-      <div className="flex items-start gap-4 p-4 rounded-lg bg-card border">
+      <div className="flex items-start gap-4 p-5 rounded-[2rem] bg-card border-none shadow-md">
          <div className="relative h-24 w-24 flex-shrink-0">
           <Image
             src={imageUrl}
             alt={restaurant.name}
             fill
-            className="object-cover rounded-lg"
-            data-ai-hint="store logo"
+            className="object-cover rounded-2xl"
             unoptimized={true}
           />
         </div>
-        <div className="space-y-2 flex-grow">
-            <Badge variant={restaurant.isStoreOpen ? 'secondary' : 'destructive'} className={`mb-2 ${restaurant.isStoreOpen ? "bg-green-100 text-green-800 border-green-200" : ""}`}>
+        <div className="space-y-3 flex-grow">
+            <Badge variant={restaurant.isStoreOpen ? 'secondary' : 'destructive'} className={`rounded-xl text-sm font-bold ${restaurant.isStoreOpen ? "bg-green-100 text-green-800" : ""}`}>
               {restaurant.isStoreOpen ? 'مفتوح الآن' : 'مغلق حاليًا'}
             </Badge>
-            <div className="flex items-center gap-1 text-amber-500">
+            <div className="flex items-center gap-2 text-amber-500">
                 <Star className="h-5 w-5 fill-current" />
-                <span className="font-semibold text-foreground text-lg">{restaurant.rating.toFixed(1)}</span>
+                <span className="font-black text-foreground text-xl">{restaurant.rating.toFixed(1)}</span>
             </div>
             {restaurant.openTime && restaurant.closeTime && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4"/>
+                <div className="flex items-center gap-2 text-base font-bold text-muted-foreground">
+                    <Clock className="h-5 w-5 text-primary"/>
                     <span>{restaurant.openTime} - {restaurant.closeTime}</span>
                 </div>
-            )}
-             {restaurant.latitude && restaurant.longitude && (
-                 <a href={`https://www.google.com/maps?q=${restaurant.latitude},${restaurant.longitude}`} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm">
-                        <MapPin className="ml-2 h-4 w-4" />
-                        عرض على الخريطة
-                    </Button>
-                </a>
             )}
         </div>
       </div>
 
-       <div>
-        <h2 className="text-xl font-bold mb-4">منتجات المتجر</h2>
+       <div className="space-y-6">
+        <h2 className="text-2xl font-black text-primary">قائمة المنتجات</h2>
         {restaurantProducts && restaurantProducts.length > 0 ? (
              <div className="grid grid-cols-2 gap-4">
                 {restaurantProducts.map((product) => (
@@ -103,7 +92,9 @@ export default function RestaurantProductsPage() {
                 ))}
              </div>
         ): (
-            <p className="text-muted-foreground text-center py-8">لا توجد منتجات في هذا المتجر حالياً.</p>
+            <div className="text-center py-12 bg-muted/10 rounded-[2rem] border-2 border-dashed">
+                <p className="text-muted-foreground font-bold">لا توجد منتجات متوفرة حالياً في هذا المتجر.</p>
+            </div>
         )}
       </div>
 
