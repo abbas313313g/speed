@@ -35,6 +35,16 @@ export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2
     return distance;
 }
 
+// التحقق من الموقع الجغرافي (جنوب بابل: المدحتية، الهاشمية، القاسم)
+export const isLocationInAllowedZones = (lat: number, lng: number) => {
+    // إحداثيات تقريبية لمركز المنطقة المستهدفة في جنوب بابل
+    const centerLat = 32.33;
+    const centerLng = 44.65;
+    const dist = calculateDistance(lat, lng, centerLat, centerLng);
+    // السماح بنطاق 20 كم لتغطية المدحتية والهاشمية والقاسم
+    return dist <= 20;
+}
+
 // Function to calculate delivery fee based on distance
 export const calculateDeliveryFee = (distanceInKm: number) => {
     const feePerThreeKm = 1000; // 1000 IQD for every 3 km

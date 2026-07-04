@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, doc, runTransaction, arrayUnion, updateDoc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
+import { collection, doc, runTransaction, arrayUnion, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
@@ -11,7 +11,6 @@ import { formatCurrency } from '@/lib/utils';
 import { ToastAction } from '@/components/ui/toast';
 import type { 
     Product, 
-    Restaurant, 
     Order, 
     SupportTicket, 
     Coupon, 
@@ -83,12 +82,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             const savedCart = localStorage.getItem('speedShopCart');
             if(savedCart) setCart(JSON.parse(savedCart));
-        } catch (e) { console.error("Failed to parse cart from localStorage", e); }
+        } catch (e) { console.error("Failed to parse cart", e); }
         
         try {
             const savedAddresses = localStorage.getItem('speedShopAddresses');
             if(savedAddresses) setAddresses(JSON.parse(savedAddresses));
-        } catch (e) { console.error("Failed to parse addresses from localStorage", e); }
+        } catch (e) { console.error("Failed to parse addresses", e); }
     }, []);
 
     useEffect(() => {
@@ -101,8 +100,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
          if (product.sizes && product.sizes.length > 0 && !selectedSize) {
             toast({
                 title: "الرجاء اختيار الحجم",
-                description: `لهذا المنتج أحجام متعددة. الرجاء الدخول لصفحة المنتج لاختيار الحجم المناسب.`,
-                variant: "default",
+                description: `هذا المنتج يتطلب اختيار حجم معين أولاً.`,
             });
             return false;
         }
@@ -115,8 +113,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 title: "بدء سلة جديدة؟",
                 description: "لديك منتجات من متجر آخر. هل تريد حذفها وبدء سلة جديدة من هذا المتجر؟",
                 action: <ToastAction altText="نعم، ابدأ" onClick={() => {
-                    const newCartItem = { product, quantity, selectedSize };
-                    setCart([newCartItem]);
+                    setCart([{ product, quantity, selectedSize }]);
                 }}>نعم، ابدأ</ToastAction>,
             });
             return false;
@@ -167,7 +164,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const addAddress = useCallback((address: Omit<Address, 'id'>) => {
         const newAddress = { ...address, id: `addr_${uuidv4()}` };
-        setAddresses(prev => [...prev, newAddress]);
+        setAddresses(prev => [newAddress, ...prev]);
     }, []);
 
     const deleteAddress = useCallback((addressId: string) => {
@@ -190,7 +187,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
         } catch (error) {
-             toast({ title: "فشل إرسال الرسالة", description: "حدث خطأ ما. الرجاء المحاولة مرة أخرى.", variant: "destructive" });
+             toast({ title: "فشل إرسال الرسالة", description: "تأكد من اتصالك بالإنترنت.", variant: "destructive" });
         }
     }, [toast]);
     
@@ -205,17 +202,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         await createTicketHook(firstMessage, userId, userName);
         
         const newTicket: Omit<SupportTicket, 'id'> & {id?: string} = { userId, userName, createdAt: new Date().toISOString(), isResolved: false, history: [firstMessage] };
-        
         setMySupportTicket(newTicket as SupportTicket);
     }, [userId, mySupportTicket, addresses, createTicketHook, addMessageToTicket]);
 
     const placeOrder = useCallback(async (address: Address, deliveryFee: number, couponCode?: string): Promise<string | null> => {
         if (!userId) {
-            toast({ title: "خطأ في تعريف المستخدم", description: "الرجاء إعادة تشغيل التطبيق.", variant: "destructive" });
+            toast({ title: "عذراً", description: "لم نتمكن من التعرف على حسابك. أعد تشغيل التطبيق.", variant: "destructive" });
             return null;
         }
         if (cart.length === 0) {
-            toast({ title: "السلة فارغة", description: "لا يمكنك إرسال طلب بسلة فارغة.", variant: "destructive" });
+            toast({ title: "السلة فارغة", description: "أضف منتجات أولاً لتتمكن من الطلب.", variant: "destructive" });
             return null;
         }
         
@@ -233,14 +229,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     if (foundCoupon) {
                         couponDoc = doc(db, "coupons", foundCoupon.id);
                         const couponSnap = await transaction.get(couponDoc);
-                        if (!couponSnap.exists()) throw new Error(`كود الخصم "${couponCode}" غير صالح.`);
+                        if (!couponSnap.exists()) throw new Error(`كود الخصم "${couponCode}" غير صحيح.`);
                         couponData = { id: couponSnap.id, ...couponSnap.data() } as Coupon;
-                    } else { throw new Error(`كود الخصم "${couponCode}" غير صالح.`); }
+                    } else { throw new Error(`كود الخصم "${couponCode}" غير صحيح.`); }
                 }
 
                 if (couponData) {
-                    if (couponData.usedCount >= couponData.maxUses) throw new Error("عذرًا، لقد تم استنفاذ هذا الكود بالكامل.");
-                    if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود من قبل.");
+                    if (couponData.usedCount >= couponData.maxUses) throw new Error("عذراً، هذا الكود تم استخدامه بالكامل.");
+                    if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت هذا الكود سابقاً.");
                 }
 
                 let totalProfit = 0;
@@ -248,15 +244,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 for (let i = 0; i < productDocs.length; i++) {
                     const productDoc = productDocs[i];
                     const item = cart[i];
-                    if (!productDoc.exists()) throw new Error(`عذرًا، منتج "${item.product.name}" لم يعد متوفرًا.`);
+                    if (!productDoc.exists()) throw new Error(`عذراً، منتج "${item.product.name}" لم يعد متوفراً في المتجر.`);
                     const serverProduct = productDoc.data() as Product;
                     
                     const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price;
                     const itemProfit = (itemPrice - (serverProduct.wholesalePrice || 0)) * item.quantity;
                     
-                    if (!isNaN(itemProfit)) {
-                        totalProfit += itemProfit;
-                    }
+                    if (!isNaN(itemProfit)) totalProfit += itemProfit;
 
                     if (item.selectedSize) {
                         const size = serverProduct.sizes?.find(s => s.name === item.selectedSize!.name);
@@ -274,7 +268,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 if (couponData && couponDoc) {
                     discountAmount = couponData.discountValue;
                     appliedCouponInfo = { code: couponData.code, discountAmount: discountAmount };
-                    transaction.update(couponDoc, { usedCount: couponData.usedCount + 1, usedBy: arrayUnion(userId) });
+                    transaction.update(couponDoc, { usedCount: (couponData.usedCount || 0) + 1, usedBy: arrayUnion(userId) });
                 }
 
                 const subtotal = cartTotal;
@@ -310,25 +304,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 transaction.set(newOrderRef, newOrderData);
             });
             
-            if (!newOrderId) {
-                throw new Error("حدث خطأ أثناء إنشاء الطلب. لم يتم إنشاء رقم طلب.");
-            }
-
             clearCart();
             
-            const newOrderSnap = await getDoc(doc(db, "orders", newOrderId));
-            if (newOrderSnap.exists()) {
-                 const newOrder = newOrderSnap.data() as Order;
+            // Notifications
+            if (newOrderId) {
                  telegramConfigs.filter(c => c.type === 'owner').forEach(c => {
-                    sendTelegramMessage(c.chatId, `*طلب جديد!* 🎉\n*رقم الطلب:* \`${newOrderId?.substring(0, 6)}\`\n*الزبون:* ${newOrder.address.name}\n*المنطقة:* ${newOrder.address.deliveryZone}\n*المبلغ:* ${formatCurrency(newOrder.total)}`);
+                    sendTelegramMessage(c.chatId, `*طلب جديد!* 🎉\n*رقم الطلب:* \`${newOrderId?.substring(0, 6)}\`\n*الزبون:* ${address.name}\n*المبلغ:* ${formatCurrency(cartTotal)}`);
                 });
             }
             return newOrderId;
-        } catch (error) {
-            console.error("Place order transaction failed: ", error);
+        } catch (error: any) {
             toast({
               title: "فشل إرسال الطلب",
-              description: error instanceof Error ? error.message : "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.",
+              description: error.message || "تأكد من جودة اتصالك بالإنترنت وحاول مجدداً.",
               variant: "destructive",
             });
             return null;
