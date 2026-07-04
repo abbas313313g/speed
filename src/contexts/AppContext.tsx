@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -198,7 +197,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
         } catch (error) {
-             toast({ title: "فشل الإرسال", description: "يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.", variant: "destructive" });
+             toast({ title: "فشل الإرسال", description: "عذراً، لم نتمكن من إرسال رسالتك. يرجى التحقق من الإنترنت.", variant: "destructive" });
         }
     }, [toast]);
     
@@ -218,11 +217,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const placeOrder = useCallback(async (address: Address, deliveryFee: number, couponCode?: string): Promise<string | null> => {
         if (!userId) {
-            toast({ title: "خلل في الهوية", description: "يرجى إغلاق التطبيق وفتحه مجدداً.", variant: "destructive" });
+            toast({ title: "خلل في الهوية", description: "يرجى إعادة فتح التطبيق لنتعرف على هويتك.", variant: "destructive" });
             return null;
         }
         if (cart.length === 0) {
-            toast({ title: "السلة فارغة", description: "أضف بعض المنتجات أولاً لتتمكن من الطلب.", variant: "destructive" });
+            toast({ title: "السلة فارغة", description: "أضف بعض المنتجات أولاً لتتمكن من إرسال الطلب.", variant: "destructive" });
             return null;
         }
         
@@ -246,10 +245,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     }
                 }
 
-                if (couponCode?.trim() && !couponData) throw new Error("نعتذر، كود الخصم هذا غير صحيح.");
+                if (couponCode?.trim() && !couponData) throw new Error("كود الخصم الذي أدخلته غير صحيح.");
                 if (couponData) {
-                    if (couponData.usedCount >= couponData.maxUses) throw new Error("عذراً، لقد انتهت صلاحية كود الخصم هذا.");
-                    if (couponData.usedBy?.includes(userId)) throw new Error("لقد قمت باستخدام هذا الكود مسبقاً.");
+                    if (couponData.usedCount >= couponData.maxUses) throw new Error("عذراً، كود الخصم هذا انتهت صلاحيته.");
+                    if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت كود الخصم هذا من قبل.");
                 }
 
                 let totalProfit = 0;
@@ -258,7 +257,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 for (let i = 0; i < productSnaps.length; i++) {
                     const snap = productSnaps[i];
                     const item = cart[i];
-                    if (!snap.exists()) throw new Error(`المنتج "${item.product.name}" غير متوفر حالياً.`);
+                    if (!snap.exists()) throw new Error(`المنتج "${item.product.name}" لم يعد متاحاً في المتجر.`);
                     
                     const serverProduct = snap.data() as Product;
                     const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price;
@@ -267,13 +266,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     if (item.selectedSize) {
                         const sizeIdx = serverProduct.sizes?.findIndex(s => s.name === item.selectedSize!.name);
                         if (sizeIdx === undefined || sizeIdx === -1 || serverProduct.sizes![sizeIdx].stock < item.quantity) {
-                            throw new Error(`عذراً، الكمية المطلوبة من "${item.product.name} - ${item.selectedSize.name}" غير متوفرة حالياً.`);
+                            throw new Error(`الكمية المطلوبة من "${item.product.name} - ${item.selectedSize.name}" غير متوفرة حالياً.`);
                         }
                         const newSizes = [...serverProduct.sizes!];
                         newSizes[sizeIdx] = { ...newSizes[sizeIdx], stock: newSizes[sizeIdx].stock - item.quantity };
                         updates.push({ ref: productRefs[i], data: { sizes: newSizes } });
                     } else {
-                        if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`نعتذر، الكمية المطلوبة من "${item.product.name}" غير متوفرة حالياً.`);
+                        if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة حالياً.`);
                         updates.push({ ref: productRefs[i], data: { stock: (serverProduct.stock || 0) - item.quantity } });
                     }
                 }

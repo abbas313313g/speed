@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -117,7 +116,7 @@ export function AdminNav({ isSheet = false, onTabChange, activeTab }: { isSheet?
   }
 
   return (
-    <aside className="fixed inset-y-0 right-0 z-50 hidden w-16 flex-col border-l bg-card sm:flex shadow-xl">
+    <aside className="sticky inset-y-0 right-0 z-50 hidden w-16 flex-col border-l bg-card sm:flex shadow-xl shrink-0">
       <TooltipProvider>
         <ScrollArea className="h-full w-full">
             <div className="flex flex-col h-full">

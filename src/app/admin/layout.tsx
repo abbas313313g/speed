@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -39,6 +38,7 @@ export default function AdminLayout() {
         setIsAuthenticated(true);
         toast({ title: "تم الدخول بنجاح" });
     } else {
+        // تم استبدال الفاصلة العربية بالفاصلة البرمجية الصحيحة هنا
         toast({ title: "الرمز السري غير صحيح", variant: "destructive" });
     }
   };
@@ -75,10 +75,11 @@ export default function AdminLayout() {
   }
   
   return (
-    <div className="flex h-screen w-full bg-muted/20 overflow-hidden">
+    <div className="flex h-screen w-full bg-background overflow-hidden" dir="rtl">
+      {/* القائمة الجانبية معزولة تماماً ولا تضغط المحتوى */}
       <AdminNav onTabChange={setActiveTab} activeTab={activeTab} />
       
-      <div className="flex flex-1 flex-col sm:pr-16 relative">
+      <div className="flex flex-1 flex-col relative overflow-hidden">
          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-4 border-b bg-background px-4 sm:h-16 sm:px-6">
           <Sheet>
             <SheetTrigger asChild>
@@ -98,7 +99,8 @@ export default function AdminLayout() {
           <div className="hidden sm:block text-2xl font-black text-primary">لوحة التحكم الإدارية</div>
         </header>
 
-        <main className="flex-1 relative overflow-hidden">
+        {/* المكدس اللحظي - يضمن أن كل صفحة تظهر كاملة بحجم الشاشة */}
+        <main className="flex-1 relative overflow-hidden bg-muted/10">
           <div 
             className="spa-stack-container" 
             style={{ 
