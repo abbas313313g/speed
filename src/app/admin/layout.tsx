@@ -76,8 +76,10 @@ export default function AdminLayout() {
   
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden" dir="rtl">
-      {/* القائمة الجانبية */}
-      <AdminNav onTabChange={setActiveTab} activeTab={activeTab} />
+      {/* القائمة الجانبية الثابتة */}
+      <aside className="sticky inset-y-0 right-0 z-50 hidden w-16 flex-col border-l bg-card sm:flex shadow-xl shrink-0">
+         <AdminNav onTabChange={setActiveTab} activeTab={activeTab} />
+      </aside>
       
       <div className="flex flex-1 flex-col relative overflow-hidden">
          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-4 border-b bg-background px-4 sm:h-16 sm:px-6">
@@ -99,7 +101,7 @@ export default function AdminLayout() {
           <div className="hidden sm:block text-2xl font-black text-primary">لوحة التحكم الإدارية</div>
         </header>
 
-        {/* محتوى الصفحات - ثابت 100% عرض */}
+        {/* مكدس الصفحات - يملأ المساحة المتبقية */}
         <main className="flex-1 relative overflow-hidden bg-muted/10">
           <div 
             className="spa-stack-container" 

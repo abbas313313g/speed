@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -197,7 +198,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
         } catch (error) {
-             toast({ title: "فشل الإرسال", description: "عذراً، لم نتمكن من إرسال رسالتك. يرجى التحقق من الإنترنت.", variant: "destructive" });
+             toast({ title: "فشل الإرسال", description: "عذراً، لم نتمكن من إرسال رسالتك. يرجى التحقق من جودة الإنترنت.", variant: "destructive" });
         }
     }, [toast]);
     
@@ -217,11 +218,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const placeOrder = useCallback(async (address: Address, deliveryFee: number, couponCode?: string): Promise<string | null> => {
         if (!userId) {
-            toast({ title: "خلل في الهوية", description: "يرجى إعادة فتح التطبيق لنتعرف على هويتك.", variant: "destructive" });
+            toast({ title: "خلل في الهوية", description: "يرجى إعادة فتح التطبيق لنتعرف على هويتك مجدداً.", variant: "destructive" });
             return null;
         }
         if (cart.length === 0) {
-            toast({ title: "السلة فارغة", description: "أضف بعض المنتجات أولاً لتتمكن من إرسال الطلب.", variant: "destructive" });
+            toast({ title: "السلة فارغة", description: "أضف بعض المنتجات أولاً لتتمكن من إرسال طلبك.", variant: "destructive" });
             return null;
         }
         
@@ -257,7 +258,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 for (let i = 0; i < productSnaps.length; i++) {
                     const snap = productSnaps[i];
                     const item = cart[i];
-                    if (!snap.exists()) throw new Error(`المنتج "${item.product.name}" لم يعد متاحاً في المتجر.`);
+                    if (!snap.exists()) throw new Error(`المنتج "${item.product.name}" لم يعد متاحاً في المتجر حالياً.`);
                     
                     const serverProduct = snap.data() as Product;
                     const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price;
@@ -266,13 +267,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     if (item.selectedSize) {
                         const sizeIdx = serverProduct.sizes?.findIndex(s => s.name === item.selectedSize!.name);
                         if (sizeIdx === undefined || sizeIdx === -1 || serverProduct.sizes![sizeIdx].stock < item.quantity) {
-                            throw new Error(`الكمية المطلوبة من "${item.product.name} - ${item.selectedSize.name}" غير متوفرة حالياً.`);
+                            throw new Error(`نعتذر، الكمية المطلوبة من "${item.product.name} - ${item.selectedSize.name}" غير كافية في المتجر.`);
                         }
                         const newSizes = [...serverProduct.sizes!];
                         newSizes[sizeIdx] = { ...newSizes[sizeIdx], stock: newSizes[sizeIdx].stock - item.quantity };
                         updates.push({ ref: productRefs[i], data: { sizes: newSizes } });
                     } else {
-                        if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`الكمية المطلوبة من "${item.product.name}" غير متوفرة حالياً.`);
+                        if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`نعتذر، الكمية المطلوبة من "${item.product.name}" غير كافية في المتجر.`);
                         updates.push({ ref: productRefs[i], data: { stock: (serverProduct.stock || 0) - item.quantity } });
                     }
                 }
@@ -331,7 +332,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (error: any) {
             toast({
               title: "فشل إرسال الطلب",
-              description: error.message || "حدث خطأ غير متوقع، يرجى المحاولة لاحقاً.",
+              description: error.message || "حدث خطأ غير متوقع أثناء معالجة الطلب، يرجى المحاولة لاحقاً.",
               variant: "destructive",
             });
             return null;

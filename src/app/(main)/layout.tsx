@@ -34,14 +34,13 @@ export default function MainAppLayout() {
   
   const [showAddressPrompt, setShowAddressPrompt] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
-  const [newAddr, setNewAddr] = useState({ name: '', phone: '' });
+  const [newAddr, setNewAddr] = useState({ name: '', phone: '', lat: 0, lng: 0 });
   const [islocLoading, setIslocLoading] = useState(false);
 
   if (!context) return null;
   const { activeTab } = context;
 
   useEffect(() => {
-    // إظهار نافذة العنوان إذا لم يكن للمستخدم أي عنوان مسجل
     if (!settingsLoading && addresses.length === 0) {
       setShowAddressPrompt(true);
     }
@@ -62,8 +61,8 @@ export default function MainAppLayout() {
           setIsBlocked(true);
           setShowAddressPrompt(false);
         } else {
-          toast({ title: "تم التحديد بنجاح", description: "تم التعرف على موقعك الجغرافي." });
-          setNewAddr(prev => ({ ...prev, lat: latitude, lng: longitude } as any));
+          toast({ title: "تم التحديد بنجاح", description: "تم التعرف على موقعك الجغرافي بدقة." });
+          setNewAddr(prev => ({ ...prev, lat: latitude, lng: longitude }));
         }
         setIslocLoading(false);
       },
@@ -81,10 +80,11 @@ export default function MainAppLayout() {
       return;
     }
     addAddress({
-      ...newAddr,
+      name: newAddr.name,
+      phone: newAddr.phone,
       deliveryZone: "تلقائي",
-      latitude: (newAddr as any).lat || 0,
-      longitude: (newAddr as any).lng || 0
+      latitude: newAddr.lat || 0,
+      longitude: newAddr.lng || 0
     });
     setShowAddressPrompt(false);
     toast({ title: "مرحباً بك!", description: "تم حفظ عنوانك، يمكنك البدء بالتسوق الآن." });
@@ -150,30 +150,29 @@ export default function MainAppLayout() {
         <BottomNav />
       </div>
 
-      {/* نافذة العنوان الإجبارية - ملء الشاشة لضمان ظهور الأزرار */}
       <Sheet open={showAddressPrompt} onOpenChange={() => {}}>
-        <SheetContent side="bottom" className="h-full w-full p-0 border-none shadow-none flex flex-col bg-background">
+        <SheetContent side="bottom" className="h-[85vh] w-full p-0 border-none shadow-none flex flex-col bg-background rounded-t-[3rem]">
           <div className="flex-1 overflow-y-auto p-8 space-y-8">
             <SheetHeader className="text-right">
-                <div className="p-4 bg-primary/10 w-fit rounded-3xl mb-4">
-                    <ShoppingBag className="h-10 w-10 text-primary" />
+                <div className="p-4 bg-primary/10 w-fit rounded-3xl mb-2">
+                    <ShoppingBag className="h-8 w-8 text-primary" />
                 </div>
-                <SheetTitle className="text-4xl font-black text-primary">مرحباً بك في سبيد!</SheetTitle>
-                <p className="text-muted-foreground text-xl">نحتاج لمعرفة موقعك لنتمكن من توصيل طلباتك بدقة فائقة.</p>
+                <SheetTitle className="text-3xl font-black text-primary">مرحباً بك في سبيد!</SheetTitle>
+                <p className="text-muted-foreground text-lg">نحتاج لمعرفة موقعك لنتمكن من توصيل طلباتك بدقة فائقة.</p>
             </SheetHeader>
             
-            <div className="space-y-6 mt-8">
-                <div className="space-y-3">
+            <div className="space-y-6">
+                <div className="space-y-2">
                 <Label className="text-lg font-bold">اسمك الكامل</Label>
                 <Input 
                     value={newAddr.name} 
                     onChange={(e) => setNewAddr({...newAddr, name: e.target.value})} 
                     placeholder="اكتب اسمك هنا..." 
-                    className="h-16 text-xl border-2 rounded-2xl bg-card px-6"
+                    className="h-14 text-xl border-2 rounded-2xl bg-card px-6"
                 />
                 </div>
                 
-                <div className="space-y-3">
+                <div className="space-y-2">
                 <Label className="text-lg font-bold">رقم الهاتف</Label>
                 <Input 
                     value={newAddr.phone} 
@@ -181,24 +180,24 @@ export default function MainAppLayout() {
                     placeholder="07XXXXXXXX" 
                     type="tel" 
                     dir="ltr"
-                    className="h-16 text-xl text-left border-2 rounded-2xl bg-card px-6"
+                    className="h-14 text-xl text-left border-2 rounded-2xl bg-card px-6"
                 />
                 </div>
 
-                <div className="pt-4">
+                <div className="pt-2">
                     <button 
                         onClick={handleGetLocation} 
-                        className={`w-full py-8 flex flex-col items-center justify-center text-xl border-2 border-dashed rounded-[2rem] transition-all active:scale-95 ${islocLoading ? 'border-primary bg-primary/5' : 'border-muted-foreground/30 bg-card'}`}
+                        className={`w-full py-6 flex flex-col items-center justify-center text-lg border-2 border-dashed rounded-[2rem] transition-all active:scale-95 ${islocLoading ? 'border-primary bg-primary/5' : 'border-muted-foreground/30 bg-card'}`}
                         disabled={islocLoading}
                     >
                     {islocLoading ? (
-                        <><Loader2 className="animate-spin mb-2 h-10 w-10 text-primary" /> <span className="font-bold">جارِ تحديد الموقع...</span></>
+                        <><Loader2 className="animate-spin mb-2 h-8 w-8 text-primary" /> <span className="font-bold">جارِ تحديد الموقع...</span></>
                     ) : (
-                        <><MapPin className="mb-2 h-10 w-10 text-primary" /> <span className="font-bold text-primary">تحديد موقعي التلقائي (GPS)</span></>
+                        <><MapPin className="mb-2 h-8 w-8 text-primary" /> <span className="font-bold text-primary">تحديد موقعي التلقائي (GPS)</span></>
                     )}
                     </button>
-                    {(newAddr as any).lat && (
-                        <p className="text-center text-green-600 font-bold mt-3 animate-pulse">✓ تم التقاط موقعك بنجاح!</p>
+                    {newAddr.lat !== 0 && (
+                        <p className="text-center text-green-600 font-bold mt-3 animate-bounce">✓ تم التقاط موقعك بنجاح!</p>
                     )}
                 </div>
             </div>
@@ -207,7 +206,7 @@ export default function MainAppLayout() {
           <div className="p-6 bg-background border-t">
               <Button 
                 onClick={handleSaveAddress} 
-                className="w-full py-10 text-2xl font-black rounded-[2rem] shadow-2xl shadow-primary/30"
+                className="w-full py-8 text-xl font-black rounded-[2rem] shadow-2xl shadow-primary/30"
                 disabled={islocLoading}
               >
                 حفظ وابدأ التسوق
