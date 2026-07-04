@@ -37,28 +37,27 @@
   }
 }
 
-/* تحسين استجابة اللمس للأزرار */
 button, a, [role="button"] {
   @apply transition-transform duration-75 active:scale-95 cursor-pointer;
 }
 
-/* حاوية مكدس الصفحات للتنقل اللحظي بنمط تطبيقات الهاتف */
 .spa-stack-container {
   display: flex;
   height: 100%;
-  transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+  width: 100%;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
 }
 
 .spa-page-view {
   flex: 0 0 100%;
+  width: 100%;
   height: 100vh;
   overflow-y: auto;
   padding-bottom: 5rem;
   -webkit-overflow-scrolling: touch;
 }
 
-/* إخفاء شريط التمرير لمظهر أنيق */
 ::-webkit-scrollbar {
   display: none;
 }

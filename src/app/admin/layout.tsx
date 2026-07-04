@@ -98,8 +98,7 @@ export default function AdminLayout() {
           <div 
             className="spa-stack-container" 
             style={{ 
-              width: '1400%',
-              transform: `translateX(${activeTab * (100 / 14)}%)` 
+              transform: `translateX(${activeTab * 100}%)` 
             }} 
           >
             <div className="spa-page-view px-4"><AdminDashboard /></div>

@@ -16,8 +16,7 @@ export default function RestaurantLayout() {
                 <div 
                 className="spa-stack-container" 
                 style={{ 
-                    width: '300%',
-                    transform: `translateX(${activeTab * (100 / 3)}%)` 
+                    transform: `translateX(${activeTab * 100}%)` 
                 }} 
                 >
                 <div className="spa-page-view">

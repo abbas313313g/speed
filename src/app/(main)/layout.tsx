@@ -13,7 +13,6 @@ import { isLocationInAllowedZones } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { AppContext } from '@/contexts/AppContext';
 
-// استيراد الصفحات لاستخدامها كمكونات في الـ SPA
 import HomePage from './home/page';
 import RestaurantsPage from './restaurants/page';
 import ProductsPage from './products/page';
@@ -130,8 +129,7 @@ export default function MainAppLayout({
         <div 
           className="spa-stack-container" 
           style={{ 
-            width: '900%',
-            transform: `translateX(${activeTab * (100 / 9)}%)` 
+            transform: `translateX(${activeTab * 100}%)` 
           }} 
         >
           <div className="spa-page-view"><HomePage /></div>
