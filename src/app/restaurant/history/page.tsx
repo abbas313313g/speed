@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useContext, useMemo } from 'react';
+import { useContext, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
@@ -20,8 +20,14 @@ export default function RestaurantHistoryPage() {
         return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
     }
 
-    const { restaurant, logout } = context;
+    const { restaurant, logout, isProcessing } = context;
     const { allOrders, isLoading: ordersLoading } = useOrders();
+
+    useEffect(() => {
+        if (!isProcessing && !restaurant) {
+            router.replace('/restaurant/login');
+        }
+    }, [restaurant, isProcessing, router]);
 
     const { myPaidOrders, totalIncome } = useMemo(() => {
         if (!restaurant || !allOrders) return { myPaidOrders: [], totalIncome: 0 };
@@ -45,7 +51,6 @@ export default function RestaurantHistoryPage() {
     }, [restaurant, allOrders]);
 
     if (!restaurant) {
-        router.replace('/restaurant/login');
         return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
     }
     

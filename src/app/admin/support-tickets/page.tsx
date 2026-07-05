@@ -193,7 +193,7 @@ export default function AdminSupportTicketsPage() {
                      <div className="text-center p-3 bg-muted rounded-xl text-xs font-bold text-muted-foreground">هذه التذكرة مغلقة ولا يمكن الرد عليها</div>
                  )}
                  <div className="flex w-full justify-between gap-4">
-                    <Button variant="outline" onClick={() => setSelectedTicket(null)} className="flex-1 rounded-xl font-bold">إغلاق النافذة</Button>
+                    <Button variant="outline" onClick={() => setSelectedTicket(null)} className="rounded-xl font-bold">إغلاق النافذة</Button>
                     {!selectedTicket?.isResolved && (
                          <Button variant="secondary" onClick={handleResolveTicket} className="flex-1 rounded-xl font-bold bg-green-500 text-white hover:bg-green-600">
                             تم حل المشكلة وإغلاق التذكرة
