@@ -57,25 +57,24 @@ button, a, [role="button"] {
   min-width: 100%;
   max-width: 100%;
   height: 100%;
-  overflow-y: auto !important;
+  overflow-y: scroll !important; /* أجبار حاوية الصفحة على التمرير */
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   position: relative;
-  display: flex;
-  flex-direction: column;
+  display: block; /* تغيير من flex إلى block للسماح للمحتوى بالتمدد الطبيعي */
 }
 
-/* تحسين شكل شريط التمرير */
+/* تحسين شكل شريط التمرير وجعله مرئياً */
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(0,0,0,0.05);
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-primary/20 rounded-full;
+  @apply bg-primary/40 rounded-full;
 }
 
 .admin-table-container {

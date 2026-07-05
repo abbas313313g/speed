@@ -5,7 +5,7 @@ import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
 import { LogOut, Loader2, BellRing, Volume2, VolumeX, PackageOpen, Clock, CheckCircle2, Bike, ReceiptText, ShieldCheck } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -41,21 +41,18 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
         }
 
         try {
-            const permission = await Notification.requestPermission();
-            setNotifPermission(permission);
-            if (permission === 'granted') {
+            const permissionResult = await Notification.requestPermission();
+            setNotifPermission(permissionResult);
+            if (permissionResult === 'granted') {
                 toast({ title: "تم تفعيل الإشعارات بنجاح" });
-                if (audioRef.current) {
-                    audioRef.current.play().then(() => {
-                        audioRef.current?.pause();
-                        audioRef.current!.currentTime = 0;
-                    }).catch(() => {});
-                }
             } else {
-                toast({ title: "تم رفض طلب الإشعارات", variant: "destructive" });
+                toast({ title: "تم رفض التنبيهات", description: "لن تصلك إشعارات خارجية.", variant: "destructive" });
             }
         } catch (error) {
-            console.error("Permission request failed", error);
+            // Fallback for older browsers / Safari
+            Notification.requestPermission((permission) => {
+                setNotifPermission(permission);
+            });
         }
     };
 
@@ -105,6 +102,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                 try {
                     new Notification("سبيد شوب: طلب جديد!", {
                         body: `وصلك طلب جديد بقيمة ${formatCurrency(latestOrder.total)}`,
+                        icon: '/favicon.ico'
                     });
                 } catch (e) {
                     console.error("Notification creation failed", e);
@@ -120,6 +118,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
         stopAlert();
         if (context) {
             await context.updateRestaurantOrderStatus(orderId, 'preparing');
+            toast({ title: "تم قبول الطلب، ابدأ التحضير!" });
         }
     };
 
@@ -128,6 +127,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
         stopAlert();
         if (context) {
             await context.updateRestaurantOrderStatus(orderId, 'cancelled');
+            toast({ title: "تم رفض الطلب", variant: 'destructive' });
         }
     };
 
@@ -152,15 +152,17 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                     {notifPermission !== 'granted' && (
-                         <Button 
-                            variant="outline" 
-                            className="font-bold border-2 border-blue-500 text-blue-600 rounded-xl bg-blue-50 hover:bg-blue-100 transition-colors" 
-                            onClick={requestNotifPermission}
-                         >
-                            <ShieldCheck className="ml-2 h-4 w-4"/> تفعيل التنبيهات الخارجية
-                         </Button>
-                     )}
+                     <Button 
+                        variant="outline" 
+                        className={cn(
+                            "font-black border-2 rounded-xl transition-all shadow-sm",
+                            notifPermission === 'granted' ? "border-green-500 text-green-600 bg-green-50" : "border-blue-500 text-blue-600 bg-blue-50"
+                        )} 
+                        onClick={requestNotifPermission}
+                     >
+                        <ShieldCheck className="ml-2 h-4 w-4"/> 
+                        {notifPermission === 'granted' ? "التنبيهات مفعلة" : "تفعيل التنبيهات الخارجية"}
+                     </Button>
                      <Button variant="outline" size="icon" onClick={() => setIsMuted(!isMuted)}>
                         {isMuted ? <VolumeX className="h-5 w-5 text-destructive"/> : <Volume2 className="h-5 w-5 text-primary"/>}
                      </Button>
