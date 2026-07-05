@@ -126,7 +126,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
         <div className="flex flex-col h-screen bg-muted/10">
             <audio ref={audioRef} loop src="https://assets.mixkit.co/active_storage/sfx/2861/2861-preview.mp3" />
 
-            <header className="p-4 md:p-6 bg-white border-b shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+            <header className="p-4 md:p-6 bg-white border-b shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
                 <div className="flex items-center gap-4">
                     <div className="p-3 bg-primary/10 rounded-2xl">
                         <BellRing className="h-6 w-6 text-primary" />
@@ -154,7 +154,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
                     
                     {/* عمود: طلبات جديدة */}
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-4 overflow-hidden h-full">
                         <div className="flex items-center justify-between px-2">
                              <h2 className="text-lg font-black flex items-center gap-2"><PackageOpen className="text-blue-500"/> طلبات جديدة ({myNewOrders.length})</h2>
                         </div>
@@ -193,7 +193,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                     </div>
 
                     {/* عمود: قيد التحضير */}
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-4 overflow-hidden h-full">
                         <div className="px-2"><h2 className="text-lg font-black flex items-center gap-2"><Clock className="text-orange-500"/> قيد التحضير ({myPreparingOrders.length})</h2></div>
                         <ScrollArea className="flex-1 rounded-[2rem] border-2 border-orange-100 p-4 bg-orange-50/30">
                              {myPreparingOrders.length > 0 ? myPreparingOrders.map(order => (
@@ -237,7 +237,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                     </div>
 
                     {/* عمود: جاهز للاستلام */}
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-4 overflow-hidden h-full">
                         <div className="px-2"><h2 className="text-lg font-black flex items-center gap-2"><CheckCircle2 className="text-green-500"/> جاهز للاستلام ({myReadyOrders.length})</h2></div>
                         <ScrollArea className="flex-1 rounded-[2rem] border-2 border-green-100 p-4 bg-green-50/30">
                              {myReadyOrders.length > 0 ? myReadyOrders.map(order => (

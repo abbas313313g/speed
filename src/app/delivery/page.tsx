@@ -217,7 +217,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     }
 
     return (
-        <div className="flex flex-col bg-background">
+        <div className="flex flex-col bg-background min-h-full pb-20">
             <header className="p-4 flex justify-between items-center bg-card border-b shadow-sm sticky top-0 z-20">
                  <div>
                     <h1 className="text-xl font-black text-primary leading-none">أهلاً {worker?.name?.split(' ')[0]}</h1>
