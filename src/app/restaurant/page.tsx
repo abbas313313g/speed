@@ -9,7 +9,7 @@ import { LogOut, Loader2, BellRing, Volume2, VolumeX, PackageOpen, Clock, CheckC
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import type { Order } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 
@@ -233,11 +233,13 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
             {/* نافذة التنبيه بالطلب الجديد - تفاصيل كاملة */}
             <Dialog open={!!newOrderAlert} onOpenChange={() => {}}>
                 <DialogContent className="sm:max-w-md bg-white rounded-t-[3rem] border-none shadow-2xl p-0 overflow-hidden">
-                    <div className="bg-primary p-6 text-white text-center space-y-2">
-                        <BellRing className="h-12 w-12 mx-auto animate-bounce"/>
-                        <h2 className="text-3xl font-black italic">طلب جديد وصل!</h2>
-                        <p className="opacity-90 font-bold">يرجى تأكيد الطلب للبدء بالتحضير</p>
-                    </div>
+                    <DialogHeader className="p-0">
+                        <div className="bg-primary p-6 text-white text-center space-y-2">
+                            <BellRing className="h-12 w-12 mx-auto animate-bounce"/>
+                            <DialogTitle className="text-3xl font-black italic">طلب جديد وصل!</DialogTitle>
+                            <DialogDescription className="text-white/90 font-bold">يرجى تأكيد الطلب للبدء بالتحضير</DialogDescription>
+                        </div>
+                    </DialogHeader>
                     
                     <div className="p-6 space-y-4">
                         <div className="flex justify-between items-center text-xl font-black text-primary border-b-2 border-dashed pb-4">
