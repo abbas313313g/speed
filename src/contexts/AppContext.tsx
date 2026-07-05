@@ -160,7 +160,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         ));
     }, [removeFromCart]);
     
-    const clearCart = useCallback(() => setCart([]), []);
+    const clearCart = useCallback(() => {
+        setCart([]);
+        localStorage.removeItem('speedShopCart');
+    }, []);
 
     const cartTotal = useMemo(() => cart.reduce((total, item) => {
         const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price ?? 0;
@@ -219,7 +222,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [userId, mySupportTicket, addresses, createTicketHook, addMessageToTicket]);
 
     const placeOrder = useCallback(async (address: Address, deliveryFee: number, couponCode?: string): Promise<string | null> => {
-        if (!userId) {
+        const currentUserId = userId || localStorage.getItem('speedShopUserId');
+        
+        if (!currentUserId) {
             toast({ title: "يرجى الانتظار", description: "جارٍ التعرف على هويتك، حاول مجدداً بعد ثوانٍ.", variant: "destructive" });
             return null;
         }
@@ -229,10 +234,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
         
         let newOrderId: string | null = null;
+        const currentCart = [...cart]; // نسخة لضمان عدم التغير أثناء المعالجة
         
         try {
             await runTransaction(db, async (transaction) => {
-                const productRefs = cart.map(item => doc(db, "products", item.product.id));
+                const productRefs = currentCart.map(item => doc(db, "products", item.product.id));
                 const productSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
                 let couponDoc: any = null;
@@ -251,20 +257,23 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 if (couponCode?.trim() && !couponData) throw new Error("USER_ERROR: كود الخصم الذي أدخلته غير صحيح.");
                 if (couponData) {
                     if (couponData.usedCount >= couponData.maxUses) throw new Error("USER_ERROR: عذراً، كود الخصم هذا انتهت صلاحيته.");
-                    if (couponData.usedBy?.includes(userId)) throw new Error("USER_ERROR: لقد استخدمت كود الخصم هذا من قبل.");
+                    if (couponData.usedBy?.includes(currentUserId)) throw new Error("USER_ERROR: لقد استخدمت كود الخصم هذا من قبل.");
                 }
 
                 let totalProfit = 0;
+                let currentCartTotal = 0;
                 const updates: {ref: any, data: any}[] = [];
 
                 for (let i = 0; i < productSnaps.length; i++) {
                     const snap = productSnaps[i];
-                    const item = cart[i];
+                    const item = currentCart[i];
                     if (!snap.exists()) throw new Error(`USER_ERROR: المنتج "${item.product.name}" لم يعد متاحاً حالياً.`);
                     
                     const serverProduct = snap.data() as Product;
-                    const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price;
+                    const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price ?? 0;
                     const wholesale = serverProduct.wholesalePrice || 0;
+                    
+                    currentCartTotal += (itemPrice * item.quantity);
                     totalProfit += (itemPrice - wholesale) * item.quantity;
 
                     if (item.selectedSize) {
@@ -290,19 +299,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     appliedCouponInfo = { code: couponData.code, discountAmount };
                     transaction.update(couponDoc, { 
                         usedCount: (couponData.usedCount || 0) + 1, 
-                        usedBy: arrayUnion(userId) 
+                        usedBy: arrayUnion(currentUserId) 
                     });
                 }
 
-                const finalTotal = Math.max(0, cartTotal - discountAmount) + deliveryFee;
+                const finalTotal = Math.max(0, currentCartTotal - discountAmount) + deliveryFee;
                 const newOrderRef = doc(collection(db, "orders"));
                 newOrderId = newOrderRef.id;
                 
-                const orderRestaurant = restaurants.find(r => r.id === cart[0].product.restaurantId);
+                const orderRestaurant = restaurants.find(r => r.id === currentCart[0].product.restaurantId);
 
                 const newOrderData: Omit<Order, 'id'> = {
-                    userId,
-                    items: cart,
+                    userId: currentUserId,
+                    items: currentCart,
                     total: finalTotal,
                     date: new Date().toISOString(),
                     status: 'unassigned',
@@ -326,14 +335,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             });
             
             clearCart();
+            
             if (newOrderId) {
+                 const orderAmount = currentCart.reduce((sum, item) => sum + ((item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price ?? 0) * item.quantity), 0);
                  telegramConfigs.filter(c => c.type === 'owner').forEach(c => {
-                    sendTelegramMessage(c.chatId, `*طلب جديد!* 🎉\n*رقم الطلب:* \`${newOrderId?.substring(0, 6)}\`\n*الزبون:* ${address.name}\n*المبلغ:* ${formatCurrency(cartTotal)}`);
+                    sendTelegramMessage(c.chatId, `*طلب جديد!* 🎉\n*رقم الطلب:* \`${newOrderId?.substring(0, 6)}\`\n*الزبون:* ${address.name}\n*المبلغ:* ${formatCurrency(orderAmount)}`);
                 });
             }
             return newOrderId;
         } catch (error: any) {
+            console.error("Order process error details:", error);
             let friendlyMessage = "حدث خطأ بسيط أثناء معالجة طلبك، يرجى المحاولة مرة أخرى.";
+            
             if (error.message?.includes("USER_ERROR:")) {
                 friendlyMessage = error.message.replace("USER_ERROR: ", "");
             } else if (error.message?.includes("network")) {
@@ -347,7 +360,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             });
             return null;
         }
-    }, [userId, cart, coupons, restaurants, clearCart, telegramConfigs, toast, cartTotal]);
+    }, [userId, cart, coupons, restaurants, clearCart, telegramConfigs, toast]);
     
     const value = useMemo(() => ({
         isLoading,
