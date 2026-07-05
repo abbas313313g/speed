@@ -74,7 +74,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [cart, setCart] = useState<CartItem[]>([]);
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [userId, setUserId] = useState<string|null>(null);
-    const [myCurrentSupportTicket, setMySupportTicket] = useState<SupportTicket|null>(null);
     const [isForceNewTicket, setIsForceNewTicket] = useState(false);
     const [activeTab, setActiveTab] = useState(0);
     
@@ -183,25 +182,30 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setAddresses(prev => prev.filter(addr => addr.id !== addressId));
     }, []);
     
+    // الربط اللحظي لتذكرة الدعم الخاصة بالمستخدم
     const mySupportTicket = useMemo(() => {
-        if (isForceNewTicket) return null;
-        if (myCurrentSupportTicket) return myCurrentSupportTicket;
-        if (!userId) return null;
+        if (isForceNewTicket || !userId) return null;
+        
+        // جلب كافة التذاكر الخاصة بالمستخدم الحالي من القائمة القادمة من Firebase Hook
         const userTickets = supportTickets.filter(t => t.userId === userId);
         if (userTickets.length === 0) return null;
+        
+        // البحث عن تذكرة غير مغلقة
         const unresolved = userTickets.find(t => !t.isResolved);
         if (unresolved) return unresolved;
-        return userTickets.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-    }, [userId, supportTickets, myCurrentSupportTicket, isForceNewTicket]);
+        
+        // إذا كانت جميعها مغلقة، نعيد الأحدث
+        return [...userTickets].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    }, [userId, supportTickets, isForceNewTicket]);
     
     const startNewTicketClient = useCallback(() => {
         setIsForceNewTicket(true);
-        setMySupportTicket(null);
     }, []);
 
     const addMessageToTicket = useCallback(async (ticketId: string, message: Message) => {
         try {
-            await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
+            const ticketRef = doc(db, "supportTickets", ticketId);
+            await updateDoc(ticketRef, { history: arrayUnion(message) });
         } catch (error) {
              toast({ title: "فشل الإرسال", description: "عذراً، لم نتمكن من إرسال رسالتك. يرجى التحقق من جودة الإنترنت.", variant: "destructive" });
         }
@@ -212,16 +216,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         
         setIsForceNewTicket(false);
 
+        // إذا كان هناك تذكرة نشطة بالفعل، نضيف الرسالة لها فقط
         const activeTicket = mySupportTicket;
         if (activeTicket && !activeTicket.isResolved) {
              await addMessageToTicket(activeTicket.id, firstMessage);
              return;
         }
+        
         const userName = addresses[0]?.name || `مستخدم ${userId.substring(0, 4)}`;
         await createTicketHook(firstMessage, userId, userName);
-        
-        const newTicket: Omit<SupportTicket, 'id'> & {id?: string} = { userId, userName, createdAt: new Date().toISOString(), isResolved: false, history: [firstMessage] };
-        setMySupportTicket(newTicket as SupportTicket);
     }, [userId, mySupportTicket, addresses, createTicketHook, addMessageToTicket]);
 
     const placeOrder = useCallback(async (address: Address, deliveryFee: number, couponCode?: string): Promise<string | null> => {

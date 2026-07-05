@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 // استيراد كافة أقسام الأدمن
 import AdminDashboard from './page';
@@ -76,8 +77,8 @@ export default function AdminLayout() {
   
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden" dir="rtl">
-      {/* القائمة الجانبية الثابتة */}
-      <aside className="sticky inset-y-0 right-0 z-50 hidden w-16 flex-col border-l bg-card sm:flex shadow-xl shrink-0">
+      {/* القائمة الجانبية الثابتة والمعزولة */}
+      <aside className="sticky inset-y-0 right-0 z-50 hidden w-16 flex-col border-l bg-card sm:flex shadow-xl shrink-0 overflow-hidden">
          <AdminNav onTabChange={setActiveTab} activeTab={activeTab} />
       </aside>
       
@@ -90,18 +91,20 @@ export default function AdminLayout() {
                 <span className="sr-only">القائمة</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="sm:max-w-xs p-0">
-               <SheetHeader className="p-4 border-b text-right">
+            <SheetContent side="right" className="sm:max-w-xs p-0 overflow-hidden flex flex-col">
+               <SheetHeader className="p-4 border-b text-right shrink-0">
                  <SheetTitle>لوحة التحكم</SheetTitle>
                </SheetHeader>
-               <AdminNav isSheet={true} onTabChange={setActiveTab} activeTab={activeTab} />
+               <div className="flex-1 overflow-hidden">
+                  <AdminNav isSheet={true} onTabChange={setActiveTab} activeTab={activeTab} />
+               </div>
             </SheetContent>
           </Sheet>
           <div className="text-xl font-black text-primary sm:hidden">سبيد شوب - إشراف</div>
           <div className="hidden sm:block text-2xl font-black text-primary">لوحة التحكم الإدارية</div>
         </header>
 
-        {/* مكدس الصفحات - يملأ المساحة بدقة 100% */}
+        {/* مكدس الصفحات - يملأ المساحة بدقة 100% مع دعم التمرير */}
         <main className="flex-1 relative overflow-hidden bg-muted/5">
           <div 
             className="spa-stack-container" 
@@ -109,20 +112,20 @@ export default function AdminLayout() {
               transform: `translateX(${activeTab * 100}%)` 
             }} 
           >
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminDashboard /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminOrdersPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminProductsPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminCategoriesPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminStoresPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminBannersPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminDeliveryZonesPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminCouponsPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminUsersPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminDeliveryWorkersPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminReportsPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminSupportTicketsPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminTelegramPage /></div>
-            <div className="spa-page-view flex-shrink-0 px-4 py-6 sm:px-8"><AdminSettingsPage /></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDashboard /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminOrdersPage /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminProductsPage /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminCategoriesPage /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminStoresPage /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminBannersPage /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDeliveryZonesPage /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminCouponsPage /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminUsersPage /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDeliveryWorkersPage /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminReportsPage /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSupportTicketsPage /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminTelegramPage /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSettingsPage /></ScrollArea></div>
           </div>
         </main>
       </div>

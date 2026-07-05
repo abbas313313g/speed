@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -105,25 +106,11 @@ export function AdminNav({ isSheet = false, onTabChange, activeTab }: { isSheet?
     </nav>
   );
 
-  if (isSheet) {
-    return (
-      <ScrollArea className="h-full w-full">
-        <div className="flex flex-col h-full py-4">
-          {navContent}
-        </div>
-      </ScrollArea>
-    )
-  }
-
   return (
-    <aside className="sticky inset-y-0 right-0 z-50 hidden w-16 flex-col border-l bg-card sm:flex shadow-xl shrink-0">
-      <TooltipProvider>
-        <ScrollArea className="h-full w-full">
-            <div className="flex flex-col h-full">
-              {navContent}
-            </div>
-        </ScrollArea>
-      </TooltipProvider>
-    </aside>
+    <ScrollArea className="h-full w-full">
+      <div className="flex flex-col min-h-full">
+        {navContent}
+      </div>
+    </ScrollArea>
   );
 }
