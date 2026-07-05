@@ -182,22 +182,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setAddresses(prev => prev.filter(addr => addr.id !== addressId));
     }, []);
     
-    // الربط اللحظي لتذكرة الدعم الخاصة بالمستخدم
     const mySupportTicket = useMemo(() => {
         if (isForceNewTicket || !userId) return null;
-        
-        // جلب كافة التذاكر الخاصة بالمستخدم الحالي من القائمة القادمة من Firebase Hook
         const userTickets = supportTickets.filter(t => t.userId === userId);
         if (userTickets.length === 0) return null;
-        
-        // البحث عن تذكرة غير مغلقة (الأحدث أولاً)
         const unresolved = [...userTickets]
             .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .find(t => !t.isResolved);
-            
         if (unresolved) return unresolved;
-        
-        // إذا كانت جميعها مغلقة، نعيد الأحدث على الإطلاق
         return [...userTickets].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
     }, [userId, supportTickets, isForceNewTicket]);
     
@@ -216,27 +208,23 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     
     const createSupportTicket = useCallback(async (firstMessage: Message) => {
         if (!userId) return;
-        
         setIsForceNewTicket(false);
-
-        // إذا كان هناك تذكرة نشطة بالفعل، نضيف الرسالة لها فقط
         const activeTicket = mySupportTicket;
         if (activeTicket && !activeTicket.isResolved) {
              await addMessageToTicket(activeTicket.id, firstMessage);
              return;
         }
-        
         const userName = addresses[0]?.name || `مستخدم ${userId.substring(0, 4)}`;
         await createTicketHook(firstMessage, userId, userName);
     }, [userId, mySupportTicket, addresses, createTicketHook, addMessageToTicket]);
 
     const placeOrder = useCallback(async (address: Address, deliveryFee: number, couponCode?: string): Promise<string | null> => {
         if (!userId) {
-            toast({ title: "خلل في الهوية", description: "يرجى إعادة فتح التطبيق لنتعرف على هويتك مجدداً.", variant: "destructive" });
+            toast({ title: "يرجى الانتظار", description: "جارٍ التعرف على هويتك، حاول مجدداً بعد ثوانٍ.", variant: "destructive" });
             return null;
         }
         if (cart.length === 0) {
-            toast({ title: "السلة فارغة", description: "أضف بعض المنتجات أولاً لتتمكن من إرسال طلبك.", variant: "destructive" });
+            toast({ title: "سلة التسوق فارغة", description: "أضف منتجاتك المفضلة أولاً لتتمكن من إرسال الطلب.", variant: "destructive" });
             return null;
         }
         
@@ -260,10 +248,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     }
                 }
 
-                if (couponCode?.trim() && !couponData) throw new Error("كود الخصم الذي أدخلته غير صحيح.");
+                if (couponCode?.trim() && !couponData) throw new Error("USER_ERROR: كود الخصم الذي أدخلته غير صحيح.");
                 if (couponData) {
-                    if (couponData.usedCount >= couponData.maxUses) throw new Error("عذراً، كود الخصم هذا انتهت صلاحيته.");
-                    if (couponData.usedBy?.includes(userId)) throw new Error("لقد استخدمت كود الخصم هذا من قبل.");
+                    if (couponData.usedCount >= couponData.maxUses) throw new Error("USER_ERROR: عذراً، كود الخصم هذا انتهت صلاحيته.");
+                    if (couponData.usedBy?.includes(userId)) throw new Error("USER_ERROR: لقد استخدمت كود الخصم هذا من قبل.");
                 }
 
                 let totalProfit = 0;
@@ -272,22 +260,23 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 for (let i = 0; i < productSnaps.length; i++) {
                     const snap = productSnaps[i];
                     const item = cart[i];
-                    if (!snap.exists()) throw new Error(`المنتج "${item.product.name}" لم يعد متاحاً في المتجر حالياً.`);
+                    if (!snap.exists()) throw new Error(`USER_ERROR: المنتج "${item.product.name}" لم يعد متاحاً حالياً.`);
                     
                     const serverProduct = snap.data() as Product;
                     const itemPrice = item.selectedSize?.price ?? serverProduct.discountPrice ?? serverProduct.price;
-                    totalProfit += (itemPrice - (serverProduct.wholesalePrice || 0)) * item.quantity;
+                    const wholesale = serverProduct.wholesalePrice || 0;
+                    totalProfit += (itemPrice - wholesale) * item.quantity;
 
                     if (item.selectedSize) {
                         const sizeIdx = serverProduct.sizes?.findIndex(s => s.name === item.selectedSize!.name);
-                        if (sizeIdx === undefined || sizeIdx === -1 || serverProduct.sizes![sizeIdx].stock < item.quantity) {
-                            throw new Error(`نعتذر، الكمية المطلوبة من "${item.product.name} - ${item.selectedSize.name}" غير كافية في المتجر.`);
+                        if (sizeIdx === undefined || sizeIdx === -1 || (serverProduct.sizes![sizeIdx].stock < item.quantity)) {
+                            throw new Error(`USER_ERROR: نعتذر، الكمية المطلوبة من "${item.product.name} - ${item.selectedSize.name}" غير كافية.`);
                         }
                         const newSizes = [...serverProduct.sizes!];
                         newSizes[sizeIdx] = { ...newSizes[sizeIdx], stock: newSizes[sizeIdx].stock - item.quantity };
                         updates.push({ ref: productRefs[i], data: { sizes: newSizes } });
                     } else {
-                        if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`نعتذر، الكمية المطلوبة من "${item.product.name}" غير كافية في المتجر.`);
+                        if ((serverProduct.stock ?? 0) < item.quantity) throw new Error(`USER_ERROR: نعتذر، الكمية المطلوبة من "${item.product.name}" غير كافية.`);
                         updates.push({ ref: productRefs[i], data: { stock: (serverProduct.stock || 0) - item.quantity } });
                     }
                 }
@@ -344,9 +333,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             }
             return newOrderId;
         } catch (error: any) {
+            let friendlyMessage = "حدث خطأ بسيط أثناء معالجة طلبك، يرجى المحاولة مرة أخرى.";
+            if (error.message?.includes("USER_ERROR:")) {
+                friendlyMessage = error.message.replace("USER_ERROR: ", "");
+            } else if (error.message?.includes("network")) {
+                friendlyMessage = "يرجى التحقق من اتصال الإنترنت والمحاولة مجدداً.";
+            }
+
             toast({
-              title: "فشل إرسال الطلب",
-              description: error.message || "حدث خطأ غير متوقع أثناء معالجة الطلب، يرجى المحاولة لاحقاً.",
+              title: "لم يكتمل الطلب",
+              description: friendlyMessage,
               variant: "destructive",
             });
             return null;

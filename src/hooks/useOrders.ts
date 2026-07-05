@@ -1,15 +1,14 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, onSnapshot, doc, runTransaction, arrayUnion, deleteDoc, getDoc, writeBatch, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { useState, useEffect, useCallback } from 'react';
+import { collection, onSnapshot, doc, runTransaction, getDoc, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
 import { getWorkerLevel } from '@/lib/workerLevels';
 import { sendTelegramMessage } from '@/lib/telegram';
 import { useTelegramConfigs } from './useTelegramConfigs';
-import { formatCurrency } from '@/lib/utils';
 import { useDeliveryWorkers } from './useDeliveryWorkers';
 
 export const useOrders = () => {
@@ -17,7 +16,6 @@ export const useOrders = () => {
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
     const { telegramConfigs } = useTelegramConfigs();
-    const { deliveryWorkers } = useDeliveryWorkers();
     
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'orders'),
@@ -29,50 +27,43 @@ export const useOrders = () => {
             },
             (error) => {
                 console.error("Error fetching orders:", error);
-                toast({ title: "فشل جلب الطلبات", description: "حدث خطأ أثناء تحميل البيانات.", variant: "destructive" });
                 setIsLoading(false);
             }
         );
         return () => unsub();
-    }, [toast]);
+    }, []);
     
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
             await runTransaction(db, async (transaction) => {
                 const orderRef = doc(db, "orders", orderId);
                 const orderDoc = await transaction.get(orderRef);
-                if (!orderDoc.exists()) throw new Error("لم يتم العثور على الطلب.");
+                if (!orderDoc.exists()) throw new Error("USER_ERROR: عذراً، لم نتمكن من العثور على بيانات هذا الطلب.");
                 
                 const updateData: Partial<Order> = { status };
                 const currentOrder = orderDoc.data() as Order;
 
-                // Scenario: Driver accepts an available order
                 if (status === 'confirmed' && workerId) {
-                    if (currentOrder.deliveryWorkerId) throw new Error("عذرًا، لقد تم قبول هذا الطلب من قبل سائق آخر.");
+                    if (currentOrder.deliveryWorkerId) throw new Error("USER_ERROR: نعتذر، لقد تم استلام هذا الطلب من قبل سائق آخر بالفعل.");
                     const workerDocRef = doc(db, "deliveryWorkers", workerId);
                     const workerDoc = await transaction.get(workerDocRef);
-                    if (!workerDoc.exists()) throw new Error("عذرًا، حساب السائق غير موجود.");
+                    if (!workerDoc.exists()) throw new Error("USER_ERROR: عذراً، لم نتمكن من التحقق من هويتك كعامل توصيل.");
                     const workerData = workerDoc.data() as DeliveryWorker;
                     updateData.deliveryWorkerId = workerId;
                     updateData.deliveryWorker = { id: workerId, name: workerData.name || workerId };
                 }
                 
-                // Scenario: Driver marks order as delivered
                 if (status === 'delivered') {
                     const currentWorkerId = currentOrder.deliveryWorkerId;
                     if (currentWorkerId) {
                         const workerDocRef = doc(db, "deliveryWorkers", currentWorkerId);
                         const workerDoc = await transaction.get(workerDocRef); 
-                        
                         if (workerDoc.exists()) {
                             const worker = workerDoc.data() as DeliveryWorker;
                             const now = new Date();
-                            
                              const myDeliveredOrdersSnapshot = await getDocs(query(collection(db, "orders"), where("deliveryWorkerId", "==", currentWorkerId), where("status", "==", "delivered")));
                              const deliveredCount = myDeliveredOrdersSnapshot.size;
-
                             const { isFrozen } = getWorkerLevel(worker, deliveredCount, now);
-                            
                             let workerUpdate: Partial<DeliveryWorker> = {};
                             if (isFrozen) {
                                 const unfreezeProgress = (worker.unfreezeProgress || 0) + 1;
@@ -84,25 +75,21 @@ export const useOrders = () => {
                         }
                     }
                 }
-                
                 transaction.update(orderRef, updateData);
             });
             
             toast({ title: `تم تحديث حالة الطلب بنجاح` });
 
-            // Fetch the updated order for notifications
             const updatedOrderSnap = await getDoc(doc(db, "orders", orderId));
             if(!updatedOrderSnap.exists()) return;
             const updatedOrder = updatedOrderSnap.data() as Order;
 
-            // Notify owner when restaurant accepts
             if (status === 'preparing') {
                 telegramConfigs.filter(c => c.type === 'owner').forEach(c => {
                     sendTelegramMessage(c.chatId, `✅ تم قبول الطلب \`${orderId.substring(0, 6)}\` من قبل مطعم *${updatedOrder.restaurant?.name}*.\nالطلب الآن متاح للسائقين.`);
                 });
             }
 
-            // Notify restaurant when driver accepts
             if (status === 'confirmed' && updatedOrder.deliveryWorker) {
                  const restaurantTelegramConfig = telegramConfigs.find(c => c.type === 'restaurant' && c.restaurantId === updatedOrder.restaurant?.id);
                  if (restaurantTelegramConfig) {
@@ -110,21 +97,28 @@ export const useOrders = () => {
                  }
             }
 
-
         } catch (error: any) {
-            console.error("Failed to update order status:", error);
-            toast({title: "فشل تحديث الطلب", description: error.message, variant: "destructive"});
+            let friendlyMessage = "عذراً، فشل تحديث حالة الطلب. يرجى المحاولة مرة أخرى.";
+            if (error.message?.includes("USER_ERROR:")) {
+                friendlyMessage = error.message.replace("USER_ERROR: ", "");
+            }
+            toast({title: "لم يتم التحديث", description: friendlyMessage, variant: "destructive"});
             throw error;
         }
     }, [toast, telegramConfigs]);
 
     const deleteOrder = useCallback(async (orderId: string) => {
         try {
-            await deleteDoc(doc(db, "orders", orderId));
+            const orderRef = doc(db, "orders", orderId);
+            await runTransaction(db, async (transaction) => {
+                const snap = await transaction.get(orderRef);
+                if (snap.exists()) {
+                    transaction.delete(orderRef);
+                }
+            });
             toast({ title: "تم حذف الطلب بنجاح" });
         } catch(e) {
-            console.error(e);
-            toast({title: "فشل حذف الطلب", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive"})
+            toast({title: "فشل الحذف", description: "حدث خطأ بسيط، يرجى إعادة المحاولة.", variant: "destructive"})
         }
     }, [toast]);
     
@@ -136,10 +130,9 @@ export const useOrders = () => {
                 batch.update(orderRef, { isPaid: true });
             });
             await batch.commit();
-            toast({ title: "تم تحديث سجل الطلبات بنجاح" });
+            toast({ title: "تمت تسوية حسابات المتجر بنجاح" });
         } catch (e) {
-            console.error("Failed to mark orders as paid:", e);
-            toast({ title: "فشل تحديث السجل", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" });
+            toast({ title: "فشل التسوية", description: "حدث خطأ غير متوقع، حاول مجدداً.", variant: "destructive" });
         }
     }, [toast]);
     
@@ -151,13 +144,11 @@ export const useOrders = () => {
                 batch.update(orderRef, { isFeePaid: true });
             });
             await batch.commit();
-            toast({ title: "تم تحديث سجل أجور التوصيل بنجاح" });
+            toast({ title: "تمت تسوية أجور السائق بنجاح" });
         } catch (e) {
-            console.error("Failed to mark delivery fees as paid:", e);
-            toast({ title: "فشل تحديث السجل", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" });
+            toast({ title: "فشل التسوية", description: "حدث خطأ ما، يرجى المحاولة لاحقاً.", variant: "destructive" });
         }
     }, [toast]);
-
 
     return {
         allOrders,
