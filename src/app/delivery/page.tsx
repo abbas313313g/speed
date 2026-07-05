@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatCurrency, calculateDistance, cn } from '@/lib/utils';
-import { LogOut, CircleDot, Loader2, PackageCheck, AlertTriangle, Shield, Check, X, Map, Inbox, Clock, ChevronLeft } from 'lucide-react';
+import { LogOut, CircleDot, Loader2, AlertTriangle, Shield, Check, Map, Inbox, Clock, ChevronLeft } from 'lucide-react';
 import type { Order, OrderStatus } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useOrders } from '@/hooks/useOrders';
@@ -33,7 +33,7 @@ function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order
         <Card className="w-full animate-in fade-in-50 border-primary/20 shadow-md">
             <CardHeader className="pb-2 text-right">
                  <CardTitle className="text-primary text-lg font-black">طلب جديد متاح!</CardTitle>
-                 <CardDescription className="font-bold text-foreground">من متجر: {order.restaurant?.name}</CardDescription>
+                 <CardDescription className="font-bold text-foreground">من متجر: {order.restaurant?.name || 'غير معروف'}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="flex justify-between items-center p-3 bg-primary/5 rounded-2xl border border-primary/10">
@@ -100,7 +100,7 @@ function ActiveOrderListItem({ order, onClick }: { order: Order, onClick: () => 
                 <Clock className="h-6 w-6" />
             </div>
             <div className="flex-1 min-w-0">
-                <p className="font-black text-foreground truncate">#{order.id.substring(0, 6)} - {order.restaurant?.name}</p>
+                <p className="font-black text-foreground truncate">#{order.id.substring(0, 6)} - {order.restaurant?.name || 'متجر'}</p>
                 <div className="flex items-center gap-2 mt-1">
                     <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", getStatusColor(order.status))}>
                         {getStatusText(order.status)}
@@ -123,15 +123,15 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     const { deliveryWorkers, isLoading: workersLoading, updateWorkerStatus } = useDeliveryWorkers();
 
     useEffect(() => {
-        const id = localStorage.getItem('deliveryWorkerId');
-        if (id) {
-            setWorkerId(id);
+        if (typeof window !== 'undefined') {
+            const id = localStorage.getItem('deliveryWorkerId');
+            if (id) setWorkerId(id);
         }
     }, []);
     
     const worker = useMemo(() => {
-        if (!workerId || !deliveryWorkers) return null;
-        return deliveryWorkers.find(w => w.id === workerId);
+        if (!workerId || !deliveryWorkers || deliveryWorkers.length === 0) return null;
+        return deliveryWorkers.find(w => w.id === workerId) || null;
     }, [workerId, deliveryWorkers]);
 
     const myAssignedOrders = useMemo(() => {
@@ -186,13 +186,21 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     };
     
     const isLoading = ordersLoading || workersLoading || !workerId;
-    if (isLoading) return <div className="flex h-screen w-full flex-col items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary" /><p className="mt-4 font-bold text-muted-foreground animate-pulse">جارِ جلب المهام...</p></div>;
+    
+    if (isLoading) {
+        return (
+            <div className="flex h-screen w-full flex-col items-center justify-center bg-background p-6">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <p className="mt-4 font-black text-muted-foreground animate-pulse text-lg">جارِ جلب مهامك...</p>
+            </div>
+        );
+    }
 
     const workerFirstName = worker?.name ? worker.name.split(' ')[0] : 'كابتن';
 
     return (
-        <div className="flex flex-col bg-background pb-60">
-            <header className="p-4 flex justify-between items-center bg-card border-b shadow-sm sticky top-0 z-20 shrink-0">
+        <div className="flex flex-col min-h-screen bg-background pb-40">
+            <header className="p-4 flex justify-between items-center bg-white border-b shadow-sm sticky top-0 z-50 shrink-0">
                  <div className="text-right">
                     <h1 className="text-xl font-black text-primary leading-none">أهلاً {workerFirstName}</h1>
                     <button className="flex items-center gap-2 mt-1 active:scale-95 transition-all" onClick={handleToggleOnlineStatus}>
@@ -201,7 +209,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                     </button>
                  </div>
                  <div className="flex gap-2">
-                     <Button variant="secondary" size="icon" className="rounded-xl h-10 w-10 shadow-sm" onClick={() => onNavigate(2)}>
+                     <Button variant="secondary" size="icon" className="rounded-xl h-10 w-10 shadow-md border-2 border-primary/20" onClick={() => onNavigate(2)}>
                         <Shield className="h-5 w-5 text-primary"/>
                     </Button>
                     <Button variant="ghost" size="icon" className="rounded-xl h-10 w-10 text-destructive" onClick={handleLogout}>
@@ -212,7 +220,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
 
             <div className="p-4 space-y-6">
                 {!worker?.isOnline ? (
-                    <div className="text-center space-y-6 p-8 animate-in zoom-in duration-300 py-20">
+                    <div className="text-center space-y-6 p-8 animate-in zoom-in duration-300 py-20 bg-white rounded-[2.5rem] shadow-sm border-2 border-dashed border-muted">
                         <div className="p-8 bg-yellow-50 rounded-full w-fit mx-auto border-4 border-white shadow-xl">
                             <AlertTriangle className="h-20 w-20 text-yellow-500"/>
                         </div>
@@ -229,7 +237,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                         {myAssignedOrders.length > 0 && (
                             <div className="space-y-4 animate-in slide-in-from-top duration-500">
                                 <div className="text-right px-2">
-                                    <h2 className="text-xl font-black text-primary">طلبات جديدة مسندة إليك ({myAssignedOrders.length})</h2>
+                                    <h2 className="text-xl font-black text-primary">طلبات جديدة ({myAssignedOrders.length})</h2>
                                     <p className="text-xs font-bold text-muted-foreground">اضغط قبول للبدء</p>
                                 </div>
                                 {myAssignedOrders.map(order => (
@@ -247,7 +255,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                         {myActiveOrders.length > 0 ? (
                             <div className="space-y-4">
                                 <div className="text-right px-2">
-                                    <h2 className="text-xl font-black text-foreground">مهامك النشطة حالياً ({myActiveOrders.length})</h2>
+                                    <h2 className="text-xl font-black text-foreground">مهامك النشطة ({myActiveOrders.length})</h2>
                                     <p className="text-xs font-bold text-muted-foreground">اضغط على الطلب لتحديث حالته</p>
                                 </div>
                                 <div className="space-y-3">
