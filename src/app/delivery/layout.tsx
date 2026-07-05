@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -25,6 +24,10 @@ export default function DeliveryLayout() {
       setActiveTab(3);
   };
 
+  const handleNavigateToStats = () => {
+      setActiveTab(2);
+  };
+
   return (
     <div className="mx-auto flex h-screen max-w-md flex-col bg-card shadow-lg relative overflow-hidden" dir="rtl">
       <main className="flex-1 relative">
@@ -39,7 +42,7 @@ export default function DeliveryLayout() {
           </div>
           <div className="spa-page-view">
              <DeliveryPage 
-                onNavigate={(tab: number) => setActiveTab(tab)} 
+                onNavigate={setActiveTab} 
                 onViewOrder={handleNavigateToOrder}
              />
           </div>
@@ -47,11 +50,13 @@ export default function DeliveryLayout() {
              <DeliveryStatsPage onBack={() => setActiveTab(1)} />
           </div>
           <div className="spa-page-view">
-             {selectedOrderId && (
+             {selectedOrderId ? (
                  <DeliveryOrderDetailPage 
                     orderId={selectedOrderId} 
                     onBack={() => setActiveTab(1)} 
                  />
+             ) : (
+                 <div className="flex h-full items-center justify-center font-bold">لم يتم اختيار طلب</div>
              )}
           </div>
         </div>

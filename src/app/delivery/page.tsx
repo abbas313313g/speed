@@ -188,11 +188,13 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     const isLoading = ordersLoading || workersLoading || !workerId;
     if (isLoading) return <div className="flex h-screen w-full flex-col items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary" /><p className="mt-4 font-bold text-muted-foreground animate-pulse">جارِ جلب المهام...</p></div>;
 
+    const workerFirstName = worker?.name ? worker.name.split(' ')[0] : 'كابتن';
+
     return (
         <div className="flex flex-col bg-background pb-60">
             <header className="p-4 flex justify-between items-center bg-card border-b shadow-sm sticky top-0 z-20 shrink-0">
                  <div className="text-right">
-                    <h1 className="text-xl font-black text-primary leading-none">أهلاً {worker?.name?.split(' ')[0] || 'كابتن'}</h1>
+                    <h1 className="text-xl font-black text-primary leading-none">أهلاً {workerFirstName}</h1>
                     <button className="flex items-center gap-2 mt-1 active:scale-95 transition-all" onClick={handleToggleOnlineStatus}>
                         <div className={`h-2.5 w-2.5 rounded-full ${worker?.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
                         <span className="text-[10px] font-black text-muted-foreground">{worker?.isOnline ? 'أنت متصل الآن' : 'أوفلاين'}</span>

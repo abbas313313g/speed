@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
@@ -32,11 +31,12 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
   useEffect(() => {
     const id = localStorage.getItem('deliveryWorkerId');
     if (!id) {
-      router.replace('/delivery/login');
+      // Don't use router.replace here to avoid SPA stack issues
+      setWorkerId(null);
     } else {
       setWorkerId(id);
     }
-  }, [router]);
+  }, []);
 
   const { stats, worker, level, isFrozen } = useMemo(() => {
     if (!workerId || !deliveryWorkers || !allOrders) {
@@ -53,14 +53,14 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
     const unpaidEarnings = myDeliveredOrders.filter(o => !o.isFeePaid).reduce((acc, order) => acc + (order.deliveryFee || 0), 0);
     const deliveredOrders = myDeliveredOrders.length;
     
-    const {level, isFrozen} = getWorkerLevel(worker, deliveredOrders, new Date());
+    const levelData = getWorkerLevel(worker, deliveredOrders, new Date());
     
-    return { stats: { totalEarnings, deliveredOrders, unpaidEarnings }, worker, level, isFrozen };
+    return { stats: { totalEarnings, deliveredOrders, unpaidEarnings }, worker, level: levelData.level, isFrozen: levelData.isFrozen };
   }, [workerId, deliveryWorkers, allOrders]);
 
   useEffect(() => {
     if(worker) {
-        setName(worker.name);
+        setName(worker.name || '');
     }
   }, [worker]);
 
@@ -74,7 +74,7 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
 
   if (workersLoading || ordersLoading || !workerId) {
       return (
-          <div className="p-6 space-y-6 bg-background">
+          <div className="p-6 space-y-6 bg-background h-screen">
               <div className="flex items-center gap-4">
                   <Skeleton className="h-12 w-12 rounded-2xl" />
                   <div className="space-y-2">
@@ -98,8 +98,8 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
          >
             <ArrowRight className="h-6 w-6"/>
          </button>
-         <div>
-            <h1 className="text-2xl font-black text-primary">المستوى والإحصائيات</h1>
+         <div className="text-right">
+            <h1 className="text-2xl font-black text-primary">حسابي</h1>
             <p className="text-[10px] text-muted-foreground font-bold">أداءك في سبيد شوب</p>
          </div>
       </header>
@@ -107,8 +107,8 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
        {level && LevelIcon && (
         <Card className="rounded-[2.5rem] border-none shadow-xl bg-gradient-to-br from-primary to-primary/80 text-white overflow-hidden relative">
             <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
-            <CardHeader className="pb-0">
-                <div className="flex justify-between items-center">
+            <CardHeader className="pb-0 text-right">
+                <div className="flex justify-between items-center flex-row-reverse">
                     <CardTitle className="text-white/80 text-xs font-black">تصنيفك الحالي</CardTitle>
                     {isFrozen && (
                         <div className="flex items-center gap-1 text-[8px] text-white font-black bg-destructive px-3 py-1 rounded-full animate-pulse shadow-lg">
@@ -129,7 +129,7 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
                  
                  {level.nextLevelThreshold && (
                      <div className="w-full pt-4 space-y-2">
-                        <div className="flex justify-between text-[10px] font-black px-2">
+                        <div className="flex justify-between text-[10px] font-black px-2 flex-row-reverse">
                             <span>{stats.deliveredOrders} / {level.nextLevelThreshold} طلب</span>
                             <span>باقي {level.nextLevelThreshold - stats.deliveredOrders} للترقية</span>
                         </div>
@@ -140,10 +140,10 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
         </Card>
       )}
 
-      <div className="grid gap-3 grid-cols-2">
+      <div className="grid gap-3 grid-cols-2 text-right">
         <Card className="rounded-[1.5rem] border-none shadow-md bg-white">
           <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-[10px] font-bold text-muted-foreground flex items-center gap-2"><Wallet className="h-3 w-3 text-primary"/> المستحق</CardTitle>
+            <CardTitle className="text-[10px] font-bold text-muted-foreground flex items-center gap-2 justify-end"><Wallet className="h-3 w-3 text-primary"/> المستحق</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="text-lg font-black text-primary truncate">{formatCurrency(stats.unpaidEarnings)}</div>
@@ -152,7 +152,7 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
 
         <Card className="rounded-[1.5rem] border-none shadow-md bg-white">
           <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-[10px] font-bold text-muted-foreground flex items-center gap-2"><Landmark className="h-3 w-3 text-green-500"/> المستلم</CardTitle>
+            <CardTitle className="text-[10px] font-bold text-muted-foreground flex items-center gap-2 justify-end"><Landmark className="h-3 w-3 text-green-500"/> المستلم</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="text-lg font-black text-foreground truncate">{formatCurrency(stats.totalEarnings - stats.unpaidEarnings)}</div>
@@ -161,7 +161,7 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
 
         <Card className="col-span-2 rounded-[1.5rem] border-none shadow-md bg-white">
           <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-[10px] font-bold text-muted-foreground flex items-center gap-2"><ShoppingCart className="h-3 w-3 text-orange-500"/> إجمالي التوصيلات المكتملة</CardTitle>
+            <CardTitle className="text-[10px] font-bold text-muted-foreground flex items-center gap-2 justify-end"><ShoppingCart className="h-3 w-3 text-orange-500"/> إجمالي التوصيلات المكتملة</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="text-2xl font-black text-foreground">+{stats.deliveredOrders} <span className="text-xs font-bold text-muted-foreground">عملية ناجحة</span></div>
@@ -169,16 +169,16 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
         </Card>
       </div>
 
-       <Card className="rounded-[2rem] border-none shadow-md bg-card">
+       <Card className="rounded-[2rem] border-none shadow-md bg-card text-right">
           <CardHeader>
-            <CardTitle className="text-lg font-black flex items-center gap-2"><Settings2 className="h-5 w-5 text-primary"/> تعديل الملف الشخصي</CardTitle>
+            <CardTitle className="text-lg font-black flex items-center gap-2 justify-end"><Settings2 className="h-5 w-5 text-primary"/> تعديل الملف الشخصي</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
              <div className="space-y-2">
                 <Label htmlFor="name" className="text-xs font-black pr-1">الاسم بالكامل</Label>
                 <div className="relative">
                     <User className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="pr-10 h-12 rounded-xl font-bold border-2" />
+                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="pr-10 h-12 rounded-xl font-bold border-2 text-right" />
                 </div>
              </div>
              <Button onClick={handleSaveChanges} className="w-full h-14 rounded-xl text-lg font-black shadow-lg shadow-primary/20" disabled={isSaving}>

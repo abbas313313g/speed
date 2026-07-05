@@ -34,7 +34,7 @@
   body {
     @apply bg-background text-foreground;
     overflow-x: hidden;
-    overflow-y: auto !important; /* السماح بالتمرير الطبيعي دائماً */
+    overflow-y: auto !important;
     height: auto;
     min-height: 100vh;
     -webkit-tap-highlight-color: transparent;
@@ -62,17 +62,16 @@ button, a, [role="button"] {
   min-width: 100%;
   max-width: 100%;
   height: 100%;
-  /* الحل النهائي والجذري للتمرير */
   overflow-y: auto !important; 
   overflow-x: hidden;
-  display: block; /* التغيير من flex لضمان تمدد المحتوى */
+  display: block; 
   position: relative;
   -webkit-overflow-scrolling: touch;
 }
 
-/* إظهار شريط التمرير بلون مميز لضمان الرؤية */
+/* إظهار شريط التمرير بلون مميز دائماً */
 ::-webkit-scrollbar {
-  width: 8px !important;
+  width: 10px !important;
   display: block !important;
 }
 
@@ -83,4 +82,5 @@ button, a, [role="button"] {
 ::-webkit-scrollbar-thumb {
   background: hsl(var(--primary)) !important;
   border-radius: 20px;
+  border: 2px solid white;
 }
