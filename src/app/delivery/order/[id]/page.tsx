@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -88,8 +88,8 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
   }
 
   return (
-    <div className="p-4 space-y-6 bg-background pb-60 block min-h-max">
-        <header className="flex items-center gap-4 sticky top-0 bg-background/90 backdrop-blur-md z-30 py-4 border-b shrink-0">
+    <div className="p-4 space-y-6 bg-background pb-40">
+        <header className="flex items-center gap-4 sticky top-0 bg-background/90 backdrop-blur-md z-30 py-4 border-b">
             <button onClick={onBack} className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all shadow-sm">
                 <ArrowRight className="h-6 w-6"/>
             </button>
@@ -174,7 +174,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
             </Card>
             
             {nextStatus[order.status] && (
-                <div className="flex flex-col gap-3 pb-20">
+                <div className="flex flex-col gap-3">
                     <Button size="lg" className="w-full h-16 rounded-2xl text-lg font-black shadow-xl" onClick={handleUpdateStatus}>
                         تحديث الحالة: "{getStatusText(nextStatus[order.status]!)}"
                     </Button>
@@ -202,12 +202,12 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
             )}
 
             {order.status === 'delivered' && (
-                <div className="text-center font-black text-green-600 p-10 bg-green-50 rounded-2xl border-2 border-green-100 animate-in zoom-in mb-20">
+                <div className="text-center font-black text-green-600 p-10 bg-green-50 rounded-2xl border-2 border-green-100 animate-in zoom-in">
                     تم توصيل الطلب بنجاح! 🎉
                 </div>
             )}
             {order.status === 'cancelled' && (
-                <div className="text-center font-black text-red-600 p-10 bg-red-50 rounded-2xl border-2 border-red-100 mb-20">
+                <div className="text-center font-black text-red-600 p-10 bg-red-50 rounded-2xl border-2 border-red-100">
                     الطلب ملغي.
                 </div>
             )}

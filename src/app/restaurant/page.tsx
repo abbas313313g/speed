@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import type { Order } from '@/lib/types';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 interface RestaurantDashboardPageProps {
@@ -41,13 +41,11 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
         }
 
         try {
-            // طلب الإذن بطريقة تضمن عملها على كافة المتصفحات
             const permission = await Notification.requestPermission();
             setNotifPermission(permission);
             
             if (permission === 'granted') {
                 toast({ title: "تم تفعيل الإشعارات بنجاح" });
-                // محاولة تفعيل الصوت عبر تفاعل المستخدم
                 if (audioRef.current) {
                     const playPromise = audioRef.current.play();
                     if (playPromise !== undefined) {
@@ -61,8 +59,6 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
             }
         } catch (error) {
             console.error("Error requesting notification permission:", error);
-            // Fallback للمتصفحات القديمة
-            Notification.requestPermission((p) => setNotifPermission(p));
         }
     };
 
@@ -181,13 +177,13 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                 </div>
             </header>
 
-            <main className="flex-1 overflow-hidden p-4 md:p-6 z-10">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
-                    <div className="flex flex-col gap-4 overflow-hidden h-full">
+            <main className="flex-1 overflow-y-auto p-4 md:p-6 z-10 pb-40">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="flex flex-col gap-4">
                         <div className="flex items-center justify-between px-2 text-right">
                              <h2 className="text-lg font-black flex items-center gap-2"><PackageOpen className="text-blue-500"/> طلبات جديدة ({myNewOrders.length})</h2>
                         </div>
-                        <ScrollArea className="flex-1 rounded-[2rem] border-2 border-blue-100 p-4 bg-blue-50/30">
+                        <div className="rounded-[2rem] border-2 border-blue-100 p-4 bg-blue-50/30 min-h-[200px]">
                             {myNewOrders.length > 0 ? myNewOrders.map(order => (
                                 <Card key={order.id} className="mb-4 rounded-2xl shadow-sm border-none overflow-hidden hover:shadow-md transition-shadow text-right">
                                     <div className="bg-blue-500 p-2 text-white text-[10px] font-bold text-center">طلب جديد # {order.id.substring(0,6)}</div>
@@ -213,17 +209,17 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                                     </CardFooter>
                                 </Card>
                             )) : (
-                                <div className="h-full flex flex-col items-center justify-center text-muted-foreground/40 py-20">
-                                    <PackageOpen className="h-16 w-16 mb-2"/>
+                                <div className="h-full flex flex-col items-center justify-center text-muted-foreground/40 py-10">
+                                    <PackageOpen className="h-12 w-12 mb-2"/>
                                     <p className="font-bold text-sm">لا توجد طلبات جديدة</p>
                                 </div>
                             )}
-                        </ScrollArea>
+                        </div>
                     </div>
 
-                    <div className="flex flex-col gap-4 overflow-hidden h-full">
+                    <div className="flex flex-col gap-4">
                         <div className="px-2 text-right"><h2 className="text-lg font-black flex items-center gap-2 justify-end"><Clock className="text-orange-500"/> قيد التحضير ({myPreparingOrders.length})</h2></div>
-                        <ScrollArea className="flex-1 rounded-[2rem] border-2 border-orange-100 p-4 bg-orange-50/30">
+                        <div className="rounded-[2rem] border-2 border-orange-100 p-4 bg-orange-50/30 min-h-[200px]">
                              {myPreparingOrders.length > 0 ? myPreparingOrders.map(order => (
                                 <Card key={order.id} className="mb-4 rounded-2xl shadow-sm border-none hover:shadow-md transition-shadow text-right">
                                     <CardHeader className="p-4">
@@ -256,17 +252,17 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                                     </CardFooter>
                                 </Card>
                              )) : (
-                                <div className="h-full flex flex-col items-center justify-center text-muted-foreground/40 py-20">
-                                    <Clock className="h-16 w-16 mb-2"/>
+                                <div className="h-full flex flex-col items-center justify-center text-muted-foreground/40 py-10">
+                                    <Clock className="h-12 w-12 mb-2"/>
                                     <p className="font-bold text-sm">لا توجد طلبات قيد التحضير</p>
                                 </div>
                              )}
-                        </ScrollArea>
+                        </div>
                     </div>
 
-                    <div className="flex flex-col gap-4 overflow-hidden h-full">
+                    <div className="flex flex-col gap-4">
                         <div className="px-2 text-right"><h2 className="text-lg font-black flex items-center gap-2 justify-end"><CheckCircle2 className="text-green-500"/> جاهز للاستلام ({myReadyOrders.length})</h2></div>
-                        <ScrollArea className="flex-1 rounded-[2rem] border-2 border-green-100 p-4 bg-green-50/30">
+                        <div className="rounded-[2rem] border-2 border-green-100 p-4 bg-green-50/30 min-h-[200px]">
                              {myReadyOrders.length > 0 ? myReadyOrders.map(order => (
                                 <Card key={order.id} className="mb-4 rounded-2xl shadow-sm border-none bg-green-500 text-white text-right">
                                     <CardHeader className="p-4">
@@ -285,12 +281,12 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                                     </CardContent>
                                 </Card>
                              )) : (
-                                <div className="h-full flex flex-col items-center justify-center text-muted-foreground/40 py-20">
-                                    <CheckCircle2 className="h-16 w-16 mb-2"/>
+                                <div className="h-full flex flex-col items-center justify-center text-muted-foreground/40 py-10">
+                                    <CheckCircle2 className="h-12 w-12 mb-2"/>
                                     <p className="font-bold text-sm">لا توجد طلبات جاهزة</p>
                                 </div>
                              )}
-                        </ScrollArea>
+                        </div>
                     </div>
                 </div>
             </main>
@@ -313,7 +309,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                         
                         <div className="space-y-1">
                             <p className="text-sm font-black text-muted-foreground pr-2">المنتجات المطلوبة:</p>
-                            <ScrollArea className="max-h-[35vh] rounded-2xl border-2 border-muted bg-muted/20 p-2">
+                            <div className="max-h-[35vh] overflow-y-auto rounded-2xl border-2 border-muted bg-muted/20 p-2">
                                 <ul className="space-y-3">
                                     {newOrderAlert?.items.map((item, idx) => {
                                         const unitPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
@@ -332,7 +328,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                                         )
                                     })}
                                 </ul>
-                            </ScrollArea>
+                            </div>
                         </div>
 
                         <div className="pt-2 flex justify-between items-center px-2 flex-row-reverse">

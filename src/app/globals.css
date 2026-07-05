@@ -33,7 +33,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* التعديل الجوهري: السماح بالتمرير الطبيعي ومنع التجمد */
+    /* السماح بالتمرير الطبيعي ومنع التجمد */
     overflow-x: hidden;
     overflow-y: auto;
     height: auto;
@@ -63,7 +63,7 @@ button, a, [role="button"] {
   min-width: 100%;
   max-width: 100%;
   height: 100%;
-  /* الحل القطعي للتمرير العمودي داخل صفحات المكدس */
+  /* الحل النهائي للتمرير العمودي داخل صفحات المكدس */
   overflow-y: auto !important; 
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -78,7 +78,7 @@ button, a, [role="button"] {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0,0,0,0.02);
+  background: rgba(0,0,0,0.05);
 }
 
 ::-webkit-scrollbar-thumb {
