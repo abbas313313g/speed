@@ -5,12 +5,13 @@ import { useContext, useMemo, useState, useEffect, useRef } from 'react';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, BellRing, Volume2, VolumeX, PackageOpen, Clock, CheckCircle2, Bike } from 'lucide-react';
+import { LogOut, Loader2, BellRing, Volume2, VolumeX, PackageOpen, Clock, CheckCircle2, Bike, ReceiptText } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import type { Order } from '@/lib/types';
+import { formatCurrency } from '@/lib/utils';
 
 interface RestaurantDashboardPageProps {
     onNavigate: (tab: number) => void;
@@ -22,13 +23,18 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
     
     const [newOrderAlert, setNewOrderAlert] = useState<Order | null>(null);
     const [isMuted, setIsMuted] = useState(false);
+    const [handledOrderIds, setHandledOrderIds] = useState<Set<string>>(new Set());
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
-    // تصفية الطلبات حسب المطعم والحالة
+    // تصفية الطلبات حسب المطعم والحالة مع تجاهل الطلبات التي تم التعامل معها محلياً لمنع التكرار
     const myNewOrders = useMemo(() => {
         if (!context?.restaurant || !allOrders) return [];
-        return allOrders.filter(order => order.restaurant?.id === context.restaurant?.id && order.status === 'unassigned');
-    }, [context?.restaurant, allOrders]);
+        return allOrders.filter(order => 
+            order.restaurant?.id === context.restaurant?.id && 
+            order.status === 'unassigned' &&
+            !handledOrderIds.has(order.id)
+        );
+    }, [context?.restaurant, allOrders, handledOrderIds]);
     
     const myPreparingOrders = useMemo(() => {
         if (!context?.restaurant || !allOrders) return [];
@@ -62,9 +68,18 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
     };
 
     const handleAcceptOrder = async (orderId: string) => {
+        setHandledOrderIds(prev => new Set(prev).add(orderId));
         stopAlert();
         if (context) {
             await context.updateRestaurantOrderStatus(orderId, 'preparing');
+        }
+    };
+
+    const handleRejectOrder = async (orderId: string) => {
+        setHandledOrderIds(prev => new Set(prev).add(orderId));
+        stopAlert();
+        if (context) {
+            await context.updateRestaurantOrderStatus(orderId, 'cancelled');
         }
     };
 
@@ -126,7 +141,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                                         </ul>
                                     </CardContent>
                                     <CardFooter className="p-4 grid grid-cols-2 gap-2 bg-muted/20">
-                                         <Button variant="ghost" className="text-destructive font-bold" onClick={() => updateRestaurantOrderStatus(order.id, 'cancelled')} disabled={isProcessing}>رفض</Button>
+                                         <Button variant="ghost" className="text-destructive font-bold" onClick={() => handleRejectOrder(order.id)} disabled={isProcessing}>رفض</Button>
                                          <Button className="bg-green-600 hover:bg-green-700 font-black rounded-xl" onClick={() => handleAcceptOrder(order.id)} disabled={isProcessing}>قبول وتحضير</Button>
                                     </CardFooter>
                                 </Card>
@@ -215,7 +230,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                 </div>
             </main>
 
-            {/* نافذة التنبيه بالطلب الجديد */}
+            {/* نافذة التنبيه بالطلب الجديد - تفاصيل كاملة */}
             <Dialog open={!!newOrderAlert} onOpenChange={() => {}}>
                 <DialogContent className="sm:max-w-md bg-white rounded-t-[3rem] border-none shadow-2xl p-0 overflow-hidden">
                     <div className="bg-primary p-6 text-white text-center space-y-2">
@@ -226,35 +241,60 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                     
                     <div className="p-6 space-y-4">
                         <div className="flex justify-between items-center text-xl font-black text-primary border-b-2 border-dashed pb-4">
-                            <span>رقم الطلب:</span>
+                            <span className="flex items-center gap-2"><ReceiptText className="h-5 w-5"/> رقم الطلب:</span>
                             <span dir="ltr">#{newOrderAlert?.id.substring(0, 6)}</span>
                         </div>
                         
-                        <ScrollArea className="max-h-[30vh]">
-                            <ul className="space-y-3">
-                                {newOrderAlert?.items.map((item, idx) => (
-                                    <li key={idx} className="flex justify-between items-center p-3 bg-muted/40 rounded-2xl">
-                                        <span className="font-black text-lg">{item.quantity}x {item.product.name}</span>
-                                        {item.selectedSize && <Badge className="rounded-lg">{item.selectedSize.name}</Badge>}
-                                    </li>
-                                ))}
-                            </ul>
-                        </ScrollArea>
+                        <div className="space-y-1">
+                            <p className="text-sm font-black text-muted-foreground pr-2">المنتجات المطلوبة:</p>
+                            <ScrollArea className="max-h-[35vh] rounded-2xl border-2 border-muted bg-muted/20 p-2">
+                                <ul className="space-y-3">
+                                    {newOrderAlert?.items.map((item, idx) => {
+                                        const unitPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
+                                        const subtotal = unitPrice * item.quantity;
+                                        return (
+                                            <li key={idx} className="flex justify-between items-center p-3 bg-white rounded-xl shadow-sm">
+                                                <div className="flex flex-col">
+                                                    <span className="font-black text-base">{item.quantity}x {item.product.name}</span>
+                                                    {item.selectedSize && <Badge variant="secondary" className="w-fit text-[9px] mt-1">{item.selectedSize.name}</Badge>}
+                                                </div>
+                                                <div className="text-left">
+                                                    <p className="font-black text-primary text-sm">{formatCurrency(subtotal)}</p>
+                                                    <p className="text-[9px] text-muted-foreground">({formatCurrency(unitPrice)} للواحد)</p>
+                                                </div>
+                                            </li>
+                                        )
+                                    })}
+                                </ul>
+                            </ScrollArea>
+                        </div>
+
+                        <div className="pt-2 flex justify-between items-center px-2">
+                            <span className="text-lg font-black">المجموع الصافي للمطعم:</span>
+                            <span className="text-2xl font-black text-primary">{formatCurrency(
+                                newOrderAlert?.items.reduce((acc, item) => {
+                                    const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
+                                    return acc + (price * item.quantity);
+                                }, 0) || 0
+                            )}</span>
+                        </div>
                     </div>
 
                     <DialogFooter className="p-6 pt-0 flex-col gap-3">
                         <Button 
-                            className="w-full py-8 text-2xl font-black bg-primary rounded-[1.5rem] shadow-xl shadow-primary/20"
+                            className="w-full py-8 text-2xl font-black bg-primary rounded-[1.5rem] shadow-xl shadow-primary/20 active:scale-95 transition-all"
                             onClick={() => handleAcceptOrder(newOrderAlert!.id)}
+                            disabled={isProcessing}
                         >
-                            قبول الطلب وإيقاف التنبيه
+                            {isProcessing ? <Loader2 className="animate-spin h-6 w-6 ml-2"/> : "استلام وتحضير الطلب"}
                         </Button>
                         <Button 
                             variant="ghost" 
-                            className="w-full text-destructive font-bold"
-                            onClick={() => updateRestaurantOrderStatus(newOrderAlert!.id, 'cancelled')}
+                            className="w-full text-destructive font-bold h-12"
+                            onClick={() => handleRejectOrder(newOrderAlert!.id)}
+                            disabled={isProcessing}
                         >
-                            رفض الطلب
+                            رفض واستبعاد
                         </Button>
                     </DialogFooter>
                 </DialogContent>
