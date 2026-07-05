@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 
 interface RestaurantContextType {
     restaurant: Restaurant | null;
-    login: (id: string, code: string) => Promise<boolean>;
+    login: (restaurantNumber: string, code: string) => Promise<boolean>;
     logout: () => void;
     updateRestaurantOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
     isProcessing: boolean;
@@ -29,10 +29,10 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
 
      useEffect(() => {
         if (restaurantsLoading) {
-            return; // Wait until restaurants are loaded
+            return;
         }
         
-        setIsInitialCheckDone(true); // Mark check as done once restaurants are loaded, even if empty
+        setIsInitialCheckDone(true);
 
         const storedId = sessionStorage.getItem('restaurantId');
         const isLoginPage = window.location.pathname.includes('/login');
@@ -45,24 +45,24 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
                     router.replace('/restaurant');
                 }
             } else {
-                // Stored ID is invalid, clear it and redirect
                 sessionStorage.removeItem('restaurantId');
                 if (!isLoginPage) {
                     router.replace('/restaurant/login');
                 }
             }
         } else {
-            // No stored ID, redirect to login if not already there
             if (!isLoginPage) {
                 router.replace('/restaurant/login');
             }
         }
     }, [restaurants, restaurantsLoading, router]);
 
-    const login = useCallback(async (id: string, code: string): Promise<boolean> => {
-        const selectedRestaurant = restaurants.find(r => r.id === id);
+    const login = useCallback(async (restaurantNumber: string, code: string): Promise<boolean> => {
+        // البحث عن المطعم بواسطة "رقم المطعم" المخصص
+        const selectedRestaurant = restaurants.find(r => r.restaurantNumber === restaurantNumber);
+        
         if (selectedRestaurant && selectedRestaurant.loginCode === code) {
-            sessionStorage.setItem('restaurantId', id);
+            sessionStorage.setItem('restaurantId', selectedRestaurant.id);
             setRestaurant(selectedRestaurant);
             return true;
         }
@@ -80,7 +80,7 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
         try {
             await updateOrderStatus(orderId, status);
         } catch (error) {
-            // The hook already shows a toast on failure.
+            // Error is handled in the hook
         } finally {
             setIsProcessing(false);
         }

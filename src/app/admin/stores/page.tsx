@@ -32,13 +32,14 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Star, Edit, Trash2, Loader2, MapPin, Upload } from 'lucide-react';
+import { Star, Edit, Trash2, Loader2, MapPin, Upload, KeyRound } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
 import { useRestaurants } from '@/hooks/useRestaurants';
 
 const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
+    restaurantNumber: '',
     name: '',
     image: '',
     rating: 0,
@@ -83,8 +84,8 @@ export default function AdminStoresPage() {
   };
 
   const handleSave = async () => {
-    if (!currentStore.name || !currentStore.image || !currentStore.loginCode) {
-        toast({ title: "بيانات غير مكتملة", description: "اسم المتجر، صورته، ورمز الدخول مطلوبون.", variant: "destructive" });
+    if (!currentStore.name || !currentStore.image || !currentStore.loginCode || !currentStore.restaurantNumber) {
+        toast({ title: "بيانات غير مكتملة", description: "اسم المتجر، رقم الدخول، صورته، ورمز الدخول مطلوبون.", variant: "destructive" });
         return;
     }
 
@@ -143,6 +144,10 @@ export default function AdminStoresPage() {
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="restaurantNumber" className="text-right">رقم المتجر (للدخول)</Label>
+                        <Input id="restaurantNumber" value={currentStore.restaurantNumber || ''} onChange={(e) => setCurrentStore({...currentStore, restaurantNumber: e.target.value})} className="col-span-3" placeholder="مثال: 101" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="name" className="text-right">اسم المتجر</Label>
                         <Input id="name" value={currentStore.name || ''} onChange={(e) => setCurrentStore({...currentStore, name: e.target.value})} className="col-span-3" />
                     </div>
@@ -151,7 +156,7 @@ export default function AdminStoresPage() {
                         <Input id="rating" type="text" inputMode="decimal" step="0.1" value={currentStore.rating || ''} onChange={(e) => setCurrentStore({...currentStore, rating: parseFloat(e.target.value.replace(/[^0-9.]/g, '')) || 0})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="loginCode" className="text-right">رمز الدخول</Label>
+                        <Label htmlFor="loginCode" className="text-right">رمز الدخول (السري)</Label>
                         <Input id="loginCode" value={currentStore.loginCode || ''} onChange={(e) => setCurrentStore({...currentStore, loginCode: e.target.value})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
@@ -201,9 +206,9 @@ export default function AdminStoresPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>صورة</TableHead>
+                <TableHead>رقم المتجر</TableHead>
                 <TableHead>اسم المتجر</TableHead>
                 <TableHead>التقييم</TableHead>
-                <TableHead>أوقات العمل</TableHead>
                 <TableHead>إجراءات</TableHead>
               </TableRow>
             </TableHeader>
@@ -215,15 +220,13 @@ export default function AdminStoresPage() {
                     <TableCell>
                         <Image src={imageUrl} alt={store.name} width={40} height={40} className="rounded-md object-cover" unoptimized={true} />
                     </TableCell>
+                    <TableCell className="font-bold text-primary">{store.restaurantNumber}</TableCell>
                     <TableCell className="font-medium">{store.name}</TableCell>
                     <TableCell>
                         <div className="flex items-center gap-1">
                             <Star className="h-5 w-5 fill-amber-500 text-amber-500" />
                             {store.rating.toFixed(1)}
                         </div>
-                    </TableCell>
-                    <TableCell>
-                        {store.openTime && store.closeTime ? `${store.openTime} - ${store.closeTime}` : 'غير محدد'}
                     </TableCell>
                     <TableCell>
                         <div className="flex items-center gap-2">
@@ -262,5 +265,3 @@ export default function AdminStoresPage() {
     </div>
   );
 }
-
-    

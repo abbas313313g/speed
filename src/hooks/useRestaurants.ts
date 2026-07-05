@@ -10,7 +10,7 @@ import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
 function isStoreOpen(openTimeStr?: string, closeTimeStr?: string): boolean {
-    if (!openTimeStr || !closeTimeStr) return true; // Default to open if times are not set
+    if (!openTimeStr || !closeTimeStr) return true; 
     
     const now = new Date();
     const currentTime = now.getHours() * 60 + now.getMinutes();
@@ -21,9 +21,7 @@ function isStoreOpen(openTimeStr?: string, closeTimeStr?: string): boolean {
     const [closeHours, closeMinutes] = closeTimeStr.split(':').map(Number);
     let closeTime = closeHours * 60 + closeMinutes;
     
-    // Handle overnight closing times (e.g., 22:00 to 02:00)
     if (closeTime < openTime) {
-       // If current time is after open time OR before close time (on the next day)
        return currentTime >= openTime || currentTime < closeTime;
     }
 

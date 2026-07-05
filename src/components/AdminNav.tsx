@@ -57,7 +57,7 @@ export function AdminNav({ isSheet = false, onTabChange, activeTab }: { isSheet?
   }, [supportTickets]);
 
   const navContent = (
-    <nav className={cn("flex flex-col items-center gap-4 px-2 sm:py-5", isSheet && "items-stretch text-lg font-medium px-4")}>
+    <nav className={cn("flex flex-col items-center gap-4 px-2 py-5", isSheet && "items-stretch text-lg font-medium px-4")}>
       <div className="group flex h-12 w-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-primary text-primary-foreground mb-4">
         <Shield className="h-6 w-6" />
       </div>
@@ -108,8 +108,8 @@ export function AdminNav({ isSheet = false, onTabChange, activeTab }: { isSheet?
 
   return (
     <TooltipProvider>
-      <ScrollArea className="h-full w-full">
-        <div className="flex flex-col min-h-full items-center">
+      <ScrollArea className="h-screen w-full">
+        <div className="flex flex-col items-center pb-20">
           {navContent}
         </div>
       </ScrollArea>

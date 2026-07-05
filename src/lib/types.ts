@@ -48,6 +48,7 @@ export interface Category {
 
 export interface Restaurant {
   id: string;
+  restaurantNumber: string; // الرقم التعريفي للدخول
   name: string;
   image: string;
   rating: number;
