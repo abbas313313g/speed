@@ -41,18 +41,24 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
         }
 
         try {
-            const permissionResult = await Notification.requestPermission();
-            setNotifPermission(permissionResult);
-            if (permissionResult === 'granted') {
+            // استخدام الطريقة الحديثة والقديمة لضمان الدعم الكامل
+            const permission = await Notification.requestPermission();
+            setNotifPermission(permission);
+            
+            if (permission === 'granted') {
                 toast({ title: "تم تفعيل الإشعارات بنجاح" });
+                // تجربة تشغيل صوت صامت لتفعيل الصوت في المتصفح
+                if (audioRef.current) {
+                    audioRef.current.play().catch(() => {});
+                    audioRef.current.pause();
+                }
             } else {
-                toast({ title: "تم رفض التنبيهات", description: "لن تصلك إشعارات خارجية.", variant: "destructive" });
+                toast({ title: "تم رفض التنبيهات", variant: "destructive" });
             }
         } catch (error) {
-            // Fallback for older browsers / Safari
-            Notification.requestPermission((permission) => {
-                setNotifPermission(permission);
-            });
+            console.error("Error requesting notification permission:", error);
+            // Fallback
+            Notification.requestPermission((p) => setNotifPermission(p));
         }
     };
 
@@ -102,7 +108,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                 try {
                     new Notification("سبيد شوب: طلب جديد!", {
                         body: `وصلك طلب جديد بقيمة ${formatCurrency(latestOrder.total)}`,
-                        icon: '/favicon.ico'
+                        icon: 'https://placehold.co/100x100.png'
                     });
                 } catch (e) {
                     console.error("Notification creation failed", e);
@@ -155,7 +161,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                      <Button 
                         variant="outline" 
                         className={cn(
-                            "font-black border-2 rounded-xl transition-all shadow-sm",
+                            "font-black border-2 rounded-xl transition-all shadow-sm h-12",
                             notifPermission === 'granted' ? "border-green-500 text-green-600 bg-green-50" : "border-blue-500 text-blue-600 bg-blue-50"
                         )} 
                         onClick={requestNotifPermission}
@@ -163,11 +169,11 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                         <ShieldCheck className="ml-2 h-4 w-4"/> 
                         {notifPermission === 'granted' ? "التنبيهات مفعلة" : "تفعيل التنبيهات الخارجية"}
                      </Button>
-                     <Button variant="outline" size="icon" onClick={() => setIsMuted(!isMuted)}>
+                     <Button variant="outline" size="icon" onClick={() => setIsMuted(!isMuted)} className="h-12 w-12">
                         {isMuted ? <VolumeX className="h-5 w-5 text-destructive"/> : <Volume2 className="h-5 w-5 text-primary"/>}
                      </Button>
-                     <Button variant="outline" className="font-bold border-2 rounded-xl" onClick={() => onNavigate(2)}>سجل الطلبات</Button>
-                     <Button variant="ghost" size="icon" onClick={logout} className="text-destructive"><LogOut className="h-5 w-5"/></Button>
+                     <Button variant="outline" className="font-bold border-2 rounded-xl h-12" onClick={() => onNavigate(2)}>سجل الطلبات</Button>
+                     <Button variant="ghost" size="icon" onClick={logout} className="text-destructive h-12 w-12"><LogOut className="h-5 w-5"/></Button>
                 </div>
             </header>
 
@@ -338,7 +344,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
 
                     <DialogFooter className="p-6 pt-0 flex-col gap-3">
                         <Button 
-                            className="w-full py-8 text-2xl font-black bg-primary rounded-[1.5rem] shadow-xl shadow-primary/20 active:scale-95 transition-all"
+                            className="w-full py-8 text-2xl font-black bg-primary rounded-[1.5rem] shadow-xl shadow-primary/20 active:scale-95 transition-all h-20"
                             onClick={() => handleAcceptOrder(newOrderAlert!.id)}
                             disabled={isProcessing}
                         >
