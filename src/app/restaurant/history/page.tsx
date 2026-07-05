@@ -2,7 +2,6 @@
 "use client";
 
 import { useContext, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
@@ -11,23 +10,15 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { formatCurrency } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
+interface RestaurantHistoryPageProps {
+    onBack: () => void;
+}
 
-export default function RestaurantHistoryPage() {
-    const router = useRouter();
+export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageProps) {
     const context = useContext(RestaurantContext);
 
-    if (!context) {
-        return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
-    }
-
-    const { restaurant, logout, isProcessing } = context;
+    const { restaurant, logout, isProcessing } = context || {};
     const { allOrders, isLoading: ordersLoading } = useOrders();
-
-    useEffect(() => {
-        if (!isProcessing && !restaurant) {
-            router.replace('/restaurant/login');
-        }
-    }, [restaurant, isProcessing, router]);
 
     const { myPaidOrders, totalIncome } = useMemo(() => {
         if (!restaurant || !allOrders) return { myPaidOrders: [], totalIncome: 0 };
@@ -50,7 +41,7 @@ export default function RestaurantHistoryPage() {
         return { myPaidOrders: filtered, totalIncome: income };
     }, [restaurant, allOrders]);
 
-    if (!restaurant) {
+    if (!context || !restaurant) {
         return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
     }
     
@@ -59,10 +50,10 @@ export default function RestaurantHistoryPage() {
     }
 
     return (
-        <div className="p-4 md:p-8 space-y-6">
+        <div className="p-4 md:p-8 space-y-6 bg-background h-full overflow-y-auto">
              <header className="flex justify-between items-center">
                 <div className="flex items-center gap-4">
-                    <Button variant="outline" size="icon" onClick={() => router.back()}><ArrowRight className="h-5 w-5"/></Button>
+                    <Button variant="outline" size="icon" onClick={onBack}><ArrowRight className="h-5 w-5"/></Button>
                     <div>
                         <h1 className="text-3xl font-bold">سجل الطلبات</h1>
                         <p className="text-muted-foreground">عرض الطلبات المكتملة والدخل المستحق</p>
@@ -71,17 +62,17 @@ export default function RestaurantHistoryPage() {
                 <Button variant="ghost" size="icon" onClick={logout}><LogOut className="h-5 w-5"/></Button>
             </header>
 
-            <Card>
+            <Card className="rounded-[2rem] border-none shadow-md">
                 <CardHeader>
                     <CardTitle>إجمالي الدخل المستحق</CardTitle>
                     <CardDescription>هذا هو مجموع المبالغ المستحقة لكم من الطلبات المكتملة التي لم تتم تسويتها بعد.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-4xl font-bold text-primary">{formatCurrency(totalIncome)}</p>
+                    <p className="text-4xl font-black text-primary">{formatCurrency(totalIncome)}</p>
                 </CardContent>
             </Card>
 
-            <Card>
+            <Card className="rounded-[2rem] border-none shadow-md overflow-hidden">
                 <CardHeader>
                     <CardTitle>الطلبات المكتملة</CardTitle>
                 </CardHeader>
@@ -97,14 +88,14 @@ export default function RestaurantHistoryPage() {
                         <TableBody>
                             {myPaidOrders.map(order => (
                                 <TableRow key={order.id}>
-                                    <TableCell>#{order.id.substring(0,6)}</TableCell>
-                                    <TableCell>{new Date(order.date).toLocaleDateString('ar-IQ')}</TableCell>
-                                    <TableCell>{formatCurrency(order.total)}</TableCell>
+                                    <TableCell className="font-bold">#{order.id.substring(0,6)}</TableCell>
+                                    <TableCell className="text-xs">{new Date(order.date).toLocaleDateString('ar-IQ')}</TableCell>
+                                    <TableCell className="font-black text-primary">{formatCurrency(order.total)}</TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                     </Table>
-                    {myPaidOrders.length === 0 && <p className="text-center text-muted-foreground py-8">لا توجد طلبات في السجل حاليًا.</p>}
+                    {myPaidOrders.length === 0 && <p className="text-center text-muted-foreground py-8 font-bold italic">لا توجد طلبات في السجل حاليًا.</p>}
                 </CardContent>
             </Card>
         </div>

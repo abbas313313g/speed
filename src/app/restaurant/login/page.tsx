@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, FormEvent, useContext } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -10,13 +9,15 @@ import { KeyRound, Loader2, Store, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 
+interface RestaurantLoginPageProps {
+  onLogin: () => void;
+}
 
-export default function RestaurantLoginPage() {
+export default function RestaurantLoginPage({ onLogin }: RestaurantLoginPageProps) {
     const [restaurantNumber, setRestaurantNumber] = useState('');
     const [loginCode, setLoginCode] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     
-    const router = useRouter();
     const { toast } = useToast();
     const context = useContext(RestaurantContext);
 
@@ -34,7 +35,7 @@ export default function RestaurantLoginPage() {
         
         if (success) {
             toast({ title: "تم تسجيل الدخول بنجاح" });
-            router.push('/restaurant');
+            onLogin(); // هذا الزر الذي ينقلنا برمجياً داخل المكدس
         } else {
             toast({ title: "البيانات غير صحيحة", description: "تأكد من رقم المتجر والرمز السري الخاص بك.", variant: "destructive" });
         }

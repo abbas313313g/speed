@@ -3,10 +3,8 @@
 
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import type { Restaurant, OrderStatus } from '@/lib/types';
-import { useToast } from '@/hooks/use-toast';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useOrders } from '@/hooks/useOrders';
-import { useRouter } from 'next/navigation';
 
 interface RestaurantContextType {
     restaurant: Restaurant | null;
@@ -19,8 +17,6 @@ interface RestaurantContextType {
 export const RestaurantContext = createContext<RestaurantContextType | null>(null);
 
 export const RestaurantProvider = ({ children }: { children: React.ReactNode }) => {
-    const { toast } = useToast();
-    const router = useRouter();
     const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
     const { updateOrderStatus, isLoading: ordersLoading } = useOrders();
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -28,37 +24,22 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
     const [isInitialCheckDone, setIsInitialCheckDone] = useState(false);
 
      useEffect(() => {
-        if (restaurantsLoading) {
-            return;
-        }
+        if (restaurantsLoading) return;
         
         setIsInitialCheckDone(true);
-
         const storedId = sessionStorage.getItem('restaurantId');
-        const isLoginPage = window.location.pathname.includes('/login');
 
         if (storedId) {
             const found = restaurants.find(r => r.id === storedId);
             if (found) {
                 setRestaurant(found);
-                 if (isLoginPage) {
-                    router.replace('/restaurant');
-                }
             } else {
                 sessionStorage.removeItem('restaurantId');
-                if (!isLoginPage) {
-                    router.replace('/restaurant/login');
-                }
-            }
-        } else {
-            if (!isLoginPage) {
-                router.replace('/restaurant/login');
             }
         }
-    }, [restaurants, restaurantsLoading, router]);
+    }, [restaurants, restaurantsLoading]);
 
     const login = useCallback(async (restaurantNumber: string, code: string): Promise<boolean> => {
-        // البحث عن المطعم بواسطة "رقم المطعم" المخصص
         const selectedRestaurant = restaurants.find(r => r.restaurantNumber === restaurantNumber);
         
         if (selectedRestaurant && selectedRestaurant.loginCode === code) {
@@ -72,8 +53,7 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
     const logout = useCallback(() => {
         sessionStorage.removeItem('restaurantId');
         setRestaurant(null);
-        router.push('/restaurant/login');
-    }, [router]);
+    }, []);
 
     const updateRestaurantOrderStatus = useCallback(async (orderId: string, status: OrderStatus) => {
         setIsProcessing(true);

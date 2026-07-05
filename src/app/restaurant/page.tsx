@@ -2,21 +2,21 @@
 "use client";
 
 import { useContext, useMemo, useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, Check, X, Bike, BellRing, Volume2, VolumeX, PackageOpen, Clock, CheckCircle2 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { formatCurrency } from '@/lib/utils';
+import { LogOut, Loader2, BellRing, Volume2, VolumeX, PackageOpen, Clock, CheckCircle2, Bike } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import Link from 'next/link';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import type { Order } from '@/lib/types';
 
-export default function RestaurantDashboardPage() {
-    const router = useRouter();
+interface RestaurantDashboardPageProps {
+    onNavigate: (tab: number) => void;
+}
+
+export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashboardPageProps) {
     const context = useContext(RestaurantContext);
     const { allOrders, isLoading: ordersLoading } = useOrders();
     
@@ -24,7 +24,7 @@ export default function RestaurantDashboardPage() {
     const [isMuted, setIsMuted] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
-    // Filter orders
+    // تصفية الطلبات حسب المطعم والحالة
     const myNewOrders = useMemo(() => {
         if (!context?.restaurant || !allOrders) return [];
         return allOrders.filter(order => order.restaurant?.id === context.restaurant?.id && order.status === 'unassigned');
@@ -40,7 +40,7 @@ export default function RestaurantDashboardPage() {
         return allOrders.filter(order => order.restaurant?.id === context.restaurant?.id && order.status === 'ready_for_pickup');
     }, [context?.restaurant, allOrders]);
 
-    // Notification Logic
+    // منطق التنبيه عند وصول طلب جديد
     useEffect(() => {
         if (myNewOrders.length > 0 && !newOrderAlert) {
             const latestOrder = myNewOrders[0];
@@ -48,6 +48,8 @@ export default function RestaurantDashboardPage() {
             if (!isMuted && audioRef.current) {
                 audioRef.current.play().catch(e => console.log("Autoplay blocked, waiting for interaction"));
             }
+        } else if (myNewOrders.length === 0 && newOrderAlert) {
+            stopAlert();
         }
     }, [myNewOrders, newOrderAlert, isMuted]);
 
@@ -74,13 +76,12 @@ export default function RestaurantDashboardPage() {
 
     return (
         <div className="flex flex-col h-screen bg-muted/10">
-            {/* Audio Alert (Pleasant notification sound) */}
             <audio ref={audioRef} loop src="https://assets.mixkit.co/active_storage/sfx/2861/2861-preview.mp3" />
 
             <header className="p-4 md:p-6 bg-white border-b shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
                 <div className="flex items-center gap-4">
                     <div className="p-3 bg-primary/10 rounded-2xl">
-                        <BellRing className="h-6 w-6 text-primary animate-pulse" />
+                        <BellRing className="h-6 w-6 text-primary" />
                     </div>
                     <div>
                         <h1 className="text-2xl font-black text-primary">لوحة تحكم {restaurant.name}</h1>
@@ -91,7 +92,7 @@ export default function RestaurantDashboardPage() {
                      <Button variant="outline" size="icon" onClick={() => setIsMuted(!isMuted)}>
                         {isMuted ? <VolumeX className="h-5 w-5 text-destructive"/> : <Volume2 className="h-5 w-5 text-primary"/>}
                      </Button>
-                     <Button asChild variant="outline" className="font-bold border-2 rounded-xl"><Link href="/restaurant/history">سجل الطلبات</Link></Button>
+                     <Button variant="outline" className="font-bold border-2 rounded-xl" onClick={() => onNavigate(2)}>سجل الطلبات</Button>
                      <Button variant="ghost" size="icon" onClick={logout} className="text-destructive"><LogOut className="h-5 w-5"/></Button>
                 </div>
             </header>
@@ -99,11 +100,10 @@ export default function RestaurantDashboardPage() {
             <main className="flex-1 overflow-hidden p-4 md:p-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
                     
-                    {/* Column 1: New Orders */}
+                    {/* عمود: طلبات جديدة */}
                     <div className="flex flex-col gap-4">
                         <div className="flex items-center justify-between px-2">
                              <h2 className="text-lg font-black flex items-center gap-2"><PackageOpen className="text-blue-500"/> طلبات جديدة ({myNewOrders.length})</h2>
-                             {myNewOrders.length > 0 && <span className="flex h-3 w-3 rounded-full bg-blue-500 animate-ping"></span>}
                         </div>
                         <ScrollArea className="flex-1 rounded-[2rem] border-2 border-blue-100 p-4 bg-blue-50/30">
                             {myNewOrders.length > 0 ? myNewOrders.map(order => (
@@ -139,7 +139,7 @@ export default function RestaurantDashboardPage() {
                         </ScrollArea>
                     </div>
 
-                    {/* Column 2: Preparing */}
+                    {/* عمود: قيد التحضير */}
                     <div className="flex flex-col gap-4">
                         <div className="px-2"><h2 className="text-lg font-black flex items-center gap-2"><Clock className="text-orange-500"/> قيد التحضير ({myPreparingOrders.length})</h2></div>
                         <ScrollArea className="flex-1 rounded-[2rem] border-2 border-orange-100 p-4 bg-orange-50/30">
@@ -183,7 +183,7 @@ export default function RestaurantDashboardPage() {
                         </ScrollArea>
                     </div>
 
-                    {/* Column 3: Ready */}
+                    {/* عمود: جاهز للاستلام */}
                     <div className="flex flex-col gap-4">
                         <div className="px-2"><h2 className="text-lg font-black flex items-center gap-2"><CheckCircle2 className="text-green-500"/> جاهز للاستلام ({myReadyOrders.length})</h2></div>
                         <ScrollArea className="flex-1 rounded-[2rem] border-2 border-green-100 p-4 bg-green-50/30">
@@ -215,7 +215,7 @@ export default function RestaurantDashboardPage() {
                 </div>
             </main>
 
-            {/* New Order Alert Dialog (Half Screen Style) */}
+            {/* نافذة التنبيه بالطلب الجديد */}
             <Dialog open={!!newOrderAlert} onOpenChange={() => {}}>
                 <DialogContent className="sm:max-w-md bg-white rounded-t-[3rem] border-none shadow-2xl p-0 overflow-hidden">
                     <div className="bg-primary p-6 text-white text-center space-y-2">
