@@ -1,26 +1,28 @@
 
 "use client";
 
-import { useState, useRef, useEffect, FormEvent } from "react";
+import { useState, useRef, useEffect, useContext } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { Loader2, Send, User, ShieldCheck, MessageSquareWarning, PlusCircle } from "lucide-react";
+import { Loader2, Send, User, ShieldCheck, MessageSquareHeart, PlusCircle, ArrowRight, Bot } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Message } from "@/lib/types";
-import { useSupportTickets } from "@/hooks/useSupportTickets";
+import { AppContext } from "@/contexts/AppContext";
 
 export default function SupportPage() {
+  const context = useContext(AppContext);
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   
-  const { mySupportTicket, createSupportTicket, addMessageToTicket, startNewTicketClient } = useSupportTickets();
-  const ticket = mySupportTicket;
-  const conversationHistory = ticket?.history || [];
+  if (!context) return null;
+  const { mySupportTicket, createSupportTicket, addMessageToTicket, startNewTicketClient, setActiveTab } = context;
+
+  const conversationHistory = mySupportTicket?.history || [];
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -32,119 +34,120 @@ export default function SupportPage() {
   }, [conversationHistory]);
 
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isSending) return;
     
-    setIsLoading(true);
-    
-    const userMessage: Message = { 
+    setIsSending(true);
+    const text = input.trim();
+    setInput("");
+
+    const newMessage: Message = { 
         role: "user", 
-        content: input,
+        content: text,
         timestamp: new Date().toISOString()
     };
     
-    setInput("");
-
     try {
-        if (ticket && !ticket.isResolved) {
-            await addMessageToTicket(ticket.id, userMessage);
+        if (mySupportTicket && !mySupportTicket.isResolved) {
+            await addMessageToTicket(mySupportTicket.id, newMessage);
         } else {
-            await createSupportTicket(userMessage);
-            toast({ title: "تم إرسال رسالتك", description: "سيقوم فريق الدعم بالرد عليك قريبًا." });
+            await createSupportTicket(newMessage);
+            toast({ title: "تم بدء محادثة جديدة", description: "سيقوم فريقنا بالرد عليك قريباً." });
         }
     } catch (error) {
-         toast({
-            title: "فشل إرسال الرسالة",
-            description: "حدث خطأ ما. الرجاء المحاولة مرة أخرى.",
-            variant: "destructive"
-        });
-        setInput(userMessage.content); // Restore input on failure
+         toast({ title: "فشل الإرسال", description: "يرجى المحاولة مرة أخرى.", variant: "destructive" });
+         setInput(text);
     } finally {
-        setIsLoading(false);
+        setIsSending(false);
     }
   };
 
-  const handleStartNewConversation = () => {
-    startNewTicketClient();
-  }
-
-
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
-       <header className="p-4 border-b">
-        <h1 className="text-xl font-bold text-center">الدعم الفني</h1>
+    <div className="flex flex-col h-full bg-background animate-in fade-in slide-in-from-left-4 duration-500">
+       <header className="p-5 border-b bg-card flex items-center justify-between">
+            <button 
+                onClick={() => setActiveTab(5)} 
+                className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all"
+            >
+                <ArrowRight className="h-6 w-6"/>
+            </button>
+            <div className="flex flex-col items-center">
+                <h1 className="text-xl font-black text-primary leading-none">الدعم الفني</h1>
+                <p className="text-[10px] text-muted-foreground font-bold mt-1">نحن هنا لخدمتك دائماً</p>
+            </div>
+            <div className="w-12"></div>
       </header>
-      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-        <div className="space-y-6">
-            {conversationHistory.length === 0 && !ticket && (
-                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-8">
-                    <MessageSquareWarning className="h-16 w-16 mb-4"/>
-                    <h2 className="text-xl font-semibold">أهلاً بك في الدعم الفني</h2>
-                    <p>يمكنك طرح سؤالك هنا وسيقوم فريقنا بالرد عليك في أقرب وقت ممكن.</p>
+
+      <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
+        <div className="space-y-6 pb-4">
+            {conversationHistory.length === 0 ? (
+                 <div className="flex flex-col items-center justify-center text-center p-8 space-y-4">
+                    <div className="p-6 bg-primary/5 rounded-[2.5rem]">
+                        <MessageSquareHeart className="h-20 w-20 text-primary animate-bounce"/>
+                    </div>
+                    <h2 className="text-2xl font-black text-primary">كيف يمكننا مساعدتك؟</h2>
+                    <p className="text-muted-foreground text-sm font-medium leading-relaxed">
+                        اكتب استفسارك أو مشكلتك هنا، وسيقوم <br/> فريق الدعم بالرد عليك في أسرع وقت.
+                    </p>
                 </div>
+            ) : (
+                conversationHistory.map((message, index) => {
+                    const isUser = message.role === "user";
+                    return (
+                        <div key={index} className={cn("flex items-end gap-3", isUser ? "flex-row-reverse" : "flex-row")}>
+                            <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
+                                <AvatarFallback className={cn(isUser ? "bg-secondary text-primary" : "bg-primary text-white")}>
+                                    {isUser ? <User className="h-5 w-5"/> : <ShieldCheck className="h-5 w-5"/>}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className={cn(
+                                "max-w-[80%] p-4 text-sm font-bold shadow-sm transition-all",
+                                isUser 
+                                    ? "bg-primary text-white rounded-t-[1.5rem] rounded-bl-[1.5rem]" 
+                                    : "bg-white border rounded-t-[1.5rem] rounded-br-[1.5rem]"
+                            )}>
+                                <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                                <p className={cn("text-[8px] mt-2 opacity-60", isUser ? "text-left" : "text-right")}>
+                                    {new Date(message.timestamp).toLocaleTimeString('ar-IQ', {hour:'2-digit', minute:'2-digit'})}
+                                </p>
+                            </div>
+                        </div>
+                    );
+                })
             )}
-            {conversationHistory.map((message, index) => (
-                <div
-                key={index}
-                className={cn(
-                    "flex items-start gap-3",
-                    message.role === "user" ? "justify-end" : "justify-start"
-                )}
-                >
-                {message.role !== "user" && (
-                    <Avatar className="h-8 w-8">
-                    <AvatarFallback className={cn(message.role === 'admin' && 'bg-primary text-primary-foreground')}>
-                        <ShieldCheck />
-                    </AvatarFallback>
-                    </Avatar>
-                )}
-                <div
-                    className={cn(
-                    "max-w-[75%] rounded-lg p-3 text-sm",
-                    message.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
-                    )}
-                >
-                    <p className="whitespace-pre-wrap">{message.content}</p>
-                </div>
-                {message.role === "user" && (
-                    <Avatar className="h-8 w-8">
-                    <AvatarFallback>
-                        <User />
-                    </AvatarFallback>
-                    </Avatar>
-                )}
-                </div>
-            ))}
         </div>
       </ScrollArea>
-      <div className="p-4 border-t bg-background">
-         {ticket?.isResolved ? (
-             <div className="text-center space-y-3">
-                <p className="text-sm text-muted-foreground p-2 bg-muted rounded-lg">
-                    تم إغلاق هذه المحادثة من قبل فريق الدعم.
-                </p>
-                <Button onClick={handleStartNewConversation}>
-                    <PlusCircle className="ml-2 h-4 w-4" />
+
+      <div className="p-4 bg-card border-t shadow-2xl rounded-t-[2.5rem]">
+         {mySupportTicket?.isResolved ? (
+             <div className="text-center p-4 space-y-4">
+                <div className="bg-muted p-3 rounded-2xl text-xs font-bold text-muted-foreground">تم إغلاق هذه المحادثة. يمكنك البدء بواحدة جديدة إذا كان لديك استفسار آخر.</div>
+                <Button onClick={startNewTicketClient} className="w-full h-14 rounded-2xl font-black gap-2">
+                    <PlusCircle className="h-5 w-5" />
                     بدء محادثة جديدة
                 </Button>
              </div>
          ) : (
-            <form onSubmit={handleSubmit} className="flex items-center gap-2">
+            <form onSubmit={handleSubmit} className="flex items-center gap-3 bg-muted/40 p-2 rounded-[1.8rem] border-2 border-muted">
                 <Input
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="اكتب رسالتك هنا..."
-                    className="flex-1"
-                    disabled={isLoading || (!!ticket && ticket.isResolved)}
+                    className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-base font-bold h-12"
+                    disabled={isSending}
                 />
-                <Button type="submit" size="icon" disabled={isLoading || !input.trim() || (!!ticket && ticket.isResolved)}>
-                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4" />}
+                <Button 
+                    type="submit" 
+                    size="icon" 
+                    disabled={isSending || !input.trim()}
+                    className="h-12 w-12 rounded-2xl shadow-lg shadow-primary/20 active:scale-75 transition-all"
+                >
+                    {isSending ? <Loader2 className="h-5 w-5 animate-spin"/> : <Send className="h-5 w-5" />}
                 </Button>
             </form>
          )}
+         <p className="text-center text-[9px] text-muted-foreground mt-3 font-bold">فريق الدعم متاح من الساعة 9 صباحاً حتى 11 مساءً</p>
       </div>
     </div>
   );

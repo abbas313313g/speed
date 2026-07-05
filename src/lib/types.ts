@@ -2,7 +2,7 @@
 import { z } from 'zod';
 
 export interface User {
-  id: string; // This will be the Firebase Auth UID
+  id: string; 
   name: string;
   email: string;
   phone: string;
@@ -11,12 +11,12 @@ export interface User {
 
 export interface Address {
     id: string;
-    name: string; // e.g., "المنزل", "العمل"
+    name: string; 
     phone: string;
     deliveryZone: string;
     latitude?: number;
     longitude?: number;
-    details?: string; // e.g., "الطابق الثاني، شقة 5"
+    details?: string; 
 }
 
 export interface ProductSize {
@@ -53,9 +53,9 @@ export interface Restaurant {
   rating: number;
   latitude?: number;
   longitude?: number;
-  openTime?: string; // e.g., "09:00"
-  closeTime?: string; // e.g., "23:00"
-  isStoreOpen?: boolean; // This will be calculated on the client
+  openTime?: string; 
+  closeTime?: string; 
+  isStoreOpen?: boolean; 
   loginCode: string;
 }
 
@@ -79,9 +79,9 @@ export interface DeliveryZone {
 }
 
 export interface DeliveryWorker {
-    id: string; // phone number
+    id: string; 
     name: string;
-    lastDeliveredAt?: string | null; // ISO String
+    lastDeliveredAt?: string | null; 
     unfreezeProgress?: number;
     isOnline?: boolean;
 }
@@ -93,7 +93,7 @@ export interface Order {
     userId: string;
     items: CartItem[];
     total: number;
-    date: string; // Should be ISO string
+    date: string; 
     status: OrderStatus;
     estimatedDelivery: string;
     address: Address;
@@ -133,11 +133,11 @@ export interface SupportTicket {
 export interface Coupon {
     id: string;
     code: string;
-    discountType: 'fixed'; // Can be expanded to 'percentage'
+    discountType: 'fixed'; 
     discountValue: number;
     maxUses: number;
     usedCount: number;
-    usedBy: string[]; // Array of user IDs who have used this coupon
+    usedBy: string[]; 
 }
 
 export interface TelegramConfig {
@@ -146,25 +146,10 @@ export interface TelegramConfig {
     type: 'owner' | 'worker' | 'restaurant';
     workerId?: string;
     restaurantId?: string;
-    name: string; // For display purposes (e.g., "Owner 1", "Ahmed's Phone")
+    name: string; 
 }
 
 export interface AppSettings {
     id?: string;
     isMaintenanceMode: boolean;
 }
-
-// AI Support Schemas
-export const AiSupportInputSchema = z.object({
-  history: z.array(z.object({
-    role: z.enum(['user', 'assistant', 'admin']),
-    content: z.string(),
-  })).describe("The conversation history."),
-});
-export type AiSupportInput = z.infer<typeof AiSupportInputSchema>;
-
-
-export const AiSupportOutputSchema = z.object({
-  response: z.string().describe("The AI's response to the user."),
-});
-export type AiSupportOutput = z.infer<typeof AiSupportOutputSchema>;
