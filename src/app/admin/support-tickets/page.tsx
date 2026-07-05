@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { SupportTicket, Message } from '@/lib/types';
 import {
   Table,
@@ -37,6 +37,16 @@ export default function AdminSupportTicketsPage() {
   const [isReplying, setIsReplying] = useState(false);
   const { toast } = useToast();
 
+  // Sync selected ticket with live data
+  useEffect(() => {
+    if (selectedTicket) {
+      const liveTicket = supportTickets.find(t => t.id === selectedTicket.id);
+      if (liveTicket && JSON.stringify(liveTicket.history) !== JSON.stringify(selectedTicket.history)) {
+        setSelectedTicket(liveTicket);
+      }
+    }
+  }, [supportTickets, selectedTicket]);
+
   if (isLoading) return <div className="p-8 text-center animate-pulse font-bold text-primary">جارِ تحميل محادثات الدعم...</div>;
 
   const sortedTickets = [...supportTickets].sort((a,b) => {
@@ -59,10 +69,6 @@ export default function AdminSupportTicketsPage() {
     
     try {
         await addMessageToTicket(selectedTicket.id, adminMessage);
-        setSelectedTicket(prev => prev ? ({
-            ...prev,
-            history: [...prev.history, adminMessage]
-        }) : null);
         setReply("");
         toast({ title: "تم إرسال الرد بنجاح" });
     } catch (e) {
@@ -76,7 +82,6 @@ export default function AdminSupportTicketsPage() {
     if (!selectedTicket) return;
     try {
         await resolveSupportTicket(selectedTicket.id);
-        setSelectedTicket(prev => prev ? {...prev, isResolved: true} : null);
         toast({ title: "تم إغلاق المحادثة بنجاح" });
     } catch (e) {
         toast({ title: "حدث خطأ أثناء الإغلاق", variant: "destructive" });

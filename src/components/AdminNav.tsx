@@ -107,10 +107,12 @@ export function AdminNav({ isSheet = false, onTabChange, activeTab }: { isSheet?
   );
 
   return (
-    <ScrollArea className="h-full w-full">
-      <div className="flex flex-col min-h-full">
-        {navContent}
-      </div>
-    </ScrollArea>
+    <TooltipProvider>
+      <ScrollArea className="h-full w-full">
+        <div className="flex flex-col min-h-full items-center">
+          {navContent}
+        </div>
+      </ScrollArea>
+    </TooltipProvider>
   );
 }

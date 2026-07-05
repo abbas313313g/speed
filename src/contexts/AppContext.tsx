@@ -190,11 +190,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         const userTickets = supportTickets.filter(t => t.userId === userId);
         if (userTickets.length === 0) return null;
         
-        // البحث عن تذكرة غير مغلقة
-        const unresolved = userTickets.find(t => !t.isResolved);
+        // البحث عن تذكرة غير مغلقة (الأحدث أولاً)
+        const unresolved = [...userTickets]
+            .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .find(t => !t.isResolved);
+            
         if (unresolved) return unresolved;
         
-        // إذا كانت جميعها مغلقة، نعيد الأحدث
+        // إذا كانت جميعها مغلقة، نعيد الأحدث على الإطلاق
         return [...userTickets].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
     }, [userId, supportTickets, isForceNewTicket]);
     
