@@ -4,7 +4,7 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { DollarSign, ShoppingCart, ArrowRight, ShieldAlert, Wallet, Landmark } from 'lucide-react';
+import { DollarSign, ShoppingCart, ArrowRight, ShieldAlert, Wallet, Landmark, User, Settings2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { getWorkerLevel } from '@/lib/workerLevels';
@@ -16,7 +16,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 
-export default function DeliveryStatsPage() {
+interface DeliveryStatsPageProps {
+    onBack: () => void;
+}
+
+export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
   const router = useRouter();
   const [workerId, setWorkerId] = useState<string | null>(null);
   const { deliveryWorkers, isLoading: workersLoading, updateWorkerDetails } = useDeliveryWorkers();
@@ -70,18 +74,18 @@ export default function DeliveryStatsPage() {
 
   if (workersLoading || ordersLoading || !workerId) {
       return (
-          <div className="p-4 space-y-6">
+          <div className="p-6 space-y-6 h-full bg-background overflow-hidden">
               <div className="flex items-center gap-4">
-                  <Skeleton className="h-10 w-10" />
+                  <Skeleton className="h-12 w-12 rounded-2xl" />
                   <div className="space-y-2">
                      <Skeleton className="h-6 w-48" />
                      <Skeleton className="h-4 w-32" />
                   </div>
               </div>
-              <Skeleton className="h-48 w-full" />
+              <Skeleton className="h-48 w-full rounded-[2rem]" />
               <div className="grid grid-cols-2 gap-4">
-                  <Skeleton className="h-24 w-full" />
-                  <Skeleton className="h-24 w-full" />
+                  <Skeleton className="h-28 w-full rounded-[1.5rem]" />
+                  <Skeleton className="h-28 w-full rounded-[1.5rem]" />
               </div>
           </div>
       )
@@ -90,97 +94,112 @@ export default function DeliveryStatsPage() {
   const LevelIcon = level?.icon;
 
   return (
-    <div className="p-4 space-y-6">
+    <div className="p-6 space-y-6 h-full bg-background overflow-y-auto pb-10">
       <header className="flex items-center gap-4">
-         <Button variant="outline" size="icon" onClick={() => router.back()}>
-            <ArrowRight className="h-5 w-5"/>
-         </Button>
+         <button 
+            onClick={onBack} 
+            className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all shadow-sm"
+         >
+            <ArrowRight className="h-6 w-6"/>
+         </button>
          <div>
-            <h1 className="text-2xl font-bold">المستويات والإحصائيات</h1>
-            <p className="text-muted-foreground">مرحباً {worker?.name}، هذه أرباحك ومستواك.</p>
+            <h1 className="text-2xl font-black text-primary">المستوى والإحصائيات</h1>
+            <p className="text-[10px] text-muted-foreground font-bold">أداءك في سبيد شوب</p>
          </div>
       </header>
 
        {level && LevelIcon && (
-        <Card className="bg-gradient-to-tr from-primary/10 to-transparent">
-            <CardHeader>
+        <Card className="rounded-[2.5rem] border-none shadow-xl bg-gradient-to-br from-primary to-primary/80 text-white overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
+            <CardHeader className="pb-0">
                 <div className="flex justify-between items-center">
-                    <CardTitle>مستواك الحالي</CardTitle>
-                    {isFrozen && <div className="flex items-center gap-1 text-xs text-destructive font-semibold bg-destructive/10 px-2 py-1 rounded-full"><ShieldAlert className="h-4 w-4"/><span>مجمد</span></div>}
+                    <CardTitle className="text-white/80 text-xs font-black">تصنيفك الحالي</CardTitle>
+                    {isFrozen && (
+                        <div className="flex items-center gap-1 text-[8px] text-white font-black bg-destructive px-3 py-1 rounded-full animate-pulse shadow-lg">
+                            <ShieldAlert className="h-3 w-3"/>
+                            <span>مجمد مؤقتاً</span>
+                        </div>
+                    )}
                 </div>
             </CardHeader>
-            <CardContent className="flex flex-col items-center justify-center text-center space-y-3">
-                <LevelIcon className="w-24 h-24" />
-                <h2 className="text-3xl font-bold">{level.name}</h2>
+            <CardContent className="flex flex-col items-center justify-center text-center space-y-4 pt-4">
+                <div className="p-4 bg-white/20 rounded-[2.5rem] backdrop-blur-md border border-white/30 shadow-2xl">
+                    <LevelIcon className="w-20 h-20" />
+                </div>
+                <div>
+                    <h2 className="text-4xl font-black italic">{level.name}</h2>
+                    <p className="text-white/70 text-[10px] font-bold mt-1">كابتن معتمد في سبيد</p>
+                </div>
+                 
                  {level.nextLevelThreshold && (
-                     <div className="w-full pt-2">
-                        <p className="text-sm text-muted-foreground mb-1">
-                            {stats.deliveredOrders} / {level.nextLevelThreshold} طلب للترقية القادمة
-                        </p>
-                        <Progress value={(stats.deliveredOrders / level.nextLevelThreshold) * 100} />
+                     <div className="w-full pt-4 space-y-2">
+                        <div className="flex justify-between text-[10px] font-black px-2">
+                            <span>{stats.deliveredOrders} / {level.nextLevelThreshold} طلب</span>
+                            <span>باقي {level.nextLevelThreshold - stats.deliveredOrders} للترقية</span>
+                        </div>
+                        <Progress value={(stats.deliveredOrders / level.nextLevelThreshold) * 100} className="bg-white/20 h-2.5 rounded-full overflow-hidden" />
                      </div>
                  )}
+
                  {isFrozen && (
-                    <div className="w-full text-center p-2 bg-yellow-100 dark:bg-yellow-900/50 rounded-lg">
-                        <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">
-                          مستواك مجمد! أكمل {10 - (worker?.unfreezeProgress || 0)} طلبات لإعادة تفعيله.
+                    <div className="w-full p-4 bg-white/10 rounded-[1.5rem] border border-white/20 backdrop-blur-sm">
+                        <p className="text-xs font-black text-yellow-300">
+                          نظام التجميد مفعل! أكمل {10 - (worker?.unfreezeProgress || 0)} طلبات لتنشيط الحساب.
                         </p>
-                         <Progress value={((worker?.unfreezeProgress || 0) / 10) * 100} className="mt-2 h-2"/>
+                         <Progress value={((worker?.unfreezeProgress || 0) / 10) * 100} className="mt-3 h-2 bg-white/10" />
                     </div>
                  )}
             </CardContent>
         </Card>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">إجمالي الأرباح المستحقة</CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
+      <div className="grid gap-3 grid-cols-2">
+        <Card className="rounded-[1.5rem] border-none shadow-md bg-white">
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="text-[10px] font-bold text-muted-foreground flex items-center gap-2"><Wallet className="h-3 w-3 text-primary"/> المستحق</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">{formatCurrency(stats.unpaidEarnings)}</div>
-            <p className="text-xs text-muted-foreground">المبلغ الذي لم يتم تسويته بعد</p>
+          <CardContent className="p-4 pt-0">
+            <div className="text-lg font-black text-primary truncate">{formatCurrency(stats.unpaidEarnings)}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">الأرباح التي تم استلامها</CardTitle>
-            <Landmark className="h-4 w-4 text-muted-foreground" />
+
+        <Card className="rounded-[1.5rem] border-none shadow-md bg-white">
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="text-[10px] font-bold text-muted-foreground flex items-center gap-2"><Landmark className="h-3 w-3 text-green-500"/> المستلم</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.totalEarnings - stats.unpaidEarnings)}</div>
-            <p className="text-xs text-muted-foreground">إجمالي المبالغ التي استلمتها</p>
+          <CardContent className="p-4 pt-0">
+            <div className="text-lg font-black text-foreground truncate">{formatCurrency(stats.totalEarnings - stats.unpaidEarnings)}</div>
           </CardContent>
         </Card>
-        <Card className="md:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">الطلبات المكتملة</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+
+        <Card className="col-span-2 rounded-[1.5rem] border-none shadow-md bg-white">
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="text-[10px] font-bold text-muted-foreground flex items-center gap-2"><ShoppingCart className="h-3 w-3 text-orange-500"/> إجمالي التوصيلات المكتملة</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+{stats.deliveredOrders}</div>
-             <p className="text-xs text-muted-foreground">إجمالي الطلبات التي قمت بتوصيلها</p>
+          <CardContent className="p-4 pt-0">
+            <div className="text-2xl font-black text-foreground">+{stats.deliveredOrders} <span className="text-xs font-bold text-muted-foreground">عملية ناجحة</span></div>
           </CardContent>
         </Card>
       </div>
 
-       <Card>
+       <Card className="rounded-[2rem] border-none shadow-md bg-card">
           <CardHeader>
-            <CardTitle>تعديل المعلومات الشخصية</CardTitle>
+            <CardTitle className="text-lg font-black flex items-center gap-2"><Settings2 className="h-5 w-5 text-primary"/> تعديل الملف الشخصي</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
              <div className="space-y-2">
-                <Label htmlFor="name">الاسم</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+                <Label htmlFor="name" className="text-xs font-black pr-1">الاسم بالكامل</Label>
+                <div className="relative">
+                    <User className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="pr-10 h-12 rounded-xl font-bold border-2" />
+                </div>
              </div>
-             <Button onClick={handleSaveChanges} disabled={isSaving}>
-                {isSaving && <Loader2 className="ml-2 h-4 w-4 animate-spin"/>}
-                حفظ التغييرات
+             <Button onClick={handleSaveChanges} className="w-full h-14 rounded-xl text-lg font-black shadow-lg shadow-primary/20" disabled={isSaving}>
+                {isSaving ? <Loader2 className="ml-2 h-5 w-5 animate-spin"/> : "حفظ التغييرات الجديدة"}
              </Button>
           </CardContent>
         </Card>
-
     </div>
   );
 }
+

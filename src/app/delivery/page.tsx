@@ -11,8 +11,11 @@ import type { Order, OrderStatus } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useOrders } from '@/hooks/useOrders';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
-import Link from 'next/link';
 import { useRestaurants } from '@/hooks/useRestaurants';
+
+interface DeliveryPageProps {
+    onNavigate: (tab: number) => void;
+}
 
 function AvailableOrderCard({ order, onAccept, isProcessing }: { order: Order, onAccept: (id: string) => void, isProcessing: boolean }) {
     const { restaurants } = useRestaurants();
@@ -28,34 +31,36 @@ function AvailableOrderCard({ order, onAccept, isProcessing }: { order: Order, o
     }, [order.address, order.restaurant, restaurants]);
 
     return (
-        <Card className="w-full animate-in fade-in-50">
-            <CardHeader>
-                 <CardTitle>طلب جديد متاح!</CardTitle>
-                 <CardDescription>من مطعم: {order.restaurant?.name}</CardDescription>
+        <Card className="w-full animate-in fade-in-50 border-primary/20 shadow-md">
+            <CardHeader className="pb-2">
+                 <CardTitle className="text-primary">طلب مسند إليك!</CardTitle>
+                 <CardDescription className="font-bold text-foreground">من متجر: {order.restaurant?.name}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                    <span className="font-semibold">ربحك من التوصيل</span>
-                    <span className="text-lg font-bold text-green-600">{formatCurrency(order.deliveryFee)}</span>
+                <div className="flex justify-between items-center p-3 bg-primary/5 rounded-2xl border border-primary/10">
+                    <span className="font-bold text-sm">ربحك الصافي:</span>
+                    <span className="text-xl font-black text-primary">{formatCurrency(order.deliveryFee)}</span>
                 </div>
-                 <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">المنطقة</span>
-                    <span className="font-semibold">{order.address.deliveryZone}</span>
-                </div>
-                 <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">المسافة التقريبية</span>
-                    <span className="font-semibold">{distance ? `~${distance.toFixed(1)} كم` : 'غير معروفة'}</span>
+                 <div className="grid grid-cols-2 gap-2 text-xs font-bold">
+                    <div className="p-2 bg-muted rounded-xl">
+                         <p className="text-muted-foreground mb-1">المنطقة</p>
+                         <p className="truncate">{order.address.deliveryZone}</p>
+                    </div>
+                    <div className="p-2 bg-muted rounded-xl">
+                         <p className="text-muted-foreground mb-1">المسافة</p>
+                         <p>{distance ? `~${distance.toFixed(1)} كم` : 'غير محددة'}</p>
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 pt-2">
+                <div className="flex flex-col gap-2 pt-2">
                     {mapUrl && (
-                        <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="w-full col-span-2">
-                             <Button variant="outline" className="w-full"><Map className="ml-2 h-4 w-4"/>عرض المسار على الخريطة</Button>
+                        <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="w-full">
+                             <Button variant="outline" className="w-full h-11 rounded-xl font-bold"><Map className="ml-2 h-4 w-4"/>رؤية المسار</Button>
                         </a>
                     )}
-                     <Button size="lg" className="bg-green-600 hover:bg-green-700 col-span-2" onClick={() => onAccept(order.id)} disabled={isProcessing}>
-                         {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <Check className="ml-2 h-4 w-4"/>}
-                        قبول الطلب
+                     <Button size="lg" className="h-14 rounded-xl text-lg font-black bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200" onClick={() => onAccept(order.id)} disabled={isProcessing}>
+                         {isProcessing ? <Loader2 className="h-5 w-5 animate-spin"/> : <Check className="ml-2 h-6 w-6"/>}
+                        قبول وتسليم الطلب
                     </Button>
                 </div>
             </CardContent>
@@ -63,7 +68,7 @@ function AvailableOrderCard({ order, onAccept, isProcessing }: { order: Order, o
     );
 }
 
-export default function DeliveryPage() {
+export default function DeliveryPage({ onNavigate }: DeliveryPageProps) {
     const router = useRouter();
     const { toast } = useToast();
     const [workerId, setWorkerId] = useState<string | null>(null);
@@ -86,15 +91,14 @@ export default function DeliveryPage() {
         return deliveryWorkers.find(w => w.id === workerId);
     }, [workerId, deliveryWorkers]);
 
-    const availableOrders = useMemo(() => {
+    // طلبات تم إسنادها لهذا السائق تحديداً ولكن لم يقبلها بعد
+    const myAssignedOrders = useMemo(() => {
         if (!workerId || !allOrders) return [];
-        // Orders are available for pickup if they are in 'preparing' state
-        return allOrders.filter(o => o.status === 'preparing');
+        return allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'preparing');
     }, [workerId, allOrders]);
     
     const myCurrentOrder = useMemo(() => {
         if (!workerId || !allOrders) return null;
-        // The driver's current active order is one they've confirmed or are delivering
         return allOrders.find(o => o.deliveryWorkerId === workerId && ['confirmed', 'ready_for_pickup', 'on_the_way'].includes(o.status));
     }, [workerId, allOrders]);
 
@@ -109,12 +113,11 @@ export default function DeliveryPage() {
         if (!workerId) return;
         setIsProcessing(true);
         try {
-            // Driver accepts, status moves to 'confirmed', and workerId is assigned
+            // المندوب يضغط "قبول"، تتحول الحالة لـ 'confirmed'
             await updateOrderStatus(orderId, 'confirmed', workerId);
-            toast({ title: "تم قبول الطلب بنجاح!" });
-            router.push(`/delivery/order/${orderId}`);
+            toast({ title: "تم قبول الطلب! اذهب للمطعم الآن" });
         } catch (error: any) {
-            // Error is already toasted by the hook
+            // Error is handled in hook
         } finally {
             setIsProcessing(false);
         }
@@ -132,87 +135,95 @@ export default function DeliveryPage() {
         if (workerId && worker) {
             const newStatus = !worker.isOnline;
             updateWorkerStatus(workerId, newStatus);
-            toast({ title: newStatus ? "أنت متصل الآن" : "أنت غير متصل الآن" });
+            toast({ title: newStatus ? "أنت متصل وجاهز للطلبات" : "أنت خارج الخدمة الآن" });
         }
     };
     
     const isLoading = ordersLoading || workersLoading || !workerId;
-    if (isLoading) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    if (isLoading) return <div className="flex h-screen w-full flex-col items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary" /><p className="mt-4 font-bold text-muted-foreground animate-pulse">جارِ جلب المهام...</p></div>;
 
     const renderContent = () => {
         switch (driverStatus) {
             case 'offline':
                 return (
-                    <div className="text-center space-y-4">
-                        <AlertTriangle className="mx-auto h-16 w-16 text-yellow-500"/>
-                        <h2 className="text-2xl font-bold">أنت غير متصل</h2>
-                        <p className="text-muted-foreground">لن تتلقى أي طلبات جديدة. اضغط على الزر أدناه لبدء العمل.</p>
-                        <Button size="lg" onClick={handleToggleOnlineStatus}>
-                           <CircleDot className="ml-2 h-5 w-5"/> بدء العمل
+                    <div className="text-center space-y-6 p-8 animate-in zoom-in duration-300">
+                        <div className="p-8 bg-yellow-50 rounded-full w-fit mx-auto border-4 border-white shadow-xl">
+                            <AlertTriangle className="h-20 w-20 text-yellow-500"/>
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-black text-foreground">أنت غير متصل</h2>
+                            <p className="text-muted-foreground font-bold mt-2">لن تصلك أي طلبات في هذه الحالة. ابدأ العمل الآن!</p>
+                        </div>
+                        <Button size="lg" className="w-full h-16 rounded-2xl text-xl font-black shadow-xl" onClick={handleToggleOnlineStatus}>
+                           <CircleDot className="ml-2 h-6 w-6"/> ابدأ استقبال الطلبات
                         </Button>
                     </div>
                 );
             case 'has_active_order':
                  return (
-                     <div className="text-center space-y-4">
-                        <PackageCheck className="mx-auto h-16 w-16 text-primary"/>
-                        <h2 className="text-2xl font-bold">لديك طلب قيد التنفيذ</h2>
-                        <p className="text-muted-foreground">أكمل طلبك الحالي لمتابعة استلام طلبات جديدة.</p>
-                         <Button size="lg" asChild>
-                            <Link href={`/delivery/order/${myCurrentOrder!.id}`}>
-                                متابعة الطلب الحالي
-                            </Link>
+                     <div className="text-center space-y-6 p-8 animate-in slide-in-from-bottom duration-500">
+                        <div className="p-8 bg-primary/10 rounded-full w-fit mx-auto">
+                            <PackageCheck className="h-20 w-20 text-primary animate-bounce"/>
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-black text-primary">لديك طلب نشط</h2>
+                            <p className="text-muted-foreground font-bold mt-2">أكمل مهمتك الحالية لتتمكن من استلام المزيد.</p>
+                        </div>
+                         <Button size="lg" className="w-full h-16 rounded-2xl text-xl font-black shadow-lg" onClick={() => router.push(`/delivery/order/${myCurrentOrder!.id}`)}>
+                            تفاصيل المهمة الحالية
                         </Button>
                     </div>
                 );
             case 'searching':
-                if (availableOrders.length > 0) {
+                if (myAssignedOrders.length > 0) {
                     return (
-                        <div className="w-full space-y-4">
-                            <h2 className="text-xl font-bold text-center">الطلبات المتاحة ({availableOrders.length})</h2>
-                            {availableOrders.map(order => (
+                        <div className="w-full space-y-6 p-4 animate-in fade-in slide-in-from-top duration-500">
+                            <div className="text-center space-y-1">
+                                <h2 className="text-2xl font-black text-primary">وصلتك طلبات! ({myAssignedOrders.length})</h2>
+                                <p className="text-xs font-bold text-muted-foreground">اضغط قبول لبدء المهمة فوراً</p>
+                            </div>
+                            {myAssignedOrders.map(order => (
                                 <AvailableOrderCard key={order.id} order={order} onAccept={handleAcceptOrder} isProcessing={isProcessing} />
                             ))}
                         </div>
                     );
                 }
                 return (
-                     <div className="text-center space-y-4">
-                        <Inbox className="mx-auto h-16 w-16 text-muted-foreground"/>
-                        <h2 className="text-2xl font-bold">لا توجد طلبات متاحة حاليًا</h2>
-                        <p className="text-muted-foreground">سيتم إشعارك فور توفر طلبات جديدة.</p>
+                     <div className="text-center space-y-6 p-8 opacity-60">
+                        <Inbox className="mx-auto h-24 w-24 text-muted-foreground animate-pulse"/>
+                        <div>
+                            <h2 className="text-2xl font-bold">بانتظار طلب جديد...</h2>
+                            <p className="text-muted-foreground font-medium">ابقَ قريباً من المناطق الحيوية لزيادة فرصك.</p>
+                        </div>
                     </div>
                 );
         }
     }
 
     return (
-        <div className="p-4 space-y-6 flex flex-col min-h-screen">
-            <header className="flex justify-between items-center">
+        <div className="flex flex-col h-screen bg-background">
+            <header className="p-4 flex justify-between items-center bg-card border-b shadow-sm shrink-0">
                  <div>
-                    <h1 className="text-2xl font-bold">مرحباً {worker?.name}</h1>
-                    <div className="flex items-center gap-2 text-sm cursor-pointer" onClick={handleToggleOnlineStatus}>
-                        <CircleDot className={`h-4 w-4 ${worker?.isOnline ? 'text-green-500' : 'text-gray-400'}`} />
-                        <span className="text-muted-foreground">{worker?.isOnline ? 'أنت متصل' : 'أنت غير متصل'}</span>
-                    </div>
+                    <h1 className="text-xl font-black text-primary leading-none">أهلاً {worker?.name?.split(' ')[0]}</h1>
+                    <button className="flex items-center gap-2 mt-1 active:scale-95 transition-all" onClick={handleToggleOnlineStatus}>
+                        <div className={`h-2.5 w-2.5 rounded-full ${worker?.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                        <span className="text-[10px] font-black text-muted-foreground">{worker?.isOnline ? 'أنت متصل الآن' : 'أوفلاين'}</span>
+                    </button>
                  </div>
                  <div className="flex gap-2">
-                     <Button variant="ghost" size="icon" asChild>
-                        <Link href="/delivery/stats">
-                            <Shield className="h-5 w-5"/>
-                        </Link>
+                     <Button variant="secondary" size="icon" className="rounded-xl h-10 w-10 shadow-sm" onClick={() => onNavigate(2)}>
+                        <Shield className="h-5 w-5 text-primary"/>
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={handleLogout}>
+                    <Button variant="ghost" size="icon" className="rounded-xl h-10 w-10 text-destructive" onClick={handleLogout}>
                         <LogOut className="h-5 w-5"/>
                     </Button>
                  </div>
             </header>
 
-            <main className="flex-grow flex items-center justify-center">
+            <main className="flex-1 overflow-y-auto flex flex-col justify-center">
                {renderContent()}
             </main>
         </div>
     );
 }
 
-    
