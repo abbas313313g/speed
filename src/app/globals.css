@@ -32,7 +32,12 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground overflow-hidden h-full w-full fixed;
+    @apply bg-background text-foreground;
+    /* التعديل الجوهري: السماح بالتمرير الطبيعي ومنع التجمد */
+    overflow-x: hidden;
+    overflow-y: auto;
+    height: auto;
+    min-height: 100vh;
     -webkit-tap-highlight-color: transparent;
   }
 }
@@ -45,10 +50,11 @@ button, a, [role="button"] {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  height: 100%;
+  height: 100vh; /* طول الشاشة ثابت للمكدس */
   width: 100%;
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
+  overflow: hidden;
 }
 
 .spa-page-view {
@@ -57,29 +63,27 @@ button, a, [role="button"] {
   min-width: 100%;
   max-width: 100%;
   height: 100%;
-  /* الحل النهائي للتمرير: السماح بالتمرير الرأسي وإجبار المحتوى على التمدد */
+  /* الحل القطعي للتمرير العمودي داخل صفحات المكدس */
   overflow-y: auto !important; 
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  position: relative;
   display: block; 
+  position: relative;
 }
 
-/* إظهار شريط التمرير بشكل واضح جداً */
+/* إظهار شريط التمرير بلون مميز لضمان الرؤية */
 ::-webkit-scrollbar {
-  width: 10px !important;
+  width: 8px !important;
   display: block !important;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0,0,0,0.05);
-  border-radius: 10px;
+  background: rgba(0,0,0,0.02);
 }
 
 ::-webkit-scrollbar-thumb {
   background: hsl(var(--primary)) !important;
-  border-radius: 10px;
-  border: 2px solid white;
+  border-radius: 20px;
 }
 
 .admin-table-container {

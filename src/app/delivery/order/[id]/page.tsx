@@ -88,7 +88,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
   }
 
   return (
-    <div className="p-4 space-y-6 bg-background pb-52 block min-h-screen">
+    <div className="p-4 space-y-6 bg-background pb-60 block min-h-max">
         <header className="flex items-center gap-4 sticky top-0 bg-background/90 backdrop-blur-md z-30 py-4 border-b shrink-0">
             <button onClick={onBack} className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all shadow-sm">
                 <ArrowRight className="h-6 w-6"/>
@@ -102,7 +102,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
         <div className="space-y-6">
             <Card className="rounded-[1.5rem] border-none shadow-md">
                 <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-black">معلومات الزبون</CardTitle>
+                    <CardTitle className="text-sm font-black text-right">معلومات الزبون</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                     <div className="flex justify-between text-sm"><span>الاسم:</span> <span className="font-black text-primary">{order.address.name}</span></div>
@@ -122,7 +122,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
             {order.restaurant && (
                 <Card className="rounded-[1.5rem] border-none shadow-md">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-black">معلومات المتجر</CardTitle>
+                        <CardTitle className="text-sm font-black text-right">معلومات المتجر</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                         <div className="flex justify-between text-sm"><span>الاسم:</span> <span className="font-black text-primary">{order.restaurant.name}</span></div>

@@ -31,7 +31,7 @@ function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order
 
     return (
         <Card className="w-full animate-in fade-in-50 border-primary/20 shadow-md">
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 text-right">
                  <CardTitle className="text-primary text-lg font-black">طلب جديد متاح!</CardTitle>
                  <CardDescription className="font-bold text-foreground">من متجر: {order.restaurant?.name}</CardDescription>
             </CardHeader>
@@ -40,7 +40,7 @@ function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order
                     <span className="font-bold text-sm">أجرة التوصيل:</span>
                     <span className="text-xl font-black text-primary">{formatCurrency(order.deliveryFee)}</span>
                 </div>
-                 <div className="grid grid-cols-2 gap-2 text-xs font-bold">
+                 <div className="grid grid-cols-2 gap-2 text-xs font-bold text-right">
                     <div className="p-2 bg-muted rounded-xl">
                          <p className="text-muted-foreground mb-1">المنطقة</p>
                          <p className="truncate">{order.address.deliveryZone}</p>
@@ -189,9 +189,9 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     if (isLoading) return <div className="flex h-screen w-full flex-col items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary" /><p className="mt-4 font-bold text-muted-foreground animate-pulse">جارِ جلب المهام...</p></div>;
 
     return (
-        <div className="flex flex-col bg-background pb-52 block min-h-screen">
+        <div className="flex flex-col bg-background pb-60 block min-h-max">
             <header className="p-4 flex justify-between items-center bg-card border-b shadow-sm sticky top-0 z-20 shrink-0">
-                 <div>
+                 <div className="text-right">
                     <h1 className="text-xl font-black text-primary leading-none">أهلاً {worker?.name?.split(' ')[0]}</h1>
                     <button className="flex items-center gap-2 mt-1 active:scale-95 transition-all" onClick={handleToggleOnlineStatus}>
                         <div className={`h-2.5 w-2.5 rounded-full ${worker?.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
