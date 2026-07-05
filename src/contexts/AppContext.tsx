@@ -75,6 +75,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [userId, setUserId] = useState<string|null>(null);
     const [myCurrentSupportTicket, setMySupportTicket] = useState<SupportTicket|null>(null);
+    const [isForceNewTicket, setIsForceNewTicket] = useState(false);
     const [activeTab, setActiveTab] = useState(0);
     
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
@@ -183,6 +184,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
     
     const mySupportTicket = useMemo(() => {
+        if (isForceNewTicket) return null;
         if (myCurrentSupportTicket) return myCurrentSupportTicket;
         if (!userId) return null;
         const userTickets = supportTickets.filter(t => t.userId === userId);
@@ -190,9 +192,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         const unresolved = userTickets.find(t => !t.isResolved);
         if (unresolved) return unresolved;
         return userTickets.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-    }, [userId, supportTickets, myCurrentSupportTicket]);
+    }, [userId, supportTickets, myCurrentSupportTicket, isForceNewTicket]);
     
-    const startNewTicketClient = useCallback(() => setMySupportTicket(null), []);
+    const startNewTicketClient = useCallback(() => {
+        setIsForceNewTicket(true);
+        setMySupportTicket(null);
+    }, []);
 
     const addMessageToTicket = useCallback(async (ticketId: string, message: Message) => {
         try {
@@ -204,6 +209,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     
     const createSupportTicket = useCallback(async (firstMessage: Message) => {
         if (!userId) return;
+        
+        setIsForceNewTicket(false);
+
         const activeTicket = mySupportTicket;
         if (activeTicket && !activeTicket.isResolved) {
              await addMessageToTicket(activeTicket.id, firstMessage);
