@@ -1,17 +1,18 @@
 
 "use client";
 
-import { useContext, useMemo, useState, useEffect, useRef } from 'react';
+import { useContext, useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, BellRing, Volume2, VolumeX, PackageOpen, Clock, CheckCircle2, Bike, ReceiptText } from 'lucide-react';
+import { LogOut, Loader2, BellRing, Volume2, VolumeX, PackageOpen, Clock, CheckCircle2, Bike, ReceiptText, ShieldCheck } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import type { Order } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 interface RestaurantDashboardPageProps {
     onNavigate: (tab: number) => void;
@@ -20,13 +21,30 @@ interface RestaurantDashboardPageProps {
 export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashboardPageProps) {
     const context = useContext(RestaurantContext);
     const { allOrders, isLoading: ordersLoading } = useOrders();
+    const { toast } = useToast();
     
     const [newOrderAlert, setNewOrderAlert] = useState<Order | null>(null);
     const [isMuted, setIsMuted] = useState(false);
     const [handledOrderIds, setHandledOrderIds] = useState<Set<string>>(new Set());
+    const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default');
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
-    // تصفية الطلبات حسب المطعم والحالة مع تجاهل الطلبات التي تم التعامل معها محلياً لمنع التكرار
+    useEffect(() => {
+        if (typeof window !== 'undefined' && 'Notification' in window) {
+            setNotifPermission(Notification.permission);
+        }
+    }, []);
+
+    const requestNotifPermission = async () => {
+        if ('Notification' in window) {
+            const permission = await Notification.requestPermission();
+            setNotifPermission(permission);
+            if (permission === 'granted') {
+                toast({ title: "تم تفعيل الإشعارات بنجاح" });
+            }
+        }
+    };
+
     const myNewOrders = useMemo(() => {
         if (!context?.restaurant || !allOrders) return [];
         return allOrders.filter(order => 
@@ -38,34 +56,49 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
     
     const myPreparingOrders = useMemo(() => {
         if (!context?.restaurant || !allOrders) return [];
-        return allOrders.filter(order => order.restaurant?.id === context.restaurant?.id && ['preparing', 'confirmed'].includes(order.status));
+        return allOrders.filter(order => 
+            order.restaurant?.id === context.restaurant?.id && 
+            ['preparing', 'confirmed'].includes(order.status)
+        );
     }, [context?.restaurant, allOrders]);
     
      const myReadyOrders = useMemo(() => {
         if (!context?.restaurant || !allOrders) return [];
-        return allOrders.filter(order => order.restaurant?.id === context.restaurant?.id && order.status === 'ready_for_pickup');
+        return allOrders.filter(order => 
+            order.restaurant?.id === context.restaurant?.id && 
+            order.status === 'ready_for_pickup'
+        );
     }, [context?.restaurant, allOrders]);
 
-    // منطق التنبيه عند وصول طلب جديد
-    useEffect(() => {
-        if (myNewOrders.length > 0 && !newOrderAlert) {
-            const latestOrder = myNewOrders[0];
-            setNewOrderAlert(latestOrder);
-            if (!isMuted && audioRef.current) {
-                audioRef.current.play().catch(e => console.log("Autoplay blocked, waiting for interaction"));
-            }
-        } else if (myNewOrders.length === 0 && newOrderAlert) {
-            stopAlert();
-        }
-    }, [myNewOrders, newOrderAlert, isMuted]);
-
-    const stopAlert = () => {
+    const stopAlert = useCallback(() => {
         setNewOrderAlert(null);
         if (audioRef.current) {
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        if (myNewOrders.length > 0 && !newOrderAlert) {
+            const latestOrder = myNewOrders[0];
+            setNewOrderAlert(latestOrder);
+            
+            // صوت التنبيه
+            if (!isMuted && audioRef.current) {
+                audioRef.current.play().catch(e => console.log("Autoplay blocked"));
+            }
+
+            // إشعار المتصفح الخارجي
+            if (notifPermission === 'granted') {
+                new Notification("سبيد شوب: طلب جديد!", {
+                    body: `وصلك طلب جديد بقيمة ${formatCurrency(latestOrder.total)}`,
+                    icon: '/favicon.ico'
+                });
+            }
+        } else if (myNewOrders.length === 0 && newOrderAlert) {
+            stopAlert();
+        }
+    }, [myNewOrders, newOrderAlert, isMuted, notifPermission, stopAlert]);
 
     const handleAcceptOrder = async (orderId: string) => {
         setHandledOrderIds(prev => new Set(prev).add(orderId));
@@ -99,11 +132,16 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                         <BellRing className="h-6 w-6 text-primary" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-black text-primary">لوحة تحكم {restaurant.name}</h1>
-                        <p className="text-muted-foreground text-sm font-bold">بوابة إدارة الطلبات اللحظية</p>
+                        <h1 className="text-2xl font-black text-primary">لوحة {restaurant.name}</h1>
+                        <p className="text-muted-foreground text-sm font-bold">رقم المتجر: {restaurant.restaurantNumber}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
+                     {notifPermission !== 'granted' && (
+                         <Button variant="outline" className="font-bold border-2 border-blue-500 text-blue-600 rounded-xl" onClick={requestNotifPermission}>
+                            <ShieldCheck className="ml-2 h-4 w-4"/> تفعيل الإشعارات الخارجية
+                         </Button>
+                     )}
                      <Button variant="outline" size="icon" onClick={() => setIsMuted(!isMuted)}>
                         {isMuted ? <VolumeX className="h-5 w-5 text-destructive"/> : <Volume2 className="h-5 w-5 text-primary"/>}
                      </Button>
@@ -126,7 +164,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                                     <div className="bg-blue-500 p-2 text-white text-[10px] font-bold text-center">طلب جديد # {order.id.substring(0,6)}</div>
                                     <CardHeader className="p-4 pb-2">
                                         <CardTitle className="text-base font-black flex justify-between items-center">
-                                            <span>تفاصيل الطلب</span>
+                                            <span>محتويات الطلب</span>
                                             <span className="text-xs text-muted-foreground font-bold">{new Date(order.date).toLocaleTimeString('ar-IQ', {hour: '2-digit', minute:'2-digit'})}</span>
                                         </CardTitle>
                                     </CardHeader>
@@ -163,17 +201,17 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                                     <CardHeader className="p-4">
                                         <div className="flex justify-between items-start">
                                             <CardTitle className="text-base font-black">طلب #{order.id.substring(0,6)}</CardTitle>
-                                            <Badge variant="outline" className="bg-white text-orange-600 border-orange-200">يتم التحضير</Badge>
+                                            <Badge variant="outline" className="bg-white text-orange-600 border-orange-200">تحضير</Badge>
                                         </div>
                                     </CardHeader>
                                      <CardContent className="p-4 pt-0">
                                         {order.status === 'confirmed' && order.deliveryWorker ? (
                                             <div className="flex items-center gap-2 p-2 bg-green-50 rounded-xl text-green-700 border border-green-100 mb-3">
                                                 <Bike className="h-4 w-4" />
-                                                <span className="text-xs font-black">السائق {order.deliveryWorker.name} في الطريق إليكم</span>
+                                                <span className="text-xs font-black">الكابتن {order.deliveryWorker.name} قادم للاستلام</span>
                                             </div>
                                         ) : (
-                                            <div className="text-[10px] text-muted-foreground font-bold mb-3 italic">بانتظار قبول سائق للطلب...</div>
+                                            <div className="text-[10px] text-muted-foreground font-bold mb-3 italic">بانتظار سائق...</div>
                                         )}
                                          <ul className="space-y-1 opacity-80">
                                             {order.items.map(item => (
@@ -205,11 +243,11 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                              {myReadyOrders.length > 0 ? myReadyOrders.map(order => (
                                 <Card key={order.id} className="mb-4 rounded-2xl shadow-sm border-none bg-green-500 text-white">
                                     <CardHeader className="p-4">
-                                        <CardTitle className="text-base font-black">طلب جاهز #{order.id.substring(0,6)}</CardTitle>
+                                        <CardTitle className="text-base font-black">جاهز #{order.id.substring(0,6)}</CardTitle>
                                     </CardHeader>
                                     <CardContent className="p-4 pt-0">
                                         <div className="bg-white/20 rounded-xl p-3 mb-2">
-                                            <p className="text-xs font-bold">بانتظار السائق للاستلام</p>
+                                            <p className="text-xs font-bold">بانتظار الكابتن للاستلام</p>
                                             {order.deliveryWorker && (
                                                 <div className="mt-2 flex items-center gap-2">
                                                     <Bike className="h-4 w-4" />
@@ -230,14 +268,13 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                 </div>
             </main>
 
-            {/* نافذة التنبيه بالطلب الجديد - تفاصيل كاملة */}
             <Dialog open={!!newOrderAlert} onOpenChange={() => {}}>
                 <DialogContent className="sm:max-w-md bg-white rounded-t-[3rem] border-none shadow-2xl p-0 overflow-hidden">
                     <DialogHeader className="p-0">
                         <div className="bg-primary p-6 text-white text-center space-y-2">
                             <BellRing className="h-12 w-12 mx-auto animate-bounce"/>
                             <DialogTitle className="text-3xl font-black italic">طلب جديد وصل!</DialogTitle>
-                            <DialogDescription className="text-white/90 font-bold">يرجى تأكيد الطلب للبدء بالتحضير</DialogDescription>
+                            <DialogDescription className="text-white/90 font-bold">يرجى مراجعة المنتجات وقبول الطلب</DialogDescription>
                         </div>
                     </DialogHeader>
                     
@@ -296,7 +333,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                             onClick={() => handleRejectOrder(newOrderAlert!.id)}
                             disabled={isProcessing}
                         >
-                            رفض واستبعاد
+                            رفض الطلب
                         </Button>
                     </DialogFooter>
                 </DialogContent>

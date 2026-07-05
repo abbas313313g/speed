@@ -2,12 +2,11 @@
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatCurrency, calculateDistance } from '@/lib/utils';
 import { LogOut, CircleDot, Loader2, PackageCheck, AlertTriangle, Shield, Check, X, Map, Inbox } from 'lucide-react';
-import type { Order, OrderStatus } from '@/lib/types';
+import type { Order } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useOrders } from '@/hooks/useOrders';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
@@ -15,9 +14,10 @@ import { useRestaurants } from '@/hooks/useRestaurants';
 
 interface DeliveryPageProps {
     onNavigate: (tab: number) => void;
+    onViewOrder: (id: string) => void;
 }
 
-function AvailableOrderCard({ order, onAccept, isProcessing }: { order: Order, onAccept: (id: string) => void, isProcessing: boolean }) {
+function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order: Order, onAccept: (id: string) => void, onReject: (id: string) => void, isProcessing: boolean }) {
     const { restaurants } = useRestaurants();
 
     const { distance, mapUrl } = useMemo(() => {
@@ -58,48 +58,55 @@ function AvailableOrderCard({ order, onAccept, isProcessing }: { order: Order, o
                              <Button variant="outline" className="w-full h-11 rounded-xl font-bold"><Map className="ml-2 h-4 w-4"/>رؤية المسار</Button>
                         </a>
                     )}
-                     <Button size="lg" className="h-14 rounded-xl text-lg font-black bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200" onClick={() => onAccept(order.id)} disabled={isProcessing}>
-                         {isProcessing ? <Loader2 className="h-5 w-5 animate-spin"/> : <Check className="ml-2 h-6 w-6"/>}
-                        قبول وتسليم الطلب
-                    </Button>
+                    <div className="grid grid-cols-2 gap-2">
+                        <Button variant="ghost" className="h-14 rounded-xl text-destructive font-bold border-2 border-destructive/10" onClick={() => onReject(order.id)} disabled={isProcessing}>
+                             تجاهل
+                        </Button>
+                        <Button size="lg" className="h-14 rounded-xl text-lg font-black bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200" onClick={() => onAccept(order.id)} disabled={isProcessing}>
+                            {isProcessing ? <Loader2 className="h-5 w-5 animate-spin"/> : <Check className="ml-2 h-6 w-6"/>}
+                            قبول
+                        </Button>
+                    </div>
                 </div>
             </CardContent>
         </Card>
     );
 }
 
-export default function DeliveryPage({ onNavigate }: DeliveryPageProps) {
-    const router = useRouter();
+export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPageProps) {
     const { toast } = useToast();
     const [workerId, setWorkerId] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [ignoredOrders, setIgnoredOrders] = useState<Set<string>>(new Set());
 
     const { allOrders, isLoading: ordersLoading, updateOrderStatus } = useOrders();
     const { deliveryWorkers, isLoading: workersLoading, updateWorkerStatus } = useDeliveryWorkers();
 
     useEffect(() => {
         const id = localStorage.getItem('deliveryWorkerId');
-        if (!id) {
-            router.replace('/delivery/login');
-        } else {
+        if (id) {
             setWorkerId(id);
         }
-    }, [router]);
+    }, []);
     
     const worker = useMemo(() => {
         if (!workerId || !deliveryWorkers) return null;
         return deliveryWorkers.find(w => w.id === workerId);
     }, [workerId, deliveryWorkers]);
 
-    // طلبات تم إسنادها لهذا السائق تحديداً ولكن لم يقبلها بعد
     const myAssignedOrders = useMemo(() => {
         if (!workerId || !allOrders) return [];
-        return allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'preparing');
-    }, [workerId, allOrders]);
+        return allOrders.filter(o => 
+            o.deliveryWorkerId === workerId && 
+            o.status === 'confirmed' && 
+            !ignoredOrders.has(o.id)
+        );
+    }, [workerId, allOrders, ignoredOrders]);
     
     const myCurrentOrder = useMemo(() => {
         if (!workerId || !allOrders) return null;
-        return allOrders.find(o => o.deliveryWorkerId === workerId && ['confirmed', 'ready_for_pickup', 'on_the_way'].includes(o.status));
+        // الطلب النشط هو الذي "قبله" السائق فعلياً وبدأ العمل عليه
+        return allOrders.find(o => o.deliveryWorkerId === workerId && ['preparing', 'ready_for_pickup', 'on_the_way'].includes(o.status));
     }, [workerId, allOrders]);
 
 
@@ -113,14 +120,19 @@ export default function DeliveryPage({ onNavigate }: DeliveryPageProps) {
         if (!workerId) return;
         setIsProcessing(true);
         try {
-            // المندوب يضغط "قبول"، تتحول الحالة لـ 'confirmed'
-            await updateOrderStatus(orderId, 'confirmed', workerId);
+            // تحويل الحالة إلى 'preparing' ليعرف المطعم أن السائق قادم
+            await updateOrderStatus(orderId, 'preparing', workerId);
             toast({ title: "تم قبول الطلب! اذهب للمطعم الآن" });
         } catch (error: any) {
-            // Error is handled in hook
+             toast({ title: "عذراً، حدث خطأ", variant: "destructive" });
         } finally {
             setIsProcessing(false);
         }
+    };
+
+    const handleRejectOrder = (orderId: string) => {
+        setIgnoredOrders(prev => new Set(prev).add(orderId));
+        toast({ title: "تم تجاهل الطلب" });
     };
     
     const handleLogout = () => {
@@ -128,7 +140,7 @@ export default function DeliveryPage({ onNavigate }: DeliveryPageProps) {
             updateWorkerStatus(workerId, false);
         }
         localStorage.removeItem('deliveryWorkerId');
-        router.replace('/delivery/login');
+        window.location.reload();
     };
     
     const handleToggleOnlineStatus = () => {
@@ -169,7 +181,7 @@ export default function DeliveryPage({ onNavigate }: DeliveryPageProps) {
                             <h2 className="text-3xl font-black text-primary">لديك طلب نشط</h2>
                             <p className="text-muted-foreground font-bold mt-2">أكمل مهمتك الحالية لتتمكن من استلام المزيد.</p>
                         </div>
-                         <Button size="lg" className="w-full h-16 rounded-2xl text-xl font-black shadow-lg" onClick={() => router.push(`/delivery/order/${myCurrentOrder!.id}`)}>
+                         <Button size="lg" className="w-full h-16 rounded-2xl text-xl font-black shadow-lg" onClick={() => onViewOrder(myCurrentOrder!.id)}>
                             تفاصيل المهمة الحالية
                         </Button>
                     </div>
@@ -183,7 +195,13 @@ export default function DeliveryPage({ onNavigate }: DeliveryPageProps) {
                                 <p className="text-xs font-bold text-muted-foreground">اضغط قبول لبدء المهمة فوراً</p>
                             </div>
                             {myAssignedOrders.map(order => (
-                                <AvailableOrderCard key={order.id} order={order} onAccept={handleAcceptOrder} isProcessing={isProcessing} />
+                                <AvailableOrderCard 
+                                    key={order.id} 
+                                    order={order} 
+                                    onAccept={handleAcceptOrder} 
+                                    onReject={handleRejectOrder}
+                                    isProcessing={isProcessing} 
+                                />
                             ))}
                         </div>
                     );
@@ -226,4 +244,3 @@ export default function DeliveryPage({ onNavigate }: DeliveryPageProps) {
         </div>
     );
 }
-

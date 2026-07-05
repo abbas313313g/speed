@@ -2,12 +2,11 @@
 "use client";
 
 import { useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { MapPin, Phone, ArrowRight, XCircle, Store } from 'lucide-react';
 import type { OrderStatus } from '@/lib/types';
@@ -25,15 +24,16 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useOrders } from '@/hooks/useOrders';
 
+interface DeliveryOrderDetailPageProps {
+    orderId: string;
+    onBack: () => void;
+}
 
-export default function DeliveryOrderDetailPage() {
-  const { id } = useParams();
-  const router = useRouter();
+export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrderDetailPageProps) {
   const { toast } = useToast();
   const { allOrders, isLoading, updateOrderStatus } = useOrders();
 
-
-  const order = useMemo(() => allOrders.find(o => o.id === id), [id, allOrders]);
+  const order = useMemo(() => allOrders.find(o => o.id === orderId), [orderId, allOrders]);
 
   if (isLoading) {
     return (
@@ -48,8 +48,8 @@ export default function DeliveryOrderDetailPage() {
   if (!order) {
       return (
           <div className="text-center p-8">
-            <p>لم يتم العثور على الطلب.</p>
-            <Button onClick={() => router.back()} className="mt-4">العودة</Button>
+            <p className="font-bold">لم يتم العثور على الطلب.</p>
+            <Button onClick={onBack} className="mt-4">العودة</Button>
           </div>
       )
   }
@@ -58,17 +58,18 @@ export default function DeliveryOrderDetailPage() {
         switch (status) {
             case 'unassigned': return "بانتظار سائق";
             case 'pending_assignment': return "جارِ التعيين...";
-            case 'confirmed': return "تم التأكيد من قبل السائق";
-            case 'preparing': return "قيد التحضير";
+            case 'confirmed': return "بانتظار موافقتك";
+            case 'preparing': return "قيد التحضير في المطعم";
             case 'ready_for_pickup': return "جاهز للاستلام";
-            case 'on_the_way': return "في الطريق";
-            case 'delivered': return "تم التوصيل";
+            case 'on_the_way': return "في الطريق للزبون";
+            case 'delivered': return "تم التوصيل بنجاح";
             case 'cancelled': return "ملغي";
             default: return status;
         }
     }
 
   const nextStatus: {[key in OrderStatus]?: OrderStatus} = {
+      'preparing': 'ready_for_pickup',
       'ready_for_pickup': 'on_the_way',
       'on_the_way': 'delivered',
   }
@@ -77,6 +78,7 @@ export default function DeliveryOrderDetailPage() {
       const next = nextStatus[order.status];
       if(next) {
           await updateOrderStatus(order.id, next);
+          toast({ title: `تم تحديث الحالة إلى: ${getStatusText(next)}` });
       }
   }
 
@@ -84,122 +86,116 @@ export default function DeliveryOrderDetailPage() {
       if (order.status === 'delivered' || order.status === 'cancelled') return;
       await updateOrderStatus(order.id, 'cancelled');
       toast({title: "تم إلغاء الطلب", variant: 'destructive'});
-      router.back();
+      onBack();
   }
 
-
   return (
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-6 h-full overflow-y-auto pb-20 bg-background">
         <header className="flex items-center gap-4">
-            <Button variant="outline" size="icon" onClick={() => router.back()}>
-                <ArrowRight className="h-5 w-5"/>
-            </Button>
+            <button onClick={onBack} className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all">
+                <ArrowRight className="h-6 w-6"/>
+            </button>
             <div>
-                <h1 className="text-2xl font-bold">تفاصيل الطلب #{order.id.substring(0,6)}</h1>
-                <p className="text-muted-foreground">الحالة الحالية: {getStatusText(order.status)}</p>
+                <h1 className="text-xl font-black text-primary">تفاصيل الطلب #{order.id.substring(0,6)}</h1>
+                <p className="text-[10px] font-bold text-muted-foreground">{getStatusText(order.status)}</p>
             </div>
         </header>
 
-        <Card>
-            <CardHeader>
-                <CardTitle>معلومات الزبون</CardTitle>
+        <Card className="rounded-[1.5rem] border-none shadow-md">
+            <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-black">معلومات الزبون</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-                <div className="flex justify-between"><span>الاسم:</span> <span className="font-semibold">{order.address.name}</span></div>
-                <div className="flex justify-between"><span>المنطقة:</span> <span className="font-semibold">{order.address.deliveryZone}</span></div>
-                <div className="flex justify-between"><span>العنوان:</span> <span className="font-semibold">{order.address.details || 'لا يوجد'}</span></div>
+                <div className="flex justify-between text-sm"><span>الاسم:</span> <span className="font-black text-primary">{order.address.name}</span></div>
+                <div className="flex justify-between text-sm"><span>المنطقة:</span> <span className="font-bold">{order.address.deliveryZone}</span></div>
+                <div className="flex justify-between text-sm"><span>العنوان:</span> <span className="font-medium text-muted-foreground">{order.address.details || 'لا توجد ملاحظات'}</span></div>
             </CardContent>
-            <CardFooter className="grid grid-cols-2 gap-2">
+            <CardFooter className="grid grid-cols-2 gap-2 border-t pt-4">
                 <a href={`tel:${order.address.phone}`} className="w-full">
-                    <Button variant="outline" className="w-full"><Phone className="ml-2 h-4 w-4"/>اتصال بالزبون</Button>
+                    <Button variant="outline" className="w-full h-11 rounded-xl font-bold"><Phone className="ml-2 h-4 w-4"/>اتصال</Button>
                 </a>
                 <a href={`https://www.google.com/maps?q=${order.address.latitude},${order.address.longitude}`} target="_blank" rel="noopener noreferrer" className="w-full">
-                    <Button variant="outline" className="w-full"><MapPin className="ml-2 h-4 w-4"/>موقع الزبون</Button>
+                    <Button variant="outline" className="w-full h-11 rounded-xl font-bold"><MapPin className="ml-2 h-4 w-4"/>الموقع</Button>
                 </a>
             </CardFooter>
         </Card>
         
         {order.restaurant && (
-            <Card>
-                <CardHeader>
-                    <CardTitle>معلومات المتجر</CardTitle>
+            <Card className="rounded-[1.5rem] border-none shadow-md">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-black">معلومات المتجر</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                     <div className="flex justify-between"><span>الاسم:</span> <span className="font-semibold">{order.restaurant.name}</span></div>
+                     <div className="flex justify-between text-sm"><span>الاسم:</span> <span className="font-black text-primary">{order.restaurant.name}</span></div>
                 </CardContent>
-                 <CardFooter className="grid grid-cols-1 gap-2">
+                 <CardFooter className="border-t pt-4">
                     <a href={`https://www.google.com/maps?q=${order.restaurant.latitude},${order.restaurant.longitude}`} target="_blank" rel="noopener noreferrer" className="w-full">
-                        <Button variant="outline" className="w-full"><Store className="ml-2 h-4 w-4"/>موقع المتجر</Button>
+                        <Button variant="outline" className="w-full h-11 rounded-xl font-bold"><Store className="ml-2 h-4 w-4"/>موقع المتجر</Button>
                     </a>
                 </CardFooter>
             </Card>
         )}
 
-         <Card>
-            <CardHeader>
-                <CardTitle>تفاصيل الفاتورة</CardTitle>
+         <Card className="rounded-[1.5rem] border-none shadow-md overflow-hidden">
+            <CardHeader className="bg-muted/20 pb-4">
+                <CardTitle className="text-sm font-black text-center">الفاتورة والمنتجات</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="p-4 space-y-4">
                 {order.items.map(item => {
                   const itemPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
-                  const imageUrl = item.product.image && (item.product.image.startsWith('http') || item.product.image.startsWith('data:')) ? item.product.image : 'https://placehold.co/40x40.png';
                   return (
-                    <div key={item.product.id + (item.selectedSize?.name || '')} className="flex justify-between items-center text-sm">
-                        <div className="flex items-center gap-2">
-                            <Image src={imageUrl} alt={item.product.name} width={40} height={40} className="rounded-md object-cover" unoptimized={true}/>
+                    <div key={item.product.id + (item.selectedSize?.name || '')} className="flex justify-between items-center text-xs">
+                        <div className="flex items-center gap-3">
+                            <div className="font-black p-2 bg-secondary rounded-lg text-primary">x{item.quantity}</div>
                             <div>
-                                <p>{item.product.name} {item.selectedSize ? `(${item.selectedSize.name})` : ''}</p>
-                                <p className="text-xs text-muted-foreground">x{item.quantity}</p>
+                                <p className="font-bold">{item.product.name}</p>
+                                {item.selectedSize && <p className="text-[9px] text-muted-foreground">{item.selectedSize.name}</p>}
                             </div>
                         </div>
-                        <span className="font-mono">{formatCurrency(itemPrice * item.quantity)}</span>
+                        <span className="font-black">{formatCurrency(itemPrice * item.quantity)}</span>
                     </div>
                   )
                 })}
-                <Separator className="my-2"/>
-                 <div className="flex justify-between text-sm">
-                    <span>سعر التوصيل:</span>
+                <Separator className="border-dashed"/>
+                 <div className="flex justify-between text-xs font-bold text-muted-foreground">
+                    <span>أجرة التوصيل:</span>
                     <span>{formatCurrency(order.deliveryFee)}</span>
                  </div>
                  {order.appliedCoupon && (
-                     <div className="flex justify-between text-sm text-green-600">
-                        <span>الخصم ({order.appliedCoupon.code}):</span>
+                     <div className="flex justify-between text-xs font-black text-green-600">
+                        <span>خصم الكوبون:</span>
                         <span>-{formatCurrency(order.appliedCoupon.discountAmount)}</span>
                     </div>
                  )}
-                 <div className="flex justify-between font-bold text-lg">
-                    <span>المبلغ الإجمالي للاستلام:</span>
+                 <div className="flex justify-between font-black text-xl text-primary bg-primary/5 p-4 rounded-xl">
+                    <span>المبلغ الكلي:</span>
                     <span>{formatCurrency(order.total)}</span>
                  </div>
             </CardContent>
         </Card>
         
-        {order.status === 'confirmed' && (
-             <p className="text-center font-semibold text-blue-600 p-4 bg-blue-100 rounded-lg">تم تأكيد الطلب. بانتظار أن يصبح جاهزاً للاستلام من المطعم.</p>
-        )}
-
         {nextStatus[order.status] && (
-            <div className="grid grid-cols-1 gap-2">
-                <Button size="lg" className="w-full" onClick={handleUpdateStatus}>
-                    تغيير الحالة إلى "{getStatusText(nextStatus[order.status]!)}"
+            <div className="flex flex-col gap-3">
+                <Button size="lg" className="w-full h-16 rounded-2xl text-lg font-black shadow-xl" onClick={handleUpdateStatus}>
+                    تحديث الحالة: "{getStatusText(nextStatus[order.status]!)}"
                 </Button>
                  <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button size="lg" variant="destructive" className="w-full">
+                        <Button size="lg" variant="ghost" className="w-full text-destructive font-bold h-12">
                             <XCircle className="ml-2 h-5 w-5" />
                             إلغاء الطلب
                         </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent>
+                    <AlertDialogContent className="rounded-[2rem]">
                         <AlertDialogHeader>
-                            <AlertDialogTitle>هل أنت متأكد من الإلغاء؟</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                هذا الإجراء سيقوم بإلغاء الطلب بشكل نهائي. هل تريد المتابعة؟
+                            <AlertDialogTitle className="text-right">تأكيد الإلغاء</AlertDialogTitle>
+                            <AlertDialogDescription className="text-right font-bold text-muted-foreground">
+                                هل أنت متأكد من إلغاء هذا الطلب؟ سيتم إعادته لقائمة الانتظار.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>تراجع</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleCancelOrder} className="bg-destructive hover:bg-destructive/90">نعم، قم بالإلغاء</AlertDialogAction>
+                        <AlertDialogFooter className="flex-row gap-2">
+                            <AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleCancelOrder} className="bg-destructive hover:bg-destructive/90 flex-1 rounded-xl">نعم، إلغاء</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
@@ -207,14 +203,16 @@ export default function DeliveryOrderDetailPage() {
         )}
 
         {order.status === 'delivered' && (
-            <p className="text-center font-semibold text-green-600 p-4 bg-green-100 rounded-lg">تم توصيل هذا الطلب بنجاح.</p>
+            <div className="text-center font-black text-green-600 p-6 bg-green-50 rounded-2xl border-2 border-green-100 animate-in zoom-in">
+                 تم توصيل الطلب بنجاح! 🎉
+            </div>
         )}
         {order.status === 'cancelled' && (
-            <p className="text-center font-semibold text-red-600 p-4 bg-red-100 rounded-lg">تم إلغاء هذا الطلب.</p>
+            <div className="text-center font-black text-red-600 p-6 bg-red-50 rounded-2xl border-2 border-red-100">
+                الطلب ملغي.
+            </div>
         )}
 
     </div>
   );
 }
-
-    

@@ -1,13 +1,16 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import DeliveryLoginPage from './login/page';
 import DeliveryPage from './page';
 import DeliveryStatsPage from './stats/page';
+import DeliveryOrderDetailPage from './order/[id]/page';
 
 export default function DeliveryLayout() {
-  const [activeTab, setActiveTab] = useState(0); // 0: Login, 1: Dashboard, 2: Stats
+  const [activeTab, setActiveTab] = useState(0); // 0: Login, 1: Dashboard, 2: Stats, 3: OrderDetail
   const [isAuth, setIsAuth] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     const id = localStorage.getItem('deliveryWorkerId');
@@ -17,8 +20,13 @@ export default function DeliveryLayout() {
     }
   }, []);
 
+  const handleNavigateToOrder = (orderId: string) => {
+      setSelectedOrderId(orderId);
+      setActiveTab(3);
+  };
+
   return (
-    <div className="mx-auto flex h-screen max-w-md flex-col bg-card shadow-lg relative overflow-hidden">
+    <div className="mx-auto flex h-screen max-w-md flex-col bg-card shadow-lg relative overflow-hidden" dir="rtl">
       <main className="flex-1 relative">
         <div 
           className="spa-stack-container" 
@@ -30,10 +38,21 @@ export default function DeliveryLayout() {
              <DeliveryLoginPage onLogin={() => { setIsAuth(true); setActiveTab(1); }} />
           </div>
           <div className="spa-page-view">
-             <DeliveryPage onNavigate={(tab: number) => setActiveTab(tab)} />
+             <DeliveryPage 
+                onNavigate={(tab: number) => setActiveTab(tab)} 
+                onViewOrder={handleNavigateToOrder}
+             />
           </div>
           <div className="spa-page-view">
              <DeliveryStatsPage onBack={() => setActiveTab(1)} />
+          </div>
+          <div className="spa-page-view">
+             {selectedOrderId && (
+                 <DeliveryOrderDetailPage 
+                    orderId={selectedOrderId} 
+                    onBack={() => setActiveTab(1)} 
+                 />
+             )}
           </div>
         </div>
       </main>
