@@ -24,7 +24,7 @@ export const useSupportTickets = () => {
             },
             (error) => {
                 console.error("Error fetching support tickets:", error);
-                toast({ title: "فشل جلب تذاكر الدعم", description: "حدث خطأ أثناء تحميل البيانات.", variant: "destructive" });
+                toast({ title: "عذراً، فشل جلب الرسائل", description: "يرجى التحقق من جودة الإنترنت", variant: "destructive" });
                 setIsLoading(false);
             }
         );
@@ -36,7 +36,8 @@ export const useSupportTickets = () => {
             await updateDoc(doc(db, "supportTickets", ticketId), { history: arrayUnion(message) });
         } catch (error) {
             console.error("Error adding message to ticket:", error);
-            toast({ title: "فشل إرسال الرسالة", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" });
+            toast({ title: "فشل إرسال الرسالة", description: "يرجى المحاولة مرة أخرى لاحقاً", variant: "destructive" });
+            throw error;
         }
     }, [toast]);
     
@@ -45,7 +46,8 @@ export const useSupportTickets = () => {
             await updateDoc(doc(db, "supportTickets", ticketId), { isResolved: true });
         } catch (error) {
             console.error("Error resolving ticket:", error);
-            toast({ title: "فشل إغلاق التذكرة", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" });
+            toast({ title: "فشل إغلاق التذكرة", variant: "destructive" });
+            throw error;
         }
     }, [toast]);
     
@@ -53,13 +55,23 @@ export const useSupportTickets = () => {
         if (!userId) return;
 
         try {
-            const newTicket: Omit<SupportTicket, 'id'> = { userId, userName, createdAt: new Date().toISOString(), isResolved: false, history: [firstMessage] };
+            const newTicket: Omit<SupportTicket, 'id'> = { 
+                userId, 
+                userName: userName || 'زبون جديد', 
+                createdAt: new Date().toISOString(), 
+                isResolved: false, 
+                history: [firstMessage] 
+            };
             await addDoc(collection(db, "supportTickets"), newTicket);
             
-            telegramConfigs.filter(c => c.type === 'owner').forEach(c => sendTelegramMessage(c.chatId, `*تذكرة دعم جديدة* 📩\n*من:* ${userName}\n*الرسالة:* ${firstMessage.content}`));
+            // إشعار للأدمن عبر تليجرام
+            telegramConfigs.filter(c => c.type === 'owner').forEach(c => 
+                sendTelegramMessage(c.chatId, `*تذكرة دعم جديدة* 📩\n*من:* ${userName}\n*الرسالة:* ${firstMessage.content}`)
+            );
         } catch (error) {
              console.error("Error creating support ticket:", error);
-             toast({ title: "فشل إنشاء تذكرة الدعم", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" });
+             toast({ title: "فشل بدء المحادثة", description: "يرجى إعادة المحاولة", variant: "destructive" });
+             throw error;
         }
 
     }, [telegramConfigs, toast]);

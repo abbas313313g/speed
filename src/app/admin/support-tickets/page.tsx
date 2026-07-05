@@ -37,7 +37,7 @@ export default function AdminSupportTicketsPage() {
   const [isReplying, setIsReplying] = useState(false);
   const { toast } = useToast();
 
-  if (isLoading) return <div className="p-8 text-center animate-pulse font-bold">جارِ تحميل التذاكر...</div>;
+  if (isLoading) return <div className="p-8 text-center animate-pulse font-bold text-primary">جارِ تحميل محادثات الدعم...</div>;
 
   const sortedTickets = [...supportTickets].sort((a,b) => {
     if (a.isResolved !== b.isResolved) {
@@ -64,8 +64,9 @@ export default function AdminSupportTicketsPage() {
             history: [...prev.history, adminMessage]
         }) : null);
         setReply("");
+        toast({ title: "تم إرسال الرد بنجاح" });
     } catch (e) {
-        toast({ title: "فشل إرسال الرد", variant: "destructive" });
+        toast({ title: "فشل إرسال الرد", description: "يرجى التحقق من اتصال الإنترنت", variant: "destructive" });
     } finally {
         setIsReplying(false);
     }
@@ -73,16 +74,20 @@ export default function AdminSupportTicketsPage() {
 
   const handleResolveTicket = async () => {
     if (!selectedTicket) return;
-    await resolveSupportTicket(selectedTicket.id);
-    setSelectedTicket(prev => prev ? {...prev, isResolved: true} : null);
-    toast({ title: "تم إغلاق التذكرة بنجاح" });
+    try {
+        await resolveSupportTicket(selectedTicket.id);
+        setSelectedTicket(prev => prev ? {...prev, isResolved: true} : null);
+        toast({ title: "تم إغلاق المحادثة بنجاح" });
+    } catch (e) {
+        toast({ title: "حدث خطأ أثناء الإغلاق", variant: "destructive" });
+    }
   }
 
   return (
     <div className="space-y-8 p-4">
       <header>
         <h1 className="text-3xl font-black text-primary">تذاكر الدعم الفني</h1>
-        <p className="text-muted-foreground font-bold">متابعة محادثات الزبائن والرد على استفساراتهم</p>
+        <p className="text-muted-foreground font-bold">متابعة محادثات الزبائن والرد على استفساراتهم بشكل لحظي</p>
       </header>
 
       <div className="bg-white rounded-[2rem] shadow-sm border overflow-hidden">
@@ -93,18 +98,18 @@ export default function AdminSupportTicketsPage() {
                 <TableHead className="font-black w-[40%]">آخر رسالة</TableHead>
                 <TableHead className="font-black">التاريخ</TableHead>
                 <TableHead className="font-black">الحالة</TableHead>
-                <TableHead className="font-black">إجراء</TableHead>
+                <TableHead className="font-black text-center">إجراء</TableHead>
             </TableRow>
             </TableHeader>
             <TableBody>
             {sortedTickets.map((ticket) => (
                 <TableRow key={ticket.id} className="hover:bg-muted/30">
                 <TableCell className="font-bold">
-                    {ticket.userName}
-                    <div className="text-[10px] text-muted-foreground font-mono">{ticket.userId.substring(0,8)}</div>
+                    {ticket.userName || 'مستخدم غير معروف'}
+                    <div className="text-[10px] text-muted-foreground font-mono">{ticket.userId?.substring(0,8) || 'N/A'}</div>
                 </TableCell>
                 <TableCell className="text-muted-foreground font-medium truncate max-w-[200px]">
-                    {ticket.history?.[ticket.history.length-1]?.content}
+                    {ticket.history?.[ticket.history.length-1]?.content || 'لا توجد رسائل'}
                 </TableCell>
                 <TableCell className="text-xs font-bold">{new Date(ticket.createdAt).toLocaleDateString('ar-IQ')}</TableCell>
                 <TableCell>
@@ -112,7 +117,7 @@ export default function AdminSupportTicketsPage() {
                         {ticket.isResolved ? "تم الحل" : "بانتظار الرد"}
                     </Badge>
                 </TableCell>
-                <TableCell>
+                <TableCell className="text-center">
                     <Button variant="outline" size="sm" onClick={() => setSelectedTicket(ticket)} className="rounded-xl font-bold border-2">
                        <MessageSquare className="ml-2 h-4 w-4"/>
                        فتح المحادثة
@@ -122,14 +127,19 @@ export default function AdminSupportTicketsPage() {
             ))}
             </TableBody>
         </Table>
-        {supportTickets.length === 0 && <p className="text-center text-muted-foreground py-20 font-bold italic">لا توجد تذاكر دعم حالياً</p>}
+        {supportTickets.length === 0 && (
+            <div className="text-center py-20">
+                <MessageSquare className="h-16 w-16 mx-auto text-muted-foreground/20 mb-4"/>
+                <p className="text-muted-foreground font-bold italic">لا توجد أي تذاكر دعم حالياً</p>
+            </div>
+        )}
       </div>
 
       <Dialog open={!!selectedTicket} onOpenChange={(isOpen) => !isOpen && setSelectedTicket(null)}>
         <DialogContent className="max-w-2xl flex flex-col h-[90vh] rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
             <DialogHeader className="p-6 bg-primary text-white">
                 <div className="flex justify-between items-center">
-                    <div>
+                    <div className="text-right">
                         <DialogTitle className="text-2xl font-black">محادثة: {selectedTicket?.userName}</DialogTitle>
                         <DialogDescription className="text-white/80 font-bold">تاريخ البدء: {selectedTicket && new Date(selectedTicket.createdAt).toLocaleString('ar-IQ')}</DialogDescription>
                     </div>
@@ -151,7 +161,7 @@ export default function AdminSupportTicketsPage() {
                                 "max-w-[80%] p-4 text-sm font-bold shadow-sm",
                                 isAdmin ? "bg-primary text-white rounded-t-2xl rounded-bl-2xl" : "bg-white rounded-t-2xl rounded-br-2xl"
                             )}>
-                                <p className="whitespace-pre-wrap">{message.content}</p>
+                                <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
                                 <span className="text-[8px] opacity-60 block mt-2">{new Date(message.timestamp).toLocaleTimeString('ar-IQ')}</span>
                             </div>
                         </div>
