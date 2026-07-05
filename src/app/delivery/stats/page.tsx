@@ -74,7 +74,7 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
 
   if (workersLoading || ordersLoading || !workerId) {
       return (
-          <div className="p-6 space-y-6 h-full bg-background overflow-hidden">
+          <div className="p-6 space-y-6 bg-background">
               <div className="flex items-center gap-4">
                   <Skeleton className="h-12 w-12 rounded-2xl" />
                   <div className="space-y-2">
@@ -83,10 +83,6 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
                   </div>
               </div>
               <Skeleton className="h-48 w-full rounded-[2rem]" />
-              <div className="grid grid-cols-2 gap-4">
-                  <Skeleton className="h-28 w-full rounded-[1.5rem]" />
-                  <Skeleton className="h-28 w-full rounded-[1.5rem]" />
-              </div>
           </div>
       )
   }
@@ -139,15 +135,6 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
                         </div>
                         <Progress value={(stats.deliveredOrders / level.nextLevelThreshold) * 100} className="bg-white/20 h-2.5 rounded-full overflow-hidden" />
                      </div>
-                 )}
-
-                 {isFrozen && (
-                    <div className="w-full p-4 bg-white/10 rounded-[1.5rem] border border-white/20 backdrop-blur-sm">
-                        <p className="text-xs font-black text-yellow-300">
-                          نظام التجميد مفعل! أكمل {10 - (worker?.unfreezeProgress || 0)} طلبات لتنشيط الحساب.
-                        </p>
-                         <Progress value={((worker?.unfreezeProgress || 0) / 10) * 100} className="mt-3 h-2 bg-white/10" />
-                    </div>
                  )}
             </CardContent>
         </Card>

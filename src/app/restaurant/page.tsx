@@ -92,7 +92,6 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
             if (notifPermission === 'granted') {
                 new Notification("سبيد شوب: طلب جديد!", {
                     body: `وصلك طلب جديد بقيمة ${formatCurrency(latestOrder.total)}`,
-                    icon: '/favicon.ico'
                 });
             }
         } else if (myNewOrders.length === 0 && newOrderAlert) {

@@ -187,7 +187,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
             case 'searching':
                 if (myAssignedOrders.length > 0) {
                     return (
-                        <div className="w-full space-y-6 p-4 animate-in fade-in slide-in-from-top duration-500 pb-20">
+                        <div className="w-full space-y-6 p-4 animate-in fade-in slide-in-from-top duration-500 pb-24">
                             <div className="text-center space-y-1">
                                 <h2 className="text-2xl font-black text-primary">وصلتك طلبات! ({myAssignedOrders.length})</h2>
                                 <p className="text-xs font-bold text-muted-foreground">اضغط قبول لبدء المهمة فوراً</p>
@@ -217,7 +217,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     }
 
     return (
-        <div className="flex flex-col bg-background min-h-full pb-20">
+        <div className="flex flex-col bg-background pb-20">
             <header className="p-4 flex justify-between items-center bg-card border-b shadow-sm sticky top-0 z-20">
                  <div>
                     <h1 className="text-xl font-black text-primary leading-none">أهلاً {worker?.name?.split(' ')[0]}</h1>
