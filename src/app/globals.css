@@ -33,9 +33,8 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* السماح بالتمرير الطبيعي ومنع التجمد */
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: auto !important; /* السماح بالتمرير الطبيعي دائماً */
     height: auto;
     min-height: 100vh;
     -webkit-tap-highlight-color: transparent;
@@ -50,7 +49,7 @@ button, a, [role="button"] {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  height: 100vh; /* طول الشاشة ثابت للمكدس */
+  height: 100vh; 
   width: 100%;
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
@@ -63,12 +62,12 @@ button, a, [role="button"] {
   min-width: 100%;
   max-width: 100%;
   height: 100%;
-  /* الحل النهائي للتمرير العمودي داخل صفحات المكدس */
+  /* الحل النهائي والجذري للتمرير */
   overflow-y: auto !important; 
   overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-  display: block; 
+  display: block; /* التغيير من flex لضمان تمدد المحتوى */
   position: relative;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* إظهار شريط التمرير بلون مميز لضمان الرؤية */
@@ -84,8 +83,4 @@ button, a, [role="button"] {
 ::-webkit-scrollbar-thumb {
   background: hsl(var(--primary)) !important;
   border-radius: 20px;
-}
-
-.admin-table-container {
-  @apply w-full overflow-x-auto;
 }

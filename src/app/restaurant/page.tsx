@@ -41,18 +41,18 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
         }
 
         try {
+            // حل متوافق مع كافة المتصفحات لطلب الإذن
             const permission = await Notification.requestPermission();
             setNotifPermission(permission);
             
             if (permission === 'granted') {
                 toast({ title: "تم تفعيل الإشعارات بنجاح" });
+                // محاولة تشغيل الصوت للتأكد من تفعيل الأذونات الصوتية أيضاً
                 if (audioRef.current) {
-                    const playPromise = audioRef.current.play();
-                    if (playPromise !== undefined) {
-                        playPromise.then(() => {
-                            audioRef.current?.pause();
-                        }).catch(() => {});
-                    }
+                    audioRef.current.play().then(() => {
+                        audioRef.current?.pause();
+                        audioRef.current!.currentTime = 0;
+                    }).catch(() => {});
                 }
             } else {
                 toast({ title: "تم رفض التنبيهات الخارجية", variant: "destructive" });
