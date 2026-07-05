@@ -62,7 +62,8 @@ button, a, [role="button"] {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   position: relative;
-  display: block;
+  display: flex;
+  flex-direction: column;
 }
 
 /* إخفاء شريط التمرير مع الحفاظ على الوظيفة */

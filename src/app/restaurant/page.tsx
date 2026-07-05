@@ -36,12 +36,32 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
     }, []);
 
     const requestNotifPermission = async () => {
-        if ('Notification' in window) {
+        if (!('Notification' in window)) {
+            toast({ title: "المتصفح لا يدعم الإشعارات", variant: "destructive" });
+            return;
+        }
+
+        try {
             const permission = await Notification.requestPermission();
             setNotifPermission(permission);
             if (permission === 'granted') {
                 toast({ title: "تم تفعيل الإشعارات بنجاح" });
+                // تفعيل الصوت أيضاً عند تفعيل الإشعارات
+                if (audioRef.current) {
+                    audioRef.current.play().then(() => {
+                        audioRef.current?.pause();
+                        audioRef.current!.currentTime = 0;
+                    }).catch(() => {});
+                }
             }
+        } catch (error) {
+            // Fallback for older browsers
+            Notification.requestPermission((permission) => {
+                setNotifPermission(permission);
+                if (permission === 'granted') {
+                    toast({ title: "تم تفعيل الإشعارات بنجاح" });
+                }
+            });
         }
     };
 
@@ -83,16 +103,19 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
             const latestOrder = myNewOrders[0];
             setNewOrderAlert(latestOrder);
             
-            // صوت التنبيه
             if (!isMuted && audioRef.current) {
                 audioRef.current.play().catch(e => console.log("Autoplay blocked"));
             }
 
-            // إشعار المتصفح الخارجي
             if (notifPermission === 'granted') {
-                new Notification("سبيد شوب: طلب جديد!", {
-                    body: `وصلك طلب جديد بقيمة ${formatCurrency(latestOrder.total)}`,
-                });
+                try {
+                    new Notification("سبيد شوب: طلب جديد!", {
+                        body: `وصلك طلب جديد بقيمة ${formatCurrency(latestOrder.total)}`,
+                        icon: '/favicon.ico'
+                    });
+                } catch (e) {
+                    console.error("Notification creation failed", e);
+                }
             }
         } else if (myNewOrders.length === 0 && newOrderAlert) {
             stopAlert();
@@ -122,10 +145,10 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
     const { restaurant, logout, updateRestaurantOrderStatus, isProcessing } = context;
 
     return (
-        <div className="flex flex-col h-screen bg-muted/10">
+        <div className="flex flex-col h-screen bg-muted/10 relative">
             <audio ref={audioRef} loop src="https://assets.mixkit.co/active_storage/sfx/2861/2861-preview.mp3" />
 
-            <header className="p-4 md:p-6 bg-white border-b shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
+            <header className="p-4 md:p-6 bg-white border-b shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 shrink-0 z-20">
                 <div className="flex items-center gap-4">
                     <div className="p-3 bg-primary/10 rounded-2xl">
                         <BellRing className="h-6 w-6 text-primary" />
@@ -137,7 +160,11 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                 </div>
                 <div className="flex items-center gap-3">
                      {notifPermission !== 'granted' && (
-                         <Button variant="outline" className="font-bold border-2 border-blue-500 text-blue-600 rounded-xl" onClick={requestNotifPermission}>
+                         <Button 
+                            variant="outline" 
+                            className="font-bold border-2 border-blue-500 text-blue-600 rounded-xl bg-blue-50 hover:bg-blue-100 transition-colors" 
+                            onClick={requestNotifPermission}
+                         >
                             <ShieldCheck className="ml-2 h-4 w-4"/> تفعيل الإشعارات الخارجية
                          </Button>
                      )}
@@ -149,10 +176,8 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                 </div>
             </header>
 
-            <main className="flex-1 overflow-hidden p-4 md:p-6">
+            <main className="flex-1 overflow-hidden p-4 md:p-6 z-10">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
-                    
-                    {/* عمود: طلبات جديدة */}
                     <div className="flex flex-col gap-4 overflow-hidden h-full">
                         <div className="flex items-center justify-between px-2">
                              <h2 className="text-lg font-black flex items-center gap-2"><PackageOpen className="text-blue-500"/> طلبات جديدة ({myNewOrders.length})</h2>
@@ -191,7 +216,6 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                         </ScrollArea>
                     </div>
 
-                    {/* عمود: قيد التحضير */}
                     <div className="flex flex-col gap-4 overflow-hidden h-full">
                         <div className="px-2"><h2 className="text-lg font-black flex items-center gap-2"><Clock className="text-orange-500"/> قيد التحضير ({myPreparingOrders.length})</h2></div>
                         <ScrollArea className="flex-1 rounded-[2rem] border-2 border-orange-100 p-4 bg-orange-50/30">
@@ -235,7 +259,6 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                         </ScrollArea>
                     </div>
 
-                    {/* عمود: جاهز للاستلام */}
                     <div className="flex flex-col gap-4 overflow-hidden h-full">
                         <div className="px-2"><h2 className="text-lg font-black flex items-center gap-2"><CheckCircle2 className="text-green-500"/> جاهز للاستلام ({myReadyOrders.length})</h2></div>
                         <ScrollArea className="flex-1 rounded-[2rem] border-2 border-green-100 p-4 bg-green-50/30">
