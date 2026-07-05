@@ -17,7 +17,7 @@ export const useOrders = () => {
     const { toast } = useToast();
     const { telegramConfigs } = useTelegramConfigs();
     
-    // Automatic Assignment Logic
+    // Automatic Assignment Logic with Constraints
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         const preparingOrders = orders.filter(o => o.status === 'preparing' && !o.deliveryWorkerId);
         if (preparingOrders.length === 0) return;
@@ -28,32 +28,57 @@ export const useOrders = () => {
 
             if (onlineWorkers.length === 0) return;
 
+            // Get active orders once to calculate workload
+            const activeOrdersQuery = query(collection(db, "orders"), where("status", "in", ["confirmed", "preparing", "ready_for_pickup", "on_the_way"]));
+            const activeOrdersSnap = await getDocs(activeOrdersQuery);
+            
+            const workerLoad = new Map<string, { restaurantId: string | null, count: number }>();
+            onlineWorkers.forEach(w => workerLoad.set(w.id, { restaurantId: null, count: 0 }));
+            
+            activeOrdersSnap.forEach(d => {
+                const o = d.data() as Order;
+                if (o.deliveryWorkerId && workerLoad.has(o.deliveryWorkerId)) {
+                    const current = workerLoad.get(o.deliveryWorkerId)!;
+                    workerLoad.set(o.deliveryWorkerId, { 
+                        restaurantId: o.restaurant?.id || current.restaurantId, 
+                        count: current.count + 1 
+                    });
+                }
+            });
+
             for (const order of preparingOrders) {
-                // Get current workload of each worker
-                const activeOrdersQuery = query(collection(db, "orders"), where("status", "in", ["confirmed", "ready_for_pickup", "on_the_way"]));
-                const activeOrdersSnap = await getDocs(activeOrdersQuery);
-                const workerLoad = new Map<string, number>();
+                const targetRestaurantId = order.restaurant?.id;
+                if (!targetRestaurantId) continue;
+
+                // Rules:
+                // 1. Must be from the same restaurant if already has orders.
+                // 2. Max 2 orders total.
+                // 3. Prefer completely free drivers first (Equality).
                 
-                onlineWorkers.forEach(w => workerLoad.set(w.id, 0));
-                activeOrdersSnap.forEach(d => {
-                    const o = d.data() as Order;
-                    if (o.deliveryWorkerId && workerLoad.has(o.deliveryWorkerId)) {
-                        workerLoad.set(o.deliveryWorkerId, (workerLoad.get(o.deliveryWorkerId) || 0) + 1);
-                    }
+                const eligibleWorkers = onlineWorkers.filter(w => {
+                    const load = workerLoad.get(w.id)!;
+                    if (load.count === 0) return true; // Completely free
+                    if (load.count < 2 && load.restaurantId === targetRestaurantId) return true; // Same restaurant, less than 2
+                    return false;
                 });
 
-                // Pick worker with least active orders, then least total delivered (fairness)
-                const availableWorkers = onlineWorkers.sort((a, b) => {
-                    const loadA = workerLoad.get(a.id) || 0;
-                    const loadB = workerLoad.get(b.id) || 0;
+                if (eligibleWorkers.length === 0) continue;
+
+                // Sort by: load count (ascending), then career deliveries (ascending for fairness)
+                const sortedWorkers = eligibleWorkers.sort((a, b) => {
+                    const loadA = workerLoad.get(a.id)!.count;
+                    const loadB = workerLoad.get(b.id)!.count;
                     if (loadA !== loadB) return loadA - loadB;
                     return (a.totalDeliveredCount || 0) - (b.totalDeliveredCount || 0);
                 });
 
-                const targetWorker = availableWorkers[0];
-                if (targetWorker && (workerLoad.get(targetWorker.id) || 0) < 3) { // Max 3 orders per driver for speed
-                    await updateOrderStatus(order.id, 'confirmed', targetWorker.id);
-                    console.log(`Auto-assigned order ${order.id} to worker ${targetWorker.name}`);
+                const bestWorker = sortedWorkers[0];
+                if (bestWorker) {
+                    await updateOrderStatus(order.id, 'confirmed', bestWorker.id);
+                    // Update local load map so next order in loop knows this worker is busy
+                    const current = workerLoad.get(bestWorker.id)!;
+                    workerLoad.set(bestWorker.id, { restaurantId: targetRestaurantId, count: current.count + 1 });
+                    console.log(`Auto-assigned order ${order.id} to worker ${bestWorker.name}`);
                 }
             }
         } catch (e) {
@@ -182,3 +207,4 @@ export const useOrders = () => {
         markDeliveryFeesAsPaid,
     };
 };
+

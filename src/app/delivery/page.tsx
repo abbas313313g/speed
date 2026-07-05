@@ -4,9 +4,9 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { formatCurrency, calculateDistance } from '@/lib/utils';
-import { LogOut, CircleDot, Loader2, PackageCheck, AlertTriangle, Shield, Check, X, Map, Inbox } from 'lucide-react';
-import type { Order } from '@/lib/types';
+import { formatCurrency, calculateDistance, cn } from '@/lib/utils';
+import { LogOut, CircleDot, Loader2, PackageCheck, AlertTriangle, Shield, Check, X, Map, Inbox, Clock, ChevronLeft } from 'lucide-react';
+import type { Order, OrderStatus } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useOrders } from '@/hooks/useOrders';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
@@ -73,6 +73,47 @@ function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order
     );
 }
 
+function ActiveOrderListItem({ order, onClick }: { order: Order, onClick: () => void }) {
+    const getStatusText = (status: OrderStatus) => {
+        switch (status) {
+            case 'preparing': return "قيد التحضير";
+            case 'ready_for_pickup': return "جاهز للاستلام";
+            case 'on_the_way': return "في الطريق";
+            default: return "نشط";
+        }
+    }
+    
+    const getStatusColor = (status: OrderStatus) => {
+        switch (status) {
+            case 'preparing': return "text-orange-500 bg-orange-50";
+            case 'ready_for_pickup': return "text-green-600 bg-green-50";
+            case 'on_the_way': return "text-blue-500 bg-blue-50";
+            default: return "text-primary bg-primary/5";
+        }
+    }
+
+    return (
+        <button 
+            onClick={onClick}
+            className="w-full flex items-center gap-4 p-4 bg-card rounded-2xl shadow-sm border border-muted transition-all active:scale-95 text-right"
+        >
+            <div className={cn("p-3 rounded-xl", getStatusColor(order.status))}>
+                <Clock className="h-6 w-6" />
+            </div>
+            <div className="flex-1 min-w-0">
+                <p className="font-black text-foreground truncate">#{order.id.substring(0, 6)} - {order.restaurant?.name}</p>
+                <div className="flex items-center gap-2 mt-1">
+                    <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", getStatusColor(order.status))}>
+                        {getStatusText(order.status)}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-bold">{order.address.deliveryZone}</span>
+                </div>
+            </div>
+            <ChevronLeft className="h-5 w-5 text-muted-foreground" />
+        </button>
+    );
+}
+
 export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPageProps) {
     const { toast } = useToast();
     const [workerId, setWorkerId] = useState<string | null>(null);
@@ -94,6 +135,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         return deliveryWorkers.find(w => w.id === workerId);
     }, [workerId, deliveryWorkers]);
 
+    // طلبات تم إسنادها للمندوب وبانتظار قبوله
     const myAssignedOrders = useMemo(() => {
         if (!workerId || !allOrders) return [];
         return allOrders.filter(o => 
@@ -103,17 +145,14 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         );
     }, [workerId, allOrders, ignoredOrders]);
     
-    const myCurrentOrder = useMemo(() => {
-        if (!workerId || !allOrders) return null;
-        return allOrders.find(o => o.deliveryWorkerId === workerId && ['preparing', 'ready_for_pickup', 'on_the_way'].includes(o.status));
+    // الطلبات التي قبلها المندوب وهي نشطة حالياً
+    const myActiveOrders = useMemo(() => {
+        if (!workerId || !allOrders) return [];
+        return allOrders.filter(o => 
+            o.deliveryWorkerId === workerId && 
+            ['preparing', 'ready_for_pickup', 'on_the_way'].includes(o.status)
+        );
     }, [workerId, allOrders]);
-
-
-    const driverStatus: 'offline' | 'searching' | 'has_active_order' = useMemo(() => {
-        if (!worker?.isOnline) return 'offline';
-        if (myCurrentOrder) return 'has_active_order';
-        return 'searching';
-    }, [worker, myCurrentOrder]);
 
     const handleAcceptOrder = async (orderId: string) => {
         if (!workerId) return;
@@ -152,72 +191,8 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     const isLoading = ordersLoading || workersLoading || !workerId;
     if (isLoading) return <div className="flex h-screen w-full flex-col items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary" /><p className="mt-4 font-bold text-muted-foreground animate-pulse">جارِ جلب المهام...</p></div>;
 
-    const renderContent = () => {
-        switch (driverStatus) {
-            case 'offline':
-                return (
-                    <div className="text-center space-y-6 p-8 animate-in zoom-in duration-300 py-20">
-                        <div className="p-8 bg-yellow-50 rounded-full w-fit mx-auto border-4 border-white shadow-xl">
-                            <AlertTriangle className="h-20 w-20 text-yellow-500"/>
-                        </div>
-                        <div>
-                            <h2 className="text-3xl font-black text-foreground">أنت غير متصل</h2>
-                            <p className="text-muted-foreground font-bold mt-2">لن تصلك أي طلبات في هذه الحالة. ابدأ العمل الآن!</p>
-                        </div>
-                        <Button size="lg" className="w-full h-16 rounded-2xl text-xl font-black shadow-xl" onClick={handleToggleOnlineStatus}>
-                           <CircleDot className="ml-2 h-6 w-6"/> ابدأ استقبال الطلبات
-                        </Button>
-                    </div>
-                );
-            case 'has_active_order':
-                 return (
-                     <div className="text-center space-y-6 p-8 animate-in slide-in-from-bottom duration-500 py-20">
-                        <div className="p-8 bg-primary/10 rounded-full w-fit mx-auto">
-                            <PackageCheck className="h-20 w-20 text-primary animate-bounce"/>
-                        </div>
-                        <div>
-                            <h2 className="text-3xl font-black text-primary">لديك طلب نشط</h2>
-                            <p className="text-muted-foreground font-bold mt-2">أكمل مهمتك الحالية لتتمكن من استلام المزيد.</p>
-                        </div>
-                         <Button size="lg" className="w-full h-16 rounded-2xl text-xl font-black shadow-lg" onClick={() => onViewOrder(myCurrentOrder!.id)}>
-                            تفاصيل المهمة الحالية
-                        </Button>
-                    </div>
-                );
-            case 'searching':
-                if (myAssignedOrders.length > 0) {
-                    return (
-                        <div className="w-full space-y-6 p-4 animate-in fade-in slide-in-from-top duration-500">
-                            <div className="text-center space-y-1">
-                                <h2 className="text-2xl font-black text-primary">وصلتك طلبات! ({myAssignedOrders.length})</h2>
-                                <p className="text-xs font-bold text-muted-foreground">اضغط قبول لبدء المهمة فوراً</p>
-                            </div>
-                            {myAssignedOrders.map(order => (
-                                <AvailableOrderCard 
-                                    key={order.id} 
-                                    order={order} 
-                                    onAccept={handleAcceptOrder} 
-                                    onReject={handleRejectOrder}
-                                    isProcessing={isProcessing} 
-                                />
-                            ))}
-                        </div>
-                    );
-                }
-                return (
-                     <div className="text-center space-y-6 p-8 opacity-60 py-40">
-                        <Inbox className="mx-auto h-24 w-24 text-muted-foreground animate-pulse"/>
-                        <div>
-                            <h2 className="text-2xl font-bold">بانتظار طلب جديد...</h2>
-                            <p className="text-muted-foreground font-medium">ابقَ قريباً من المناطق الحيوية لزيادة فرصك.</p>
-                        </div>
-                    </div>
-                );
-        }
-    }
-
     return (
-        <div className="flex flex-col bg-background pb-32">
+        <div className="flex flex-col bg-background pb-32 min-h-screen">
             <header className="p-4 flex justify-between items-center bg-card border-b shadow-sm sticky top-0 z-20 shrink-0">
                  <div>
                     <h1 className="text-xl font-black text-primary leading-none">أهلاً {worker?.name?.split(' ')[0]}</h1>
@@ -236,9 +211,71 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                  </div>
             </header>
 
-            <div className="flex-1">
-               {renderContent()}
+            <div className="flex-1 p-4 space-y-6">
+                {!worker?.isOnline ? (
+                    <div className="text-center space-y-6 p-8 animate-in zoom-in duration-300 py-20">
+                        <div className="p-8 bg-yellow-50 rounded-full w-fit mx-auto border-4 border-white shadow-xl">
+                            <AlertTriangle className="h-20 w-20 text-yellow-500"/>
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-black text-foreground">أنت غير متصل</h2>
+                            <p className="text-muted-foreground font-bold mt-2">لن تصلك أي طلبات في هذه الحالة. ابدأ العمل الآن!</p>
+                        </div>
+                        <Button size="lg" className="w-full h-16 rounded-2xl text-xl font-black shadow-xl" onClick={handleToggleOnlineStatus}>
+                           <CircleDot className="ml-2 h-6 w-6"/> ابدأ استقبال الطلبات
+                        </Button>
+                    </div>
+                ) : (
+                    <>
+                        {myAssignedOrders.length > 0 && (
+                            <div className="space-y-4 animate-in slide-in-from-top duration-500">
+                                <div className="text-right px-2">
+                                    <h2 className="text-xl font-black text-primary">طلبات جديدة مسندة إليك ({myAssignedOrders.length})</h2>
+                                    <p className="text-xs font-bold text-muted-foreground">اضغط قبول للبدء</p>
+                                </div>
+                                {myAssignedOrders.map(order => (
+                                    <AvailableOrderCard 
+                                        key={order.id} 
+                                        order={order} 
+                                        onAccept={handleAcceptOrder} 
+                                        onReject={handleRejectOrder}
+                                        isProcessing={isProcessing} 
+                                    />
+                                ))}
+                            </div>
+                        )}
+
+                        {myActiveOrders.length > 0 ? (
+                            <div className="space-y-4">
+                                <div className="text-right px-2">
+                                    <h2 className="text-xl font-black text-foreground">مهامك النشطة حالياً ({myActiveOrders.length})</h2>
+                                    <p className="text-xs font-bold text-muted-foreground">اضغط على الطلب لتحديث حالته</p>
+                                </div>
+                                <div className="space-y-3">
+                                    {myActiveOrders.map(order => (
+                                        <ActiveOrderListItem 
+                                            key={order.id} 
+                                            order={order} 
+                                            onClick={() => onViewOrder(order.id)} 
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            myAssignedOrders.length === 0 && (
+                                <div className="text-center space-y-6 p-8 opacity-60 py-40">
+                                    <Inbox className="mx-auto h-24 w-24 text-muted-foreground animate-pulse"/>
+                                    <div>
+                                        <h2 className="text-2xl font-bold">بانتظار طلب جديد...</h2>
+                                        <p className="text-muted-foreground font-medium">ابقَ قريباً من المناطق الحيوية لزيادة فرصك.</p>
+                                    </div>
+                                </div>
+                            )
+                        )}
+                    </>
+                )}
             </div>
         </div>
     );
 }
+
