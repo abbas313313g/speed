@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
@@ -33,12 +32,12 @@ function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order
     return (
         <Card className="w-full animate-in fade-in-50 border-primary/20 shadow-md">
             <CardHeader className="pb-2">
-                 <CardTitle className="text-primary">طلب مسند إليك!</CardTitle>
+                 <CardTitle className="text-primary">طلب جديد متاح!</CardTitle>
                  <CardDescription className="font-bold text-foreground">من متجر: {order.restaurant?.name}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="flex justify-between items-center p-3 bg-primary/5 rounded-2xl border border-primary/10">
-                    <span className="font-bold text-sm">ربحك الصافي:</span>
+                    <span className="font-bold text-sm">أجرة التوصيل:</span>
                     <span className="text-xl font-black text-primary">{formatCurrency(order.deliveryFee)}</span>
                 </div>
                  <div className="grid grid-cols-2 gap-2 text-xs font-bold">
@@ -135,7 +134,6 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         return deliveryWorkers.find(w => w.id === workerId);
     }, [workerId, deliveryWorkers]);
 
-    // طلبات تم إسنادها للمندوب وبانتظار قبوله
     const myAssignedOrders = useMemo(() => {
         if (!workerId || !allOrders) return [];
         return allOrders.filter(o => 
@@ -145,7 +143,6 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         );
     }, [workerId, allOrders, ignoredOrders]);
     
-    // الطلبات التي قبلها المندوب وهي نشطة حالياً
     const myActiveOrders = useMemo(() => {
         if (!workerId || !allOrders) return [];
         return allOrders.filter(o => 
@@ -192,7 +189,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     if (isLoading) return <div className="flex h-screen w-full flex-col items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary" /><p className="mt-4 font-bold text-muted-foreground animate-pulse">جارِ جلب المهام...</p></div>;
 
     return (
-        <div className="flex flex-col bg-background pb-32 min-h-screen">
+        <div className="flex flex-col bg-background pb-32">
             <header className="p-4 flex justify-between items-center bg-card border-b shadow-sm sticky top-0 z-20 shrink-0">
                  <div>
                     <h1 className="text-xl font-black text-primary leading-none">أهلاً {worker?.name?.split(' ')[0]}</h1>
@@ -211,7 +208,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                  </div>
             </header>
 
-            <div className="flex-1 p-4 space-y-6">
+            <div className="p-4 space-y-6">
                 {!worker?.isOnline ? (
                     <div className="text-center space-y-6 p-8 animate-in zoom-in duration-300 py-20">
                         <div className="p-8 bg-yellow-50 rounded-full w-fit mx-auto border-4 border-white shadow-xl">
@@ -278,4 +275,3 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         </div>
     );
 }
-

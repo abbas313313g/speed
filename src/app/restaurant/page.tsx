@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useContext, useMemo, useState, useEffect, useRef, useCallback } from 'react';
@@ -46,22 +45,17 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
             setNotifPermission(permission);
             if (permission === 'granted') {
                 toast({ title: "تم تفعيل الإشعارات بنجاح" });
-                // تفعيل الصوت أيضاً عند تفعيل الإشعارات
                 if (audioRef.current) {
                     audioRef.current.play().then(() => {
                         audioRef.current?.pause();
                         audioRef.current!.currentTime = 0;
                     }).catch(() => {});
                 }
+            } else {
+                toast({ title: "تم رفض طلب الإشعارات", variant: "destructive" });
             }
         } catch (error) {
-            // Fallback for older browsers
-            Notification.requestPermission((permission) => {
-                setNotifPermission(permission);
-                if (permission === 'granted') {
-                    toast({ title: "تم تفعيل الإشعارات بنجاح" });
-                }
-            });
+            console.error("Permission request failed", error);
         }
     };
 
@@ -111,7 +105,6 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                 try {
                     new Notification("سبيد شوب: طلب جديد!", {
                         body: `وصلك طلب جديد بقيمة ${formatCurrency(latestOrder.total)}`,
-                        icon: '/favicon.ico'
                     });
                 } catch (e) {
                     console.error("Notification creation failed", e);
@@ -165,7 +158,7 @@ export default function RestaurantDashboardPage({ onNavigate }: RestaurantDashbo
                             className="font-bold border-2 border-blue-500 text-blue-600 rounded-xl bg-blue-50 hover:bg-blue-100 transition-colors" 
                             onClick={requestNotifPermission}
                          >
-                            <ShieldCheck className="ml-2 h-4 w-4"/> تفعيل الإشعارات الخارجية
+                            <ShieldCheck className="ml-2 h-4 w-4"/> تفعيل التنبيهات الخارجية
                          </Button>
                      )}
                      <Button variant="outline" size="icon" onClick={() => setIsMuted(!isMuted)}>
