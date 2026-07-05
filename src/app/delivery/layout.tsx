@@ -5,6 +5,7 @@ import DeliveryLoginPage from './login/page';
 import DeliveryPage from './page';
 import DeliveryStatsPage from './stats/page';
 import DeliveryOrderDetailPage from './order/[id]/page';
+import { cn } from '@/lib/utils';
 
 export default function DeliveryLayout() {
   const [activeTab, setActiveTab] = useState(0); // 0: Login, 1: Dashboard, 2: Stats, 3: OrderDetail
@@ -24,13 +25,9 @@ export default function DeliveryLayout() {
       setActiveTab(3);
   };
 
-  const handleNavigateToStats = () => {
-      setActiveTab(2);
-  };
-
   return (
-    <div className="mx-auto flex h-screen max-w-md flex-col bg-card shadow-lg relative overflow-hidden" dir="rtl">
-      <main className="flex-1 relative">
+    <div className={cn("mx-auto flex h-screen max-w-md flex-col bg-card shadow-lg relative overflow-hidden delivery-active")} dir="rtl">
+      <main className="flex-1 relative overflow-hidden">
         <div 
           className="spa-stack-container" 
           style={{ 

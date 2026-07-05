@@ -88,8 +88,8 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
   }
 
   return (
-    <div className="p-4 space-y-6 bg-background min-h-full pb-60">
-        <header className="flex items-center gap-4 sticky top-0 bg-background/90 backdrop-blur-md z-30 py-4 border-b">
+    <div className="block bg-background pb-60">
+        <header className="flex items-center gap-4 sticky top-0 bg-background/90 backdrop-blur-md z-30 p-4 border-b">
             <button onClick={onBack} className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all shadow-sm">
                 <ArrowRight className="h-6 w-6"/>
             </button>
@@ -99,7 +99,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
             </div>
         </header>
 
-        <div className="space-y-6">
+        <div className="p-4 space-y-6">
             <Card className="rounded-[1.5rem] border-none shadow-md">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-black text-right">معلومات الزبون</CardTitle>
@@ -160,12 +160,6 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                         <span>أجرة التوصيل:</span>
                         <span>{formatCurrency(order.deliveryFee)}</span>
                     </div>
-                    {order.appliedCoupon && (
-                        <div className="flex justify-between text-xs font-black text-green-600">
-                            <span>خصم الكوبون:</span>
-                            <span>-{formatCurrency(order.appliedCoupon.discountAmount)}</span>
-                        </div>
-                    )}
                     <div className="flex justify-between font-black text-xl text-primary bg-primary/5 p-4 rounded-xl">
                         <span>المبلغ الكلي:</span>
                         <span>{formatCurrency(order.total)}</span>
@@ -206,15 +200,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                     تم توصيل الطلب بنجاح! 🎉
                 </div>
             )}
-            {order.status === 'cancelled' && (
-                <div className="text-center font-black text-red-600 p-10 bg-red-50 rounded-2xl border-2 border-red-100">
-                    الطلب ملغي.
-                </div>
-            )}
         </div>
-        
-        {/* مساحة أمان سفلية لضمان عدم تداخل الأزرار */}
-        <div className="h-40 shrink-0" />
     </div>
   );
 }

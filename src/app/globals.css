@@ -35,9 +35,9 @@
     @apply bg-background text-foreground;
     margin: 0;
     padding: 0;
-    overflow: hidden; /* يمنع التمرير في الجسم الرئيسي لصالح الحاويات */
     height: 100vh;
     width: 100vw;
+    overflow: hidden;
     -webkit-tap-highlight-color: transparent;
   }
 }
@@ -71,12 +71,27 @@ button, a, [role="button"] {
   -webkit-overflow-scrolling: touch;
   background: hsl(var(--background));
   
-  /* إخفاء شريط التمرير مع بقاء الوظيفة */
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  /* إخفاء شريط التمرير افتراضياً */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-/* إخفاء شريط التمرير لمتصفحات Chrome و Safari */
 .spa-page-view::-webkit-scrollbar {
   display: none;
+}
+
+/* إظهار شريط التنزيل فقط في قسم المندوب */
+.delivery-active .spa-page-view {
+  -ms-overflow-style: auto !important;
+  scrollbar-width: thin !important;
+}
+
+.delivery-active .spa-page-view::-webkit-scrollbar {
+  display: block !important;
+  width: 5px !important;
+}
+
+.delivery-active .spa-page-view::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--primary)) !important;
+  border-radius: 10px !important;
 }

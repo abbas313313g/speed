@@ -123,14 +123,12 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     const { deliveryWorkers, isLoading: workersLoading, updateWorkerStatus } = useDeliveryWorkers();
 
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const id = localStorage.getItem('deliveryWorkerId');
-            if (id) setWorkerId(id);
-        }
+        const id = localStorage.getItem('deliveryWorkerId');
+        if (id) setWorkerId(id);
     }, []);
     
     const worker = useMemo(() => {
-        if (!workerId || !deliveryWorkers || deliveryWorkers.length === 0) return null;
+        if (!workerId || !deliveryWorkers) return null;
         return deliveryWorkers.find(w => w.id === workerId) || null;
     }, [workerId, deliveryWorkers]);
 
@@ -157,7 +155,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         try {
             await updateOrderStatus(orderId, 'preparing', workerId);
             toast({ title: "تم قبول الطلب! اذهب للمطعم الآن" });
-        } catch (error: any) {
+        } catch (error) {
              toast({ title: "عذراً، حدث خطأ", variant: "destructive" });
         } finally {
             setIsProcessing(false);
@@ -170,9 +168,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     };
     
     const handleLogout = () => {
-        if (workerId) {
-            updateWorkerStatus(workerId, false);
-        }
+        if (workerId) updateWorkerStatus(workerId, false);
         localStorage.removeItem('deliveryWorkerId');
         window.location.reload();
     };
@@ -196,13 +192,11 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         );
     }
 
-    const workerFirstName = worker?.name ? worker.name.split(' ')[0] : 'كابتن';
-
     return (
-        <div className="flex flex-col min-h-full bg-background pb-40">
-            <header className="p-4 flex justify-between items-center bg-white border-b shadow-sm sticky top-0 z-50 shrink-0">
+        <div className="block bg-background pb-60">
+            <header className="p-4 flex justify-between items-center bg-white border-b shadow-sm sticky top-0 z-50">
                  <div className="text-right">
-                    <h1 className="text-xl font-black text-primary leading-none">أهلاً {workerFirstName}</h1>
+                    <h1 className="text-xl font-black text-primary leading-none">أهلاً {worker?.name?.split(' ')[0] || 'كابتن'}</h1>
                     <button className="flex items-center gap-2 mt-1 active:scale-95 transition-all" onClick={handleToggleOnlineStatus}>
                         <div className={`h-2.5 w-2.5 rounded-full ${worker?.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
                         <span className="text-[10px] font-black text-muted-foreground">{worker?.isOnline ? 'أنت متصل الآن' : 'أوفلاين'}</span>
@@ -282,9 +276,6 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                     </>
                 )}
             </div>
-            
-            {/* مساحة أمان سفلية لضمان عدم تداخل الأزرار */}
-            <div className="h-40 shrink-0" />
         </div>
     );
 }
