@@ -105,7 +105,6 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     
     const myCurrentOrder = useMemo(() => {
         if (!workerId || !allOrders) return null;
-        // الطلب النشط هو الذي "قبله" السائق فعلياً وبدأ العمل عليه
         return allOrders.find(o => o.deliveryWorkerId === workerId && ['preparing', 'ready_for_pickup', 'on_the_way'].includes(o.status));
     }, [workerId, allOrders]);
 
@@ -120,7 +119,6 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         if (!workerId) return;
         setIsProcessing(true);
         try {
-            // تحويل الحالة إلى 'preparing' ليعرف المطعم أن السائق قادم
             await updateOrderStatus(orderId, 'preparing', workerId);
             toast({ title: "تم قبول الطلب! اذهب للمطعم الآن" });
         } catch (error: any) {
@@ -158,7 +156,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         switch (driverStatus) {
             case 'offline':
                 return (
-                    <div className="text-center space-y-6 p-8 animate-in zoom-in duration-300">
+                    <div className="text-center space-y-6 p-8 animate-in zoom-in duration-300 py-20">
                         <div className="p-8 bg-yellow-50 rounded-full w-fit mx-auto border-4 border-white shadow-xl">
                             <AlertTriangle className="h-20 w-20 text-yellow-500"/>
                         </div>
@@ -173,7 +171,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                 );
             case 'has_active_order':
                  return (
-                     <div className="text-center space-y-6 p-8 animate-in slide-in-from-bottom duration-500">
+                     <div className="text-center space-y-6 p-8 animate-in slide-in-from-bottom duration-500 py-20">
                         <div className="p-8 bg-primary/10 rounded-full w-fit mx-auto">
                             <PackageCheck className="h-20 w-20 text-primary animate-bounce"/>
                         </div>
@@ -189,7 +187,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
             case 'searching':
                 if (myAssignedOrders.length > 0) {
                     return (
-                        <div className="w-full space-y-6 p-4 animate-in fade-in slide-in-from-top duration-500">
+                        <div className="w-full space-y-6 p-4 animate-in fade-in slide-in-from-top duration-500 pb-20">
                             <div className="text-center space-y-1">
                                 <h2 className="text-2xl font-black text-primary">وصلتك طلبات! ({myAssignedOrders.length})</h2>
                                 <p className="text-xs font-bold text-muted-foreground">اضغط قبول لبدء المهمة فوراً</p>
@@ -207,7 +205,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                     );
                 }
                 return (
-                     <div className="text-center space-y-6 p-8 opacity-60">
+                     <div className="text-center space-y-6 p-8 opacity-60 py-40">
                         <Inbox className="mx-auto h-24 w-24 text-muted-foreground animate-pulse"/>
                         <div>
                             <h2 className="text-2xl font-bold">بانتظار طلب جديد...</h2>
@@ -219,8 +217,8 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     }
 
     return (
-        <div className="flex flex-col h-screen bg-background">
-            <header className="p-4 flex justify-between items-center bg-card border-b shadow-sm shrink-0">
+        <div className="flex flex-col bg-background">
+            <header className="p-4 flex justify-between items-center bg-card border-b shadow-sm sticky top-0 z-20">
                  <div>
                     <h1 className="text-xl font-black text-primary leading-none">أهلاً {worker?.name?.split(' ')[0]}</h1>
                     <button className="flex items-center gap-2 mt-1 active:scale-95 transition-all" onClick={handleToggleOnlineStatus}>
@@ -238,9 +236,9 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                  </div>
             </header>
 
-            <main className="flex-1 overflow-y-auto flex flex-col justify-center">
+            <div className="flex-1">
                {renderContent()}
-            </main>
+            </div>
         </div>
     );
 }

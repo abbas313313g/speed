@@ -4,7 +4,7 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { DollarSign, ShoppingCart, ArrowRight, ShieldAlert, Wallet, Landmark, User, Settings2 } from 'lucide-react';
+import { Wallet, Landmark, User, Settings2, ShoppingCart, ShieldAlert, ArrowRight } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { getWorkerLevel } from '@/lib/workerLevels';
@@ -94,8 +94,8 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
   const LevelIcon = level?.icon;
 
   return (
-    <div className="p-6 space-y-6 h-full bg-background overflow-y-auto pb-10">
-      <header className="flex items-center gap-4">
+    <div className="p-6 space-y-6 bg-background pb-32">
+      <header className="flex items-center gap-4 sticky top-0 bg-background/80 backdrop-blur-md z-10 py-2">
          <button 
             onClick={onBack} 
             className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all shadow-sm"
@@ -202,4 +202,3 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
     </div>
   );
 }
-

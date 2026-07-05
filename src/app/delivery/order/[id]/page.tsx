@@ -2,7 +2,6 @@
 "use client";
 
 import { useMemo } from 'react';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -90,9 +89,9 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
   }
 
   return (
-    <div className="p-4 space-y-6 h-full overflow-y-auto pb-20 bg-background">
-        <header className="flex items-center gap-4">
-            <button onClick={onBack} className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all">
+    <div className="p-4 space-y-6 bg-background pb-32">
+        <header className="flex items-center gap-4 sticky top-0 bg-background/80 backdrop-blur-md z-10 py-2">
+            <button onClick={onBack} className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all shadow-sm">
                 <ArrowRight className="h-6 w-6"/>
             </button>
             <div>

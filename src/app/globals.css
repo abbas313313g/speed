@@ -59,8 +59,11 @@ button, a, [role="button"] {
   max-width: 100%;
   height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   position: relative;
+  /* تأمين التمرير حتى لو كان المحتوى طويلاً جداً */
+  display: block;
 }
 
 /* لضمان ثبات عرض الصفحات في الأدمن والواجهة */
@@ -73,6 +76,7 @@ button, a, [role="button"] {
   @apply w-full overflow-x-auto;
 }
 
+/* إخفاء شريط التمرير مع الحفاظ على الوظيفة */
 ::-webkit-scrollbar {
   display: none;
 }
