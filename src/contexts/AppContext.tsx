@@ -234,7 +234,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
         
         let newOrderId: string | null = null;
-        const currentCart = [...cart]; // نسخة لضمان عدم التغير أثناء المعالجة
+        const currentCart = [...cart];
         
         try {
             await runTransaction(db, async (transaction) => {
@@ -309,14 +309,39 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 
                 const orderRestaurant = restaurants.find(r => r.id === currentCart[0].product.restaurantId);
 
+                // تنظيف البيانات من أي قيم undefined قبل الإرسال
                 const newOrderData: Omit<Order, 'id'> = {
                     userId: currentUserId,
-                    items: currentCart,
+                    items: currentCart.map(item => ({
+                        product: {
+                            id: item.product.id,
+                            name: item.product.name,
+                            price: item.product.price,
+                            discountPrice: item.product.discountPrice ?? null,
+                            image: item.product.image,
+                            restaurantId: item.product.restaurantId,
+                            categoryId: item.product.categoryId,
+                        },
+                        quantity: item.quantity,
+                        selectedSize: item.selectedSize ? {
+                            name: item.selectedSize.name,
+                            price: item.selectedSize.price,
+                            stock: item.selectedSize.stock
+                        } : null
+                    })) as any,
                     total: finalTotal,
                     date: new Date().toISOString(),
                     status: 'unassigned',
                     estimatedDelivery: new Date(Date.now() + 45 * 60 * 1000).toISOString(),
-                    address,
+                    address: {
+                        id: address.id,
+                        name: address.name,
+                        phone: address.phone,
+                        deliveryZone: address.deliveryZone,
+                        latitude: address.latitude ?? null,
+                        longitude: address.longitude ?? null,
+                        details: address.details ?? ""
+                    },
                     profit: totalProfit,
                     deliveryFee,
                     deliveryWorkerId: null,
