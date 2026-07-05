@@ -199,7 +199,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     const workerFirstName = worker?.name ? worker.name.split(' ')[0] : 'كابتن';
 
     return (
-        <div className="flex flex-col min-h-screen bg-background pb-40">
+        <div className="flex flex-col min-h-full bg-background pb-40">
             <header className="p-4 flex justify-between items-center bg-white border-b shadow-sm sticky top-0 z-50 shrink-0">
                  <div className="text-right">
                     <h1 className="text-xl font-black text-primary leading-none">أهلاً {workerFirstName}</h1>
@@ -282,6 +282,9 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                     </>
                 )}
             </div>
+            
+            {/* مساحة أمان سفلية لضمان عدم تداخل الأزرار */}
+            <div className="h-40 shrink-0" />
         </div>
     );
 }

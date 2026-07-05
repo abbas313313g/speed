@@ -33,10 +33,11 @@
   }
   body {
     @apply bg-background text-foreground;
-    overflow-x: hidden;
-    overflow-y: auto !important;
-    height: auto;
-    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* يمنع التمرير في الجسم الرئيسي لصالح الحاويات */
+    height: 100vh;
+    width: 100vw;
     -webkit-tap-highlight-color: transparent;
   }
 }
@@ -45,42 +46,37 @@ button, a, [role="button"] {
   @apply transition-transform duration-75 active:scale-95 cursor-pointer;
 }
 
+/* الحاوية الكبرى للمكدس */
 .spa-stack-container {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  height: 100vh; 
+  height: 100%; 
   width: 100%;
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
 }
 
+/* كل صفحة داخل المكدس */
 .spa-page-view {
   flex: 0 0 100%;
   width: 100%;
   min-width: 100%;
   max-width: 100%;
-  height: 100vh;
+  height: 100%;
   overflow-y: auto !important; 
   overflow-x: hidden;
   display: block; 
   position: relative;
   -webkit-overflow-scrolling: touch;
   background: hsl(var(--background));
+  
+  /* إخفاء شريط التمرير مع بقاء الوظيفة */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }
 
-/* إظهار شريط التمرير بلون مميز دائماً */
-::-webkit-scrollbar {
-  width: 12px !important;
-  display: block !important;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(0,0,0,0.05);
-}
-
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--primary)) !important;
-  border-radius: 20px;
-  border: 3px solid white;
+/* إخفاء شريط التمرير لمتصفحات Chrome و Safari */
+.spa-page-view::-webkit-scrollbar {
+  display: none;
 }

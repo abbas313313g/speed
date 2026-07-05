@@ -88,7 +88,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
   }
 
   return (
-    <div className="p-4 space-y-6 bg-background pb-40">
+    <div className="p-4 space-y-6 bg-background min-h-full pb-60">
         <header className="flex items-center gap-4 sticky top-0 bg-background/90 backdrop-blur-md z-30 py-4 border-b">
             <button onClick={onBack} className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all shadow-sm">
                 <ArrowRight className="h-6 w-6"/>
@@ -212,6 +212,9 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                 </div>
             )}
         </div>
+        
+        {/* مساحة أمان سفلية لضمان عدم تداخل الأزرار */}
+        <div className="h-40 shrink-0" />
     </div>
   );
 }
