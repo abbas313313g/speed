@@ -80,11 +80,14 @@ export interface DeliveryZone {
 }
 
 export interface DeliveryWorker {
-    id: string; 
+    id: string; // Phone number
     name: string;
+    password?: string; // Added password field
     lastDeliveredAt?: string | null; 
     unfreezeProgress?: number;
     isOnline?: boolean;
+    activeOrdersCount?: number;
+    totalDeliveredCount?: number;
 }
 
 export type OrderStatus = 'unassigned' | 'pending_assignment' | 'preparing' | 'confirmed' | 'ready_for_pickup' | 'on_the_way' | 'delivered' | 'cancelled';

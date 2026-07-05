@@ -7,15 +7,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Bike, KeyRound, Loader2 } from 'lucide-react';
+import { Bike, KeyRound, Loader2, User, Phone } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-export default function DeliveryLoginPage() {
-    const [step, setStep] = useState(1); // 1 for login, 2 for register
+interface DeliveryLoginPageProps {
+    onLogin?: () => void;
+}
+
+export default function DeliveryLoginPage({ onLogin }: DeliveryLoginPageProps) {
+    const [step, setStep] = useState(1); // 1: phone, 2: login (pass), 3: register
     const [phone, setPhone] = useState('');
+    const [password, setPassword] = useState('');
     const [name, setName] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     
@@ -23,6 +28,24 @@ export default function DeliveryLoginPage() {
     const { toast } = useToast();
     const { addDeliveryWorker, updateWorkerStatus } = useDeliveryWorkers();
 
+    const checkPhone = async (e: FormEvent) => {
+        e.preventDefault();
+        if (!phone.trim()) return;
+        setIsLoading(true);
+        try {
+            const docRef = doc(db, "deliveryWorkers", phone);
+            const snap = await getDoc(docRef);
+            if (snap.exists()) {
+                setStep(2); // Exist -> Password
+            } else {
+                setStep(3); // New -> Register
+            }
+        } catch (e) {
+            toast({ title: "خطأ في الاتصال", variant: "destructive" });
+        } finally {
+            setIsLoading(false);
+        }
+    }
 
     const handleLogin = async (e: FormEvent) => {
         e.preventDefault();
@@ -30,19 +53,19 @@ export default function DeliveryLoginPage() {
         try {
             const workerDocRef = doc(db, "deliveryWorkers", phone);
             const workerDoc = await getDoc(workerDocRef);
+            const worker = workerDoc.data();
 
-            if (workerDoc.exists()) {
-                const worker = workerDoc.data();
+            if (worker?.password === password) {
                 localStorage.setItem('deliveryWorkerId', phone);
-                await updateWorkerStatus(phone, true); // Set as online
-                toast({ title: `مرحباً بعودتك ${worker.name}` });
+                await updateWorkerStatus(phone, true);
+                toast({ title: `أهلاً بك مجدداً ${worker.name}` });
+                if (onLogin) onLogin();
                 router.push('/delivery');
             } else {
-                setStep(2); // Worker not found, move to registration step
+                toast({ title: "كلمة المرور غير صحيحة", variant: "destructive" });
             }
         } catch (error) {
-            console.error("Login failed:", error);
-            toast({ title: "فشل تسجيل الدخول", description: "حدث خطأ ما، الرجاء المحاولة مرة أخرى", variant: "destructive" });
+            toast({ title: "فشل تسجيل الدخول", variant: "destructive" });
         } finally {
             setIsLoading(false);
         }
@@ -50,20 +73,22 @@ export default function DeliveryLoginPage() {
     
     const handleRegister = async (e: FormEvent) => {
         e.preventDefault();
-        if (!name.trim() || !phone.trim()) {
-            toast({ title: 'الرجاء إدخال الاسم ورقم الهاتف', variant: 'destructive'});
+        if (!name.trim() || !password.trim()) {
+            toast({ title: 'يرجى إكمال البيانات', variant: 'destructive'});
             return;
         }
         setIsLoading(true);
         try {
-            await addDeliveryWorker({ id: phone, name });
-            localStorage.setItem('deliveryWorkerId', phone);
-            await updateWorkerStatus(phone, true); // Also set as online on registration
-            toast({ title: `أهلاً بك ${name}!`});
-            router.push('/delivery');
+            const success = await addDeliveryWorker({ id: phone, name, password });
+            if (success) {
+                localStorage.setItem('deliveryWorkerId', phone);
+                await updateWorkerStatus(phone, true);
+                toast({ title: `تم التسجيل بنجاح، أهلاً بك ${name}`});
+                if (onLogin) onLogin();
+                router.push('/delivery');
+            }
         } catch (error) {
-            console.error("Registration failed:", error);
-            toast({ title: "فشل التسجيل", description: "حدث خطأ ما، الرجاء المحاولة مرة أخرى", variant: "destructive" });
+            toast({ title: "فشل التسجيل", variant: "destructive" });
         } finally {
             setIsLoading(false);
         }
@@ -71,68 +96,93 @@ export default function DeliveryLoginPage() {
 
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
-            {step === 1 && (
-                <Card className="w-full max-w-sm">
-                    <form onSubmit={handleLogin}>
-                        <CardHeader className="text-center">
-                            <Bike className="h-12 w-12 mx-auto text-primary" />
-                            <CardTitle className="mt-4">بوابة التوصيل</CardTitle>
-                            <CardDescription>الرجاء إدخال رقم هاتفك لتسجيل الدخول.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                             <div className="relative">
-                                <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Card className="w-full max-w-sm rounded-[2rem] shadow-2xl border-none">
+                <CardHeader className="text-center">
+                    <div className="p-4 bg-primary/10 rounded-full w-fit mx-auto mb-2">
+                        <Bike className="h-10 w-10 text-primary" />
+                    </div>
+                    <CardTitle className="text-2xl font-black">بوابة المناديب</CardTitle>
+                    <CardDescription className="font-bold">
+                        {step === 1 && "أدخل رقم هاتفك للبدء"}
+                        {step === 2 && "مرحباً بك، أدخل كلمة المرور"}
+                        {step === 3 && "رقم جديد! أنشئ حسابك الآن"}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {step === 1 && (
+                        <form onSubmit={checkPhone} className="space-y-4">
+                            <div className="relative">
+                                <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                                 <Input 
                                     type="tel" 
                                     placeholder="رقم الهاتف" 
                                     value={phone}
                                     onChange={(e) => setPhone(e.target.value)}
-                                    className="pr-10"
+                                    className="pr-10 h-14 rounded-2xl text-center text-xl font-bold"
                                     dir="ltr"
                                     required
                                 />
                             </div>
-                            <Button type="submit" className="w-full" disabled={isLoading}>
-                                {isLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin"/>}
-                                دخول
+                            <Button type="submit" className="w-full h-14 rounded-2xl text-lg font-black" disabled={isLoading}>
+                                {isLoading ? <Loader2 className="animate-spin h-6 w-6"/> : "متابعة"}
                             </Button>
-                        </CardContent>
-                    </form>
-                </Card>
-            )}
+                        </form>
+                    )}
 
-            {step === 2 && (
-                 <Card className="w-full max-w-sm">
-                     <form onSubmit={handleRegister}>
-                        <CardHeader className="text-center">
-                            <Bike className="h-12 w-12 mx-auto text-primary" />
-                            <CardTitle className="mt-4">إنشاء حساب جديد</CardTitle>
-                            <CardDescription>يبدو أن هذا الرقم غير مسجل. الرجاء إدخال اسمك لإنشاء حساب.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <Label htmlFor="phone-display">رقم الهاتف</Label>
-                                <Input id="phone-display" value={phone} disabled className="bg-muted"/>
-                            </div>
-                             <div>
-                                <Label htmlFor="name">الاسم الكامل</Label>
+                    {step === 2 && (
+                        <form onSubmit={handleLogin} className="space-y-4">
+                            <div className="relative">
+                                <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                                 <Input 
-                                    id="name"
-                                    type="text" 
-                                    placeholder="اسمك الثلاثي" 
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
+                                    type="password" 
+                                    placeholder="كلمة المرور" 
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="pr-10 h-14 rounded-2xl text-center text-xl font-bold"
+                                    dir="ltr"
                                     required
+                                    autoFocus
                                 />
                             </div>
-                            <Button type="submit" className="w-full" disabled={isLoading}>
-                                {isLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin"/>}
-                                تسجيل و دخول
+                            <Button type="submit" className="w-full h-14 rounded-2xl text-lg font-black" disabled={isLoading}>
+                                {isLoading ? <Loader2 className="animate-spin h-6 w-6"/> : "دخول الآن"}
                             </Button>
-                        </CardContent>
-                    </form>
-                </Card>
-            )}
+                            <Button variant="ghost" onClick={() => setStep(1)} className="w-full font-bold">تغيير الرقم</Button>
+                        </form>
+                    )}
+
+                    {step === 3 && (
+                        <form onSubmit={handleRegister} className="space-y-4">
+                            <div className="space-y-4">
+                                <div className="relative">
+                                    <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                    <Input 
+                                        placeholder="الاسم الكامل" 
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        className="pr-10 h-14 rounded-2xl font-bold"
+                                        required
+                                    />
+                                </div>
+                                <div className="relative">
+                                    <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                    <Input 
+                                        type="password" 
+                                        placeholder="اختر كلمة مرور" 
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className="pr-10 h-14 rounded-2xl font-bold text-center"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <Button type="submit" className="w-full h-14 rounded-2xl text-lg font-black bg-green-600 hover:bg-green-700" disabled={isLoading}>
+                                {isLoading ? <Loader2 className="animate-spin h-6 w-6"/> : "إنشاء حساب ودخول"}
+                            </Button>
+                        </form>
+                    )}
+                </CardContent>
+            </Card>
         </div>
     )
 }

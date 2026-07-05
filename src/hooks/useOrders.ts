@@ -17,6 +17,50 @@ export const useOrders = () => {
     const { toast } = useToast();
     const { telegramConfigs } = useTelegramConfigs();
     
+    // Automatic Assignment Logic
+    const autoAssignOrders = useCallback(async (orders: Order[]) => {
+        const preparingOrders = orders.filter(o => o.status === 'preparing' && !o.deliveryWorkerId);
+        if (preparingOrders.length === 0) return;
+
+        try {
+            const workersSnap = await getDocs(query(collection(db, "deliveryWorkers"), where("isOnline", "==", true)));
+            const onlineWorkers = workersSnap.docs.map(d => ({ id: d.id, ...d.data() })) as DeliveryWorker[];
+
+            if (onlineWorkers.length === 0) return;
+
+            for (const order of preparingOrders) {
+                // Get current workload of each worker
+                const activeOrdersQuery = query(collection(db, "orders"), where("status", "in", ["confirmed", "ready_for_pickup", "on_the_way"]));
+                const activeOrdersSnap = await getDocs(activeOrdersQuery);
+                const workerLoad = new Map<string, number>();
+                
+                onlineWorkers.forEach(w => workerLoad.set(w.id, 0));
+                activeOrdersSnap.forEach(d => {
+                    const o = d.data() as Order;
+                    if (o.deliveryWorkerId && workerLoad.has(o.deliveryWorkerId)) {
+                        workerLoad.set(o.deliveryWorkerId, (workerLoad.get(o.deliveryWorkerId) || 0) + 1);
+                    }
+                });
+
+                // Pick worker with least active orders, then least total delivered (fairness)
+                const availableWorkers = onlineWorkers.sort((a, b) => {
+                    const loadA = workerLoad.get(a.id) || 0;
+                    const loadB = workerLoad.get(b.id) || 0;
+                    if (loadA !== loadB) return loadA - loadB;
+                    return (a.totalDeliveredCount || 0) - (b.totalDeliveredCount || 0);
+                });
+
+                const targetWorker = availableWorkers[0];
+                if (targetWorker && (workerLoad.get(targetWorker.id) || 0) < 3) { // Max 3 orders per driver for speed
+                    await updateOrderStatus(order.id, 'confirmed', targetWorker.id);
+                    console.log(`Auto-assigned order ${order.id} to worker ${targetWorker.name}`);
+                }
+            }
+        } catch (e) {
+            console.error("Auto-assign failed:", e);
+        }
+    }, []);
+
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'orders'),
             (snapshot) => {
@@ -24,6 +68,9 @@ export const useOrders = () => {
                 data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 setAllOrders(data);
                 setIsLoading(false);
+                
+                // Trigger auto assign check
+                autoAssignOrders(data);
             },
             (error) => {
                 console.error("Error fetching orders:", error);
@@ -31,23 +78,23 @@ export const useOrders = () => {
             }
         );
         return () => unsub();
-    }, []);
+    }, [autoAssignOrders]);
     
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
             await runTransaction(db, async (transaction) => {
                 const orderRef = doc(db, "orders", orderId);
                 const orderDoc = await transaction.get(orderRef);
-                if (!orderDoc.exists()) throw new Error("USER_ERROR: عذراً، لم نتمكن من العثور على بيانات هذا الطلب.");
+                if (!orderDoc.exists()) throw new Error("USER_ERROR: الطلب غير موجود.");
                 
                 const updateData: Partial<Order> = { status };
                 const currentOrder = orderDoc.data() as Order;
 
                 if (status === 'confirmed' && workerId) {
-                    if (currentOrder.deliveryWorkerId) throw new Error("USER_ERROR: نعتذر، لقد تم استلام هذا الطلب من قبل سائق آخر بالفعل.");
+                    if (currentOrder.deliveryWorkerId) return; // Already assigned
                     const workerDocRef = doc(db, "deliveryWorkers", workerId);
                     const workerDoc = await transaction.get(workerDocRef);
-                    if (!workerDoc.exists()) throw new Error("USER_ERROR: عذراً، لم نتمكن من التحقق من هويتك كعامل توصيل.");
+                    if (!workerDoc.exists()) throw new Error("USER_ERROR: السائق غير موجود.");
                     const workerData = workerDoc.data() as DeliveryWorker;
                     updateData.deliveryWorkerId = workerId;
                     updateData.deliveryWorker = { id: workerId, name: workerData.name || workerId };
@@ -60,93 +107,69 @@ export const useOrders = () => {
                         const workerDoc = await transaction.get(workerDocRef); 
                         if (workerDoc.exists()) {
                             const worker = workerDoc.data() as DeliveryWorker;
-                            const now = new Date();
-                             const myDeliveredOrdersSnapshot = await getDocs(query(collection(db, "orders"), where("deliveryWorkerId", "==", currentWorkerId), where("status", "==", "delivered")));
-                             const deliveredCount = myDeliveredOrdersSnapshot.size;
-                            const { isFrozen } = getWorkerLevel(worker, deliveredCount, now);
-                            let workerUpdate: Partial<DeliveryWorker> = {};
-                            if (isFrozen) {
-                                const unfreezeProgress = (worker.unfreezeProgress || 0) + 1;
-                                workerUpdate = (unfreezeProgress >= 10) ? { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 } : { unfreezeProgress };
-                            } else {
-                                workerUpdate = { lastDeliveredAt: now.toISOString(), unfreezeProgress: 0 };
-                            }
-                            transaction.update(workerDocRef, workerUpdate);
+                            const totalCount = (worker.totalDeliveredCount || 0) + 1;
+                            transaction.update(workerDocRef, { 
+                                totalDeliveredCount: totalCount,
+                                lastDeliveredAt: new Date().toISOString()
+                            });
                         }
                     }
                 }
                 transaction.update(orderRef, updateData);
             });
             
-            toast({ title: `تم تحديث حالة الطلب بنجاح` });
-
             const updatedOrderSnap = await getDoc(doc(db, "orders", orderId));
-            if(!updatedOrderSnap.exists()) return;
             const updatedOrder = updatedOrderSnap.data() as Order;
 
+            // Telegram Notifications
             if (status === 'preparing') {
-                telegramConfigs.filter(c => c.type === 'owner').forEach(c => {
-                    sendTelegramMessage(c.chatId, `✅ تم قبول الطلب \`${orderId.substring(0, 6)}\` من قبل مطعم *${updatedOrder.restaurant?.name}*.\nالطلب الآن متاح للسائقين.`);
+                telegramConfigs.filter(c => c.type === 'restaurant' && c.restaurantId === updatedOrder.restaurant?.id).forEach(c => {
+                    sendTelegramMessage(c.chatId, `🔔 *طلب جديد قيد التحضير!*\nرقم الطلب: \`${orderId.substring(0, 6)}\`\nالمبلغ: ${updatedOrder.total}`);
                 });
             }
 
             if (status === 'confirmed' && updatedOrder.deliveryWorker) {
                  const restaurantTelegramConfig = telegramConfigs.find(c => c.type === 'restaurant' && c.restaurantId === updatedOrder.restaurant?.id);
                  if (restaurantTelegramConfig) {
-                     sendTelegramMessage(restaurantTelegramConfig.chatId, `🚴 الطلب \`${orderId.substring(0, 6)}\` تم قبوله من قبل السائق *${updatedOrder.deliveryWorker.name}*.`);
+                     sendTelegramMessage(restaurantTelegramConfig.chatId, `🚴 *تم تعيين سائق!*\nالطلب \`${orderId.substring(0, 6)}\` استلمه الكابتن: *${updatedOrder.deliveryWorker.name}*`);
                  }
             }
 
         } catch (error: any) {
-            let friendlyMessage = "عذراً، فشل تحديث حالة الطلب. يرجى المحاولة مرة أخرى.";
-            if (error.message?.includes("USER_ERROR:")) {
-                friendlyMessage = error.message.replace("USER_ERROR: ", "");
-            }
-            toast({title: "لم يتم التحديث", description: friendlyMessage, variant: "destructive"});
-            throw error;
+            console.error("Update status failed:", error);
         }
-    }, [toast, telegramConfigs]);
+    }, [telegramConfigs]);
 
     const deleteOrder = useCallback(async (orderId: string) => {
         try {
-            const orderRef = doc(db, "orders", orderId);
             await runTransaction(db, async (transaction) => {
-                const snap = await transaction.get(orderRef);
-                if (snap.exists()) {
-                    transaction.delete(orderRef);
-                }
+                transaction.delete(doc(db, "orders", orderId));
             });
-            toast({ title: "تم حذف الطلب بنجاح" });
+            toast({ title: "تم الحذف" });
         } catch(e) {
-            toast({title: "فشل الحذف", description: "حدث خطأ بسيط، يرجى إعادة المحاولة.", variant: "destructive"})
+            toast({title: "فشل الحذف", variant: "destructive"})
         }
     }, [toast]);
     
     const markOrdersAsPaid = useCallback(async (orderIds: string[]) => {
         try {
             const batch = writeBatch(db);
-            orderIds.forEach(id => {
-                const orderRef = doc(db, "orders", id);
-                batch.update(orderRef, { isPaid: true });
-            });
+            orderIds.forEach(id => batch.update(doc(db, "orders", id), { isPaid: true }));
             await batch.commit();
-            toast({ title: "تمت تسوية حسابات المتجر بنجاح" });
+            toast({ title: "تمت التسوية" });
         } catch (e) {
-            toast({ title: "فشل التسوية", description: "حدث خطأ غير متوقع، حاول مجدداً.", variant: "destructive" });
+            toast({ title: "فشل التسوية", variant: "destructive" });
         }
     }, [toast]);
     
     const markDeliveryFeesAsPaid = useCallback(async (orderIds: string[]) => {
         try {
             const batch = writeBatch(db);
-            orderIds.forEach(id => {
-                const orderRef = doc(db, "orders", id);
-                batch.update(orderRef, { isFeePaid: true });
-            });
+            orderIds.forEach(id => batch.update(doc(db, "orders", id), { isFeePaid: true }));
             await batch.commit();
-            toast({ title: "تمت تسوية أجور السائق بنجاح" });
+            toast({ title: "تمت تسوية أجور السائق" });
         } catch (e) {
-            toast({ title: "فشل التسوية", description: "حدث خطأ ما، يرجى المحاولة لاحقاً.", variant: "destructive" });
+            toast({ title: "فشل التسوية", variant: "destructive" });
         }
     }, [toast]);
 
