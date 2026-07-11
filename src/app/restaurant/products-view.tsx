@@ -27,7 +27,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
         return products.filter(p => p.restaurantId === context.restaurant?.id);
     }, [context?.restaurant, products]);
 
-    const filteredMyProducts = myProducts.filter(p => (p.name || '').includes(searchTerm));
+    const filteredMyProducts = myProducts.filter(p => (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
 
     const handleImg = (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0];
@@ -55,7 +55,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                 </Button>
                 <div className="text-right">
                     <h1 className="text-xl font-black text-primary leading-none">منيو المتجر</h1>
-                    <p className="text-[10px] font-bold text-muted-foreground mt-1">المنتجات الحالية</p>
+                    <p className="text-[10px] font-bold text-muted-foreground mt-1">إدارة العناصر</p>
                 </div>
                 <Button onClick={()=>setIsAdding(true)} className="mr-auto rounded-xl h-10 px-4 font-black">
                     <Plus className="ml-1 h-4 w-4"/> إضافة
@@ -66,13 +66,13 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                 <div className="bg-primary/5 p-4 rounded-2xl flex items-start gap-3 border border-primary/10">
                     <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                     <p className="text-[10px] font-bold text-primary leading-relaxed">
-                        ملاحظة: أي منتج جديد سيظهر بوضع "معلق" حتى تتم الموافقة عليه من قبل الإدارة.
+                        أي منتج جديد سيظهر بوضع "معلق" حتى تتم الموافقة عليه من قبل الإدارة.
                     </p>
                 </div>
 
                 <div className="relative">
                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="بحث سريع..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} className="pr-10 h-11 rounded-xl bg-white border-2 border-muted" />
+                    <Input placeholder="بحث سريع في المنتجات..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} className="pr-10 h-11 rounded-xl bg-white border-2 border-muted" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -99,7 +99,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                     {filteredMyProducts.length === 0 && (
                         <div className="col-span-2 text-center py-20 opacity-40">
                              <PackageOpen className="h-16 w-16 mx-auto mb-2" />
-                             <p className="font-black">لا يوجد منتجات</p>
+                             <p className="font-black">لا توجد منتجات مطابقة</p>
                         </div>
                     )}
                 </div>

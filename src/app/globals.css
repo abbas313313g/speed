@@ -77,7 +77,7 @@ button, a, [role="button"] {
   display: none;
 }
 
-/* تفعيل شريط التنزيل في قسم الدليفري والمطاعم */
+/* تفعيل شريط النزول في قسم الدليفري والمطاعم وإجباره على الظهور */
 .delivery-active .spa-page-view,
 .restaurant-active .spa-page-view {
   -ms-overflow-style: auto !important;

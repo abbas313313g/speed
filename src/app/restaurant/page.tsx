@@ -4,7 +4,7 @@ import { useContext, useMemo, useState, useEffect, useRef } from 'react';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, PackageSearch, History, CheckCircle2, Clock, Volume2, VolumeX, BellRing } from 'lucide-react';
+import { LogOut, Loader2, PackageSearch, History, CheckCircle2, Clock, Volume2, VolumeX, BellRing, PackageCheck, Truck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -25,11 +25,13 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         return allOrders.filter(o => o.restaurant?.id === context.restaurant?.id);
     }, [context?.restaurant, allOrders]);
 
-    const pendingOrders = myOrders.filter(o => o.status === 'unassigned' || o.status === 'pending_assignment');
-    const activeOrders = myOrders.filter(o => ['preparing', 'ready_for_pickup'].includes(o.status));
+    const newOrders = myOrders.filter(o => o.status === 'unassigned' || o.status === 'pending_assignment');
+    const preparingOrders = myOrders.filter(o => o.status === 'preparing');
+    const readyOrders = myOrders.filter(o => o.status === 'ready_for_pickup');
+    const deliveredOrders = myOrders.filter(o => ['on_the_way', 'delivered'].includes(o.status)).slice(0, 5);
 
     useEffect(() => {
-        if (pendingOrders.length > 0 && !isMuted) {
+        if (newOrders.length > 0 && !isMuted) {
             if (!audioRef.current) {
                 audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
                 audioRef.current.loop = true;
@@ -38,7 +40,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         } else if (audioRef.current) {
             audioRef.current.pause();
         }
-    }, [pendingOrders.length, isMuted]);
+    }, [newOrders.length, isMuted]);
 
     const requestNotif = async () => {
         if (!("Notification" in window)) {
@@ -60,17 +62,17 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     if (!context?.restaurant || oLoading) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
 
     return (
-        <div className="flex flex-col min-h-full bg-muted/10 pb-40">
+        <div className="flex flex-col min-h-full bg-muted/10 pb-60">
             <header className="p-4 bg-white border-b shadow-sm flex justify-between items-center sticky top-0 z-50">
                 <div className="text-right">
                     <h1 className="text-xl font-black text-primary leading-none">{context.restaurant.name}</h1>
-                    <p className="text-[10px] font-bold text-muted-foreground mt-1">إدارة الطلبات المباشرة</p>
+                    <p className="text-[10px] font-bold text-muted-foreground mt-1">لوحة الإدارة المباشرة</p>
                 </div>
                 <div className="flex gap-2">
                     <Button 
                         variant="outline" 
                         size="icon" 
-                        className={cn("rounded-xl h-10 w-10", !isMuted && pendingOrders.length > 0 && "animate-bounce bg-red-50 text-red-600")}
+                        className={cn("rounded-xl h-10 w-10", !isMuted && newOrders.length > 0 && "animate-bounce bg-red-50 text-red-600")}
                         onClick={() => setIsMuted(!isMuted)}
                     >
                         {isMuted ? <VolumeX className="h-5 w-5"/> : <Volume2 className="h-5 w-5"/>}
@@ -87,7 +89,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                 </div>
             </header>
 
-            <nav className="p-4 grid grid-cols-2 gap-3 sticky top-[73px] bg-muted/10 z-40 backdrop-blur-md">
+            <nav className="p-4 grid grid-cols-2 gap-3 sticky top-[73px] bg-muted/5 z-40 backdrop-blur-md">
                 <Button onClick={() => onNavigate(2)} className="rounded-2xl h-14 bg-white text-primary border-2 border-primary/20 shadow-sm flex flex-col gap-0 active:scale-95 transition-all">
                     <PackageSearch className="h-5 w-5"/>
                     <span className="text-[10px] font-black">منيو المتجر</span>
@@ -99,18 +101,19 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
             </nav>
 
             <main className="p-4 space-y-8">
+                {/* 1. الطلبات الجديدة */}
                 <section className="space-y-4">
                     <h2 className="text-lg font-black flex items-center gap-2 px-1">
                         <div className="h-2 w-2 rounded-full bg-red-500 animate-ping"/>
-                        طلبات جديدة ({pendingOrders.length})
+                        طلبات جديدة ({newOrders.length})
                     </h2>
-                    {pendingOrders.length === 0 ? (
-                        <div className="text-center py-10 bg-white rounded-[2rem] border-2 border-dashed border-muted">
-                            <p className="text-muted-foreground text-sm font-bold">لا توجد طلبات جديدة حالياً.</p>
+                    {newOrders.length === 0 ? (
+                        <div className="text-center py-8 bg-white/50 rounded-[2rem] border-2 border-dashed border-muted">
+                            <p className="text-muted-foreground text-xs font-bold">لا توجد طلبات جديدة حالياً.</p>
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {pendingOrders.map(order => (
+                            {newOrders.map(order => (
                                 <Card key={order.id} className="rounded-[1.5rem] border-2 border-primary/20 shadow-md overflow-hidden bg-white">
                                     <CardHeader className="pb-2 bg-primary/5">
                                         <div className="flex justify-between items-center">
@@ -128,10 +131,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                             ))}
                                         </div>
                                         <Separator className="border-dashed"/>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs font-bold text-muted-foreground">الإجمالي للمتجر:</span>
-                                            <span className="text-lg font-black text-primary">{formatCurrency(order.total - order.deliveryFee)}</span>
-                                        </div>
                                         <Button className="w-full h-12 rounded-xl font-black text-lg" onClick={() => handleUpdateStatus(order.id, 'preparing')}>
                                             قبول وبدء التحضير
                                         </Button>
@@ -142,41 +141,65 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                     )}
                 </section>
 
+                {/* 2. قيد التنفيذ */}
                 <section className="space-y-4">
-                    <h2 className="text-lg font-black flex items-center gap-2 px-1 text-muted-foreground">
-                        <Clock className="h-5 w-5 text-orange-500"/>
-                        قيد التنفيذ ({activeOrders.length})
+                    <h2 className="text-lg font-black flex items-center gap-2 px-1 text-orange-500">
+                        <Clock className="h-5 w-5"/>
+                        قيد التحضير ({preparingOrders.length})
                     </h2>
                     <div className="space-y-3">
-                        {activeOrders.map(order => (
+                        {preparingOrders.map(order => (
                             <Card key={order.id} className="rounded-2xl border-none shadow-sm bg-white">
                                 <CardContent className="p-4 flex items-center justify-between text-right">
                                     <div>
                                         <p className="text-[10px] font-bold text-muted-foreground">#{order.id.substring(0, 6)}</p>
                                         <h3 className="font-black text-primary">{order.items.length} منتجات</h3>
-                                        <div className="mt-1">
-                                            {order.status === 'preparing' ? (
-                                                <Badge variant="secondary" className="bg-orange-100 text-orange-700 rounded-lg text-[9px] px-2">جاري التحضير...</Badge>
-                                            ) : (
-                                                <Badge variant="secondary" className="bg-green-100 text-green-700 rounded-lg text-[9px] px-2">جاهز للاستلام</Badge>
-                                            )}
-                                        </div>
                                     </div>
-                                    <div className="flex flex-col gap-2">
-                                        {order.status === 'preparing' && (
-                                            <Button size="sm" variant="outline" className="rounded-xl font-black border-primary text-primary h-10 px-4" onClick={() => handleUpdateStatus(order.id, 'ready_for_pickup')}>
-                                                تم التجهيز
-                                            </Button>
-                                        )}
-                                        {order.status === 'ready_for_pickup' && (
-                                            <div className="flex items-center gap-1 text-[10px] font-black text-green-600 animate-pulse">
-                                                <CheckCircle2 className="h-4 w-4"/>
-                                                بانتظار المندوب
-                                            </div>
-                                        )}
+                                    <Button variant="outline" className="rounded-xl font-black border-primary text-primary h-10 px-4" onClick={() => handleUpdateStatus(order.id, 'ready_for_pickup')}>
+                                        تم التجهيز
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </section>
+
+                {/* 3. جاهز للاستلام */}
+                <section className="space-y-4">
+                    <h2 className="text-lg font-black flex items-center gap-2 px-1 text-green-600">
+                        <PackageCheck className="h-5 w-5"/>
+                        جاهز للاستلام ({readyOrders.length})
+                    </h2>
+                    <div className="space-y-3">
+                        {readyOrders.map(order => (
+                            <Card key={order.id} className="rounded-2xl border-none shadow-sm bg-white border-r-4 border-r-green-500">
+                                <CardContent className="p-4 flex items-center justify-between text-right">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-muted-foreground">#{order.id.substring(0, 6)}</p>
+                                        <h3 className="font-black text-foreground">بانتظار المندوب</h3>
+                                    </div>
+                                    <div className="p-2 bg-green-50 rounded-full">
+                                        <CheckCircle2 className="h-6 w-6 text-green-500 animate-pulse"/>
                                     </div>
                                 </CardContent>
                             </Card>
+                        ))}
+                    </div>
+                </section>
+
+                 {/* 4. تم التوصيل (نظرة سريعة) */}
+                 <section className="space-y-4 opacity-70">
+                    <h2 className="text-lg font-black flex items-center gap-2 px-1 text-muted-foreground">
+                        <Truck className="h-5 w-5"/>
+                        آخر الطلبات الموصلة
+                    </h2>
+                    <div className="space-y-3">
+                        {deliveredOrders.map(order => (
+                            <div key={order.id} className="flex justify-between items-center p-3 bg-white/50 rounded-xl text-xs font-bold">
+                                <span>#{order.id.substring(0, 6)}</span>
+                                <span className="text-muted-foreground">{order.status === 'delivered' ? 'تم التوصيل' : 'في الطريق'}</span>
+                                <span className="text-primary">{formatCurrency(order.total - order.deliveryFee)}</span>
+                            </div>
                         ))}
                     </div>
                 </section>

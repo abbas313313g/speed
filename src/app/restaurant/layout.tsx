@@ -21,8 +21,8 @@ function RestaurantLayoutContent() {
   }, [context?.restaurant, activeTab]);
 
   return (
-    <div className={cn("mx-auto flex h-screen max-w-4xl flex-col bg-card shadow-lg relative overflow-hidden restaurant-active")} dir="rtl">
-        <main className="flex-1 relative">
+    <div className={cn("mx-auto flex h-screen max-w-md flex-col bg-card shadow-2xl relative overflow-hidden restaurant-active")} dir="rtl">
+        <main className="flex-1 relative overflow-hidden">
             <div 
                 className="spa-stack-container" 
                 style={{ 
