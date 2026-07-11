@@ -37,7 +37,7 @@ export interface Product {
   image: string;
   categoryId: string;
   restaurantId: string;
-  status: 'approved' | 'pending'; // نظام الموافقة
+  status: 'approved' | 'pending';
 }
 
 export interface Category {
@@ -59,7 +59,7 @@ export interface Restaurant {
   closeTime?: string; 
   isStoreOpen?: boolean; 
   loginCode: string;
-  commissionRate: number; // نسبة الشركة من المتجر
+  commissionRate: number;
 }
 
 export interface Banner {
@@ -101,13 +101,13 @@ export interface Order {
     status: OrderStatus;
     estimatedDelivery: string;
     address: Address;
-    profit: number; // أرباح التطبيق من المنتجات
+    profit: number;
     deliveryFee: number;
     deliveryWorkerId: string | null;
     deliveryWorker: {id: string; name: string} | null;
-    isPaid: boolean; // هل تم تسوية حساب المتجر
-    isFeePaid: boolean; // هل استلم المندوب أجرته
-    isOrderPaidToOffice: boolean; // هل سلم المندوب فلوس الطلب للمكتب
+    isPaid: boolean;
+    isFeePaid: boolean;
+    isOrderPaidToOffice: boolean;
     appliedCoupon: {
       code: string;
       discountAmount: number;
@@ -157,4 +157,13 @@ export interface TelegramConfig {
 export interface AppSettings {
     id?: string;
     isMaintenanceMode: boolean;
+}
+
+export interface AdminAccess {
+    id: string;
+    ip: string;
+    status: 'approved' | 'pending';
+    requestedAt: string;
+    approvedAt?: string;
+    deviceName?: string;
 }

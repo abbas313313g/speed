@@ -25,6 +25,7 @@ import {
   Send,
   Settings,
   CheckCircle,
+  Fingerprint,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -32,6 +33,7 @@ import React, { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useSupportTickets } from "@/hooks/useSupportTickets";
 import { useProducts } from "@/hooks/useProducts";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 
 
 const navItems = [
@@ -39,6 +41,7 @@ const navItems = [
   { index: 1, label: "الطلبات", icon: ShoppingCart },
   { index: 2, label: "المنتجات", icon: Package },
   { index: 14, label: "موافقات المنتجات", icon: CheckCircle, notificationKey: 'pendingProducts' },
+  { index: 15, label: "تراخيص الأجهزة", icon: Fingerprint, notificationKey: 'pendingAccess' },
   { index: 3, label: "الأقسام", icon: LayoutGrid },
   { index: 4, label: "المتاجر", icon: Store },
   { index: 5, label: "البنرات", icon: GalleryHorizontal },
@@ -55,6 +58,7 @@ const navItems = [
 export function AdminNav({ isSheet = false, onTabChange, activeTab }: { isSheet?: boolean, onTabChange: (idx: number) => void, activeTab: number }) {
   const { supportTickets } = useSupportTickets();
   const { products } = useProducts();
+  const { accessList } = useAdminAccess();
   
   const openTicketsCount = useMemo(() => {
     return supportTickets.filter(t => !t.isResolved).length;
@@ -64,6 +68,10 @@ export function AdminNav({ isSheet = false, onTabChange, activeTab }: { isSheet?
     return products.filter(p => p.status === 'pending').length;
   }, [products]);
 
+  const pendingAccessCount = useMemo(() => {
+    return accessList.filter(a => a.status === 'pending').length;
+  }, [accessList]);
+
   const navContent = (
     <nav className={cn("flex flex-col items-center gap-4 px-2 py-5", isSheet && "items-stretch text-lg font-medium px-4")}>
       <div className="group flex h-12 w-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-primary text-primary-foreground mb-4">
@@ -71,8 +79,12 @@ export function AdminNav({ isSheet = false, onTabChange, activeTab }: { isSheet?
       </div>
       {navItems.map((item) => {
         const isActive = activeTab === item.index;
-        const hasNotification = (item.notificationKey === 'openTickets' && openTicketsCount > 0) || (item.notificationKey === 'pendingProducts' && pendingProductsCount > 0);
-        const count = item.notificationKey === 'openTickets' ? openTicketsCount : pendingProductsCount;
+        let count = 0;
+        if (item.notificationKey === 'openTickets') count = openTicketsCount;
+        if (item.notificationKey === 'pendingProducts') count = pendingProductsCount;
+        if (item.notificationKey === 'pendingAccess') count = pendingAccessCount;
+        
+        const hasNotification = count > 0;
         
         if (isSheet) {
           return (
