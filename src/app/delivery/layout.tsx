@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -26,7 +27,7 @@ export default function DeliveryLayout() {
   };
 
   return (
-    <div className={cn("mx-auto flex h-screen max-w-md flex-col bg-card shadow-lg relative overflow-hidden delivery-active")} dir="rtl">
+    <div className={cn("flex h-screen w-full flex-col bg-card shadow-lg relative overflow-hidden delivery-active")} dir="rtl">
       <main className="flex-1 relative overflow-hidden">
         <div 
           className="spa-stack-container" 

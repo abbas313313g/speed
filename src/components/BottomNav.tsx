@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Home, User, ShoppingCart, ClipboardList, Store, Search } from "lucide-react";
@@ -21,9 +22,8 @@ function BottomNavComponent() {
   const { activeTab, setActiveTab } = context;
 
   const handleTabClick = (index: number) => {
-    // العودة من الصفحات الفرعية (الدعم، العناوين، الخ) إلى الصفحة الأساسية للتبويب
     if (activeTab > 5 && index === 5) {
-        setActiveTab(5); // العودة لصفحة الحساب
+        setActiveTab(5);
     } else {
         setActiveTab(index);
     }
@@ -31,9 +31,8 @@ function BottomNavComponent() {
 
   return (
     <nav className="fixed bottom-0 right-0 z-50 w-full border-t bg-card/80 backdrop-blur-lg shadow-t-lg">
-      <div className="mx-auto grid h-20 max-w-md grid-cols-6 items-center justify-around px-2">
+      <div className="mx-auto grid h-20 max-w-screen-xl grid-cols-6 items-center justify-around px-2">
         {navItems.map((item) => {
-          // التبويب النشط هو إما نفسه أو إحدى صفحاته الفرعية (مثل تبويب الحساب)
           const isActive = (item.index === 5 && activeTab >= 5) || (activeTab === item.index);
           
           return (

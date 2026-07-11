@@ -132,7 +132,7 @@ export default function MainAppLayout() {
   }
 
   return (
-    <div className="mx-auto flex h-screen max-w-md flex-col bg-card shadow-2xl relative overflow-hidden">
+    <div className="flex h-screen w-full flex-col bg-card shadow-2xl relative overflow-hidden">
       <main className="flex-1 relative z-0 overflow-hidden">
         <div 
           className="spa-stack-container" 
