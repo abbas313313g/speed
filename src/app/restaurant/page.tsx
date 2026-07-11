@@ -1,13 +1,13 @@
 
 "use client";
 
-import { useContext, useMemo, useState, useEffect, useRef } from 'react';
+import { useContext, useMemo, useState, useRef } from 'react';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { useProducts } from '@/hooks/useProducts';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, BellRing, PackageOpen, Plus, Search, Trash2, Edit, CheckCircle } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from '@/components/ui/card';
+import { LogOut, Loader2, PackageOpen, Plus, Search, Trash2, BellRing } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
 
     const [isAdding, setIsAdding] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [notifEnabled, setNotifEnabled] = useState(false);
     const [newP, setNewP] = useState({ name: '', description: '', price: 0, image: '', categoryId: 'cat1', stock: 10 });
     const fileRef = useRef<HTMLInputElement>(null);
 
@@ -41,10 +42,23 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
 
     const totalWallet = useMemo(() => {
         const delivered = myOrders.filter(o => o.status === 'delivered' && !o.isPaid);
-        const total = delivered.reduce((acc, o) => acc + o.total - o.deliveryFee, 0);
+        const total = delivered.reduce((acc, o) => acc + (o.total - o.deliveryFee), 0);
         const commission = (total * (context?.restaurant?.commissionRate || 0)) / 100;
         return total - commission;
     }, [myOrders, context?.restaurant]);
+
+    const requestNotif = async () => {
+        if (!("Notification" in window)) {
+            toast({ title: "المتصفح لا يدعم التنبيهات", variant: "destructive" });
+            return;
+        }
+        const permission = await Notification.requestPermission();
+        if (permission === "granted") {
+            setNotifEnabled(true);
+            new Notification("سبيد شوب", { body: "تم تفعيل التنبيهات الخارجية بنجاح!" });
+            toast({ title: "تم تفعيل التنبيهات بنجاح" });
+        }
+    };
 
     const handleImg = (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0];
@@ -69,9 +83,17 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
             <header className="p-4 bg-white border-b shadow-sm flex justify-between items-center sticky top-0 z-50">
                 <div className="text-right">
                     <h1 className="text-xl font-black text-primary">{context.restaurant.name}</h1>
-                    <p className="text-[10px] font-bold text-muted-foreground">محفظتك الحالية: {formatCurrency(totalWallet)}</p>
+                    <p className="text-[10px] font-bold text-muted-foreground">محفظتك: {formatCurrency(totalWallet)}</p>
                 </div>
                 <div className="flex gap-2">
+                    <Button 
+                        variant={notifEnabled ? "secondary" : "outline"} 
+                        size="icon" 
+                        className={cn("rounded-xl h-10 w-10", notifEnabled && "bg-green-100 text-green-600")} 
+                        onClick={requestNotif}
+                    >
+                        <BellRing className="h-5 w-5"/>
+                    </Button>
                     <Button variant="outline" size="sm" className="rounded-xl h-10 font-bold" onClick={()=>onNavigate(2)}>السجل</Button>
                     <Button variant="ghost" size="icon" onClick={context.logout} className="text-destructive"><LogOut className="h-5 w-5"/></Button>
                 </div>
@@ -81,7 +103,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                 <section className="space-y-4">
                     <div className="flex justify-between items-center px-1">
                         <h2 className="text-xl font-black flex items-center gap-2"><PackageOpen className="text-primary"/> منيو المتجر</h2>
-                        <Button onClick={()=>setIsAdding(true)} className="rounded-xl h-11"><Plus className="ml-1 h-5 w-5"/> إضافة منتج</Button>
+                        <Button onClick={()=>setIsAdding(true)} className="rounded-xl h-11"><Plus className="ml-1 h-5 w-5"/> إضافة</Button>
                     </div>
                     <div className="relative">
                         <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -93,7 +115,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                 <div className="relative aspect-square">
                                     <Image src={p.image} fill className="object-cover" alt={p.name} unoptimized={true} />
                                     <Badge className={cn("absolute top-2 left-2 rounded-lg", p.status === 'approved' ? "bg-green-500" : "bg-orange-500")}>
-                                        {p.status === 'approved' ? 'نشط' : 'قيد المراجعة'}
+                                        {p.status === 'approved' ? 'نشط' : 'معلق'}
                                     </Badge>
                                 </div>
                                 <div className="p-3 text-right">

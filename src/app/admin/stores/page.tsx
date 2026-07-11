@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
 import { Star, Edit, Trash2, Loader2, MapPin, Upload, Percent } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -48,7 +49,7 @@ const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     openTime: '09:00',
     closeTime: '23:00',
     loginCode: '',
-    commissionRate: 10, // القيمة الافتراضية
+    commissionRate: 10, 
 };
 
 export default function AdminStoresPage() {
