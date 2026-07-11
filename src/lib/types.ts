@@ -37,6 +37,7 @@ export interface Product {
   image: string;
   categoryId: string;
   restaurantId: string;
+  status: 'approved' | 'pending'; // نظام الموافقة
 }
 
 export interface Category {
@@ -48,7 +49,7 @@ export interface Category {
 
 export interface Restaurant {
   id: string;
-  restaurantNumber: string; // الرقم التعريفي للدخول
+  restaurantNumber: string;
   name: string;
   image: string;
   rating: number;
@@ -58,6 +59,7 @@ export interface Restaurant {
   closeTime?: string; 
   isStoreOpen?: boolean; 
   loginCode: string;
+  commissionRate: number; // نسبة الشركة من المتجر
 }
 
 export interface Banner {
@@ -80,13 +82,12 @@ export interface DeliveryZone {
 }
 
 export interface DeliveryWorker {
-    id: string; // Phone number
+    id: string;
     name: string;
-    password?: string; // Added password field
+    password?: string;
     lastDeliveredAt?: string | null; 
     unfreezeProgress?: number;
     isOnline?: boolean;
-    activeOrdersCount?: number;
     totalDeliveredCount?: number;
 }
 
@@ -101,12 +102,13 @@ export interface Order {
     status: OrderStatus;
     estimatedDelivery: string;
     address: Address;
-    profit: number;
+    profit: number; // أرباح التطبيق من المنتجات
     deliveryFee: number;
     deliveryWorkerId: string | null;
     deliveryWorker: {id: string; name: string} | null;
-    isPaid: boolean;
-    isFeePaid: boolean;
+    isPaid: boolean; // هل تم تسوية حساب المتجر
+    isFeePaid: boolean; // هل استلم المندوب أجرته
+    isOrderPaidToOffice: boolean; // هل سلم المندوب فلوس الطلب للمكتب
     appliedCoupon: {
       code: string;
       discountAmount: number;

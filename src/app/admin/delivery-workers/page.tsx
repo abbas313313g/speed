@@ -11,121 +11,90 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/utils';
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { DeliveryWorker } from '@/lib/types';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Trash2 } from 'lucide-react';
+import { doc, writeBatch } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
-interface WorkerStats {
+interface WorkerWallet {
     worker: DeliveryWorker;
-    unpaidOrdersCount: number;
-    totalUnpaidEarnings: number;
-    unpaidOrderIds: string[];
+    deliveryEarnings: number; // أجرته (unpaid)
+    cashToOffice: number; // فلوس الطلبات (unpaid)
+    unpaidFeeIds: string[];
+    unpaidCashIds: string[];
 }
 
 export default function AdminDeliveryWorkersPage() {
   const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers();
-  const { allOrders, isLoading: ordersLoading, markDeliveryFeesAsPaid } = useOrders();
+  const { allOrders, isLoading: ordersLoading } = useOrders();
+  const { toast } = useToast();
 
-  const stats: WorkerStats[] = useMemo(() => {
+  const wallets: WorkerWallet[] = useMemo(() => {
     if (!deliveryWorkers || !allOrders) return [];
-
-    return deliveryWorkers.map(worker => {
-        const workerUnpaidOrders = allOrders.filter(order => 
-            order.deliveryWorkerId === worker.id && 
-            order.status === 'delivered' &&
-            !order.isFeePaid
-        );
-        
-        const totalUnpaidEarnings = workerUnpaidOrders.reduce((acc, order) => acc + order.deliveryFee, 0);
-        
+    return deliveryWorkers.map(w => {
+        const orders = allOrders.filter(o => o.deliveryWorkerId === w.id && o.status === 'delivered');
+        const unpaidFees = orders.filter(o => !o.isFeePaid);
+        const unpaidCash = orders.filter(o => !o.isOrderPaidToOffice);
         return {
-            worker,
-            unpaidOrdersCount: workerUnpaidOrders.length,
-            totalUnpaidEarnings,
-            unpaidOrderIds: workerUnpaidOrders.map(o => o.id),
+            worker: w,
+            deliveryEarnings: unpaidFees.reduce((acc, o) => acc + o.deliveryFee, 0),
+            cashToOffice: unpaidCash.reduce((acc, o) => acc + (o.total - o.deliveryFee), 0),
+            unpaidFeeIds: unpaidFees.map(o => o.id),
+            unpaidCashIds: unpaidCash.map(o => o.id),
         };
-    }).sort((a, b) => b.totalUnpaidEarnings - a.totalUnpaidEarnings);
-
+    }).filter(w => w.deliveryEarnings > 0 || w.cashToOffice > 0);
   }, [deliveryWorkers, allOrders]);
 
-  const handleMarkAsPaid = async (orderIds: string[]) => {
-      if (orderIds.length === 0) return;
-      await markDeliveryFeesAsPaid(orderIds);
+  const clearSettlement = async (ids: string[], field: 'isFeePaid' | 'isOrderPaidToOffice') => {
+      if (ids.length === 0) return;
+      const batch = writeBatch(db);
+      ids.forEach(id => batch.update(doc(db, "orders", id), { [field]: true }));
+      await batch.commit();
+      toast({ title: "تمت التصفية بنجاح" });
   }
 
-  if (workersLoading || ordersLoading) return <div>جار التحميل...</div>;
-  
-  const validStats = stats.filter(s => s.unpaidOrdersCount > 0);
+  if (workersLoading || ordersLoading) return <div className="p-8 text-center animate-pulse">جار جلب البيانات المالية...</div>;
 
   return (
     <div className="space-y-8">
-      <header className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold">تسوية حسابات عمال التوصيل</h1>
-          <p className="text-muted-foreground">عرض وتسوية أجور التوصيل المستحقة للعمال من الطلبات المكتملة.</p>
-        </div>
+      <header>
+        <h1 className="text-3xl font-black text-primary">تسوية حسابات المناديب</h1>
+        <p className="text-muted-foreground">تصفية أجور المناديب واستلام مبالغ الطلبات.</p>
       </header>
 
-      {validStats.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">لا توجد أجور مستحقة للعمال حالياً.</p>
-      ) : (
-        <Card>
-            <Table>
-                <TableHeader>
-                <TableRow>
-                    <TableHead>اسم السائق</TableHead>
-                    <TableHead>رقم الهاتف</TableHead>
-                    <TableHead>الطلبات المستحقة</TableHead>
-                    <TableHead>إجمالي الأجور المستحقة</TableHead>
-                    <TableHead>إجراء</TableHead>
-                </TableRow>
-                </TableHeader>
-                <TableBody>
-                {validStats.map((stat) => (
-                    <TableRow key={stat.worker.id}>
-                    <TableCell className="font-medium">{stat.worker.name}</TableCell>
-                    <TableCell dir="ltr">{stat.worker.id}</TableCell>
-                    <TableCell>{stat.unpaidOrdersCount}</TableCell>
-                    <TableCell>{formatCurrency(stat.totalUnpaidEarnings)}</TableCell>
-                     <TableCell>
-                        <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm" disabled={stat.unpaidOrderIds.length === 0}>تسوية ومسح السجل</Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    سيؤدي هذا الإجراء إلى وضع علامة "مدفوع" على {stat.unpaidOrdersCount} طلبات للعامل "{stat.worker.name}" وإزالتها من هذا التقرير. لا يمكن التراجع عن هذا الإجراء.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleMarkAsPaid(stat.unpaidOrderIds)}>نعم، قم بالتسوية</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                        </AlertDialog>
+      {wallets.length === 0 ? <p className="text-center text-muted-foreground py-20 font-bold italic">لا توجد مستحقات مالية حالياً.</p> : 
+      <Card className="rounded-[2rem] border-none shadow-2xl overflow-hidden">
+        <Table>
+            <TableHeader className="bg-muted/50">
+            <TableRow>
+                <TableHead className="font-black">الكابتن</TableHead>
+                <TableHead className="font-black">أرباحه (يدفعها المكتب)</TableHead>
+                <TableHead className="font-black">ذمة للمكتب (يسلمها المندوب)</TableHead>
+                <TableHead className="font-black">إجراءات التصفية</TableHead>
+            </TableRow>
+            </TableHeader>
+            <TableBody>
+            {wallets.map((w) => (
+                <TableRow key={w.worker.id}>
+                    <TableCell className="font-bold">{w.worker.name}<div className="text-[10px] text-muted-foreground">{w.worker.id}</div></TableCell>
+                    <TableCell className="font-black text-primary">{formatCurrency(w.deliveryEarnings)}</TableCell>
+                    <TableCell className="font-black text-destructive">{formatCurrency(w.cashToOffice)}</TableCell>
+                    <TableCell>
+                        <div className="flex flex-col gap-2">
+                            <Button size="sm" variant="outline" className="rounded-lg h-9 font-bold border-primary text-primary" onClick={()=>clearSettlement(w.unpaidFeeIds, 'isFeePaid')} disabled={w.unpaidFeeIds.length === 0}>تصفية أجور الكابتن</Button>
+                            <Button size="sm" variant="outline" className="rounded-lg h-9 font-bold border-destructive text-destructive" onClick={()=>clearSettlement(w.unpaidCashIds, 'isOrderPaidToOffice')} disabled={w.unpaidCashIds.length === 0}>استلام ذمة المكتب</Button>
+                        </div>
                     </TableCell>
-                    </TableRow>
-                ))}
-                </TableBody>
-            </Table>
-        </Card>
-      )}
+                </TableRow>
+            ))}
+            </TableBody>
+        </Table>
+      </Card>}
     </div>
   );
 }

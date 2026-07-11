@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -10,6 +11,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,94 +29,103 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Trash2 } from 'lucide-react';
+import { Trash2, PlusCircle, Loader2, Phone, User, KeyRound } from 'lucide-react';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function AdminUsersPage() {
-  const { deliveryWorkers, isLoading: workersLoading, deleteAllWorkers, deleteWorker } = useDeliveryWorkers();
+  const { deliveryWorkers, isLoading, addDeliveryWorker, deleteWorker } = useDeliveryWorkers();
+  const [open, setOpen] = useState(false);
+  const [newWorker, setNewWorker] = useState({ id: '', name: '', password: '' });
+  const [isSaving, setIsSaving] = useState(false);
 
-  if (workersLoading) return <div>جار التحميل...</div>;
+  const handleAdd = async () => {
+      if (!newWorker.id || !newWorker.name || !newWorker.password) return;
+      setIsSaving(true);
+      const success = await addDeliveryWorker(newWorker);
+      if (success) { setOpen(false); setNewWorker({ id: '', name: '', password: '' }); }
+      setIsSaving(false);
+  }
+
+  if (isLoading) return <div className="p-8 text-center animate-pulse">جار تحميل بيانات المناديب...</div>;
   
   return (
     <div className="space-y-8">
       <header className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold">إدارة المستخدمين والعمال</h1>
-          <p className="text-muted-foreground">عرض حسابات عمال التوصيل المسجلين وإدارتها.</p>
+          <h1 className="text-3xl font-bold text-primary">إدارة المناديب</h1>
+          <p className="text-muted-foreground">إنشاء حسابات الكباتن والتحكم في صلاحياتهم.</p>
         </div>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive">
-              <Trash2 className="ml-2 h-4 w-4" />
-              حذف جميع العمال
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>هل أنت متأكد تمامًا؟</AlertDialogTitle>
-              <AlertDialogDescription>
-                هذا الإجراء سيقوم بحذف **جميع** حسابات عمال التوصيل بشكل نهائي من قاعدة البيانات. لا يمكن التراجع عن هذا الإجراء. سيحتاج جميع العمال إلى التسجيل مرة أخرى.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>إلغاء</AlertDialogCancel>
-              <AlertDialogAction onClick={deleteAllWorkers} className="bg-destructive hover:bg-destructive/90">نعم، قم بالحذف</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <Button onClick={() => setOpen(true)} className="rounded-xl h-12 px-6 font-bold">
+          <PlusCircle className="ml-2 h-5 w-5" />
+          إضافة كابتن جديد
+        </Button>
       </header>
 
-      <Card>
-        <CardHeader>
-            <CardTitle>سجلات عمال التوصيل</CardTitle>
-            <CardDescription>قائمة بجميع عمال التوصيل المسجلين في النظام.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            {deliveryWorkers.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">لا يوجد عمال توصيل مسجلون في النظام حاليًا.</p>
-            ) : (
-                <Table>
-                    <TableHeader>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md rounded-[2rem]">
+            <DialogHeader>
+                <DialogTitle className="text-2xl font-black">إنشاء حساب كابتن</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+                <div className="space-y-1">
+                    <Label className="font-bold">الاسم الكامل</Label>
+                    <div className="relative"><User className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/><Input value={newWorker.name} onChange={(e)=>setNewWorker({...newWorker, name: e.target.value})} className="pr-10 h-12 rounded-xl font-bold"/></div>
+                </div>
+                <div className="space-y-1">
+                    <Label className="font-bold">رقم الهاتف (للدخول)</Label>
+                    <div className="relative"><Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/><Input value={newWorker.id} onChange={(e)=>setNewWorker({...newWorker, id: e.target.value})} className="pr-10 h-12 rounded-xl font-bold" placeholder="07XXXXXXXX"/></div>
+                </div>
+                <div className="space-y-1">
+                    <Label className="font-bold">كلمة المرور</Label>
+                    <div className="relative"><KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/><Input type="password" value={newWorker.password} onChange={(e)=>setNewWorker({...newWorker, password: e.target.value})} className="pr-10 h-12 rounded-xl font-bold text-center"/></div>
+                </div>
+            </div>
+            <DialogFooter>
+                <Button onClick={handleAdd} className="w-full h-14 rounded-2xl text-lg font-black" disabled={isSaving}>
+                    {isSaving ? <Loader2 className="animate-spin h-5 w-5"/> : "إنشاء الحساب الآن"}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Card className="rounded-[1.5rem] overflow-hidden border-none shadow-xl">
+        <CardContent className="p-0">
+            <Table>
+                <TableHeader className="bg-muted/50">
                     <TableRow>
-                        <TableHead>اسم العامل</TableHead>
-                        <TableHead>رقم الهاتف (المعرف)</TableHead>
-                        <TableHead>حالة الاتصال</TableHead>
-                        <TableHead>إجراءات</TableHead>
+                        <TableHead className="font-black">اسم الكابتن</TableHead>
+                        <TableHead className="font-black">رقم الهاتف</TableHead>
+                        <TableHead className="font-black">الحالة</TableHead>
+                        <TableHead className="font-black">إجراءات</TableHead>
                     </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {deliveryWorkers.map((worker) => (
-                        <TableRow key={worker.id}>
-                        <TableCell className="font-medium">{worker.name}</TableCell>
+                </TableHeader>
+                <TableBody>
+                {deliveryWorkers.map((worker) => (
+                    <TableRow key={worker.id}>
+                        <TableCell className="font-bold">{worker.name}</TableCell>
                         <TableCell dir="ltr">{worker.id}</TableCell>
-                        <TableCell>{worker.isOnline ? 'متصل' : 'غير متصل'}</TableCell>
+                        <TableCell>
+                            <div className="flex items-center gap-2">
+                                <div className={`h-2 w-2 rounded-full ${worker.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                <span className="text-xs font-bold">{worker.isOnline ? 'متصل' : 'غير متصل'}</span>
+                            </div>
+                        </TableCell>
                         <TableCell>
                             <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" size="icon">
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            سيتم حذف العامل "{worker.name}" بشكل نهائي. لا يمكن التراجع عن هذا الإجراء.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => deleteWorker(worker.id)}>حذف</AlertDialogAction>
-                                    </AlertDialogFooter>
+                                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-5 w-5" /></Button></AlertDialogTrigger>
+                                <AlertDialogContent className="rounded-[2rem]">
+                                    <AlertDialogHeader><AlertDialogTitle>حذف الكابتن؟</AlertDialogTitle><AlertDialogDescription>هذا الإجراء سيقوم بإلغاء حساب "{worker.name}" تماماً.</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogFooter><AlertDialogCancel className="rounded-xl">تراجع</AlertDialogCancel><AlertDialogAction onClick={()=>deleteWorker(worker.id)} className="bg-destructive hover:bg-destructive/90 rounded-xl">نعم، حذف</AlertDialogAction></AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
                         </TableCell>
-                        </TableRow>
-                    ))}
-                    </TableBody>
-                </Table>
-            )}
+                    </TableRow>
+                ))}
+                </TableBody>
+            </Table>
         </CardContent>
       </Card>
     </div>
