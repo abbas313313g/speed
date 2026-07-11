@@ -4,8 +4,8 @@ import { useContext, useMemo, useState, useEffect, useRef } from 'react';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, ClipboardList, BellRing, PackageSearch, History, CheckCircle2, Clock, Volume2, VolumeX } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { LogOut, Loader2, PackageSearch, History, CheckCircle2, Clock, Volume2, VolumeX, BellRing } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -20,17 +20,14 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     const [notifEnabled, setNotifEnabled] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
-    // تصفية طلبات المتجر
     const myOrders = useMemo(() => {
         if (!context?.restaurant || !allOrders) return [];
         return allOrders.filter(o => o.restaurant?.id === context.restaurant?.id);
     }, [context?.restaurant, allOrders]);
 
-    // الطلبات الجديدة والنشطة
     const pendingOrders = myOrders.filter(o => o.status === 'unassigned' || o.status === 'pending_assignment');
     const activeOrders = myOrders.filter(o => ['preparing', 'ready_for_pickup'].includes(o.status));
 
-    // نظام التنبيه الصوتي عند وصول طلب جديد
     useEffect(() => {
         if (pendingOrders.length > 0 && !isMuted) {
             if (!audioRef.current) {
@@ -63,11 +60,11 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     if (!context?.restaurant || oLoading) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
 
     return (
-        <div className="flex flex-col min-h-screen bg-muted/10 pb-40">
+        <div className="flex flex-col min-h-full bg-muted/10 pb-40">
             <header className="p-4 bg-white border-b shadow-sm flex justify-between items-center sticky top-0 z-50">
                 <div className="text-right">
                     <h1 className="text-xl font-black text-primary leading-none">{context.restaurant.name}</h1>
-                    <p className="text-[10px] font-bold text-muted-foreground mt-1">إدارة الطلبات الحية</p>
+                    <p className="text-[10px] font-bold text-muted-foreground mt-1">إدارة الطلبات المباشرة</p>
                 </div>
                 <div className="flex gap-2">
                     <Button 
@@ -102,11 +99,10 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
             </nav>
 
             <main className="p-4 space-y-8">
-                {/* الطلبات الجديدة - تحتاج موافقة */}
                 <section className="space-y-4">
                     <h2 className="text-lg font-black flex items-center gap-2 px-1">
                         <div className="h-2 w-2 rounded-full bg-red-500 animate-ping"/>
-                        طلبات جديدة بانتظارك ({pendingOrders.length})
+                        طلبات جديدة ({pendingOrders.length})
                     </h2>
                     {pendingOrders.length === 0 ? (
                         <div className="text-center py-10 bg-white rounded-[2rem] border-2 border-dashed border-muted">
@@ -122,7 +118,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                             <Badge className="bg-red-500 text-white">جديد!</Badge>
                                         </div>
                                     </CardHeader>
-                                    <CardContent className="p-4 space-y-3">
+                                    <CardContent className="p-4 space-y-3 text-right">
                                         <div className="text-xs space-y-1">
                                             {order.items.map((item, i) => (
                                                 <div key={i} className="flex justify-between font-bold">
@@ -146,16 +142,15 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                     )}
                 </section>
 
-                {/* الطلبات النشطة - قيد العمل */}
                 <section className="space-y-4">
                     <h2 className="text-lg font-black flex items-center gap-2 px-1 text-muted-foreground">
                         <Clock className="h-5 w-5 text-orange-500"/>
-                        مهام قيد التنفيذ ({activeOrders.length})
+                        قيد التنفيذ ({activeOrders.length})
                     </h2>
                     <div className="space-y-3">
                         {activeOrders.map(order => (
                             <Card key={order.id} className="rounded-2xl border-none shadow-sm bg-white">
-                                <CardContent className="p-4 flex items-center justify-between">
+                                <CardContent className="p-4 flex items-center justify-between text-right">
                                     <div>
                                         <p className="text-[10px] font-bold text-muted-foreground">#{order.id.substring(0, 6)}</p>
                                         <h3 className="font-black text-primary">{order.items.length} منتجات</h3>

@@ -48,17 +48,17 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
     if (!context?.restaurant || pLoading) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
 
     return (
-        <div className="flex flex-col min-h-screen bg-background pb-40">
+        <div className="flex flex-col min-h-full bg-background pb-40 text-right">
             <header className="p-4 bg-white border-b shadow-sm flex items-center gap-4 sticky top-0 z-50">
                 <Button variant="outline" size="icon" onClick={onBack} className="rounded-xl h-10 w-10">
                     <ArrowRight className="h-5 w-5"/>
                 </Button>
                 <div className="text-right">
                     <h1 className="text-xl font-black text-primary leading-none">منيو المتجر</h1>
-                    <p className="text-[10px] font-bold text-muted-foreground mt-1">إضافة وتعديل المنتجات</p>
+                    <p className="text-[10px] font-bold text-muted-foreground mt-1">المنتجات الحالية</p>
                 </div>
                 <Button onClick={()=>setIsAdding(true)} className="mr-auto rounded-xl h-10 px-4 font-black">
-                    <Plus className="ml-1 h-4 w-4"/> إضافة منتج
+                    <Plus className="ml-1 h-4 w-4"/> إضافة
                 </Button>
             </header>
 
@@ -66,13 +66,13 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                 <div className="bg-primary/5 p-4 rounded-2xl flex items-start gap-3 border border-primary/10">
                     <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                     <p className="text-[10px] font-bold text-primary leading-relaxed">
-                        ملاحظة: أي منتج جديد أو تعديل ستقوم به سيظهر بوضع "معلق" حتى يقوم الأدمن بالموافقة عليه لضمان الجودة.
+                        ملاحظة: أي منتج جديد سيظهر بوضع "معلق" حتى تتم الموافقة عليه من قبل الإدارة.
                     </p>
                 </div>
 
                 <div className="relative">
                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="بحث سريع في المنيو..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} className="pr-10 h-11 rounded-xl bg-white border-2 border-muted" />
+                    <Input placeholder="بحث سريع..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} className="pr-10 h-11 rounded-xl bg-white border-2 border-muted" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -107,7 +107,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
 
             <Dialog open={isAdding} onOpenChange={setIsAdding}>
                 <DialogContent className="sm:max-w-md rounded-[2.5rem]">
-                    <DialogHeader><DialogTitle className="text-2xl font-black">إضافة منتج جديد</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle className="text-2xl font-black text-right">إضافة منتج جديد</DialogTitle></DialogHeader>
                     <div className="space-y-4 py-4 text-right">
                         <div className="space-y-1">
                             <Label className="font-bold">اسم المنتج</Label>
@@ -118,20 +118,18 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                             <Input type="number" value={newP.price || ''} onChange={(e)=>setNewP({...newP, price: parseFloat(e.target.value) || 0})} className="h-11 rounded-xl" />
                         </div>
                         <div className="space-y-1">
-                            <Label className="font-bold">الكمية المتوفرة</Label>
+                            <Label className="font-bold">الكمية</Label>
                             <Input type="number" value={newP.stock || ''} onChange={(e)=>setNewP({...newP, stock: parseInt(e.target.value) || 0})} className="h-11 rounded-xl" />
                         </div>
                         <div className="space-y-1">
-                            <Label className="font-bold">صورة المنتج</Label>
-                            <div className="flex gap-2">
-                                <Button variant="outline" className="w-full h-11 rounded-xl border-dashed font-bold" onClick={()=>fileRef.current?.click()}>ارفع صورة المنتج</Button>
-                                <input type="file" ref={fileRef} className="hidden" onChange={handleImg} accept="image/*" />
-                            </div>
+                            <Label className="font-bold">الصورة</Label>
+                            <Button variant="outline" className="w-full h-11 rounded-xl border-dashed font-bold" onClick={()=>fileRef.current?.click()}>ارفع صورة</Button>
+                            <input type="file" ref={fileRef} className="hidden" onChange={handleImg} accept="image/*" />
                             {newP.image && <div className="relative h-20 w-20 mx-auto mt-2"><Image src={newP.image} fill className="object-cover rounded-xl" alt="preview" unoptimized={true}/></div>}
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button onClick={handleSave} className="w-full h-14 rounded-2xl text-lg font-black shadow-lg">إرسال للموافقة والنشـر</Button>
+                        <Button onClick={handleSave} className="w-full h-14 rounded-2xl text-lg font-black shadow-lg">إرسال للموافقة</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

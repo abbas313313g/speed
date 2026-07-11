@@ -92,6 +92,7 @@ button, a, [role="button"] {
 
 .delivery-active .spa-page-view::-webkit-scrollbar-thumb,
 .restaurant-active .spa-page-view::-webkit-scrollbar-thumb {
-  background-color: hsl(var(--primary)) !important;
+  background-color: #22c55e !important;
   border-radius: 10px !important;
+  border: 2px solid white !important;
 }
