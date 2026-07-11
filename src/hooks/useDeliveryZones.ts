@@ -7,6 +7,10 @@ import { db } from '@/lib/firebase';
 import type { DeliveryZone } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
+const EMPTY_ZONE: Omit<DeliveryZone, 'id'> = {
+    name: '',
+};
+
 export const useDeliveryZones = () => {
     const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -52,5 +56,3 @@ export const useDeliveryZones = () => {
 
     return { deliveryZones, isLoading, addDeliveryZone, updateDeliveryZone, deleteDeliveryZone };
 };
-
-    

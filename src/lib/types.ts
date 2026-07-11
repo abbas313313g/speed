@@ -78,7 +78,6 @@ export interface CartItem {
 export interface DeliveryZone {
   id: string;
   name: string;
-  fee: number;
 }
 
 export interface DeliveryWorker {

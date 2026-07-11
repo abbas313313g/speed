@@ -33,12 +33,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Edit, Trash2, Loader2 } from 'lucide-react';
 import type { DeliveryZone } from '@/lib/types';
-import { formatCurrency } from '@/lib/utils';
 import { useDeliveryZones } from '@/hooks/useDeliveryZones';
 
 const EMPTY_ZONE: Omit<DeliveryZone, 'id'> = {
     name: '',
-    fee: 0,
 };
 
 export default function AdminDeliveryZonesPage() {
@@ -62,7 +60,7 @@ export default function AdminDeliveryZonesPage() {
   };
 
   const handleSave = async () => {
-    if (currentZone.name && typeof currentZone.fee === 'number') {
+    if (currentZone.name) {
         setIsSaving(true);
         if (isEditing && currentZone.id) {
             await updateDeliveryZone(currentZone as DeliveryZone);
@@ -79,7 +77,7 @@ export default function AdminDeliveryZonesPage() {
       <header className="flex justify-between items-center">
         <div>
             <h1 className="text-3xl font-bold">إدارة مناطق التوصيل</h1>
-            <p className="text-muted-foreground">إضافة، تعديل، وحذف مناطق التوصيل وأسعارها.</p>
+            <p className="text-muted-foreground">إضافة، تعديل، وحذف المناطق المشمولة بالخدمة. (ملاحظة: التسعير تلقائي بناءً على المسافة)</p>
         </div>
         <Button onClick={() => handleOpenDialog()}>إضافة منطقة جديدة</Button>
       </header>
@@ -94,15 +92,11 @@ export default function AdminDeliveryZonesPage() {
                         <Label htmlFor="name" className="text-right">اسم المنطقة</Label>
                         <Input id="name" value={currentZone.name} onChange={(e) => setCurrentZone({...currentZone, name: e.target.value})} className="col-span-3" />
                     </div>
-                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="fee" className="text-right">سعر التوصيل</Label>
-                        <Input id="fee" type="number" value={currentZone.fee || ''} onChange={(e) => setCurrentZone({...currentZone, fee: e.target.value === '' ? 0 : parseFloat(e.target.value)})} className="col-span-3" />
-                    </div>
                 </div>
                 <DialogFooter>
                     <Button type="submit" onClick={handleSave} disabled={isSaving}>
                         {isSaving && <Loader2 className="ml-2 h-4 w-4 animate-spin"/>}
-                        حفظ
+                        حفظ المنطقة
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -112,7 +106,6 @@ export default function AdminDeliveryZonesPage() {
         <TableHeader>
           <TableRow>
             <TableHead>اسم المنطقة</TableHead>
-            <TableHead>سعر التوصيل</TableHead>
             <TableHead>إجراءات</TableHead>
           </TableRow>
         </TableHeader>
@@ -120,7 +113,6 @@ export default function AdminDeliveryZonesPage() {
           {deliveryZones.map((zone) => (
             <TableRow key={zone.id}>
               <TableCell className="font-medium">{zone.name}</TableCell>
-              <TableCell>{formatCurrency(zone.fee)}</TableCell>
               <TableCell>
                   <div className="flex items-center gap-2">
                       <Button variant="outline" size="icon" onClick={() => handleOpenDialog(zone)}>
