@@ -46,7 +46,6 @@ button, a, [role="button"] {
   @apply transition-transform duration-75 active:scale-95 cursor-pointer;
 }
 
-/* الحاوية الكبرى للمكدس */
 .spa-stack-container {
   display: flex;
   flex-direction: row;
@@ -57,7 +56,6 @@ button, a, [role="button"] {
   will-change: transform;
 }
 
-/* كل صفحة داخل المكدس */
 .spa-page-view {
   flex: 0 0 100%;
   width: 100%;
@@ -71,7 +69,6 @@ button, a, [role="button"] {
   -webkit-overflow-scrolling: touch;
   background: hsl(var(--background));
   
-  /* إخفاء شريط التمرير افتراضياً */
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
@@ -80,18 +77,21 @@ button, a, [role="button"] {
   display: none;
 }
 
-/* إظهار شريط التنزيل فقط في قسم المندوب */
-.delivery-active .spa-page-view {
+/* تفعيل شريط التنزيل في قسم الدليفري والمطاعم */
+.delivery-active .spa-page-view,
+.restaurant-active .spa-page-view {
   -ms-overflow-style: auto !important;
   scrollbar-width: thin !important;
 }
 
-.delivery-active .spa-page-view::-webkit-scrollbar {
+.delivery-active .spa-page-view::-webkit-scrollbar,
+.restaurant-active .spa-page-view::-webkit-scrollbar {
   display: block !important;
-  width: 5px !important;
+  width: 6px !important;
 }
 
-.delivery-active .spa-page-view::-webkit-scrollbar-thumb {
+.delivery-active .spa-page-view::-webkit-scrollbar-thumb,
+.restaurant-active .spa-page-view::-webkit-scrollbar-thumb {
   background-color: hsl(var(--primary)) !important;
   border-radius: 10px !important;
 }
