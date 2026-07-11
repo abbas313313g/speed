@@ -46,7 +46,7 @@ export default function AdminDeliveryZonesPage() {
   const [currentZone, setCurrentZone] = useState<Partial<DeliveryZone>>({ ...EMPTY_ZONE });
   const [isSaving, setIsSaving] = useState(false);
 
-  if (isLoading) return <div>جار التحميل...</div>;
+  if (isLoading) return <div className="p-8 text-center animate-pulse">جار التحميل...</div>;
 
   const handleOpenDialog = (zone?: DeliveryZone) => {
     if (zone) {
@@ -76,25 +76,25 @@ export default function AdminDeliveryZonesPage() {
     <div className="space-y-8">
       <header className="flex justify-between items-center">
         <div>
-            <h1 className="text-3xl font-bold">إدارة مناطق التوصيل</h1>
-            <p className="text-muted-foreground">إضافة، تعديل، وحذف المناطق المشمولة بالخدمة. (ملاحظة: التسعير تلقائي بناءً على المسافة)</p>
+            <h1 className="text-3xl font-black text-primary">إدارة مناطق التوصيل</h1>
+            <p className="text-muted-foreground font-bold">إضافة أسماء المناطق لتسهيل اختيار العناوين.</p>
         </div>
-        <Button onClick={() => handleOpenDialog()}>إضافة منطقة جديدة</Button>
+        <Button onClick={() => handleOpenDialog()} className="rounded-xl">إضافة منطقة جديدة</Button>
       </header>
 
       <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[425px] rounded-[2rem]">
                 <DialogHeader>
-                    <DialogTitle>{isEditing ? 'تعديل المنطقة' : 'إضافة منطقة جديدة'}</DialogTitle>
+                    <DialogTitle className="text-xl font-black">{isEditing ? 'تعديل المنطقة' : 'إضافة منطقة جديدة'}</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="name" className="text-right">اسم المنطقة</Label>
-                        <Input id="name" value={currentZone.name} onChange={(e) => setCurrentZone({...currentZone, name: e.target.value})} className="col-span-3" />
+                        <Label htmlFor="name" className="text-right font-bold">اسم المنطقة</Label>
+                        <Input id="name" value={currentZone.name ?? ''} onChange={(e) => setCurrentZone({...currentZone, name: e.target.value})} className="col-span-3 rounded-xl h-12" />
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button type="submit" onClick={handleSave} disabled={isSaving}>
+                    <Button type="submit" onClick={handleSave} disabled={isSaving} className="w-full h-14 rounded-2xl text-lg font-black">
                         {isSaving && <Loader2 className="ml-2 h-4 w-4 animate-spin"/>}
                         حفظ المنطقة
                     </Button>
@@ -102,47 +102,49 @@ export default function AdminDeliveryZonesPage() {
             </DialogContent>
         </Dialog>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>اسم المنطقة</TableHead>
-            <TableHead>إجراءات</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {deliveryZones.map((zone) => (
-            <TableRow key={zone.id}>
-              <TableCell className="font-medium">{zone.name}</TableCell>
-              <TableCell>
-                  <div className="flex items-center gap-2">
-                      <Button variant="outline" size="icon" onClick={() => handleOpenDialog(zone)}>
-                          <Edit className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                           <Button variant="destructive" size="icon">
-                                <Trash2 className="h-4 w-4" />
-                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    هذا الإجراء سيقوم بحذف منطقة "{zone.name}" بشكل نهائي.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteDeliveryZone(zone.id)}>حذف</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                  </div>
-              </TableCell>
+      <div className="bg-white rounded-[1.5rem] border shadow-xl overflow-hidden">
+        <Table>
+            <TableHeader className="bg-muted/50">
+            <TableRow>
+                <TableHead className="font-black">اسم المنطقة</TableHead>
+                <TableHead className="font-black">إجراءات</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+            </TableHeader>
+            <TableBody>
+            {deliveryZones.map((zone) => (
+                <TableRow key={zone.id}>
+                <TableCell className="font-bold">{zone.name}</TableCell>
+                <TableCell>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="icon" onClick={() => handleOpenDialog(zone)} className="rounded-lg">
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-destructive">
+                                    <Trash2 className="h-4 w-4" />
+                            </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="rounded-[2rem]">
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle className="text-right">هل أنت متأكد؟</AlertDialogTitle>
+                                    <AlertDialogDescription className="text-right font-bold">
+                                        هذا الإجراء سيقوم بحذف منطقة "{zone.name}" بشكل نهائي.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter className="flex-row gap-2">
+                                    <AlertDialogCancel className="flex-1 rounded-xl">إلغاء</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteDeliveryZone(zone.id)} className="flex-1 bg-destructive hover:bg-destructive/90 rounded-xl">حذف</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                </TableCell>
+                </TableRow>
+            ))}
+            </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

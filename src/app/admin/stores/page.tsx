@@ -88,15 +88,15 @@ export default function AdminStoresPage() {
             <DialogHeader><DialogTitle className="text-2xl font-black">{isEditing ? 'تعديل المتجر' : 'إضافة متجر'}</DialogTitle></DialogHeader>
             <div className="space-y-4 py-4 text-right">
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1"><Label className="font-bold">اسم المتجر</Label><Input value={currentStore.name} onChange={(e)=>setCurrentStore({...currentStore, name: e.target.value})} className="rounded-xl"/></div>
-                    <div className="space-y-1"><Label className="font-bold">رقم المتجر</Label><Input value={currentStore.restaurantNumber} onChange={(e)=>setCurrentStore({...currentStore, restaurantNumber: e.target.value})} className="rounded-xl"/></div>
+                    <div className="space-y-1"><Label className="font-bold">اسم المتجر</Label><Input value={currentStore.name ?? ''} onChange={(e)=>setCurrentStore({...currentStore, name: e.target.value})} className="rounded-xl"/></div>
+                    <div className="space-y-1"><Label className="font-bold">رقم المتجر</Label><Input value={currentStore.restaurantNumber ?? ''} onChange={(e)=>setCurrentStore({...currentStore, restaurantNumber: e.target.value})} className="rounded-xl"/></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1"><Label className="font-bold">رمز الدخول</Label><Input value={currentStore.loginCode} onChange={(e)=>setCurrentStore({...currentStore, loginCode: e.target.value})} className="rounded-xl"/></div>
-                    <div className="space-y-1"><Label className="font-bold">نسبة الشركة (%)</Label><div className="relative"><Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary"/><Input type="number" value={currentStore.commissionRate} onChange={(e)=>setCurrentStore({...currentStore, commissionRate: parseFloat(e.target.value) || 0})} className="rounded-xl pl-10"/></div></div>
+                    <div className="space-y-1"><Label className="font-bold">رمز الدخول</Label><Input value={currentStore.loginCode ?? ''} onChange={(e)=>setCurrentStore({...currentStore, loginCode: e.target.value})} className="rounded-xl"/></div>
+                    <div className="space-y-1"><Label className="font-bold">نسبة الشركة (%)</Label><div className="relative"><Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary"/><Input type="number" value={currentStore.commissionRate ?? ''} onChange={(e)=>setCurrentStore({...currentStore, commissionRate: parseFloat(e.target.value) || 0})} className="rounded-xl pl-10"/></div></div>
                 </div>
-                <div className="space-y-1"><Label className="font-bold">رابط الصورة أو ارفع ملف</Label><div className="flex gap-2"><Input value={currentStore.image} onChange={(e)=>setCurrentStore({...currentStore, image: e.target.value})} className="rounded-xl"/><Button variant="outline" size="icon" className="rounded-xl h-10 w-10" onClick={()=>fileInputRef.current?.click()}><Upload className="h-4 w-4"/></Button></div><input type="file" ref={fileInputRef} className="hidden" onChange={(e)=>{const f=e.target.files?.[0]; if(f){const r=new FileReader(); r.onloadend=()=>setCurrentStore({...currentStore, image: r.result as string}); r.readAsDataURL(f);}}} /></div>
-                <div className="space-y-1"><Label className="font-bold">الموقع (Lat, Lng)</Label><div className="flex gap-2"><Input placeholder="Lat" type="number" value={currentStore.latitude || ''} onChange={(e)=>setCurrentStore({...currentStore, latitude: parseFloat(e.target.value)})}/><Input placeholder="Lng" type="number" value={currentStore.longitude || ''} onChange={(e)=>setCurrentStore({...currentStore, longitude: parseFloat(e.target.value)})}/></div></div>
+                <div className="space-y-1"><Label className="font-bold">رابط الصورة أو ارفع ملف</Label><div className="flex gap-2"><Input value={currentStore.image ?? ''} onChange={(e)=>setCurrentStore({...currentStore, image: e.target.value})} className="rounded-xl"/><Button variant="outline" size="icon" className="rounded-xl h-10 w-10" onClick={()=>fileInputRef.current?.click()}><Upload className="h-4 w-4"/></Button></div><input type="file" ref={fileInputRef} className="hidden" onChange={(e)=>{const f=e.target.files?.[0]; if(f){const r=new FileReader(); r.onloadend=()=>setCurrentStore({...currentStore, image: r.result as string}); r.readAsDataURL(f);}}} /></div>
+                <div className="space-y-1"><Label className="font-bold">الموقع (Lat, Lng)</Label><div className="flex gap-2"><Input placeholder="Lat" type="number" value={currentStore.latitude ?? ''} onChange={(e)=>setCurrentStore({...currentStore, latitude: parseFloat(e.target.value)})}/><Input placeholder="Lng" type="number" value={currentStore.longitude ?? ''} onChange={(e)=>setCurrentStore({...currentStore, longitude: parseFloat(e.target.value)})}/></div></div>
             </div>
             <DialogFooter><Button onClick={handleSave} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl" disabled={isSaving}>{isSaving ? <Loader2 className="animate-spin h-5 w-5"/> : "حفظ بيانات المتجر"}</Button></DialogFooter>
         </DialogContent>
@@ -104,11 +104,11 @@ export default function AdminStoresPage() {
 
       <Card className="rounded-[1.5rem] border-none shadow-xl overflow-hidden">
         <Table>
-            <TableHeader className="bg-muted/50"><TableRow><TableHead>صورة</TableHead><TableHead>الاسم</TableHead><TableHead>النسبة</TableHead><TableHead>التقييم</TableHead><TableHead>إجراءات</TableHead></TableRow></TableHeader>
+            <TableHeader className="bg-muted/50"><TableRow><TableHead>صورة</TableHead>TableHead>الاسم</TableHead><TableHead>النسبة</TableHead><TableHead>التقييم</TableHead><TableHead>إجراءات</TableHead></TableRow></TableHeader>
             <TableBody>
                 {restaurants.map(s => (
                     <TableRow key={s.id}>
-                        <TableCell><Image src={s.image} width={40} height={40} className="rounded-lg object-cover" alt={s.name} unoptimized={true}/></TableCell>
+                        <TableCell><Image src={s.image || 'https://placehold.co/40x40.png'} width={40} height={40} className="rounded-lg object-cover" alt={s.name} unoptimized={true}/></TableCell>
                         <TableCell className="font-bold">{s.name}</TableCell>
                         <TableCell className="font-black text-primary">{s.commissionRate}%</TableCell>
                         <TableCell><div className="flex items-center gap-1 text-amber-500"><Star className="h-4 w-4 fill-current"/>{s.rating}</div></TableCell>
