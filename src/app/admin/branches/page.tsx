@@ -15,13 +15,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trash2, PlusCircle, MapPin, Building2, Loader2 } from 'lucide-react';
+import { Trash2, PlusCircle, MapPin, Building2, Loader2, ExternalLink } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminBranchesPage() {
     const { branches, isLoading, addBranch, deleteBranch } = useBranches();
     const [name, setName] = useState("");
     const [location, setLocation] = useState("");
     const [isSaving, setIsSaving] = useState(false);
+    const { toast } = useToast();
 
     const handleAdd = async () => {
         if (!name || !location) return;
@@ -30,6 +32,12 @@ export default function AdminBranchesPage() {
         setName("");
         setLocation("");
         setIsSaving(false);
+    }
+
+    const enterBranch = (id: string) => {
+        // نفتح رابط الفرع في نافذة جديدة أو نغير الفرع في اللوحة الحالية
+        window.location.href = `/admin?branch=${id}`;
+        toast({ title: "جاري الانتقال للفرع..." });
     }
 
     if (isLoading) return <div className="p-8 text-center animate-pulse font-black text-primary">جارِ تحميل الفروع...</div>;
@@ -70,8 +78,7 @@ export default function AdminBranchesPage() {
                             <TableRow>
                                 <TableHead className="font-black">اسم الفرع</TableHead>
                                 <TableHead className="font-black">الموقع</TableHead>
-                                <TableHead className="font-black">تاريخ التأسيس</TableHead>
-                                <TableHead className="font-black">إجراء</TableHead>
+                                <TableHead className="font-black text-center">إجراء</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -82,15 +89,18 @@ export default function AdminBranchesPage() {
                                         {b.name}
                                     </TableCell>
                                     <TableCell className="font-bold text-muted-foreground">{b.locationName}</TableCell>
-                                    <TableCell className="text-[10px] font-bold">{new Date(b.createdAt).toLocaleDateString('ar-IQ')}</TableCell>
                                     <TableCell>
-                                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteBranch(b.id)}>
-                                            <Trash2 className="h-4 w-4"/>
-                                        </Button>
+                                        <div className="flex justify-center gap-2">
+                                            <Button variant="outline" size="sm" className="rounded-xl font-bold gap-2" onClick={() => enterBranch(b.id)}>
+                                                <ExternalLink className="h-4 w-4"/> دخول اللوحة
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteBranch(b.id)}>
+                                                <Trash2 className="h-4 w-4"/>
+                                            </Button>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))}
-                            {branches.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-20 text-muted-foreground font-bold italic">لم يتم تأسيس أي فروع بعد.</TableCell></TableRow>}
                         </TableBody>
                     </Table>
                 </Card>

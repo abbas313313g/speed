@@ -1,21 +1,27 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc } from 'firebase/firestore';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
 import { db, storage } from '@/lib/firebase';
 import type { Product } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
-export const useProducts = () => {
+export const useProducts = (branchId?: string) => {
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
 
     useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'products'),
+        const productsRef = collection(db, 'products');
+        // إذا تم تمرير branchId، نقوم بالفلترة في السيرفر لضمان العزل
+        const q = branchId && branchId !== 'main' 
+            ? query(productsRef, where('branchId', '==', branchId))
+            : productsRef;
+
+        const unsub = onSnapshot(q,
             (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
                 setProducts(data);
@@ -27,7 +33,7 @@ export const useProducts = () => {
             }
         );
         return () => unsub();
-    }, []);
+    }, [branchId]);
 
     const uploadImage = useCallback(async (base64: string, path: string): Promise<string> => {
         if (!base64 || !base64.startsWith('data:')) return base64;
@@ -39,18 +45,18 @@ export const useProducts = () => {
     const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
         try {
             const imageUrl = await uploadImage(productData.image, `products/${uuidv4()}`);
-            // إذا كان المضيف متجراً، نضع الحالة "معلق"
             const finalData = { 
                 ...productData, 
                 image: imageUrl, 
-                status: isFromStore ? 'pending' : 'approved' 
+                status: isFromStore ? 'pending' : 'approved',
+                branchId: branchId || productData.branchId || 'main'
             };
             await addDoc(collection(db, "products"), finalData);
             toast({ title: isFromStore ? "تم الإرسال للأدمن للموافقة" : "تمت إضافة المنتج بنجاح" });
         } catch (error) { 
             toast({ title: "فشل إضافة المنتج", variant: "destructive" }); 
         }
-    }, [toast, uploadImage]);
+    }, [toast, uploadImage, branchId]);
 
     const updateProduct = useCallback(async (updatedProduct: Partial<Product> & { id: string }, isFromStore = false) => {
         try {
@@ -61,7 +67,6 @@ export const useProducts = () => {
                 finalData.image = await uploadImage(productData.image, `products/${id}`);
             }
             
-            // إذا عدل المتجر المنتج، يعود للحالة "معلق"
             if (isFromStore) {
                 finalData.status = 'pending';
             }

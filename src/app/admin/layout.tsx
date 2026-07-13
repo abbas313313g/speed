@@ -2,8 +2,9 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { AdminNav } from '@/components/AdminNav';
-import { Shield, KeyRound, PanelLeft, Loader2, AlertCircle, Laptop, Building2, ChevronRight } from 'lucide-react';
+import { Shield, KeyRound, PanelLeft, Loader2, AlertCircle, Building2, ChevronRight, LayoutDashboard } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -34,11 +35,15 @@ import AdminBranchesPage from './branches/page';
 const ADMIN_PIN = "31344313";
 
 export default function AdminLayout() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const branchParam = searchParams.get('branch') || 'main';
+
   const [pin, setPin] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [requestStatus, setRequestStatus] = useState<'none' | 'sent'>('none');
-  const [selectedBranchId, setSelectedBranchId] = useState<'main' | string>('main');
+  const [selectedBranchId, setSelectedBranchId] = useState<'main' | string>(branchParam);
   
   const { accessList, isLoading: accessLoading, requestAccess, autoApproveFirst, getDeviceId } = useAdminAccess();
   const { branches, isLoading: branchesLoading } = useBranches();
@@ -48,6 +53,10 @@ export default function AdminLayout() {
       if (selectedBranchId === 'main') return { name: 'الإدارة الرئيسية', id: 'main' };
       return branches.find(b => b.id === selectedBranchId) || { name: 'فرع غير معروف', id: selectedBranchId };
   }, [selectedBranchId, branches]);
+
+  useEffect(() => {
+      setSelectedBranchId(branchParam);
+  }, [branchParam]);
 
   useEffect(() => {
     if (!accessLoading) {
@@ -65,7 +74,6 @@ export default function AdminLayout() {
     if (pin === ADMIN_PIN) {
         const deviceName = navigator.userAgent.substring(0, 50);
         const wasFirst = await autoApproveFirst(selectedBranchId, deviceName);
-        
         if (wasFirst) {
             setIsAuthenticated(true);
             toast({ title: "مرحباً بك!", description: `تم اعتماد جهازك تلقائياً لـ ${currentBranch.name}` });
@@ -82,6 +90,11 @@ export default function AdminLayout() {
     } else {
         toast({ title: "الرمز السري غير صحيح", variant: "destructive" });
     }
+  };
+
+  const switchBranch = (id: string) => {
+      const url = id === 'main' ? '/admin' : `/admin?branch=${id}`;
+      router.push(url);
   };
 
   if (accessLoading || branchesLoading) {
@@ -109,14 +122,14 @@ export default function AdminLayout() {
                         <Button 
                             variant={selectedBranchId === 'main' ? 'default' : 'outline'} 
                             className="h-12 rounded-xl text-xs font-black"
-                            onClick={() => {setSelectedBranchId('main'); setRequestStatus('none');}}
+                            onClick={() => switchBranch('main')}
                         >الرئيسية</Button>
                         {branches.map(b => (
                             <Button 
                                 key={b.id}
                                 variant={selectedBranchId === b.id ? 'default' : 'outline'} 
-                                className="h-12 rounded-xl text-xs font-black"
-                                onClick={() => {setSelectedBranchId(b.id); setRequestStatus('none');}}
+                                className="h-12 rounded-xl text-xs font-black truncate"
+                                onClick={() => switchBranch(b.id)}
                             >{b.name}</Button>
                         ))}
                     </div>
@@ -186,8 +199,8 @@ export default function AdminLayout() {
             <div className="text-xl font-black text-primary">{currentBranch.name}</div>
           </div>
           
-          <Button variant="ghost" className="mr-auto text-xs font-bold gap-1" onClick={() => setIsAuthenticated(false)}>
-              تغيير الفرع <ChevronRight className="h-3 w-3"/>
+          <Button variant="ghost" className="mr-auto text-xs font-bold gap-1" onClick={() => switchBranch('main')}>
+              <LayoutDashboard className="h-3 w-3"/> العودة للرئيسية
           </Button>
         </header>
 

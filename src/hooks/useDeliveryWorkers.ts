@@ -2,18 +2,23 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, onSnapshot, doc, setDoc, getDoc, getDocs, writeBatch, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, getDoc, getDocs, writeBatch, deleteDoc, updateDoc, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { DeliveryWorker } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
-export const useDeliveryWorkers = () => {
+export const useDeliveryWorkers = (branchId?: string) => {
     const [deliveryWorkers, setDeliveryWorkers] = useState<DeliveryWorker[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
 
     useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'deliveryWorkers'),
+        const workersRef = collection(db, 'deliveryWorkers');
+        const q = branchId && branchId !== 'main' 
+            ? query(workersRef, where('branchId', '==', branchId))
+            : workersRef;
+
+        const unsub = onSnapshot(q,
             (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DeliveryWorker[];
                 setDeliveryWorkers(data);
@@ -21,12 +26,11 @@ export const useDeliveryWorkers = () => {
             },
             (error) => {
                 console.error("Error fetching delivery workers:", error);
-                toast({ title: "فشل جلب بيانات العمال", description: "حدث خطأ أثناء تحميل البيانات.", variant: "destructive" });
                 setIsLoading(false);
             }
         );
         return () => unsub();
-    }, [toast]);
+    }, [branchId]);
 
     const addDeliveryWorker = useCallback(async (workerData: {id: string, name: string, password: string}) => {
         try {
@@ -46,16 +50,17 @@ export const useDeliveryWorkers = () => {
                 unfreezeProgress: 0,
                 lastDeliveredAt: null,
                 totalDeliveredCount: 0,
+                branchId: branchId || 'main'
             };
             await setDoc(workerDocRef, completeWorkerData);
-            toast({ title: "تم تسجيلك بنجاح!" });
+            toast({ title: "تم تسجيل الكابتن بنجاح!" });
             return true;
         } catch (error) { 
             console.error("Error adding worker:", error);
             toast({ title: "فشل تسجيل العامل", variant: "destructive" }); 
             return false;
         }
-    }, [toast]);
+    }, [toast, branchId]);
     
     const updateWorkerStatus = useCallback(async (workerId: string, isOnline: boolean) => {
          try {
@@ -83,18 +88,5 @@ export const useDeliveryWorkers = () => {
         }
     }, [toast]);
 
-    const deleteAllWorkers = useCallback(async () => {
-        try {
-            const workersSnapshot = await getDocs(collection(db, "deliveryWorkers"));
-            const batch = writeBatch(db);
-            workersSnapshot.forEach((doc) => batch.delete(doc.ref));
-            await batch.commit();
-            toast({ title: "تم حذف جميع السجلات" });
-        } catch(e) {
-            toast({ title: "فشل الحذف", variant: "destructive"});
-        }
-    }, [toast]);
-
-
-    return { deliveryWorkers, isLoading, addDeliveryWorker, updateWorkerStatus, deleteAllWorkers, deleteWorker, updateWorkerDetails };
+    return { deliveryWorkers, isLoading, addDeliveryWorker, updateWorkerStatus, deleteWorker, updateWorkerDetails };
 };
