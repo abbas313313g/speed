@@ -38,6 +38,7 @@ export interface Product {
   categoryId: string;
   restaurantId: string;
   status: 'approved' | 'pending';
+  branchId?: string; // تابع لأي فرع
 }
 
 export interface Category {
@@ -60,6 +61,14 @@ export interface Restaurant {
   isStoreOpen?: boolean; 
   loginCode: string;
   commissionRate: number;
+  branchId?: string; // تابع لأي فرع
+}
+
+export interface Branch {
+    id: string;
+    name: string;
+    locationName: string;
+    createdAt: string;
 }
 
 export interface Banner {
@@ -88,6 +97,7 @@ export interface DeliveryWorker {
     unfreezeProgress?: number;
     isOnline?: boolean;
     totalDeliveredCount?: number;
+    branchId?: string; // تابع لأي فرع
 }
 
 export type OrderStatus = 'unassigned' | 'pending_assignment' | 'preparing' | 'confirmed' | 'ready_for_pickup' | 'on_the_way' | 'delivered' | 'cancelled';
@@ -108,6 +118,7 @@ export interface Order {
     isPaid: boolean;
     isFeePaid: boolean;
     isOrderPaidToOffice: boolean;
+    branchId?: string; // تابع لأي فرع
     appliedCoupon: {
       code: string;
       discountAmount: number;
@@ -161,7 +172,8 @@ export interface AppSettings {
 
 export interface AdminAccess {
     id: string;
-    ip: string;
+    deviceId: string; // تم التغيير من IP إلى Device ID
+    branchId: string | 'main'; // تابع لأي لوحة تحكم
     status: 'approved' | 'pending';
     requestedAt: string;
     approvedAt?: string;

@@ -2,8 +2,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { v4 as uuidv4 } from 'uuid';
 import type { AdminAccess } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -11,6 +12,16 @@ export const useAdminAccess = () => {
     const [accessList, setAccessList] = useState<AdminAccess[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
+
+    // إنشاء هوية فريدة للجهاز إذا لم تكن موجودة
+    const getDeviceId = useCallback(() => {
+        let deviceId = localStorage.getItem('speedShopDeviceId');
+        if (!deviceId) {
+            deviceId = `dev_${uuidv4()}`;
+            localStorage.setItem('speedShopDeviceId', deviceId);
+        }
+        return deviceId;
+    }, []);
 
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'adminAccess'),
@@ -27,25 +38,30 @@ export const useAdminAccess = () => {
         return () => unsub();
     }, []);
 
-    const requestAccess = useCallback(async (ip: string, deviceName: string) => {
+    const requestAccess = useCallback(async (branchId: string | 'main', deviceName: string) => {
+        const deviceId = getDeviceId();
         try {
-            const q = query(collection(db, 'adminAccess'), where('ip', '==', ip));
+            const q = query(collection(db, 'adminAccess'), 
+                where('deviceId', '==', deviceId),
+                where('branchId', '==', branchId)
+            );
             const snap = await getDocs(q);
             if (!snap.empty) {
                 toast({ title: "الطلب موجود مسبقاً", description: "جهازك مسجل بالفعل، بانتظار الموافقة." });
                 return;
             }
             await addDoc(collection(db, "adminAccess"), {
-                ip,
+                deviceId,
+                branchId,
                 deviceName,
                 status: 'pending',
                 requestedAt: new Date().toISOString()
             });
-            toast({ title: "تم إرسال الطلب بنجاح", description: "يرجى الطلب من الأدمن الموافقة على جهازك." });
+            toast({ title: "تم إرسال الطلب بنجاح", description: "يرجى الطلب من الإدارة الموافقة على جهازك." });
         } catch (error) {
             toast({ title: "فشل إرسال الطلب", variant: "destructive" });
         }
-    }, [toast]);
+    }, [getDeviceId, toast]);
 
     const approveAccess = useCallback(async (id: string) => {
         try {
@@ -62,18 +78,21 @@ export const useAdminAccess = () => {
     const removeAccess = useCallback(async (id: string) => {
         try {
             await deleteDoc(doc(db, "adminAccess", id));
-            toast({ title: "تم حذف التراخيص" });
+            toast({ title: "تم سحب الترخيص من الجهاز" });
         } catch (error) {
             toast({ title: "فشل الحذف", variant: "destructive" });
         }
     }, [toast]);
 
-    const autoApproveFirst = useCallback(async (ip: string, deviceName: string) => {
+    const autoApproveFirst = useCallback(async (branchId: string | 'main', deviceName: string) => {
+        const deviceId = getDeviceId();
         try {
-            const snap = await getDocs(collection(db, 'adminAccess'));
+            const q = query(collection(db, 'adminAccess'), where('branchId', '==', branchId));
+            const snap = await getDocs(q);
             if (snap.empty) {
                 await addDoc(collection(db, "adminAccess"), {
-                    ip,
+                    deviceId,
+                    branchId,
                     deviceName,
                     status: 'approved',
                     requestedAt: new Date().toISOString(),
@@ -83,7 +102,7 @@ export const useAdminAccess = () => {
             }
             return false;
         } catch (e) { return false; }
-    }, []);
+    }, [getDeviceId]);
 
-    return { accessList, isLoading, requestAccess, approveAccess, removeAccess, autoApproveFirst };
+    return { accessList, isLoading, getDeviceId, requestAccess, approveAccess, removeAccess, autoApproveFirst };
 };

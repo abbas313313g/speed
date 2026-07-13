@@ -26,6 +26,7 @@ import {
   Settings,
   CheckCircle,
   Fingerprint,
+  GitBranch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -42,24 +43,30 @@ const navItems = [
   { index: 2, label: "المنتجات", icon: Package },
   { index: 14, label: "موافقات المنتجات", icon: CheckCircle, notificationKey: 'pendingProducts' },
   { index: 15, label: "تراخيص الأجهزة", icon: Fingerprint, notificationKey: 'pendingAccess' },
-  { index: 3, label: "الأقسام", icon: LayoutGrid },
+  { index: 16, label: "إدارة الفروع", icon: GitBranch, mainOnly: true },
+  { index: 3, label: "الأقسام", icon: LayoutGrid, mainOnly: true },
   { index: 4, label: "المتاجر", icon: Store },
-  { index: 5, label: "البنرات", icon: GalleryHorizontal },
-  { index: 6, label: "مناطق التوصيل", icon: Map },
-  { index: 7, label: "أكواد الخصم", icon: TicketPercent },
+  { index: 5, label: "البنرات", icon: GalleryHorizontal, mainOnly: true },
+  { index: 6, label: "مناطق التوصيل", icon: Map, mainOnly: true },
+  { index: 7, label: "أكواد الخصم", icon: TicketPercent, mainOnly: true },
   { index: 8, label: "المستخدمين والعمال", icon: Users },
   { index: 9, label: "تسوية حسابات العمال", icon: UserCog },
   { index: 10, label: "تسوية حسابات المتاجر", icon: AreaChart },
-  { index: 11, label: "تذاكر الدعم", icon: MessageSquareWarning, notificationKey: 'openTickets' },
+  { index: 11, label: "تذاكر الدعم", icon: MessageSquareWarning, notificationKey: 'openTickets', mainOnly: true },
   { index: 12, label: "إشعارات تليجرام", icon: Send },
-  { index: 13, label: "الإعدادات", icon: Settings },
+  { index: 13, label: "الإعدادات", icon: Settings, mainOnly: true },
 ];
 
-export function AdminNav({ isSheet = false, onTabChange, activeTab }: { isSheet?: boolean, onTabChange: (idx: number) => void, activeTab: number }) {
+export function AdminNav({ isSheet = false, onTabChange, activeTab, isBranch = false }: { isSheet?: boolean, onTabChange: (idx: number) => void, activeTab: number, isBranch?: boolean }) {
   const { supportTickets } = useSupportTickets();
   const { products } = useProducts();
   const { accessList } = useAdminAccess();
   
+  const filteredItems = useMemo(() => {
+      if (!isBranch) return navItems;
+      return navItems.filter(item => !item.mainOnly);
+  }, [isBranch]);
+
   const openTicketsCount = useMemo(() => {
     return supportTickets.filter(t => !t.isResolved).length;
   }, [supportTickets]);
@@ -77,7 +84,7 @@ export function AdminNav({ isSheet = false, onTabChange, activeTab }: { isSheet?
       <div className="group flex h-12 w-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-primary text-primary-foreground mb-4">
         <Shield className="h-6 w-6" />
       </div>
-      {navItems.map((item) => {
+      {filteredItems.map((item) => {
         const isActive = activeTab === item.index;
         let count = 0;
         if (item.notificationKey === 'openTickets') count = openTicketsCount;
