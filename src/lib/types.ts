@@ -38,7 +38,7 @@ export interface Product {
   categoryId: string;
   restaurantId: string;
   status: 'approved' | 'pending';
-  branchId: string; // الربط بالفرع إلزامي
+  branchId: string; // الربط بالفرع إلزامي وحاسم للعزل
 }
 
 export interface Category {

@@ -28,8 +28,9 @@ export const useRestaurants = (branchId?: string) => {
 
     useEffect(() => {
         const restaurantsRef = collection(db, 'restaurants');
-        // عزل تام حسب الفرع
         let q = restaurantsRef;
+        
+        // عزل المتاجر حسب الفرع
         if (branchId && branchId !== 'all') {
             q = query(restaurantsRef, where('branchId', '==', branchId)) as any;
         }
@@ -68,7 +69,7 @@ export const useRestaurants = (branchId?: string) => {
             const finalData = { 
                 ...restaurantData, 
                 image: imageUrl,
-                branchId: branchId || restaurantData.branchId || 'main'
+                branchId: branchId && branchId !== 'all' ? branchId : (restaurantData.branchId || 'main')
             };
             await addDoc(collection(db, "restaurants"), finalData);
             toast({ title: "تمت إضافة المتجر بنجاح" });

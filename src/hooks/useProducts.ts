@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -16,8 +16,9 @@ export const useProducts = (branchId?: string) => {
 
     useEffect(() => {
         const productsRef = collection(db, 'products');
-        // عزل تام حسب الفرع
         let q = productsRef;
+        
+        // العزل الصارم: إذا كان هناك كود فرع محدد وليس 'all'، نجلب بياناته فقط
         if (branchId && branchId !== 'all') {
             q = query(productsRef, where('branchId', '==', branchId)) as any;
         }
@@ -50,8 +51,8 @@ export const useProducts = (branchId?: string) => {
                 ...productData, 
                 image: imageUrl, 
                 status: isFromStore ? 'pending' : 'approved',
-                // الربط التلقائي بالفرع الحالي
-                branchId: branchId || productData.branchId || 'main'
+                // نستخدم الكود الممرر للهوك أو كود الفرع في البيانات
+                branchId: branchId && branchId !== 'all' ? branchId : (productData.branchId || 'main')
             };
             await addDoc(collection(db, "products"), finalData);
             toast({ title: isFromStore ? "تم الإرسال للأدمن للموافقة" : "تمت إضافة المنتج بنجاح" });
