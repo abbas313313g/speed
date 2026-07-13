@@ -28,9 +28,11 @@ export const useRestaurants = (branchId?: string) => {
 
     useEffect(() => {
         const restaurantsRef = collection(db, 'restaurants');
-        const q = branchId && branchId !== 'main' 
-            ? query(restaurantsRef, where('branchId', '==', branchId))
-            : restaurantsRef;
+        // عزل تام حسب الفرع
+        let q = restaurantsRef;
+        if (branchId && branchId !== 'all') {
+            q = query(restaurantsRef, where('branchId', '==', branchId)) as any;
+        }
 
         const unsub = onSnapshot(q,
             (snapshot) => {

@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { CheckCircle, Clock, Building2, Package, TrendingUp, ArrowRight } from 'lucide-react';
+import { CheckCircle, Clock, Building2, Package, TrendingUp, ArrowRight, Wallet, Users } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useOrders } from '@/hooks/useOrders';
 import { useBranches } from '@/hooks/useBranches';
@@ -14,8 +14,9 @@ import { useRouter } from 'next/navigation';
 
 export default function AdminDashboard({ branchId }: { branchId: string }) {
   const isMain = branchId === 'main';
-  const { products, approveProduct, deleteProduct, isLoading: pLoading } = useProducts(branchId);
-  const { allOrders, isLoading: oLoading } = useOrders(branchId);
+  // إذا كنا في الرئيسية، نجلب كل البيانات للإحصائيات العامة عبر تمرير 'all'
+  const { products, approveProduct, deleteProduct, isLoading: pLoading } = useProducts(isMain ? 'all' : branchId);
+  const { allOrders, isLoading: oLoading } = useOrders(isMain ? 'all' : branchId);
   const { branches, isLoading: bLoading } = useBranches();
   const router = useRouter();
 
@@ -29,37 +30,38 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
     }
   }, [allOrders, products]);
 
-  if (pLoading || oLoading || bLoading) return <div className="p-8 text-center animate-pulse">جار تحميل لوحة الإدارة...</div>;
+  if (pLoading || oLoading || bLoading) return <div className="p-8 text-center animate-pulse font-black text-primary">جارِ جلب التقارير والبيانات...</div>;
 
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="text-4xl font-black text-primary">{isMain ? 'الإحصائيات العامة' : 'إحصائيات الفرع'}</h1>
-        <p className="text-muted-foreground font-bold">متابعة أداء العمل في الوقت الحالي.</p>
+        <h1 className="text-4xl font-black text-primary">{isMain ? 'مركز الإدارة العام' : 'إحصائيات الفرع'}</h1>
+        <p className="text-muted-foreground font-bold">متابعة الأداء المالي والعملياتي للفرع الحالي.</p>
       </header>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="rounded-[1.5rem] border-none shadow-lg bg-primary text-white">
-            <CardHeader className="pb-2"><CardTitle className="text-xs font-bold text-white/80">إجمالي المبيعات</CardTitle></CardHeader>
+        <Card className="rounded-[1.5rem] border-none shadow-lg bg-primary text-white overflow-hidden relative">
+            <div className="absolute right-[-10px] top-[-10px] opacity-10"><TrendingUp className="h-24 w-24" /></div>
+            <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black uppercase text-white/70">إجمالي المبيعات</CardTitle></CardHeader>
             <CardContent><div className="text-2xl font-black">{formatCurrency(stats.totalRevenue)}</div></CardContent>
         </Card>
-        <Card className="rounded-[1.5rem] border-none shadow-lg">
-            <CardHeader className="pb-2"><CardTitle className="text-xs font-bold text-muted-foreground">صافي أرباح المكتب</CardTitle></CardHeader>
+        <Card className="rounded-[1.5rem] border-none shadow-lg bg-white">
+            <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black uppercase text-muted-foreground">أرباح المكتب الصافية</CardTitle></CardHeader>
             <CardContent><div className="text-2xl font-black text-primary">{formatCurrency(stats.totalProfit)}</div></CardContent>
         </Card>
-        <Card className="rounded-[1.5rem] border-none shadow-lg">
-            <CardHeader className="pb-2"><CardTitle className="text-xs font-bold text-muted-foreground">طلبات جارية</CardTitle></CardHeader>
+        <Card className="rounded-[1.5rem] border-none shadow-lg bg-white">
+            <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black uppercase text-muted-foreground">طلبات نشطة</CardTitle></CardHeader>
             <CardContent><div className="text-2xl font-black text-orange-500">{stats.activeOrders}</div></CardContent>
         </Card>
-        <Card className="rounded-[1.5rem] border-none shadow-lg">
-            <CardHeader className="pb-2"><CardTitle className="text-xs font-bold text-muted-foreground">منتجات بانتظار الموافقة</CardTitle></CardHeader>
+        <Card className="rounded-[1.5rem] border-none shadow-lg bg-white">
+            <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black uppercase text-muted-foreground">بانتظار الموافقة</CardTitle></CardHeader>
             <CardContent><div className="text-2xl font-black text-blue-500">{stats.pendingProducts.length}</div></CardContent>
         </Card>
       </div>
 
       {isMain && (
-          <section className="space-y-4">
-              <h2 className="text-2xl font-black flex items-center gap-2 px-1"><Building2 className="text-primary"/> نظرة على الفروع</h2>
+          <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <h2 className="text-2xl font-black flex items-center gap-2 px-1"><Building2 className="text-primary"/> إدارة فروع المحافظات</h2>
               <div className="grid gap-4 md:grid-cols-3">
                   {branches.map(b => (
                       <Card key={b.id} className="rounded-2xl border-none shadow-md hover:shadow-xl transition-all group overflow-hidden bg-white">
@@ -70,28 +72,28 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
                                 className="w-full rounded-xl font-bold gap-2" 
                                 onClick={() => router.push(`/admin?branch=${b.id}`)}
                               >
-                                إدارة الفرع <ArrowRight className="h-4 w-4"/>
+                                دخول لوحة التحكم <ArrowRight className="h-4 w-4"/>
                               </Button>
                           </div>
-                          <div className="h-1 w-full bg-primary/10 group-hover:bg-primary transition-colors" />
+                          <div className="h-1.5 w-full bg-primary/10 group-hover:bg-primary transition-all" />
                       </Card>
                   ))}
-                  {branches.length === 0 && <p className="text-center py-10 col-span-full italic text-muted-foreground">لا توجد فروع مضافة حالياً.</p>}
+                  {branches.length === 0 && <p className="text-center py-10 col-span-full italic text-muted-foreground font-bold">لم يتم تأسيس أي فروع بعد.</p>}
               </div>
           </section>
       )}
 
       <section className="space-y-4">
-        <h2 className="text-2xl font-black flex items-center gap-2 px-1"><Clock className="text-blue-500"/> مراجعة سريعة</h2>
+        <h2 className="text-2xl font-black flex items-center gap-2 px-1 text-blue-500"><Clock className="h-6 w-6"/> مراجعة سريعة (التعديلات)</h2>
         {stats.pendingProducts.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-[2rem] border-2 border-dashed">
                 <CheckCircle className="h-10 w-10 mx-auto text-green-500 mb-3" />
-                <p className="text-muted-foreground italic font-bold">لا توجد منتجات تنتظر الموافقة حالياً.</p>
+                <p className="text-muted-foreground italic font-bold">كافة تعديلات المتاجر تمت مراجعتها.</p>
             </div>
         ) : (
             <div className="grid gap-4 md:grid-cols-2">
                 {stats.pendingProducts.slice(0, 4).map(p => (
-                    <Card key={p.id} className="rounded-2xl shadow-md border-none flex p-4 items-center gap-4 bg-white">
+                    <Card key={p.id} className="rounded-2xl shadow-md border-none flex p-4 items-center gap-4 bg-white transition-all hover:scale-[1.02]">
                         <div className="relative h-20 w-20 flex-shrink-0">
                             <Image src={p.image} fill className="object-cover rounded-xl" alt={p.name} unoptimized={true} />
                         </div>
@@ -100,8 +102,8 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
                             <div className="mt-1 font-black text-primary">{formatCurrency(p.price)}</div>
                         </div>
                         <div className="flex flex-col gap-2">
-                            <Button size="sm" className="bg-green-600 hover:bg-green-700 h-9 rounded-lg px-4" onClick={()=>approveProduct(p.id)}>قبول</Button>
-                            <Button size="sm" variant="ghost" className="text-destructive h-9 rounded-lg" onClick={()=>deleteProduct(p.id)}>رفض</Button>
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700 h-9 rounded-lg px-4 font-black" onClick={()=>approveProduct(p.id)}>قبول</Button>
+                            <Button size="sm" variant="ghost" className="text-destructive h-9 rounded-lg font-bold" onClick={()=>deleteProduct(p.id)}>رفض</Button>
                         </div>
                     </Card>
                 ))}

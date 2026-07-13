@@ -19,7 +19,8 @@ export const useOrders = (branchId?: string) => {
 
         try {
             const workersRef = collection(db, "deliveryWorkers");
-            const wQuery = branchId && branchId !== 'main'
+            // الفلترة حسب الفرع للمناديب أونلاين
+            const wQuery = branchId && branchId !== 'all'
                 ? query(workersRef, where("isOnline", "==", true), where("branchId", "==", branchId))
                 : query(workersRef, where("isOnline", "==", true));
             
@@ -78,9 +79,11 @@ export const useOrders = (branchId?: string) => {
 
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
-        const q = branchId && branchId !== 'main'
-            ? query(ordersRef, where('branchId', '==', branchId))
-            : ordersRef;
+        // عزل تام: إذا كان هناك فرع محدد، نجلب بياناته فقط. إذا كان 'all' نجلب الكل (للإحصائيات العامة)
+        let q = ordersRef;
+        if (branchId && branchId !== 'all') {
+            q = query(ordersRef, where('branchId', '==', branchId)) as any;
+        }
 
         const unsub = onSnapshot(q,
             (snapshot) => {
@@ -88,7 +91,7 @@ export const useOrders = (branchId?: string) => {
                 data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 setAllOrders(data);
                 setIsLoading(false);
-                autoAssignOrders(data);
+                if (branchId && branchId !== 'all') autoAssignOrders(data);
             },
             (error) => {
                 console.error("Error fetching orders:", error);

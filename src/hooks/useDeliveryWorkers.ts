@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, onSnapshot, doc, setDoc, getDoc, getDocs, writeBatch, deleteDoc, updateDoc, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { DeliveryWorker } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -14,9 +14,11 @@ export const useDeliveryWorkers = (branchId?: string) => {
 
     useEffect(() => {
         const workersRef = collection(db, 'deliveryWorkers');
-        const q = branchId && branchId !== 'main' 
-            ? query(workersRef, where('branchId', '==', branchId))
-            : workersRef;
+        // عزل تام حسب الفرع
+        let q = workersRef;
+        if (branchId && branchId !== 'all') {
+            q = query(workersRef, where('branchId', '==', branchId)) as any;
+        }
 
         const unsub = onSnapshot(q,
             (snapshot) => {

@@ -16,10 +16,11 @@ export const useProducts = (branchId?: string) => {
 
     useEffect(() => {
         const productsRef = collection(db, 'products');
-        // إذا تم تمرير branchId، نقوم بالفلترة في السيرفر لضمان العزل
-        const q = branchId && branchId !== 'main' 
-            ? query(productsRef, where('branchId', '==', branchId))
-            : productsRef;
+        // عزل تام حسب الفرع
+        let q = productsRef;
+        if (branchId && branchId !== 'all') {
+            q = query(productsRef, where('branchId', '==', branchId)) as any;
+        }
 
         const unsub = onSnapshot(q,
             (snapshot) => {
@@ -49,6 +50,7 @@ export const useProducts = (branchId?: string) => {
                 ...productData, 
                 image: imageUrl, 
                 status: isFromStore ? 'pending' : 'approved',
+                // الربط التلقائي بالفرع الحالي
                 branchId: branchId || productData.branchId || 'main'
             };
             await addDoc(collection(db, "products"), finalData);
