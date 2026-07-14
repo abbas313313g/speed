@@ -62,13 +62,14 @@ const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
   image: '',
   categoryId: '',
   restaurantId: '',
-  status: 'approved'
+  status: 'approved',
+  branchId: 'main'
 };
 
-export default function AdminProductsPage() {
-  const { products, isLoading: productsLoading, addProduct, updateProduct, deleteProduct } = useProducts();
+export default function AdminProductsPage({ branchId }: { branchId: string }) {
+  const { products, isLoading: productsLoading, addProduct, updateProduct, deleteProduct } = useProducts(branchId);
   const { categories, isLoading: categoriesLoading } = useCategories();
-  const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
+  const { restaurants, isLoading: restaurantsLoading } = useRestaurants(branchId);
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -97,7 +98,7 @@ export default function AdminProductsPage() {
         setCurrentProduct(product);
     } else {
         setIsEditing(false);
-        setCurrentProduct({ ...EMPTY_PRODUCT });
+        setCurrentProduct({ ...EMPTY_PRODUCT, branchId });
     }
     setOpen(true);
   }
@@ -115,6 +116,7 @@ export default function AdminProductsPage() {
     const productToSave: Partial<Product> & {image: string} = {
         ...currentProduct,
         image: currentProduct.image!,
+        branchId: branchId,
         sizes: currentProduct.sizes?.filter(s => s.name && s.price > 0) || [],
         stock: currentProduct.stock || 0,
     }
@@ -143,7 +145,7 @@ export default function AdminProductsPage() {
       <header className="flex justify-between items-center">
         <div>
             <h1 className="text-3xl font-black text-primary">إدارة المنتجات</h1>
-            <p className="text-muted-foreground font-bold">عرض وتعديل كافة منتجات المتاجر.</p>
+            <p className="text-muted-foreground font-bold">عرض وتعديل منتجات الفرع الحالي فقط.</p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="rounded-xl">إضافة منتج جديد</Button>
       </header>
@@ -246,6 +248,7 @@ export default function AdminProductsPage() {
               ))}
             </TableBody>
           </Table>
+          {products.length === 0 && <div className="p-20 text-center text-muted-foreground italic font-bold">لا توجد منتجات لهذا الفرع.</div>}
       </div>
     </div>
   );

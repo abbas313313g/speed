@@ -11,9 +11,9 @@ import { CheckCircle, XCircle, Clock, Store } from 'lucide-react';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 
-export default function AdminApprovalsPage() {
-  const { products, approveProduct, deleteProduct, isLoading: pLoading } = useProducts();
-  const { restaurants, isLoading: rLoading } = useRestaurants();
+export default function AdminApprovalsPage({ branchId }: { branchId: string }) {
+  const { products, approveProduct, deleteProduct, isLoading: pLoading } = useProducts(branchId);
+  const { restaurants, isLoading: rLoading } = useRestaurants(branchId);
 
   const pendingProducts = useMemo(() => {
     return products.filter(p => p.status === 'pending');
@@ -27,14 +27,14 @@ export default function AdminApprovalsPage() {
     <div className="space-y-8">
       <header>
         <h1 className="text-4xl font-black text-primary">موافقات المنتجات</h1>
-        <p className="text-muted-foreground font-bold">مراجعة المنتجات الجديدة والتعديلات المرسلة من المتاجر.</p>
+        <p className="text-muted-foreground font-bold">مراجعة التعديلات الخاصة بفرع "{branchId === 'main' ? 'الرئيسية' : branchId}" فقط.</p>
       </header>
 
       {pendingProducts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-40 opacity-40 space-y-4">
             <CheckCircle className="h-20 w-20 text-green-500" />
             <h2 className="text-2xl font-black">لا توجد طلبات معلقة</h2>
-            <p className="font-bold text-sm text-center">تمت مراجعة كافة إضافات وتعديلات المتاجر بنجاح.</p>
+            <p className="font-bold text-sm text-center">تمت مراجعة كافة إضافات وتعديلات المتاجر في هذا الفرع.</p>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

@@ -14,10 +14,11 @@ export const useDeliveryWorkers = (branchId?: string) => {
 
     useEffect(() => {
         const workersRef = collection(db, 'deliveryWorkers');
-        // عزل تام حسب الفرع
-        let q = workersRef;
+        let q = query(workersRef);
+        
+        // العزل الصارم: جلب المناديب التابعين للكود الممرر فقط
         if (branchId && branchId !== 'all') {
-            q = query(workersRef, where('branchId', '==', branchId)) as any;
+            q = query(workersRef, where('branchId', '==', branchId));
         }
 
         const unsub = onSnapshot(q,
@@ -52,7 +53,7 @@ export const useDeliveryWorkers = (branchId?: string) => {
                 unfreezeProgress: 0,
                 lastDeliveredAt: null,
                 totalDeliveredCount: 0,
-                branchId: branchId || 'main'
+                branchId: branchId || 'main' // يختم بكود الفرع الحالي
             };
             await setDoc(workerDocRef, completeWorkerData);
             toast({ title: "تم تسجيل الكابتن بنجاح!" });

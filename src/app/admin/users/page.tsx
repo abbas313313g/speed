@@ -35,8 +35,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-export default function AdminUsersPage() {
-  const { deliveryWorkers, isLoading, addDeliveryWorker, deleteWorker } = useDeliveryWorkers();
+export default function AdminUsersPage({ branchId }: { branchId: string }) {
+  const { deliveryWorkers, isLoading, addDeliveryWorker, deleteWorker } = useDeliveryWorkers(branchId);
   const [open, setOpen] = useState(false);
   const [newWorker, setNewWorker] = useState({ id: '', name: '', password: '' });
   const [isSaving, setIsSaving] = useState(false);
@@ -44,7 +44,7 @@ export default function AdminUsersPage() {
   const handleAdd = async () => {
       if (!newWorker.id || !newWorker.name || !newWorker.password) return;
       setIsSaving(true);
-      const success = await addDeliveryWorker(newWorker);
+      const success = await addDeliveryWorker({ ...newWorker });
       if (success) { setOpen(false); setNewWorker({ id: '', name: '', password: '' }); }
       setIsSaving(false);
   }
@@ -56,7 +56,7 @@ export default function AdminUsersPage() {
       <header className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold text-primary">إدارة المناديب</h1>
-          <p className="text-muted-foreground">إنشاء حسابات الكباتن والتحكم في صلاحياتهم.</p>
+          <p className="text-muted-foreground font-bold">عرض مناديب الفرع الحالي فقط.</p>
         </div>
         <Button onClick={() => setOpen(true)} className="rounded-xl h-12 px-6 font-bold">
           <PlusCircle className="ml-2 h-5 w-5" />
@@ -67,7 +67,7 @@ export default function AdminUsersPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md rounded-[2rem]">
             <DialogHeader>
-                <DialogTitle className="text-2xl font-black">إنشاء حساب كابتن</DialogTitle>
+                <DialogTitle className="text-2xl font-black">إنشاء حساب كابتن للفرع</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
                 <div className="space-y-1">
@@ -99,7 +99,7 @@ export default function AdminUsersPage() {
                         <TableHead className="font-black">اسم الكابتن</TableHead>
                         <TableHead className="font-black">رقم الهاتف</TableHead>
                         <TableHead className="font-black">الحالة</TableHead>
-                        <TableHead className="font-black">إجراءات</TableHead>
+                        <TableHead className="font-black text-center">إجراء</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -110,15 +110,15 @@ export default function AdminUsersPage() {
                         <TableCell>
                             <div className="flex items-center gap-2">
                                 <div className={`h-2 w-2 rounded-full ${worker.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
-                                <span className="text-xs font-bold">{worker.isOnline ? 'متصل' : 'غير متصل'}</span>
+                                <span className="text-xs font-bold">{worker.isOnline ? 'متصل' : 'أوفلاين'}</span>
                             </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-center">
                             <AlertDialog>
                                 <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-5 w-5" /></Button></AlertDialogTrigger>
                                 <AlertDialogContent className="rounded-[2rem]">
-                                    <AlertDialogHeader><AlertDialogTitle>حذف الكابتن؟</AlertDialogTitle><AlertDialogDescription>هذا الإجراء سيقوم بإلغاء حساب "{worker.name}" تماماً.</AlertDialogDescription></AlertDialogHeader>
-                                    <AlertDialogFooter><AlertDialogCancel className="rounded-xl">تراجع</AlertDialogCancel><AlertDialogAction onClick={()=>deleteWorker(worker.id)} className="bg-destructive hover:bg-destructive/90 rounded-xl">نعم، حذف</AlertDialogAction></AlertDialogFooter>
+                                    <AlertDialogHeader><AlertDialogTitle>حذف الكابتن؟</AlertDialogTitle></AlertDialogHeader>
+                                    <AlertDialogFooter><AlertDialogCancel className="rounded-xl">تراجع</AlertDialogCancel><AlertDialogAction onClick={()=>deleteWorker(worker.id)} className="bg-destructive hover:bg-destructive/90 rounded-xl">حذف</AlertDialogAction></AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
                         </TableCell>
@@ -126,6 +126,7 @@ export default function AdminUsersPage() {
                 ))}
                 </TableBody>
             </Table>
+            {deliveryWorkers.length === 0 && <div className="p-20 text-center text-muted-foreground italic font-bold">لا يوجد مناديب مسجلين في هذا الفرع.</div>}
         </CardContent>
       </Card>
     </div>

@@ -49,11 +49,12 @@ const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     openTime: '09:00',
     closeTime: '23:00',
     loginCode: '',
-    commissionRate: 10, 
+    commissionRate: 10,
+    branchId: 'main'
 };
 
-export default function AdminStoresPage() {
-  const { restaurants, isLoading, addRestaurant, updateRestaurant, deleteRestaurant } = useRestaurants();
+export default function AdminStoresPage({ branchId }: { branchId: string }) {
+  const { restaurants, isLoading, addRestaurant, updateRestaurant, deleteRestaurant } = useRestaurants(branchId);
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -68,10 +69,11 @@ export default function AdminStoresPage() {
     }
     setIsSaving(true);
     try {
+        const storeToSave = { ...currentStore, branchId };
         if (isEditing && currentStore.id) {
-            await updateRestaurant(currentStore as any);
+            await updateRestaurant(storeToSave as any);
         } else {
-            await addRestaurant(currentStore as any);
+            await addRestaurant(storeToSave as any);
         }
         setOpen(false);
     } catch (e) { 
@@ -88,9 +90,9 @@ export default function AdminStoresPage() {
       <header className="flex justify-between items-center">
         <div>
             <h1 className="text-3xl font-black text-primary">إدارة المتاجر</h1>
-            <p className="text-muted-foreground font-bold">إضافة المطاعم وتحديد نسب العمولة للشركة.</p>
+            <p className="text-muted-foreground font-bold">عرض المتاجر التابعة للفرع الحالي فقط.</p>
         </div>
-        <Button onClick={() => { setIsEditing(false); setCurrentStore({ ...EMPTY_STORE }); setOpen(true); }} className="rounded-xl h-12 px-6 font-bold shadow-lg">
+        <Button onClick={() => { setIsEditing(false); setCurrentStore({ ...EMPTY_STORE, branchId }); setOpen(true); }} className="rounded-xl h-12 px-6 font-bold shadow-lg">
             إضافة متجر جديد
         </Button>
       </header>
@@ -141,14 +143,6 @@ export default function AdminStoresPage() {
                         }
                     }} />
                 </div>
-                <div className="space-y-1">
-                    <Label className="font-bold">الموقع الجغرافي (Lat, Lng)</Label>
-                    <div className="flex gap-2">
-                        <Input placeholder="Latitude" type="number" value={currentStore.latitude ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, latitude: parseFloat(e.target.value) || undefined })} className="rounded-xl" />
-                        <Input placeholder="Longitude" type="number" value={currentStore.longitude ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, longitude: parseFloat(e.target.value) || undefined })} className="rounded-xl" />
-                    </div>
-                    <p className="text-[10px] text-muted-foreground italic mt-1 font-bold">* الحساب التلقائي لأجرة التوصيل يعتمد على هذه الإحداثيات.</p>
-                </div>
             </div>
             <DialogFooter>
                 <Button onClick={handleSave} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl" disabled={isSaving}>
@@ -165,7 +159,6 @@ export default function AdminStoresPage() {
                     <TableHead className="font-black">صورة</TableHead>
                     <TableHead className="font-black">الاسم</TableHead>
                     <TableHead className="font-black">نسبة الشركة</TableHead>
-                    <TableHead className="font-black">التقييم</TableHead>
                     <TableHead className="font-black">إجراءات</TableHead>
                 </TableRow>
             </TableHeader>
@@ -185,12 +178,6 @@ export default function AdminStoresPage() {
                             <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-black">{store.commissionRate}%</span>
                         </TableCell>
                         <TableCell>
-                            <div className="flex items-center gap-1 text-amber-500 font-black">
-                                <Star className="h-4 w-4 fill-current" />
-                                {store.rating?.toFixed(1) || '0.0'}
-                            </div>
-                        </TableCell>
-                        <TableCell>
                             <div className="flex gap-2">
                                 <Button variant="outline" size="icon" className="rounded-lg h-9 w-9" onClick={() => { setIsEditing(true); setCurrentStore(store); setOpen(true); }}>
                                     <Edit className="h-4 w-4" />
@@ -205,7 +192,7 @@ export default function AdminStoresPage() {
                                         <AlertDialogHeader>
                                             <AlertDialogTitle className="text-right">حذف المتجر؟</AlertDialogTitle>
                                             <AlertDialogDescription className="text-right font-bold">
-                                                هل أنت متأكد من حذف "{store.name}"؟ سيتم مسح كافة البيانات المرتبطة به.
+                                                هل أنت متأكد من حذف "{store.name}"؟
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter className="flex-row gap-2">
@@ -222,7 +209,7 @@ export default function AdminStoresPage() {
         </Table>
         {restaurants.length === 0 && (
             <div className="text-center py-20 bg-muted/5">
-                <p className="text-muted-foreground font-bold italic">لا توجد متاجر مضافة حالياً.</p>
+                <p className="text-muted-foreground font-bold italic">لا توجد متاجر مضافة لهذا الفرع.</p>
             </div>
         )}
       </Card>
