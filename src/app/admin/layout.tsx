@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { AdminNav } from '@/components/AdminNav';
-import { Shield, KeyRound, PanelLeft, Loader2, AlertCircle, Building2, ChevronRight, LayoutDashboard } from 'lucide-react';
+import { Shield, KeyRound, PanelLeft, Loader2, AlertCircle, Building2, LayoutDashboard, Fingerprint } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -43,48 +43,46 @@ export default function AdminLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [requestStatus, setRequestStatus] = useState<'none' | 'sent'>('none');
-  const [selectedBranchId, setSelectedBranchId] = useState<'main' | string>(branchParam);
   
   const { accessList, isLoading: accessLoading, requestAccess, autoApproveFirst, getDeviceId } = useAdminAccess();
   const { branches, isLoading: branchesLoading } = useBranches();
   const { toast } = useToast();
 
   const currentBranch = useMemo(() => {
-      if (selectedBranchId === 'main') return { name: 'الإدارة الرئيسية', id: 'main' };
-      return branches.find(b => b.id === selectedBranchId) || { name: 'فرع غير معروف', id: selectedBranchId };
-  }, [selectedBranchId, branches]);
-
-  useEffect(() => {
-      setSelectedBranchId(branchParam);
-  }, [branchParam]);
+      if (branchParam === 'main') return { name: 'الإدارة الرئيسية', id: 'main' };
+      return branches.find(b => b.id === branchParam) || { name: 'فرع غير معروف', id: branchParam };
+  }, [branchParam, branches]);
 
   useEffect(() => {
     if (!accessLoading) {
         const deviceId = getDeviceId();
-        const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === selectedBranchId);
+        // التحقق من وجود ترخيص للجهاز مرتبط بهذا الفرع تحديداً
+        const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === branchParam);
         if (myAccess && myAccess.status === 'approved') {
             setIsAuthenticated(true);
         } else {
             setIsAuthenticated(false);
         }
     }
-  }, [accessList, selectedBranchId, accessLoading, getDeviceId]);
+  }, [accessList, branchParam, accessLoading, getDeviceId]);
 
   const handleLogin = async () => {
     if (pin === ADMIN_PIN) {
         const deviceName = navigator.userAgent.substring(0, 50);
-        const wasFirst = await autoApproveFirst(selectedBranchId, deviceName);
+        const deviceId = getDeviceId();
+        
+        // محاولة اعتماد الجهاز تلقائياً إذا كان الأول لهذا الفرع
+        const wasFirst = await autoApproveFirst(branchParam, deviceName);
         if (wasFirst) {
             setIsAuthenticated(true);
-            toast({ title: "مرحباً بك!", description: `تم اعتماد جهازك تلقائياً لـ ${currentBranch.name}` });
+            toast({ title: "مرحباً بك!", description: `تم اعتماد جهازك كأدمن لـ ${currentBranch.name}` });
         } else {
-            const deviceId = getDeviceId();
-            const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === selectedBranchId);
+            const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === branchParam);
             if (myAccess?.status === 'approved') {
                 setIsAuthenticated(true);
             } else {
                 setRequestStatus('sent');
-                await requestAccess(selectedBranchId, deviceName);
+                await requestAccess(branchParam, deviceName);
             }
         }
     } else {
@@ -92,16 +90,11 @@ export default function AdminLayout() {
     }
   };
 
-  const switchBranch = (id: string) => {
-      const url = id === 'main' ? '/admin' : `/admin?branch=${id}`;
-      router.push(url);
-  };
-
   if (accessLoading || branchesLoading) {
       return (
           <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
               <Loader2 className="h-10 w-10 animate-spin text-primary"/>
-              <p className="mt-4 font-bold text-muted-foreground">يتم التحقق من هوية الجهاز والفرع...</p>
+              <p className="mt-4 font-bold text-muted-foreground animate-pulse">يتم التحقق من ترخيص الجهاز لهذا الفرع...</p>
           </div>
       )
   }
@@ -109,42 +102,26 @@ export default function AdminLayout() {
   if (!isAuthenticated) {
      return (
        <div className="flex h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
-        <Card className="w-full max-w-sm rounded-[2rem] shadow-2xl border-none overflow-hidden animate-in fade-in zoom-in duration-300">
+        <Card className="w-full max-w-sm rounded-[2.5rem] shadow-2xl border-none overflow-hidden animate-in fade-in zoom-in duration-300">
             <CardHeader className="text-center bg-primary text-white pb-8">
                 <Shield className="h-16 w-16 mx-auto mb-2" />
-                <CardTitle className="text-2xl font-black italic">أمان الأجهزة الموثوقة</CardTitle>
-                <CardDescription className="text-white/80 font-bold">الدخول إلى: {currentBranch.name}</CardDescription>
+                <CardTitle className="text-2xl font-black italic">بوابة فرع: {currentBranch.name}</CardTitle>
+                <CardDescription className="text-white/80 font-bold">يرجى تسجيل الدخول من جهاز موثوق</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-8">
-                <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-muted-foreground pr-1">اختر الفرع المطلوب</label>
-                    <div className="grid grid-cols-2 gap-2">
-                        <Button 
-                            variant={selectedBranchId === 'main' ? 'default' : 'outline'} 
-                            className="h-12 rounded-xl text-xs font-black"
-                            onClick={() => switchBranch('main')}
-                        >الرئيسية</Button>
-                        {branches.map(b => (
-                            <Button 
-                                key={b.id}
-                                variant={selectedBranchId === b.id ? 'default' : 'outline'} 
-                                className="h-12 rounded-xl text-xs font-black truncate"
-                                onClick={() => switchBranch(b.id)}
-                            >{b.name}</Button>
-                        ))}
-                    </div>
-                </div>
-
                 {requestStatus === 'sent' ? (
                     <div className="text-center space-y-4 animate-in zoom-in">
-                        <AlertCircle className="h-16 w-16 mx-auto text-orange-500 animate-pulse" />
-                        <h2 className="text-xl font-black">طلبك قيد المراجعة</h2>
-                        <p className="text-sm font-bold text-muted-foreground">لقد تم إرسال هوية جهازك. يرجى الانتظار حتى يتم تفعيل حسابك من قبل الأدمن الرئيسي.</p>
-                        <Button variant="outline" className="w-full" onClick={() => setRequestStatus('none')}>محاولة مرة أخرى</Button>
+                        <Fingerprint className="h-16 w-16 mx-auto text-orange-500 animate-pulse" />
+                        <h2 className="text-xl font-black">جهاز غير مرخص</h2>
+                        <p className="text-sm font-bold text-muted-foreground leading-relaxed">
+                            تم إرسال طلب ترخيص لهذا الجهاز لدخول <span className="text-primary">{currentBranch.name}</span>.
+                            يرجى الانتظار حتى يتم تفعيلك من قبل الإدارة.
+                        </p>
+                        <Button variant="outline" className="w-full rounded-xl" onClick={() => setRequestStatus('none')}>محاولة مرة أخرى</Button>
                     </div>
                 ) : (
                     <>
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                             <label className="text-xs font-black pr-1">أدخل الرمز السري للمسؤول</label>
                             <div className="relative">
                                 <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -160,12 +137,13 @@ export default function AdminLayout() {
                             </div>
                         </div>
                         <Button onClick={handleLogin} className="w-full h-14 rounded-2xl text-xl font-bold shadow-lg shadow-primary/20">
-                            فتح لوحة التحكم
+                            طلب الدخول والترخيص
                         </Button>
                     </>
                 )}
             </CardContent>
         </Card>
+        <p className="mt-8 text-xs font-bold text-muted-foreground italic">نظام العزل الصارم - كود الفرع: {branchParam}</p>
       </div>
     );
   }
@@ -173,7 +151,7 @@ export default function AdminLayout() {
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden" dir="rtl">
       <aside className="sticky inset-y-0 right-0 z-50 hidden w-16 flex-col border-l bg-card sm:flex shadow-xl shrink-0 overflow-hidden">
-         <AdminNav onTabChange={setActiveTab} activeTab={activeTab} isBranch={selectedBranchId !== 'main'} />
+         <AdminNav onTabChange={setActiveTab} activeTab={activeTab} isBranch={branchParam !== 'main'} />
       </aside>
       
       <div className="flex flex-1 flex-col relative overflow-hidden">
@@ -190,18 +168,20 @@ export default function AdminLayout() {
                  <SheetTitle>لوحة التحكم - {currentBranch.name}</SheetTitle>
                </SheetHeader>
                <div className="flex-1 overflow-hidden">
-                  <AdminNav isSheet={true} onTabChange={setActiveTab} activeTab={activeTab} isBranch={selectedBranchId !== 'main'} />
+                  <AdminNav isSheet={true} onTabChange={setActiveTab} activeTab={activeTab} isBranch={branchParam !== 'main'} />
                </div>
             </SheetContent>
           </Sheet>
           <div className="flex items-center gap-2">
             <div className="bg-primary/10 p-2 rounded-xl"><Building2 className="h-5 w-5 text-primary"/></div>
-            <div className="text-xl font-black text-primary">{currentBranch.name}</div>
+            <div className="text-xl font-black text-primary truncate max-w-[200px]">{currentBranch.name}</div>
           </div>
           
-          <Button variant="ghost" className="mr-auto text-xs font-bold gap-1" onClick={() => switchBranch('main')}>
-              <LayoutDashboard className="h-3 w-3"/> العودة للرئيسية
-          </Button>
+          {branchParam !== 'main' && (
+              <Button variant="ghost" className="mr-auto text-xs font-bold gap-1" onClick={() => router.push('/admin')}>
+                  <LayoutDashboard className="h-3 w-3"/> العودة للرئيسية
+              </Button>
+          )}
         </header>
 
         <main className="flex-1 relative overflow-hidden bg-muted/5">
@@ -212,22 +192,22 @@ export default function AdminLayout() {
                 transition: 'transform 0.1s cubic-bezier(0.16, 1, 0.3, 1)' 
             }}
           >
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDashboard branchId={selectedBranchId} /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminOrdersPage branchId={selectedBranchId} /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminProductsPage branchId={selectedBranchId} /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDashboard branchId={branchParam} /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminOrdersPage branchId={branchParam} /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminProductsPage branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminCategoriesPage /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminStoresPage branchId={selectedBranchId} /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminStoresPage branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminBannersPage /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDeliveryZonesPage /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminCouponsPage /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminUsersPage branchId={selectedBranchId} /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDeliveryWorkersPage branchId={selectedBranchId} /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminReportsPage branchId={selectedBranchId} /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminUsersPage branchId={branchParam} /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDeliveryWorkersPage branchId={branchParam} /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminReportsPage branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSupportTicketsPage /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminTelegramPage branchId={selectedBranchId} /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminTelegramPage branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSettingsPage /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminApprovalsPage branchId={selectedBranchId} /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminAccessPage branchId={selectedBranchId} /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminApprovalsPage branchId={branchParam} /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminAccessPage branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminBranchesPage /></ScrollArea></div>
           </div>
         </main>

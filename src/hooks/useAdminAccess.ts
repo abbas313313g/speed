@@ -8,12 +8,11 @@ import { v4 as uuidv4 } from 'uuid';
 import type { AdminAccess } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
-export const useAdminAccess = () => {
+export const useAdminAccess = (branchId?: string) => {
     const [accessList, setAccessList] = useState<AdminAccess[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
 
-    // إنشاء هوية فريدة للجهاز إذا لم تكن موجودة
     const getDeviceId = useCallback(() => {
         let deviceId = localStorage.getItem('speedShopDeviceId');
         if (!deviceId) {
@@ -24,40 +23,47 @@ export const useAdminAccess = () => {
     }, []);
 
     useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'adminAccess'),
+        const accessRef = collection(db, 'adminAccess');
+        // فلترة سجلات الوصول بناءً على الفرع لضمان استقلال الأذونات
+        let q = query(accessRef);
+        if (branchId && branchId !== 'all') {
+            q = query(accessRef, where('branchId', '==', branchId));
+        }
+
+        const unsub = onSnapshot(q,
             (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AdminAccess[];
                 setAccessList(data);
                 setIsLoading(false);
             },
             (error) => {
-                console.error("Error fetching admin access list:", error);
+                console.error("Error fetching access list:", error);
                 setIsLoading(false);
             }
         );
         return () => unsub();
-    }, []);
+    }, [branchId]);
 
-    const requestAccess = useCallback(async (branchId: string | 'main', deviceName: string) => {
+    const requestAccess = useCallback(async (bId: string, deviceName: string) => {
         const deviceId = getDeviceId();
         try {
             const q = query(collection(db, 'adminAccess'), 
                 where('deviceId', '==', deviceId),
-                where('branchId', '==', branchId)
+                where('branchId', '==', bId)
             );
             const snap = await getDocs(q);
             if (!snap.empty) {
-                toast({ title: "الطلب موجود مسبقاً", description: "جهازك مسجل بالفعل، بانتظار الموافقة." });
+                toast({ title: "الطلب موجود مسبقاً", description: "جهازك قيد المراجعة لهذا الفرع." });
                 return;
             }
             await addDoc(collection(db, "adminAccess"), {
                 deviceId,
-                branchId,
+                branchId: bId,
                 deviceName,
                 status: 'pending',
                 requestedAt: new Date().toISOString()
             });
-            toast({ title: "تم إرسال الطلب بنجاح", description: "يرجى الطلب من الإدارة الموافقة على جهازك." });
+            toast({ title: "تم إرسال الطلب", description: "بانتظار موافقة أدمن هذا الفرع." });
         } catch (error) {
             toast({ title: "فشل إرسال الطلب", variant: "destructive" });
         }
@@ -69,7 +75,7 @@ export const useAdminAccess = () => {
                 status: 'approved',
                 approvedAt: new Date().toISOString()
             });
-            toast({ title: "تمت الموافقة بنجاح" });
+            toast({ title: "تم الترخيص بنجاح" });
         } catch (error) {
             toast({ title: "فشل الإجراء", variant: "destructive" });
         }
@@ -78,21 +84,22 @@ export const useAdminAccess = () => {
     const removeAccess = useCallback(async (id: string) => {
         try {
             await deleteDoc(doc(db, "adminAccess", id));
-            toast({ title: "تم سحب الترخيص من الجهاز" });
+            toast({ title: "تم سحب الترخيص" });
         } catch (error) {
             toast({ title: "فشل الحذف", variant: "destructive" });
         }
     }, [toast]);
 
-    const autoApproveFirst = useCallback(async (branchId: string | 'main', deviceName: string) => {
+    const autoApproveFirst = useCallback(async (bId: string, deviceName: string) => {
         const deviceId = getDeviceId();
         try {
-            const q = query(collection(db, 'adminAccess'), where('branchId', '==', branchId));
+            const q = query(collection(db, 'adminAccess'), where('branchId', '==', bId));
             const snap = await getDocs(q);
+            // إذا كان هذا أول جهاز يطلب الدخول لهذا الفرع تحديداً، يتم اعتماده تلقائياً
             if (snap.empty) {
                 await addDoc(collection(db, "adminAccess"), {
                     deviceId,
-                    branchId,
+                    branchId: bId,
                     deviceName,
                     status: 'approved',
                     requestedAt: new Date().toISOString(),
