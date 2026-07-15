@@ -6,8 +6,7 @@ import { collection, doc, runTransaction, arrayUnion, updateDoc, getDocs, query,
 import { db } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
-import { sendTelegramMessage } from '@/lib/telegram';
-import { formatCurrency, calculateDistance } from '@/lib/utils';
+import { calculateDistance } from '@/lib/utils';
 import { ToastAction } from '@/components/ui/toast';
 import type { 
     Product, Order, SupportTicket, Coupon, Address, CartItem, Message, ProductSize, Restaurant
@@ -17,7 +16,6 @@ import { useSupportTickets } from '@/hooks/useSupportTickets';
 import { useCoupons } from '@/hooks/useCoupons';
 import { useTelegramConfigs } from '@/hooks/useTelegramConfigs';
 import { useRestaurants } from '@/hooks/useRestaurants';
-import { useOrders } from '@/hooks/useOrders';
 
 interface AppContextType {
     isLoading: boolean;
@@ -99,19 +97,21 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => { if (!isLoading) localStorage.setItem('speedShopAddresses', JSON.stringify(addresses)); }, [addresses, isLoading]);
 
     const currentAddr = addresses[0];
+
+    // الفلترة الجغرافية الصارمة (20كم)
     const filteredRestaurants = useMemo(() => {
         if (!currentAddr?.latitude || !currentAddr?.longitude) return restaurants;
         return restaurants.filter(r => {
             if (!r.latitude || !r.longitude) return true;
             const dist = calculateDistance(currentAddr.latitude!, currentAddr.longitude!, r.latitude, r.longitude);
-            return dist <= 20;
+            return dist <= 20; // إخفاء المتاجر التي تبعد أكثر من 20كم
         });
     }, [restaurants, currentAddr]);
 
     const filteredProducts = useMemo(() => {
         return products.filter(p => {
             const isApproved = p.status === 'approved';
-            const isActive = p.isActive !== false; // تفعيل الفلترة الجديدة
+            const isActive = p.isActive !== false;
             const restaurantVisible = filteredRestaurants.some(r => r.id === p.restaurantId);
             return isApproved && isActive && restaurantVisible;
         });
@@ -190,7 +190,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         const curCart = [...cart];
         try {
             await runTransaction(db, async (tx) => {
-                const pRefs = curCart.map(i => doc(db, "products", i.product.id));
                 let cData: Coupon | null = null;
                 if (coup?.trim()) {
                     const fC = coupons.find(c => c.code === coup.trim().toUpperCase());
@@ -222,7 +221,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     curCartTotal += (price * item.quantity);
                     tProfit += (price - (sProd.wholesalePrice || 0)) * item.quantity;
                     
-                    // تحديث المخزن فقط إذا لم تكن الكمية مفتوحة
                     if (!sProd.isUnlimitedStock) {
                         if (item.selectedSize) {
                             const nSizes = [...sProd.sizes!];
@@ -250,11 +248,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 const fTotal = Math.max(0, curCartTotal - disc) + dFee;
                 const nORef = doc(collection(db, "orders")); newOId = nORef.id;
                 const rest = restaurants.find(r => r.id === curCart[0].product.restaurantId);
+                
                 const nOData: Omit<Order, 'id'> = {
                     userId: curId, items: curCart as any, total: fTotal, date: new Date().toISOString(), status: 'unassigned', estimatedDelivery: new Date(Date.now() + 45*60*1000).toISOString(),
                     address: addr, profit: tProfit, deliveryFee: dFee, deliveryWorkerId: null, deliveryWorker: null, isPaid: false, isFeePaid: false, isOrderPaidToOffice: false, appliedCoupon: cInfo,
                     restaurant: rest ? { id: rest.id, name: rest.name, latitude: rest.latitude || null, longitude: rest.longitude || null } : null,
-                    branchId: rest?.branchId || 'main'
+                    branchId: rest?.branchId || 'main' // العزل المالي التام للفرع
                 };
                 tx.set(nORef, nOData);
             });

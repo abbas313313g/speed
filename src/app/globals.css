@@ -5,7 +5,7 @@
 
 @layer base {
   :root {
-    --background: 148 67% 96%;
+    --background: 210 40% 98%;
     --foreground: 224 71.4% 4.1%;
     --card: 0 0% 100%;
     --card-foreground: 224 71.4% 4.1%;
@@ -55,7 +55,6 @@ button, a, [role="button"] {
   width: 100%;
   transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1) !important;
   will-change: transform;
-  transform: translateZ(0); /* تحفيز كرت الشاشة للسرعة القصوى */
 }
 
 .spa-page-view {
@@ -70,8 +69,6 @@ button, a, [role="button"] {
   position: relative;
   -webkit-overflow-scrolling: touch;
   background: hsl(var(--background));
-  
-  -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
@@ -79,22 +76,7 @@ button, a, [role="button"] {
   display: none;
 }
 
-/* تفعيل شريط النزول في قسم الدليفري والمطاعم وإجباره على الظهور */
-.delivery-active .spa-page-view,
-.restaurant-active .spa-page-view {
-  -ms-overflow-style: auto !important;
-  scrollbar-width: thin !important;
-}
-
-.delivery-active .spa-page-view::-webkit-scrollbar,
-.restaurant-active .spa-page-view::-webkit-scrollbar {
-  display: block !important;
-  width: 6px !important;
-}
-
-.delivery-active .spa-page-view::-webkit-scrollbar-thumb,
-.restaurant-active .spa-page-view::-webkit-scrollbar-thumb {
-  background-color: #22c55e !important;
-  border-radius: 10px !important;
-  border: 2px solid white !important;
+/* Forcing specific pages to be scrollable if needed */
+.scrollable {
+    overflow-y: auto !important;
 }
