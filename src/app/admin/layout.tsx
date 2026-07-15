@@ -1,10 +1,10 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { AdminNav } from '@/components/AdminNav';
-import { Shield, KeyRound, PanelLeft, Loader2, AlertCircle, Building2, LayoutDashboard, Fingerprint } from 'lucide-react';
+import { Shield, KeyRound, PanelLeft, Loader2, Building2, Fingerprint } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -34,9 +34,8 @@ import AdminBranchesPage from './branches/page';
 
 const ADMIN_PIN = "31344313";
 
-export default function AdminLayout() {
+function AdminLayoutContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const branchParam = searchParams.get('branch') || 'main';
 
   const [pin, setPin] = useState("");
@@ -205,5 +204,13 @@ export default function AdminLayout() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function AdminLayout() {
+  return (
+    <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary"/></div>}>
+      <AdminLayoutContent />
+    </Suspense>
   );
 }
