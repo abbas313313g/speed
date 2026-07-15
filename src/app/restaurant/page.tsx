@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useContext, useMemo, useState, useEffect, useRef } from 'react';
@@ -19,6 +20,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     const [isMuted, setIsMuted] = useState(false);
     const [notifEnabled, setNotifEnabled] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const prevOrdersCount = useRef(0);
 
     const myOrders = useMemo(() => {
         if (!context?.restaurant || !allOrders) return [];
@@ -30,15 +32,32 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     const readyOrders = myOrders.filter(o => o.status === 'ready_for_pickup');
     const deliveredOrders = myOrders.filter(o => ['on_the_way', 'delivered'].includes(o.status)).slice(0, 5);
 
+    // تجهيز الصوت مسبقاً لمنع التأخير (Pre-loading)
     useEffect(() => {
-        if (newOrders.length > 0 && !isMuted) {
-            if (!audioRef.current) {
-                audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-                audioRef.current.loop = true;
+        if (typeof window !== 'undefined') {
+            audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+            audioRef.current.load();
+        }
+    }, []);
+
+    useEffect(() => {
+        // تشغيل الصوت فوراً عند زيادة عدد الطلبات الجديدة
+        if (newOrders.length > prevOrdersCount.current && !isMuted) {
+            if (audioRef.current) {
+                audioRef.current.currentTime = 0;
+                audioRef.current.play().catch(() => console.log("Sound blocked by browser interaction policy"));
             }
-            audioRef.current.play().catch(() => console.log("Sound blocked by browser"));
-        } else if (audioRef.current) {
-            audioRef.current.pause();
+        }
+        prevOrdersCount.current = newOrders.length;
+
+        // استمرار الصوت إذا كان هناك طلبات معلقة (اختياري، تم تفعيله بناءً على رغبة المستخدم في التنبيه المستمر)
+        if (newOrders.length > 0 && !isMuted) {
+            if (audioRef.current) audioRef.current.loop = true;
+        } else {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.loop = false;
+            }
         }
     }, [newOrders.length, isMuted]);
 

@@ -64,10 +64,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const isLoading = productsLoading || restaurantsLoading || ticketsLoading || couponsLoading || telegramLoading;
 
+    // تهيئة نظام تاريخ التصفح (History API) لدعم زر الرجوع في الموبايل
     useEffect(() => {
         let id = localStorage.getItem('speedShopUserId');
         if (!id) { id = uuidv4(); localStorage.setItem('speedShopUserId', id); }
         setUserId(id);
+
         try {
             const savedCart = localStorage.getItem('speedShopCart');
             if(savedCart) setCart(JSON.parse(savedCart));
@@ -75,6 +77,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             if(savedAddresses) setAddresses(JSON.parse(savedAddresses));
         } catch (e) {}
         
+        // دفع الحالة الأولية للتاريخ
+        if (window.history.state === null) {
+            window.history.replaceState({ tab: 0 }, '');
+        }
+
         const handlePopState = (event: PopStateEvent) => {
             if (event.state && typeof event.state.tab === 'number') {
                 setActiveTabState(event.state.tab);
@@ -82,6 +89,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 setActiveTabState(0);
             }
         };
+
         window.addEventListener('popstate', handlePopState);
         return () => window.removeEventListener('popstate', handlePopState);
     }, []);
@@ -282,7 +290,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     branchId: rest?.branchId || 'main'
                 };
                 
-                // تنظيف البيانات من الـ undefined قبل الإرسال للفايربيس
                 const cleanData = JSON.parse(JSON.stringify(nOData));
                 tx.set(nORef, cleanData);
             });

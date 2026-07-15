@@ -10,7 +10,7 @@ import RestaurantHistoryPage from './history/page';
 import { cn } from '@/lib/utils';
 
 function RestaurantLayoutContent() {
-  const [activeTab, setActiveTab] = useState(0); // 0: Login, 1: Orders (Dashboard), 2: Products, 3: History
+  const [activeTab, setActiveTabState] = useState(0); // 0: Login, 1: Orders (Dashboard), 2: Products, 3: History
   const context = useContext(RestaurantContext);
 
   useEffect(() => {
@@ -19,7 +19,27 @@ function RestaurantLayoutContent() {
     } else {
       setActiveTab(0);
     }
-  }, [context?.restaurant, activeTab]);
+  }, [context?.restaurant]);
+
+  // دعم زر الرجوع لنسخة المطعم
+  useEffect(() => {
+    if (window.history.state === null) {
+      window.history.replaceState({ restTab: 0 }, '');
+    }
+
+    const handlePop = (e: PopStateEvent) => {
+      if (e.state && typeof e.state.restTab === 'number') {
+        setActiveTabState(e.state.restTab);
+      }
+    };
+    window.addEventListener('popstate', handlePop);
+    return () => window.removeEventListener('popstate', handlePop);
+  }, []);
+
+  const setActiveTab = (idx: number) => {
+    setActiveTabState(idx);
+    window.history.pushState({ restTab: idx }, '');
+  };
 
   return (
     <div className={cn("flex h-screen w-full flex-col bg-card shadow-2xl relative overflow-hidden restaurant-active")} dir="rtl">
