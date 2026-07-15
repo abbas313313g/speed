@@ -50,7 +50,6 @@ export default function MainAppLayout() {
 
   const handleGetLocation = useCallback(() => {
     setIslocLoading(true);
-    // تصفير الموقع القديم للمحاولة من جديد
     setNewAddr(prev => ({ ...prev, lat: 0, lng: 0 }));
 
     if (!navigator.geolocation) {
@@ -68,7 +67,6 @@ export default function MainAppLayout() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
-        // التحقق من النطاق الجغرافي للخدمة
         if (!isLocationInAllowedZones(latitude, longitude)) {
           setIsBlocked(true);
           setShowAddressPrompt(false);
@@ -128,8 +126,8 @@ export default function MainAppLayout() {
   }
 
   const content = (
-    <>
-      <main className="flex-1 relative z-0 overflow-hidden">
+    <div className="overflow-guard flex flex-col h-full w-full">
+      <main className="flex-1 relative z-0">
         <div 
           className="spa-stack-container" 
           style={{ transform: `translateX(${activeTab * 100}%)` }} 
@@ -148,12 +146,12 @@ export default function MainAppLayout() {
         </div>
       </main>
       <div className="h-20 shrink-0"><BottomNav /></div>
-    </>
+    </div>
   );
 
   return (
-    <div className="min-h-screen w-full bg-slate-100 flex justify-center items-center p-0 sm:p-4">
-      <div className="w-full max-w-[480px] h-full sm:h-[850px] sm:max-h-[95vh] flex flex-col bg-card shadow-2xl relative overflow-hidden sm:rounded-[3rem] border-[8px] border-white">
+    <div className="min-h-screen w-full bg-slate-100 flex justify-center items-center p-0 sm:p-4 overflow-hidden">
+      <div className="w-full max-w-[480px] h-[100dvh] sm:h-[850px] sm:max-h-[95vh] flex flex-col bg-card shadow-2xl relative overflow-hidden sm:rounded-[3rem] sm:border-[8px] sm:border-white">
         {isBlocked ? (
             <div className="flex h-full w-full flex-col items-center justify-center bg-background p-8 text-center animate-in fade-in zoom-in duration-500">
               <AlertCircle className="h-24 w-24 text-destructive mb-6" />
