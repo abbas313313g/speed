@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useContext } from "react";
@@ -6,7 +5,7 @@ import Image from "next/image";
 import { PlusCircle, ListChecks } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import type { Product } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
