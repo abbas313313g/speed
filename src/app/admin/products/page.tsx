@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -75,11 +75,9 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Partial<Product> & {image?: string}>({ ...EMPTY_PRODUCT });
   const [isSaving, setIsSaving] = useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isLoading = productsLoading || categoriesLoading || restaurantsLoading;
-  
-  if (isLoading) return <div className="p-8 text-center animate-pulse">جار التحميل...</div>;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -98,41 +96,37 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
         setCurrentProduct(product);
     } else {
         setIsEditing(false);
-        setCurrentProduct({ ...EMPTY_PRODUCT, branchId });
+        setCurrentProduct({ ...EMPTY_PRODUCT, branchId: branchId || 'main' });
     }
     setOpen(true);
   }
 
   const handleSaveProduct = async () => {
     if (!currentProduct.name || !currentProduct.price || !currentProduct.categoryId || !currentProduct.restaurantId) {
-        toast({ title: "بيانات غير مكتملة", description: "الرجاء ملء جميع الحقول المطلوبة.", variant: "destructive" });
+        toast({ title: "بيانات غير مكتملة", description: "الرجاء اختيار القسم والمتجر وملء الاسم والسعر.", variant: "destructive" });
         return;
     }
     if (!currentProduct.image) {
-        toast({ title: "صورة المنتج مطلوبة", description: "الرجاء رفع صورة للمنتج.", variant: "destructive" });
+        toast({ title: "صورة المنتج مطلوبة", variant: "destructive" });
         return;
-    }
-
-    const productToSave: Partial<Product> & {image: string} = {
-        ...currentProduct,
-        image: currentProduct.image!,
-        branchId: branchId,
-        sizes: currentProduct.sizes?.filter(s => s.name && s.price > 0) || [],
-        stock: currentProduct.stock || 0,
-    }
-
-    if (!productToSave.discountPrice || productToSave.discountPrice <= 0) {
-        delete productToSave.discountPrice;
     }
 
     setIsSaving(true);
     try {
+        const productToSave = { 
+            ...currentProduct, 
+            image: currentProduct.image!, 
+            branchId: branchId || 'main',
+            status: isEditing ? (currentProduct.status || 'approved') : 'approved'
+        };
+        
         if (isEditing && currentProduct.id) {
             await updateProduct(productToSave as any);
         } else {
             await addProduct(productToSave as any);
         }
         setOpen(false);
+        setCurrentProduct({ ...EMPTY_PRODUCT });
     } catch (error) {
         toast({ title: "فشل حفظ المنتج", variant: "destructive" });
     } finally {
@@ -140,14 +134,18 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
     }
   };
 
+  if (isLoading) return <div className="p-8 text-center animate-pulse font-black text-primary">جارِ تحميل المنتجات...</div>;
+
   return (
     <div className="space-y-8">
       <header className="flex justify-between items-center">
         <div>
             <h1 className="text-3xl font-black text-primary">إدارة المنتجات</h1>
-            <p className="text-muted-foreground font-bold">عرض وتعديل منتجات الفرع الحالي فقط.</p>
+            <p className="text-muted-foreground font-bold">عرض وتعديل منتجات فرع: {branchId === 'main' ? 'الإدارة الرئيسية' : branchId}</p>
         </div>
-        <Button onClick={() => handleOpenDialog()} className="rounded-xl">إضافة منتج جديد</Button>
+        <Button onClick={() => handleOpenDialog()} className="rounded-xl h-12 px-6 font-bold shadow-lg">
+            إضافة منتج جديد
+        </Button>
       </header>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -161,56 +159,62 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                         <Input value={currentProduct.name ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, name: e.target.value})} className="col-span-3 rounded-xl" />
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label className="text-right font-bold">سعر البيع</Label>
+                        <Label className="text-right font-bold">سعر البيع (IQD)</Label>
                         <Input type="number" value={currentProduct.price ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, price: parseFloat(e.target.value) || 0})} className="col-span-3 rounded-xl" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label className="text-right font-bold">سعر الجملة</Label>
+                        <Label className="text-right font-bold">سعر الجملة (IQD)</Label>
                         <Input type="number" value={currentProduct.wholesalePrice ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, wholesalePrice: parseFloat(e.target.value) || 0})} className="col-span-3 rounded-xl" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label className="text-right font-bold">الكمية</Label>
+                        <Label className="text-right font-bold">الكمية في المخزن</Label>
                         <Input type="number" value={currentProduct.stock ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, stock: parseInt(e.target.value) || 0})} className="col-span-3 rounded-xl" />
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label className="text-right font-bold">الوصف</Label>
-                        <Input value={currentProduct.description ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, description: e.target.value})} className="col-span-3 rounded-xl" />
-                    </div>
-                     <div className="grid grid-cols-4 items-center gap-4">
-                         <Label className="text-right font-bold">الصورة</Label>
-                         <div className="col-span-3 flex gap-2">
-                             <Input value={currentProduct.image ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, image: e.target.value})} className="rounded-xl"/>
-                             <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} className="rounded-xl"><Upload className="h-4 w-4"/></Button>
-                             <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
-                         </div>
-                    </div>
-
+                    
                     <div className="grid grid-cols-4 items-center gap-4">
                          <Label className="text-right font-bold">القسم</Label>
                          <Select value={currentProduct.categoryId} onValueChange={(value) => setCurrentProduct({...currentProduct, categoryId: value})}>
                             <SelectTrigger className="col-span-3 rounded-xl">
-                                <SelectValue placeholder="اختر قسم" />
+                                <SelectValue placeholder="اختر قسم..." />
                             </SelectTrigger>
                             <SelectContent>
                                 {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                {categories.length === 0 && <div className="p-2 text-xs text-muted-foreground">لا توجد أقسام! أضف قسماً أولاً.</div>}
                             </SelectContent>
                         </Select>
                     </div>
+                    
                     <div className="grid grid-cols-4 items-center gap-4">
                          <Label className="text-right font-bold">المتجر</Label>
                          <Select value={currentProduct.restaurantId} onValueChange={(value) => setCurrentProduct({...currentProduct, restaurantId: value})}>
                             <SelectTrigger className="col-span-3 rounded-xl">
-                                <SelectValue placeholder="اختر المتجر" />
+                                <SelectValue placeholder="اختر متجر..." />
                             </SelectTrigger>
                             <SelectContent>
                                 {restaurants.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                                {restaurants.length === 0 && <div className="p-2 text-xs text-muted-foreground">لا توجد متاجر! أضف متجراً أولاً.</div>}
                             </SelectContent>
                         </Select>
                     </div>
+
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-right font-bold">الوصف</Label>
+                        <Input value={currentProduct.description ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, description: e.target.value})} className="col-span-3 rounded-xl" />
+                    </div>
+
+                     <div className="grid grid-cols-4 items-center gap-4">
+                         <Label className="text-right font-bold">الصورة</Label>
+                         <div className="col-span-3 flex gap-2">
+                             <Input value={currentProduct.image ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, image: e.target.value})} className="rounded-xl" placeholder="رابط أو ارفع ملف..."/>
+                             <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} className="rounded-xl shrink-0"><Upload className="h-4 w-4"/></Button>
+                             <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+                         </div>
+                    </div>
+                    {currentProduct.image && <div className="col-span-4 flex justify-center"><Image src={currentProduct.image} alt="preview" width={100} height={100} className="rounded-xl border object-contain" unoptimized={true}/></div>}
                 </div>
                 <DialogFooter>
-                    <Button onClick={handleSaveProduct} disabled={isSaving} className="w-full h-14 rounded-2xl text-lg font-black">
-                        {isSaving ? <Loader2 className="animate-spin h-5 w-5"/> : "حفظ المنتج"}
+                    <Button onClick={handleSaveProduct} disabled={isSaving} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl">
+                        {isSaving ? <Loader2 className="animate-spin h-5 w-5"/> : "حفظ المنتج ونشره"}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -221,7 +225,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
             <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>صورة</TableHead>
-                <TableHead>اسم المنتج</TableHead>
+                <TableHead>المنتج</TableHead>
                 <TableHead>السعر</TableHead>
                 <TableHead>المخزن</TableHead>
                 <TableHead>المتجر</TableHead>
@@ -230,25 +234,25 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
             </TableHeader>
             <TableBody>
               {products.map((product) => (
-                <TableRow key={product.id}>
+                <TableRow key={product.id} className="hover:bg-muted/20">
                   <TableCell>
                     <Image src={product.image || 'https://placehold.co/40x40.png'} alt={product.name} width={40} height={40} className="rounded-lg object-cover" unoptimized={true}/>
                   </TableCell>
                   <TableCell className="font-bold">{product.name}</TableCell>
                   <TableCell className="font-black text-primary">{formatCurrency(product.price)}</TableCell>
                   <TableCell className="font-bold">{product.stock}</TableCell>
-                  <TableCell className="text-xs font-bold">{restaurants.find(r => r.id === product.restaurantId)?.name || '-'}</TableCell>
+                  <TableCell className="text-[10px] font-bold text-muted-foreground">{restaurants.find(r => r.id === product.restaurantId)?.name || '-'}</TableCell>
                   <TableCell>
                       <div className="flex items-center gap-2">
-                          <Button variant="outline" size="icon" onClick={() => handleOpenDialog(product)} className="rounded-lg"><Edit className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => deleteProduct(product.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                          <Button variant="outline" size="icon" onClick={() => handleOpenDialog(product)} className="rounded-lg h-8 w-8"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => deleteProduct(product.id)} className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button>
                       </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          {products.length === 0 && <div className="p-20 text-center text-muted-foreground italic font-bold">لا توجد منتجات لهذا الفرع.</div>}
+          {products.length === 0 && <div className="p-20 text-center text-muted-foreground italic font-bold bg-muted/5">لا توجد منتجات مضافة لهذا الفرع بعد.</div>}
       </div>
     </div>
   );

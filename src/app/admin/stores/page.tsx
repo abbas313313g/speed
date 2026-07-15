@@ -60,22 +60,23 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentStore, setCurrentStore] = useState<Partial<Restaurant> & {image?:string}>({ ...EMPTY_STORE });
   const [isSaving, setIsSaving] = useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = async () => {
-    if (!currentStore.name || !currentStore.image || !currentStore.loginCode) {
-        toast({ title: "بيانات ناقصة", description: "الرجاء إكمال كافة الحقول المطلوبة.", variant: "destructive" }); 
+    if (!currentStore.name || !currentStore.image || !currentStore.loginCode || !currentStore.restaurantNumber) {
+        toast({ title: "بيانات ناقصة", description: "الرجاء إكمال كافة الحقول المطلوبة بما في ذلك رقم المتجر.", variant: "destructive" }); 
         return;
     }
     setIsSaving(true);
     try {
-        const storeToSave = { ...currentStore, branchId };
+        const storeToSave = { ...currentStore, branchId: branchId || 'main' };
         if (isEditing && currentStore.id) {
             await updateRestaurant(storeToSave as any);
         } else {
             await addRestaurant(storeToSave as any);
         }
         setOpen(false);
+        setCurrentStore({ ...EMPTY_STORE });
     } catch (e) { 
         toast({ title: "فشل الحفظ", variant: "destructive" }); 
     } finally {
@@ -83,14 +84,14 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
     }
   };
 
-  if (isLoading) return <div className="p-8 text-center animate-pulse">جار جلب بيانات المتاجر...</div>;
+  if (isLoading) return <div className="p-8 text-center animate-pulse font-black text-primary">جارِ جلب بيانات المتاجر...</div>;
 
   return (
     <div className="space-y-8">
       <header className="flex justify-between items-center">
         <div>
             <h1 className="text-3xl font-black text-primary">إدارة المتاجر</h1>
-            <p className="text-muted-foreground font-bold">عرض المتاجر التابعة للفرع الحالي فقط.</p>
+            <p className="text-muted-foreground font-bold">عرض المتاجر التابعة لفرع: {branchId === 'main' ? 'الإدارة الرئيسية' : branchId}</p>
         </div>
         <Button onClick={() => { setIsEditing(false); setCurrentStore({ ...EMPTY_STORE, branchId }); setOpen(true); }} className="rounded-xl h-12 px-6 font-bold shadow-lg">
             إضافة متجر جديد
@@ -129,7 +130,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                 <div className="space-y-1">
                     <Label className="font-bold">صورة المتجر</Label>
                     <div className="flex gap-2">
-                        <Input value={currentStore.image ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, image: e.target.value })} className="rounded-xl h-12" placeholder="رابط الصورة..." />
+                        <Input value={currentStore.image ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, image: e.target.value })} className="rounded-xl h-12" placeholder="رابط الصورة أو ارفع ملف..." />
                         <Button variant="outline" size="icon" className="rounded-xl h-12 w-12 shrink-0" onClick={() => fileInputRef.current?.click()}>
                             <Upload className="h-5 w-5" />
                         </Button>
@@ -143,6 +144,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                         }
                     }} />
                 </div>
+                {currentStore.image && <div className="flex justify-center"><Image src={currentStore.image} alt="preview" width={80} height={80} className="rounded-xl border object-cover" unoptimized={true} /></div>}
             </div>
             <DialogFooter>
                 <Button onClick={handleSave} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl" disabled={isSaving}>
@@ -152,7 +154,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
         </DialogContent>
       </Dialog>
 
-      <Card className="rounded-[1.5rem] border-none shadow-xl overflow-hidden">
+      <Card className="rounded-[1.5rem] border-none shadow-xl overflow-hidden bg-white">
         <Table>
             <TableHeader className="bg-muted/50">
                 <TableRow>
@@ -192,7 +194,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                                         <AlertDialogHeader>
                                             <AlertDialogTitle className="text-right">حذف المتجر؟</AlertDialogTitle>
                                             <AlertDialogDescription className="text-right font-bold">
-                                                هل أنت متأكد من حذف "{store.name}"؟
+                                                هل أنت متأكد من حذف "{store.name}"؟ سيتم مسح بياناته من هذا الفرع.
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter className="flex-row gap-2">
@@ -209,7 +211,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
         </Table>
         {restaurants.length === 0 && (
             <div className="text-center py-20 bg-muted/5">
-                <p className="text-muted-foreground font-bold italic">لا توجد متاجر مضافة لهذا الفرع.</p>
+                <p className="text-muted-foreground font-bold italic">لا توجد متاجر مضافة لهذا الفرع حتى الآن.</p>
             </div>
         )}
       </Card>

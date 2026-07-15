@@ -16,11 +16,10 @@ export const useProducts = (branchId?: string) => {
 
     useEffect(() => {
         const productsRef = collection(db, 'products');
-        let q = productsRef;
+        let q = query(productsRef);
         
-        // العزل الصارم: إذا كان هناك كود فرع محدد وليس 'all'، نجلب بياناته فقط
         if (branchId && branchId !== 'all') {
-            q = query(productsRef, where('branchId', '==', branchId)) as any;
+            q = query(productsRef, where('branchId', '==', branchId));
         }
 
         const unsub = onSnapshot(q,
@@ -32,6 +31,7 @@ export const useProducts = (branchId?: string) => {
             (error) => {
                 console.error("Error fetching products:", error);
                 setIsLoading(false);
+                setProducts([]);
             }
         );
         return () => unsub();
@@ -39,9 +39,14 @@ export const useProducts = (branchId?: string) => {
 
     const uploadImage = useCallback(async (base64: string, path: string): Promise<string> => {
         if (!base64 || !base64.startsWith('data:')) return base64;
-        const storageRef = ref(storage, path);
-        const snapshot = await uploadString(storageRef, base64, 'data_url');
-        return getDownloadURL(snapshot.ref);
+        try {
+            const storageRef = ref(storage, path);
+            const snapshot = await uploadString(storageRef, base64, 'data_url');
+            return await getDownloadURL(snapshot.ref);
+        } catch (e) {
+            console.error("Storage upload failed:", e);
+            return base64;
+        }
     }, []);
 
     const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
@@ -51,7 +56,6 @@ export const useProducts = (branchId?: string) => {
                 ...productData, 
                 image: imageUrl, 
                 status: isFromStore ? 'pending' : 'approved',
-                // نستخدم الكود الممرر للهوك أو كود الفرع في البيانات
                 branchId: branchId && branchId !== 'all' ? branchId : (productData.branchId || 'main')
             };
             await addDoc(collection(db, "products"), finalData);

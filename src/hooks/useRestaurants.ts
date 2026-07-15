@@ -28,11 +28,10 @@ export const useRestaurants = (branchId?: string) => {
 
     useEffect(() => {
         const restaurantsRef = collection(db, 'restaurants');
-        let q = restaurantsRef;
+        let q = query(restaurantsRef);
         
-        // عزل المتاجر حسب الفرع
         if (branchId && branchId !== 'all') {
-            q = query(restaurantsRef, where('branchId', '==', branchId)) as any;
+            q = query(restaurantsRef, where('branchId', '==', branchId));
         }
 
         const unsub = onSnapshot(q,
@@ -44,6 +43,7 @@ export const useRestaurants = (branchId?: string) => {
             (error) => {
                 console.error("Error fetching restaurants:", error);
                 setIsLoading(false);
+                setRestaurantsData([]);
             }
         );
         return () => unsub();
@@ -58,9 +58,14 @@ export const useRestaurants = (branchId?: string) => {
 
     const uploadImage = useCallback(async (base64: string, path: string): Promise<string> => {
         if (!base64 || !base64.startsWith('data:')) return base64;
-        const storageRef = ref(storage, path);
-        const snapshot = await uploadString(storageRef, base64, 'data_url');
-        return getDownloadURL(snapshot.ref);
+        try {
+            const storageRef = ref(storage, path);
+            const snapshot = await uploadString(storageRef, base64, 'data_url');
+            return await getDownloadURL(snapshot.ref);
+        } catch (e) {
+            console.error("Storage upload failed:", e);
+            return base64;
+        }
     }, []);
     
     const addRestaurant = useCallback(async (restaurantData: Omit<Restaurant, 'id'> & { image: string }) => {
