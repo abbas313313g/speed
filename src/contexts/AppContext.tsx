@@ -155,7 +155,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const clearCart = useCallback(() => { setCart([]); localStorage.removeItem('speedShopCart'); }, []);
 
     const cartTotal = useMemo(() => cart.reduce((total, item) => {
-        const price = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price ?? 0;
+        // استخدام || بدلاً من ?? لضمان عدم اعتبار الصفر كقيمة سعر صحيحة والنزول للسعر الأساسي
+        const price = item.selectedSize?.price || item.product.discountPrice || item.product.price || 0;
         return total + price * item.quantity;
     }, 0), [cart]);
 
@@ -217,7 +218,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     const item = curCart[i];
                     const pSnap = await tx.get(doc(db, "products", item.product.id));
                     const sProd = pSnap.data() as Product;
-                    const price = item.selectedSize?.price ?? sProd.discountPrice ?? sProd.price ?? 0;
+                    // استخدام || هنا أيضاً لضمان الحساب الصحيح
+                    const price = item.selectedSize?.price || sProd.discountPrice || sProd.price || 0;
                     curCartTotal += (price * item.quantity);
                     tProfit += (price - (sProd.wholesalePrice || 0)) * item.quantity;
                     
@@ -253,8 +255,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     userId: curId, items: curCart as any, total: fTotal, date: new Date().toISOString(), status: 'unassigned', estimatedDelivery: new Date(Date.now() + 45*60*1000).toISOString(),
                     address: addr, profit: tProfit, deliveryFee: dFee, deliveryWorkerId: null, deliveryWorker: null, isPaid: false, isFeePaid: false, isOrderPaidToOffice: false, appliedCoupon: cInfo,
                     restaurant: rest ? { id: rest.id, name: rest.name, latitude: rest.latitude || null, longitude: rest.longitude || null } : null,
-                    branchId: rest?.branchId || 'main' // العزل المالي التام للفرع
+                    branchId: rest?.branchId || 'main' 
                 };
+                tx.set(nOData, nOData); // Correcting syntax to pass ref
                 tx.set(nORef, nOData);
             });
             clearCart();

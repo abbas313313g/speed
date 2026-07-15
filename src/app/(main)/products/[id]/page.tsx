@@ -43,8 +43,8 @@ export default function ProductDetailPage() {
   }, [product]);
 
   const displayPrice = useMemo(() => {
-    if (selectedSize) return selectedSize.price;
-    return product?.discountPrice ?? product?.price ?? 0;
+    if (selectedSize?.price) return selectedSize.price;
+    return product?.discountPrice || product?.price || 0;
   }, [selectedSize, product]);
 
   const availableStock = useMemo(() => {

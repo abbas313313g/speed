@@ -62,8 +62,19 @@ export const calculateDeliveryFee = (distanceInKm: number) => {
     const minFee = 1000;
     const maxFee = 15000;
     const ratePerKm = 500;
+    
+    // إذا كانت المسافة غير معروفة أو خطأ، نرجع الحد الأدنى
+    if (!distanceInKm || distanceInKm <= 0) return minFee;
+
+    // أول 2 كم هي بـ 1000 دينار (الحد الأدنى)
     if (distanceInKm <= 2) return minFee;
+    
+    // ما زاد عن 2 كم، نضرب كل كم بـ 500 دينار ونضيفها للـ 1000
     let totalFee = minFee + (distanceInKm - 2) * ratePerKm;
+    
+    // تقريب السعر لأقرب 250 دينار ليكون السعر "عراقي" منطقي
     totalFee = Math.round(totalFee / 250) * 250;
+    
+    // ضمان بقاء السعر بين الحد الأدنى والأقصى
     return Math.min(Math.max(totalFee, minFee), maxFee);
 }

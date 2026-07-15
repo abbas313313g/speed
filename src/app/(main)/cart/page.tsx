@@ -60,7 +60,8 @@ export default function CartPage() {
     
     const address = addresses.find(a => a.id === selectedAddressId);
     if (!address || !address.latitude || !address.longitude || !cartRestaurant.latitude || !cartRestaurant.longitude) {
-       return { deliveryFee: 0, distance: null, isDistanceTooFar: false };
+       // حتى لو الموقع ناقص، نرجع الحد الأدنى للسعر للتذكير
+       return { deliveryFee: 1000, distance: null, isDistanceTooFar: false };
     }
 
     const dist = calculateDistance(address.latitude, address.longitude, cartRestaurant.latitude, cartRestaurant.longitude);
@@ -98,12 +99,11 @@ export default function CartPage() {
     if (orderId) {
         toast({
             title: "تم استلام طلبك بنجاح!",
-            description: "يمكنك متابعة حالة طلبك من صفحة الطلبات. إذا لم يظهر الطلب فوراً، حاول إعادة فتح التطبيق.",
+            description: "يمكنك متابعة حالة طلبك من صفحة الطلبات.",
             duration: 5000,
         });
         setCouponCode("");
     }
-    // If orderId is null, the placeOrder function already showed an error toast.
     
     setIsSubmitting(false);
   };
@@ -140,7 +140,8 @@ export default function CartPage() {
 
       <div className="space-y-4">
         {cart.map(({ product, quantity, selectedSize }) => {
-          const itemPrice = selectedSize?.price ?? product.discountPrice ?? product.price;
+          // استخدام || لضمان الحساب الصحيح
+          const itemPrice = selectedSize?.price || product.discountPrice || product.price || 0;
           const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/80x80.png';
           return (
             <div key={product.id + (selectedSize?.name || '')} className="flex items-center gap-4">
@@ -250,7 +251,7 @@ export default function CartPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>مسافة التوصيل بعيدة جداً</AlertTitle>
           <AlertDescription>
-            عذراً، هذا المتجر يبعد أكثر من ${MAX_DELIVERY_DISTANCE} كم عن عنوانك المختار. لا يمكننا توصيل الطلب.
+            عذراً، هذا المتجر يبعد أكثر من {MAX_DELIVERY_DISTANCE} كم عن عنوانك المختار. لا يمكننا توصيل الطلب.
           </AlertDescription>
         </Alert>
       )}
