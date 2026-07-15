@@ -52,7 +52,6 @@ import React from 'react';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { useRestaurants } from '@/hooks/useRestaurants';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
   name: '',
@@ -189,12 +188,12 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
       </header>
 
       <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="sm:max-w-2xl max-h-[95vh] overflow-hidden flex flex-col rounded-[2.5rem] p-0 border-none shadow-2xl">
-                <DialogHeader className="p-6 pb-2 border-b bg-card">
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col rounded-[2.5rem] p-0 border-none shadow-2xl">
+                <DialogHeader className="p-6 pb-2 border-b bg-card shrink-0">
                     <DialogTitle className="text-2xl font-black text-primary">{isEditing ? 'تعديل المنتج' : 'إضافة منتج جديد'}</DialogTitle>
                 </DialogHeader>
                 
-                <ScrollArea className="flex-1 p-6">
+                <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
                     <div className="space-y-6 text-right pb-10">
                         {/* Basic Info Section */}
                         <div className="space-y-4">
@@ -333,7 +332,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                             </div>
                         </div>
                     </div>
-                </ScrollArea>
+                </div>
 
                 <DialogFooter className="p-6 bg-card border-t shrink-0">
                     <Button onClick={handleSaveProduct} disabled={isSaving} className="w-full h-16 rounded-[1.8rem] text-xl font-black shadow-xl shadow-primary/20">

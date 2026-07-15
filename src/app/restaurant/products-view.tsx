@@ -17,7 +17,6 @@ import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import type { ProductSize } from '@/lib/types';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function RestaurantProductsPage({ onBack }: { onBack: () => void }) {
     const context = useContext(RestaurantContext);
@@ -201,12 +200,12 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
             </main>
 
             <Dialog open={isDialogOpen} onOpenChange={setIsAdding}>
-                <DialogContent className="sm:max-w-md max-h-[95vh] flex flex-col rounded-[2.5rem] p-0 border-none shadow-2xl overflow-hidden">
-                    <DialogHeader className="p-6 pb-2 border-b bg-card">
+                <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col rounded-[2.5rem] p-0 border-none shadow-2xl overflow-hidden">
+                    <DialogHeader className="p-6 pb-2 border-b bg-card shrink-0">
                         <DialogTitle className="text-2xl font-black text-right text-primary">{isEditing ? 'تعديل المنتج' : 'إضافة منتج جديد'}</DialogTitle>
                     </DialogHeader>
                     
-                    <ScrollArea className="flex-1 p-6">
+                    <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
                         <div className="space-y-6 py-2 text-right pb-10">
                             <div className="space-y-1">
                                 <Label className="font-bold pr-1">اسم المنتج</Label>
@@ -283,7 +282,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                                 )}
                             </div>
                         </div>
-                    </ScrollArea>
+                    </div>
 
                     <DialogFooter className="p-6 bg-card border-t shrink-0">
                         <Button onClick={handleSave} className="w-full h-16 rounded-[1.8rem] text-xl font-black shadow-xl shadow-primary/20">
