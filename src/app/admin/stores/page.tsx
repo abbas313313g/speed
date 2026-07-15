@@ -60,6 +60,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentStore, setCurrentStore] = useState<Partial<Restaurant> & {image?:string}>({ ...EMPTY_STORE });
   const [isSaving, setIsSaving] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = async () => {
@@ -74,7 +75,9 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
             ...currentStore, 
             branchId: branchId || 'main',
             rating: Number(currentStore.rating) || 5,
-            commissionRate: Number(currentStore.commissionRate) || 10
+            commissionRate: Number(currentStore.commissionRate) || 10,
+            latitude: Number(currentStore.latitude),
+            longitude: Number(currentStore.longitude)
         };
         
         if (isEditing && currentStore.id) {
@@ -86,10 +89,34 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
         setCurrentStore({ ...EMPTY_STORE, branchId: branchId || 'main' });
     } catch (e: any) { 
         console.error("Save store error:", e);
-        // Error toast is handled in the hook
     } finally {
         setIsSaving(false);
     }
+  };
+
+  const handleGetLocation = () => {
+    setIsLocating(true);
+    if (!navigator.geolocation) {
+      toast({ title: "المتصفح لا يدعم تحديد الموقع", variant: "destructive" });
+      setIsLocating(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCurrentStore(prev => ({
+          ...prev,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        }));
+        toast({ title: "تم تحديد الموقع بنجاح" });
+        setIsLocating(false);
+      },
+      () => {
+        toast({ title: "فشل تحديد الموقع", description: "يرجى إعطاء الإذن للمتصفح بالوصول للموقع.", variant: "destructive" });
+        setIsLocating(false);
+      }
+    );
   };
 
   if (isLoading) return <div className="p-8 text-center animate-pulse font-black text-primary">جارِ جلب بيانات المتاجر...</div>;
@@ -122,6 +149,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                         <Input value={currentStore.restaurantNumber ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, restaurantNumber: e.target.value })} className="rounded-xl h-12 text-center font-bold" dir="ltr" placeholder="1001" />
                     </div>
                 </div>
+
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                         <Label className="font-bold">الرمز السري (Login Code)</Label>
@@ -135,6 +163,25 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                         </div>
                     </div>
                 </div>
+
+                <div className="p-4 bg-muted/20 rounded-2xl border space-y-4">
+                    <Label className="font-black flex items-center gap-2"><MapPin className="h-4 w-4 text-primary"/> موقع المتجر الجغرافي</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                         <div className="space-y-1">
+                            <Label className="text-[10px] font-bold">خط العرض (Lat)</Label>
+                            <Input type="number" step="any" value={currentStore.latitude ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, latitude: parseFloat(e.target.value) || 0 })} className="h-10 rounded-xl font-mono text-xs" />
+                        </div>
+                         <div className="space-y-1">
+                            <Label className="text-[10px] font-bold">خط الطول (Lng)</Label>
+                            <Input type="number" step="any" value={currentStore.longitude ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, longitude: parseFloat(e.target.value) || 0 })} className="h-10 rounded-xl font-mono text-xs" />
+                        </div>
+                    </div>
+                    <Button variant="outline" className="w-full rounded-xl border-primary/40 text-primary font-bold h-11" onClick={handleGetLocation} disabled={isLocating}>
+                        {isLocating ? <Loader2 className="animate-spin h-4 w-4 ml-2"/> : <MapPin className="h-4 w-4 ml-2"/>}
+                        تحديد إحداثيات موقعي الحالي
+                    </Button>
+                </div>
+
                 <div className="space-y-1">
                     <Label className="font-bold">صورة المتجر</Label>
                     <div className="flex gap-2">
@@ -169,6 +216,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                     <TableHead className="font-black">صورة</TableHead>
                     <TableHead className="font-black">الاسم</TableHead>
                     <TableHead className="font-black">نسبة الشركة</TableHead>
+                    <TableHead className="font-black">الموقع</TableHead>
                     <TableHead className="font-black">إجراءات</TableHead>
                 </TableRow>
             </TableHeader>
@@ -186,6 +234,12 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                         </TableCell>
                         <TableCell>
                             <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-black">{store.commissionRate}%</span>
+                        </TableCell>
+                        <TableCell>
+                            <div className="flex flex-col text-[8px] font-mono text-muted-foreground">
+                                <span>Lat: {store.latitude?.toFixed(4)}</span>
+                                <span>Lng: {store.longitude?.toFixed(4)}</span>
+                            </div>
                         </TableCell>
                         <TableCell>
                             <div className="flex gap-2">
