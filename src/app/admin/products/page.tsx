@@ -55,7 +55,7 @@ const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
   name: '',
   price: 0,
   wholesalePrice: 0,
-  discountPrice: undefined,
+  discountPrice: 0, // نستخدم 0 بدلاً من undefined
   sizes: [],
   stock: 0,
   description: '',
@@ -113,17 +113,27 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
 
     setIsSaving(true);
     try {
-        const productToSave = { 
+        const productToSave: any = { 
             ...currentProduct, 
             image: currentProduct.image!, 
             branchId: branchId || 'main',
-            status: isEditing ? (currentProduct.status || 'approved') : 'approved'
+            status: isEditing ? (currentProduct.status || 'approved') : 'approved',
+            price: Number(currentProduct.price),
+            wholesalePrice: Number(currentProduct.wholesalePrice) || 0,
+            stock: Number(currentProduct.stock) || 0
         };
+
+        // إزالة حقل الخصم إذا لم تكن هناك قيمة حقيقية لتجنب مشاكل الفايربيس
+        if (!productToSave.discountPrice || Number(productToSave.discountPrice) <= 0) {
+            delete productToSave.discountPrice;
+        } else {
+            productToSave.discountPrice = Number(productToSave.discountPrice);
+        }
         
         if (isEditing && currentProduct.id) {
-            await updateProduct(productToSave as any);
+            await updateProduct(productToSave);
         } else {
-            await addProduct(productToSave as any);
+            await addProduct(productToSave);
         }
         setOpen(false);
         setCurrentProduct({ ...EMPTY_PRODUCT });
@@ -161,6 +171,10 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label className="text-right font-bold">سعر البيع (IQD)</Label>
                         <Input type="number" value={currentProduct.price ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, price: parseFloat(e.target.value) || 0})} className="col-span-3 rounded-xl" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-right font-bold">السعر بعد الخصم (اختياري)</Label>
+                        <Input type="number" value={currentProduct.discountPrice || ''} onChange={(e) => setCurrentProduct({...currentProduct, discountPrice: parseFloat(e.target.value) || 0})} className="col-span-3 rounded-xl" placeholder="اتركه 0 إذا لا يوجد خصم" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label className="text-right font-bold">سعر الجملة (IQD)</Label>

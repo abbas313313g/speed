@@ -75,12 +75,20 @@ export const useRestaurants = (branchId?: string) => {
     const addRestaurant = useCallback(async (restaurantData: Omit<Restaurant, 'id'> & { image: string }) => {
         try {
             const imageUrl = await uploadImage(restaurantData.image, `restaurants/${uuidv4()}`);
+            
+            // تنظيف البيانات
+            const cleanData = Object.fromEntries(
+                Object.entries(restaurantData).filter(([_, v]) => v !== undefined)
+            );
+
             const finalData = { 
-                ...restaurantData, 
+                ...cleanData, 
                 image: imageUrl,
                 branchId: branchId && branchId !== 'all' ? branchId : (restaurantData.branchId || 'main'),
-                rating: restaurantData.rating || 5,
-                commissionRate: restaurantData.commissionRate || 10
+                rating: Number(restaurantData.rating) || 5,
+                commissionRate: Number(restaurantData.commissionRate) || 10,
+                latitude: Number(restaurantData.latitude) || 0,
+                longitude: Number(restaurantData.longitude) || 0
             };
             const docRef = await addDoc(collection(db, "restaurants"), finalData);
             toast({ title: "تمت إضافة المتجر بنجاح" });
@@ -95,13 +103,30 @@ export const useRestaurants = (branchId?: string) => {
     const updateRestaurant = useCallback(async (updatedRestaurant: Partial<Restaurant> & { id: string }) => {
         try {
             const { id, image, ...restaurantData } = updatedRestaurant;
-            const finalData: any = { ...restaurantData };
-             if (image && image.startsWith('data:')) {
-                finalData.image = await uploadImage(image, `restaurants/${id}`);
+            
+            // تنظيف البيانات
+            const cleanData = Object.fromEntries(
+                Object.entries(restaurantData).filter(([_, v]) => v !== undefined)
+            );
+
+            const finalData: any = { 
+                ...cleanData,
+                rating: restaurantData.rating !== undefined ? Number(restaurantData.rating) : undefined,
+                commissionRate: restaurantData.commissionRate !== undefined ? Number(restaurantData.commissionRate) : undefined,
+                latitude: restaurantData.latitude !== undefined ? Number(restaurantData.latitude) : undefined,
+                longitude: restaurantData.longitude !== undefined ? Number(restaurantData.longitude) : undefined
+            };
+
+            // إزالة الـ undefined الناتجة
+            const sanitzedData = Object.fromEntries(Object.entries(finalData).filter(([_, v]) => v !== undefined));
+
+            if (image && image.startsWith('data:')) {
+                sanitizedData.image = await uploadImage(image, `restaurants/${id}`);
             } else if (image) {
-                finalData.image = image;
+                sanitizedData.image = image;
             }
-            await updateDoc(doc(db, "restaurants", id), finalData);
+
+            await updateDoc(doc(db, "restaurants", id), sanitizedData);
             toast({ title: "تم تحديث المتجر بنجاح" });
         } catch (error: any) { 
             console.error("Update restaurant error:", error);

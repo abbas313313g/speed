@@ -56,14 +56,22 @@ export const useProducts = (branchId?: string) => {
     const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
         try {
             const imageUrl = await uploadImage(productData.image, `products/${uuidv4()}`);
+            
+            // تنظيف البيانات من الـ undefined
+            const cleanData = Object.fromEntries(
+                Object.entries(productData).filter(([_, v]) => v !== undefined)
+            );
+
             const finalData = { 
-                ...productData, 
+                ...cleanData, 
                 image: imageUrl, 
                 status: isFromStore ? 'pending' : 'approved',
                 branchId: branchId && branchId !== 'all' ? branchId : (productData.branchId || 'main'),
-                wholesalePrice: productData.wholesalePrice || 0,
-                stock: Number(productData.stock) || 0
+                wholesalePrice: Number(productData.wholesalePrice) || 0,
+                stock: Number(productData.stock) || 0,
+                price: Number(productData.price) || 0
             };
+
             await addDoc(collection(db, "products"), finalData);
             toast({ title: isFromStore ? "تم الإرسال للأدمن للموافقة" : "تمت إضافة المنتج بنجاح" });
         } catch (error: any) { 
@@ -76,8 +84,22 @@ export const useProducts = (branchId?: string) => {
     const updateProduct = useCallback(async (updatedProduct: Partial<Product> & { id: string }, isFromStore = false) => {
         try {
             const { id, ...productData } = updatedProduct;
-            let finalData: any = { ...productData };
             
+            // تنظيف البيانات من الـ undefined
+            const cleanData = Object.fromEntries(
+                Object.entries(productData).filter(([_, v]) => v !== undefined)
+            );
+
+            let finalData: any = { 
+                ...cleanData,
+                price: productData.price !== undefined ? Number(productData.price) : undefined,
+                stock: productData.stock !== undefined ? Number(productData.stock) : undefined,
+                wholesalePrice: productData.wholesalePrice !== undefined ? Number(productData.wholesalePrice) : undefined
+            };
+            
+            // إزالة الـ undefined التي نتجت عن التحويل
+            finalData = Object.fromEntries(Object.entries(finalData).filter(([_, v]) => v !== undefined));
+
             if (productData.image && productData.image.startsWith('data:')) {
                 finalData.image = await uploadImage(productData.image, `products/${id}`);
             }
