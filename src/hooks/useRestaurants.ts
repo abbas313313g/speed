@@ -27,26 +27,30 @@ export const useRestaurants = (branchId?: string) => {
     const { toast } = useToast();
 
     useEffect(() => {
-        const restaurantsRef = collection(db, 'restaurants');
-        let q = query(restaurantsRef);
-        
-        if (branchId && branchId !== 'all') {
-            q = query(restaurantsRef, where('branchId', '==', branchId));
-        }
-
-        const unsub = onSnapshot(q,
-            (snapshot) => {
-                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Restaurant[];
-                setRestaurantsData(data);
-                setIsLoading(false);
-            },
-            (error) => {
-                console.error("Error fetching restaurants:", error);
-                setIsLoading(false);
-                setRestaurantsData([]);
+        try {
+            const restaurantsRef = collection(db, 'restaurants');
+            let q = query(restaurantsRef);
+            
+            if (branchId && branchId !== 'all') {
+                q = query(restaurantsRef, where('branchId', '==', branchId));
             }
-        );
-        return () => unsub();
+
+            const unsub = onSnapshot(q,
+                (snapshot) => {
+                    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Restaurant[];
+                    setRestaurantsData(data);
+                    setIsLoading(false);
+                },
+                (error) => {
+                    console.error("Firestore error:", error);
+                    setIsLoading(false);
+                    setRestaurantsData([]);
+                }
+            );
+            return () => unsub();
+        } catch (e) {
+            setIsLoading(false);
+        }
     }, [branchId]);
     
     const restaurants = useMemo(() => {
@@ -63,7 +67,7 @@ export const useRestaurants = (branchId?: string) => {
             const snapshot = await uploadString(storageRef, base64, 'data_url');
             return await getDownloadURL(snapshot.ref);
         } catch (e) {
-            console.error("Storage upload failed:", e);
+            console.warn("Storage upload failed, using base64:", e);
             return base64;
         }
     }, []);
@@ -74,28 +78,35 @@ export const useRestaurants = (branchId?: string) => {
             const finalData = { 
                 ...restaurantData, 
                 image: imageUrl,
-                branchId: branchId && branchId !== 'all' ? branchId : (restaurantData.branchId || 'main')
+                branchId: branchId && branchId !== 'all' ? branchId : (restaurantData.branchId || 'main'),
+                rating: restaurantData.rating || 5,
+                commissionRate: restaurantData.commissionRate || 10
             };
-            await addDoc(collection(db, "restaurants"), finalData);
+            const docRef = await addDoc(collection(db, "restaurants"), finalData);
             toast({ title: "تمت إضافة المتجر بنجاح" });
-        } catch (error) { 
-            toast({ title: "فشل إضافة المتجر", variant: "destructive" }); 
+            return docRef.id;
+        } catch (error: any) { 
+            console.error("Add restaurant error:", error);
+            toast({ title: "فشل إضافة المتجر", description: error.message, variant: "destructive" }); 
+            throw error;
         }
     }, [toast, uploadImage, branchId]);
 
     const updateRestaurant = useCallback(async (updatedRestaurant: Partial<Restaurant> & { id: string }) => {
         try {
             const { id, image, ...restaurantData } = updatedRestaurant;
-            const finalData: Partial<Omit<Restaurant, 'id'>> = { ...restaurantData };
+            const finalData: any = { ...restaurantData };
              if (image && image.startsWith('data:')) {
                 finalData.image = await uploadImage(image, `restaurants/${id}`);
-            } else {
+            } else if (image) {
                 finalData.image = image;
             }
-            await updateDoc(doc(db, "restaurants", id), finalData as any);
+            await updateDoc(doc(db, "restaurants", id), finalData);
             toast({ title: "تم تحديث المتجر بنجاح" });
-        } catch (error) { 
-            toast({ title: "فشل تحديث المتجر", variant: "destructive" }); 
+        } catch (error: any) { 
+            console.error("Update restaurant error:", error);
+            toast({ title: "فشل تحديث المتجر", description: error.message, variant: "destructive" }); 
+            throw error;
         }
     }, [toast, uploadImage]);
 
@@ -103,8 +114,8 @@ export const useRestaurants = (branchId?: string) => {
         try {
             await deleteDoc(doc(db, "restaurants", restaurantId));
             toast({ title: "تم حذف المتجر بنجاح" });
-        } catch (error) { 
-            toast({ title: "فشل حذف المتجر", variant: "destructive" }); 
+        } catch (error: any) { 
+            toast({ title: "فشل حذف المتجر", description: error.message, variant: "destructive" }); 
         }
     }, [toast]);
 

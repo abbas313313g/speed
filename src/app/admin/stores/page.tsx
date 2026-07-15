@@ -43,9 +43,9 @@ const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     restaurantNumber: '',
     name: '',
     image: '',
-    rating: 0,
-    latitude: undefined,
-    longitude: undefined,
+    rating: 5,
+    latitude: 32.3333,
+    longitude: 44.6500,
     openTime: '09:00',
     closeTime: '23:00',
     loginCode: '',
@@ -64,21 +64,29 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
 
   const handleSave = async () => {
     if (!currentStore.name || !currentStore.image || !currentStore.loginCode || !currentStore.restaurantNumber) {
-        toast({ title: "بيانات ناقصة", description: "الرجاء إكمال كافة الحقول المطلوبة بما في ذلك رقم المتجر.", variant: "destructive" }); 
+        toast({ title: "بيانات ناقصة", description: "الرجاء إكمال كافة الحقول المطلوبة بما في ذلك رقم المتجر والصورة.", variant: "destructive" }); 
         return;
     }
+    
     setIsSaving(true);
     try {
-        const storeToSave = { ...currentStore, branchId: branchId || 'main' };
+        const storeToSave = { 
+            ...currentStore, 
+            branchId: branchId || 'main',
+            rating: Number(currentStore.rating) || 5,
+            commissionRate: Number(currentStore.commissionRate) || 10
+        };
+        
         if (isEditing && currentStore.id) {
             await updateRestaurant(storeToSave as any);
         } else {
             await addRestaurant(storeToSave as any);
         }
         setOpen(false);
-        setCurrentStore({ ...EMPTY_STORE });
-    } catch (e) { 
-        toast({ title: "فشل الحفظ", variant: "destructive" }); 
+        setCurrentStore({ ...EMPTY_STORE, branchId: branchId || 'main' });
+    } catch (e: any) { 
+        console.error("Save store error:", e);
+        // Error toast is handled in the hook
     } finally {
         setIsSaving(false);
     }
