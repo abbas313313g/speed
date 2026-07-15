@@ -64,7 +64,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const isLoading = productsLoading || restaurantsLoading || ticketsLoading || couponsLoading || telegramLoading;
 
-    // تهيئة نظام تاريخ التصفح (History API) لدعم زر الرجوع في الموبايل
     useEffect(() => {
         let id = localStorage.getItem('speedShopUserId');
         if (!id) { id = uuidv4(); localStorage.setItem('speedShopUserId', id); }
@@ -77,7 +76,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             if(savedAddresses) setAddresses(JSON.parse(savedAddresses));
         } catch (e) {}
         
-        // دفع الحالة الأولية للتاريخ
         if (window.history.state === null) {
             window.history.replaceState({ tab: 0 }, '');
         }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo } from 'react';
@@ -141,7 +142,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                 </CardHeader>
                 <CardContent className="p-4 space-y-4">
                     {order.items.map(item => {
-                    const itemPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
+                    const itemPrice = item.selectedSize?.price || item.product.discountPrice || item.product.price;
                     return (
                         <div key={item.product.id + (item.selectedSize?.name || '')} className="flex justify-between items-center text-xs">
                             <div className="flex items-center gap-3">
