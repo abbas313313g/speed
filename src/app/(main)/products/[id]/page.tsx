@@ -40,8 +40,8 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     if (product?.sizes && product.sizes.length > 0) {
-      const firstAvailableSize = product.sizes.find(s => s.stock > 0);
-      setSelectedSize(firstAvailableSize);
+      // لا نختار أي حجم تلقائياً لنجبر المستخدم على الاختيار كما طلب
+      setSelectedSize(undefined);
     } else {
         setSelectedSize(undefined);
     }
@@ -58,7 +58,13 @@ export default function ProductDetailPage() {
     return product?.stock ?? 0;
   }, [selectedSize, product]);
 
-  const isOutOfStock = availableStock <= 0;
+  const isOutOfStock = useMemo(() => {
+      if (product?.sizes && product.sizes.length > 0) {
+          if (!selectedSize) return false; // لا يظهر "نفد" حتى يختار حجماً معيناً
+          return selectedSize.stock <= 0;
+      }
+      return (product?.stock ?? 0) <= 0;
+  }, [product, selectedSize]);
 
   if (isLoading || !product) {
     return (
@@ -73,10 +79,17 @@ export default function ProductDetailPage() {
 
   const handleAddToCart = () => {
       if (restaurant && !restaurant.isStoreOpen) {
-        toast({ title: "المتجر مغلق حاليًا", description: "لا يمكنك إضافة منتجات من هذا المتجر الآن.", variant: "destructive" });
+        toast({ title: "المتجر مغلق حاليًا", variant: "destructive" });
         return;
       }
-      if (isOutOfStock) return;
+      if (product.sizes && product.sizes.length > 0 && !selectedSize) {
+        toast({ title: "يرجى اختيار الحجم أولاً", description: "يجب اختيار أحد الخيارات المتاحة للمتابعة.", variant: "destructive" });
+        return;
+      }
+      if (isOutOfStock) {
+        toast({ title: "عذراً، هذا الخيار نفد", variant: "destructive" });
+        return;
+      }
       
       const wasAdded = addToCart(product, quantity, selectedSize);
       if (wasAdded) {
@@ -88,7 +101,7 @@ export default function ProductDetailPage() {
   };
 
   const handleQuantityChange = (newQuantity: number) => {
-    if (newQuantity > availableStock) {
+    if (newQuantity > availableStock && !product.isUnlimitedStock) {
       setQuantity(availableStock);
     } else if (newQuantity < 1) {
       setQuantity(1);
@@ -127,7 +140,7 @@ export default function ProductDetailPage() {
         <div className="flex justify-between items-start">
             <h1 className="text-3xl font-black text-primary">{product.name}</h1>
             <Badge variant={isOutOfStock ? "destructive" : "secondary"} className="rounded-xl">
-                {isOutOfStock ? "نفدت الكمية" : `المتوفر: ${availableStock}`}
+                {isOutOfStock ? "نفد" : product.isUnlimitedStock ? "متوفر" : `المتوفر: ${availableStock}`}
             </Badge>
         </div>
         <p className="text-muted-foreground text-lg leading-relaxed">{product.description}</p>
@@ -143,7 +156,7 @@ export default function ProductDetailPage() {
         
         {product.sizes && product.sizes.length > 0 && (
           <div className="space-y-4">
-            <Label className="font-black text-xl">اختر الحجم:</Label>
+            <Label className="font-black text-xl">اختر الحجم المطلوبة:</Label>
             <div className="grid grid-cols-2 gap-3">
               {product.sizes.map((size) => (
                 <button
@@ -152,7 +165,7 @@ export default function ProductDetailPage() {
                     onClick={() => setSelectedSize(size)}
                     className={`flex flex-col items-center gap-1 p-4 rounded-3xl border-2 transition-all active:scale-95 ${
                         selectedSize?.name === size.name 
-                        ? 'border-primary bg-primary/5 text-primary' 
+                        ? 'border-primary bg-primary/10 text-primary shadow-inner' 
                         : 'border-muted bg-card text-muted-foreground'
                     } ${size.stock <= 0 ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
                 >
@@ -165,7 +178,7 @@ export default function ProductDetailPage() {
         )}
 
         <div className="flex items-center justify-between p-4 bg-muted/20 rounded-[2rem] border-2 border-dashed">
-            <p className="font-bold text-lg">الكمية المطلوبة:</p>
+            <p className="font-bold text-lg">الكمية:</p>
             <div className="flex items-center gap-4">
                 <button 
                     onClick={() => handleQuantityChange(quantity - 1)} 
@@ -185,18 +198,23 @@ export default function ProductDetailPage() {
         
         <Button 
             size="lg" 
-            className="w-full h-16 text-2xl font-black rounded-[2rem] shadow-xl shadow-primary/20" 
+            className={cn(
+                "w-full h-16 text-xl font-black rounded-[2rem] shadow-xl transition-all",
+                (!selectedSize && product.sizes && product.sizes.length > 0) ? "bg-muted text-muted-foreground grayscale" : "bg-primary shadow-primary/20"
+            )}
             onClick={handleAddToCart} 
             disabled={isOutOfStock || (restaurant && !restaurant.isStoreOpen)}
         >
-          <ShoppingCart className="ml-3 h-8 w-8"/>
-          {restaurant && !restaurant.isStoreOpen ? "المتجر مغلق" : (isOutOfStock ? "نفدت الكمية" : "إضافة إلى السلة")}
+          <ShoppingCart className="ml-3 h-7 w-7"/>
+          {restaurant && !restaurant.isStoreOpen ? "المتجر مغلق" : 
+           (product.sizes && product.sizes.length > 0 && !selectedSize) ? "اختر الحجم أولاً" :
+           isOutOfStock ? "نفدت الكمية" : "إضافة إلى السلة"}
         </Button>
       </div>
       
        {relatedProducts.length > 0 && (
          <div className="pt-8 border-t px-6">
-            <h2 className="text-2xl font-black mb-6">منتجات أخرى قد تعجبك</h2>
+            <h2 className="text-2xl font-black mb-6">منتجات مشابهة</h2>
             <div className="grid grid-cols-2 gap-4 pb-12">
                 {relatedProducts.map(p => <ProductCard key={p.id} product={p}/>)}
             </div>

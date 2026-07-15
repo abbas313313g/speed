@@ -3,7 +3,7 @@
 
 import React, { useMemo, useContext } from "react";
 import Image from "next/image";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, ListChecks } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
@@ -26,13 +26,15 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === product.restaurantId), [product, restaurants]);
 
+  const hasSizes = product.sizes && product.sizes.length > 0;
+
   const isOutOfStock = useMemo(() => {
     if (product.isUnlimitedStock) return false;
-    if (product.sizes && product.sizes.length > 0) {
-      return product.sizes.every(size => size.stock <= 0);
+    if (hasSizes) {
+      return product.sizes!.every(size => size.stock <= 0);
     }
     return product.stock <= 0;
-  }, [product]);
+  }, [product, hasSizes]);
 
   const handleOpenProduct = () => {
     if (context) {
@@ -46,12 +48,18 @@ function ProductCardComponent({ product }: ProductCardProps) {
     e.stopPropagation();
 
     if (restaurant && !restaurant.isStoreOpen) {
-        toast({ title: "المتجر مغلق حاليًا", description: `لا يمكنك الطلب من "${restaurant.name}" في هذا الوقت.`, variant: "destructive" });
+        toast({ title: "المتجر مغلق حاليًا", variant: "destructive" });
         return;
     }
 
     if (isOutOfStock) {
-        toast({ title: "نفدت الكمية", description: `عذراً، منتج "${product.name}" غير متوفر حالياً.`, variant: "destructive" });
+        toast({ title: "نفدت الكمية", variant: "destructive" });
+        return;
+    }
+
+    if (hasSizes) {
+        // إذا كان له أحجام، نجبر الزبون على الدخول لصفحة التفاصيل للاختيار
+        handleOpenProduct();
         return;
     }
 
@@ -59,13 +67,19 @@ function ProductCardComponent({ product }: ProductCardProps) {
     if (wasAdded) {
         toast({
             title: "تمت الإضافة",
-            description: `تمت إضافة ${product.name} إلى سلتك بنجاح.`,
+            description: `تمت إضافة ${product.name} إلى سلتك.`,
         });
     }
   };
 
-  const hasDiscount = !!product.discountPrice;
-  const displayPrice = product.discountPrice || product.price;
+  const displayPrice = useMemo(() => {
+      if (hasSizes) {
+          const prices = product.sizes!.map(s => s.price);
+          return Math.min(...prices);
+      }
+      return product.discountPrice || product.price;
+  }, [product, hasSizes]);
+
   const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/600x400.png';
 
   return (
@@ -84,24 +98,32 @@ function ProductCardComponent({ product }: ProductCardProps) {
               unoptimized={true}
             />
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2">نفد</Badge>}
-            {!restaurant?.isStoreOpen && <Badge variant="destructive" className="absolute top-2 left-2">مغلق</Badge>}
-            {hasDiscount && <Badge className="absolute top-2 right-2 bg-red-500">خصم</Badge>}
+            {!restaurant?.isStoreOpen && <Badge variant="destructive" className="absolute top-2 left-2 text-[10px]">مغلق</Badge>}
+            {hasSizes && <Badge className="absolute top-2 right-2 bg-primary/80 backdrop-blur-md text-[10px]">{product.sizes!.length} أحجام</Badge>}
           </div>
           <div className="p-3">
-            <h3 className="truncate font-bold text-base">{product.name}</h3>
+            <h3 className="truncate font-bold text-sm">{product.name}</h3>
             <div className="mt-1 flex items-center justify-between">
               <div className="flex flex-col">
-                  {hasDiscount && (
+                  {hasSizes ? (
+                      <p className="text-[9px] text-muted-foreground font-bold">يبدأ من:</p>
+                  ) : product.discountPrice ? (
                      <p className="text-[10px] text-muted-foreground line-through">
                         {formatCurrency(product.price)}
                      </p>
-                  )}
-                  <p className="text-base font-black text-primary">
+                  ) : null}
+                  <p className="text-sm font-black text-primary">
                     {formatCurrency(displayPrice)}
                   </p>
               </div>
-              <Button size="icon" variant="ghost" className="h-8 w-8 text-primary bg-primary/10 rounded-xl" onClick={handleAddToCart} disabled={isOutOfStock || !restaurant?.isStoreOpen}>
-                <PlusCircle className="h-5 w-5" />
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                className={cn("h-9 w-9 rounded-xl shadow-sm active:scale-75 transition-all", hasSizes ? "bg-secondary text-primary" : "bg-primary text-white hover:bg-primary/90")} 
+                onClick={handleAddToCart} 
+                disabled={isOutOfStock || !restaurant?.isStoreOpen}
+              >
+                {hasSizes ? <ListChecks className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
               </Button>
             </div>
           </div>
