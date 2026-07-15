@@ -40,7 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import Image from 'next/image';
 import { Edit, Trash2, PlusCircle, X, Upload, Eye, EyeOff } from 'lucide-react';
 import type { Product, ProductSize } from '@/lib/types';
@@ -142,7 +142,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
         setOpen(false);
         setCurrentProduct({ ...EMPTY_PRODUCT });
     } catch (error) {
-        toast({ title: "فشل حفظ المنتج", variant: "destructive" });
+        console.error("Save product error:", error);
     } finally {
         setIsSaving(false);
     }
