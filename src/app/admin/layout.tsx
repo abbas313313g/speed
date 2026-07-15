@@ -44,7 +44,7 @@ export default function AdminLayout() {
   const [activeTab, setActiveTab] = useState(0);
   const [requestStatus, setRequestStatus] = useState<'none' | 'sent'>('none');
   
-  const { accessList, isLoading: accessLoading, requestAccess, autoApproveFirst, getDeviceId } = useAdminAccess();
+  const { accessList, isLoading: accessLoading, requestAccess, autoApproveFirst, getDeviceId } = useAdminAccess(branchParam);
   const { branches, isLoading: branchesLoading } = useBranches();
   const { toast } = useToast();
 
@@ -56,7 +56,6 @@ export default function AdminLayout() {
   useEffect(() => {
     if (!accessLoading) {
         const deviceId = getDeviceId();
-        // التحقق من وجود ترخيص للجهاز مرتبط بهذا الفرع تحديداً
         const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === branchParam);
         if (myAccess && myAccess.status === 'approved') {
             setIsAuthenticated(true);
@@ -71,7 +70,6 @@ export default function AdminLayout() {
         const deviceName = navigator.userAgent.substring(0, 50);
         const deviceId = getDeviceId();
         
-        // محاولة اعتماد الجهاز تلقائياً إذا كان الأول لهذا الفرع
         const wasFirst = await autoApproveFirst(branchParam, deviceName);
         if (wasFirst) {
             setIsAuthenticated(true);
@@ -176,12 +174,6 @@ export default function AdminLayout() {
             <div className="bg-primary/10 p-2 rounded-xl"><Building2 className="h-5 w-5 text-primary"/></div>
             <div className="text-xl font-black text-primary truncate max-w-[200px]">{currentBranch.name}</div>
           </div>
-          
-          {branchParam !== 'main' && (
-              <Button variant="ghost" className="mr-auto text-xs font-bold gap-1" onClick={() => router.push('/admin')}>
-                  <LayoutDashboard className="h-3 w-3"/> العودة للرئيسية
-              </Button>
-          )}
         </header>
 
         <main className="flex-1 relative overflow-hidden bg-muted/5">
@@ -202,8 +194,8 @@ export default function AdminLayout() {
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminCouponsPage /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminUsersPage branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDeliveryWorkersPage branchId={branchParam} /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminReportsPage branchId={branchParam} /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSupportTicketsPage /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminReportsPage /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSupportTicketsPage branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminTelegramPage branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSettingsPage /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminApprovalsPage branchId={branchParam} /></ScrollArea></div>

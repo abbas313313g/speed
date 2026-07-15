@@ -38,7 +38,7 @@ export interface Product {
   categoryId: string;
   restaurantId: string;
   status: 'approved' | 'pending';
-  branchId: string; // الربط بالفرع إلزامي وحاسم للعزل
+  branchId: string;
 }
 
 export interface Category {
@@ -61,7 +61,7 @@ export interface Restaurant {
   isStoreOpen?: boolean; 
   loginCode: string;
   commissionRate: number;
-  branchId: string; // الربط بالفرع إلزامي
+  branchId: string;
 }
 
 export interface Branch {
@@ -97,7 +97,7 @@ export interface DeliveryWorker {
     unfreezeProgress?: number;
     isOnline?: boolean;
     totalDeliveredCount?: number;
-    branchId: string; // الربط بالفرع إلزامي
+    branchId: string;
 }
 
 export type OrderStatus = 'unassigned' | 'pending_assignment' | 'preparing' | 'confirmed' | 'ready_for_pickup' | 'on_the_way' | 'delivered' | 'cancelled';
@@ -118,7 +118,7 @@ export interface Order {
     isPaid: boolean;
     isFeePaid: boolean;
     isOrderPaidToOffice: boolean;
-    branchId: string; // الربط بالفرع إلزامي
+    branchId: string;
     appliedCoupon: {
       code: string;
       discountAmount: number;
@@ -144,6 +144,7 @@ export interface SupportTicket {
     createdAt: string;
     isResolved: boolean;
     history: Message[];
+    branchId: string;
 }
 
 export interface Coupon {
@@ -154,6 +155,8 @@ export interface Coupon {
     maxUses: number;
     usedCount: number;
     usedBy: string[]; 
+    restaurantId?: string;
+    isFirstOrderOnly?: boolean;
 }
 
 export interface TelegramConfig {
@@ -174,7 +177,7 @@ export interface AppSettings {
 export interface AdminAccess {
     id: string;
     deviceId: string;
-    branchId: string | 'main';
+    branchId: string;
     status: 'approved' | 'pending';
     requestedAt: string;
     approvedAt?: string;

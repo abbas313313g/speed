@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, doc, runTransaction, arrayUnion, updateDoc } from 'firebase/firestore';
+import { collection, doc, runTransaction, arrayUnion, updateDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
@@ -37,7 +37,7 @@ interface AppContextType {
     mySupportTicket: SupportTicket | null;
     startNewTicketClient: () => void;
     activeTab: number;
-    setActiveTab: (index: number) => void;
+    setActiveTab: (index: number, pushToHistory?: boolean) => void;
     selectedProductId: string | null;
     setSelectedProductId: (id: string | null) => void;
     selectedRestaurantId: string | null;
@@ -55,17 +55,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const { supportTickets, isLoading: ticketsLoading, createSupportTicket: createTicketHook } = useSupportTickets();
     const { coupons, isLoading: couponsLoading } = useCoupons();
     const { telegramConfigs, isLoading: telegramLoading } = useTelegramConfigs();
-    const { allOrders, isLoading: ordersLoading } = useOrders();
 
     const [cart, setCart] = useState<CartItem[]>([]);
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [userId, setUserId] = useState<string|null>(null);
     const [isForceNewTicket, setIsForceNewTicket] = useState(false);
-    const [activeTab, setActiveTab] = useState(0);
+    const [activeTab, setActiveTabState] = useState(0);
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
 
-    const isLoading = productsLoading || restaurantsLoading || ticketsLoading || couponsLoading || telegramLoading || ordersLoading;
+    const isLoading = productsLoading || restaurantsLoading || ticketsLoading || couponsLoading || telegramLoading;
 
     useEffect(() => {
         let id = localStorage.getItem('speedShopUserId');
@@ -77,12 +76,29 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             const savedAddresses = localStorage.getItem('speedShopAddresses');
             if(savedAddresses) setAddresses(JSON.parse(savedAddresses));
         } catch (e) {}
+        
+        // دعم زر الرجوع
+        const handlePopState = (event: PopStateEvent) => {
+            if (event.state && typeof event.state.tab === 'number') {
+                setActiveTabState(event.state.tab);
+            } else {
+                setActiveTabState(0);
+            }
+        };
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, []);
+
+    const setActiveTab = useCallback((index: number, pushToHistory = true) => {
+        setActiveTabState(index);
+        if (pushToHistory) {
+            window.history.pushState({ tab: index }, '');
+        }
     }, []);
 
     useEffect(() => { if (!isLoading) localStorage.setItem('speedShopCart', JSON.stringify(cart)); }, [cart, isLoading]);
     useEffect(() => { if (!isLoading) localStorage.setItem('speedShopAddresses', JSON.stringify(addresses)); }, [addresses, isLoading]);
 
-    // فلترة المتاجر بناءً على المسافة (20كم) وحالة المنتج (مقبول)
     const currentAddr = addresses[0];
     const filteredRestaurants = useMemo(() => {
         if (!currentAddr?.latitude || !currentAddr?.longitude) return restaurants;
@@ -163,7 +179,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setIsForceNewTicket(false);
         if (mySupportTicket && !mySupportTicket.isResolved) { await addMessageToTicket(mySupportTicket.id, msg); return; }
         const userName = addresses[0]?.name || `مستخدم ${userId.substring(0, 4)}`;
-        await createTicketHook(msg, userId, userName);
+        const userZone = addresses[0]?.deliveryZone;
+        await createTicketHook(msg, userId, userName, userZone);
     }, [userId, mySupportTicket, addresses, createTicketHook, addMessageToTicket]);
 
     const placeOrder = useCallback(async (addr: Address, dFee: number, coup?: string): Promise<string | null> => {
@@ -174,7 +191,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             await runTransaction(db, async (tx) => {
                 const pRefs = curCart.map(i => doc(db, "products", i.product.id));
-                const pSnaps = await Promise.all(pRefs.map(r => tx.get(ref)));
                 let cData: Coupon | null = null;
                 if (coup?.trim()) {
                     const fC = coupons.find(c => c.code === coup.trim().toUpperCase());
@@ -184,48 +200,74 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     }
                 }
                 if (coup?.trim() && !cData) throw new Error("USER_ERROR: كود الخصم غير صحيح.");
-                if (cData && (cData.usedCount >= cData.maxUses || cData.usedBy?.includes(curId))) throw new Error("USER_ERROR: الكود غير متاح.");
+                
+                // التحقق المطور للكوبون
+                if (cData) {
+                    if (cData.usedCount >= cData.maxUses) throw new Error("USER_ERROR: الكود وصل للحد الأقصى للاستخدام.");
+                    if (cData.usedBy?.includes(curId)) throw new Error("USER_ERROR: لقد استخدمت هذا الكود مسبقاً.");
+                    if (cData.restaurantId && cData.restaurantId !== curCart[0].product.restaurantId) throw new Error("USER_ERROR: هذا الكود مخصص لمتجر آخر.");
+                    
+                    if (cData.isFirstOrderOnly) {
+                        const ordersQuery = query(collection(db, "orders"), where("userId", "==", curId));
+                        const ordersSnap = await getDocs(ordersQuery);
+                        if (!ordersSnap.empty) throw new Error("USER_ERROR: هذا الكود مخصص للطلب الأول فقط.");
+                    }
+                }
 
                 let tProfit = 0; let curCartTotal = 0;
-                const ups: any[] = [];
-                for (let i = 0; i < pSnaps.length; i++) {
-                    const item = curCart[i]; const sProd = pSnaps[i].data() as Product;
+                for (let i = 0; i < curCart.length; i++) {
+                    const item = curCart[i];
+                    const pSnap = await tx.get(doc(db, "products", item.product.id));
+                    const sProd = pSnap.data() as Product;
                     const price = item.selectedSize?.price ?? sProd.discountPrice ?? sProd.price ?? 0;
                     curCartTotal += (price * item.quantity);
                     tProfit += (price - (sProd.wholesalePrice || 0)) * item.quantity;
+                    
                     if (item.selectedSize) {
-                        const sIdx = sProd.sizes?.findIndex(s => s.name === item.selectedSize!.name);
-                        if (sIdx === undefined || sIdx === -1 || sProd.sizes![sIdx].stock < item.quantity) throw new Error("USER_ERROR: كمية غير كافية.");
-                        const nSizes = [...sProd.sizes!]; nSizes[sIdx].stock -= item.quantity;
-                        ups.push({ ref: pRefs[i], data: { sizes: nSizes } });
+                        const nSizes = [...sProd.sizes!];
+                        const sIdx = nSizes.findIndex(s => s.name === item.selectedSize!.name);
+                        if (sIdx === -1 || nSizes[sIdx].stock < item.quantity) throw new Error("USER_ERROR: كمية غير كافية.");
+                        nSizes[sIdx].stock -= item.quantity;
+                        tx.update(doc(db, "products", item.product.id), { sizes: nSizes });
                     } else {
                         if ((sProd.stock || 0) < item.quantity) throw new Error("USER_ERROR: كمية غير كافية.");
-                        ups.push({ ref: pRefs[i], data: { stock: (sProd.stock || 0) - item.quantity } });
+                        tx.update(doc(db, "products", item.product.id), { stock: (sProd.stock || 0) - item.quantity });
                     }
                 }
-                ups.forEach(u => tx.update(u.ref, u.data));
+                
                 let disc = 0; let cInfo: any = null;
-                if (cData) { disc = cData.discountValue; cInfo = { code: cData.code, discountAmount: disc }; tx.update(doc(db, "coupons", cData.id), { usedCount: (cData.usedCount || 0) + 1, usedBy: arrayUnion(curId) }); }
+                if (cData) { 
+                    disc = cData.discountValue; 
+                    cInfo = { code: cData.code, discountAmount: disc }; 
+                    tx.update(doc(db, "coupons", cData.id), { 
+                        usedCount: (cData.usedCount || 0) + 1, 
+                        usedBy: arrayUnion(curId) 
+                    }); 
+                }
+                
                 const fTotal = Math.max(0, curCartTotal - disc) + dFee;
                 const nORef = doc(collection(db, "orders")); newOId = nORef.id;
                 const rest = restaurants.find(r => r.id === curCart[0].product.restaurantId);
                 const nOData: Omit<Order, 'id'> = {
                     userId: curId, items: curCart as any, total: fTotal, date: new Date().toISOString(), status: 'unassigned', estimatedDelivery: new Date(Date.now() + 45*60*1000).toISOString(),
                     address: addr, profit: tProfit, deliveryFee: dFee, deliveryWorkerId: null, deliveryWorker: null, isPaid: false, isFeePaid: false, isOrderPaidToOffice: false, appliedCoupon: cInfo,
-                    restaurant: rest ? { id: rest.id, name: rest.name, latitude: rest.latitude || null, longitude: rest.longitude || null } : null
+                    restaurant: rest ? { id: rest.id, name: rest.name, latitude: rest.latitude || null, longitude: rest.longitude || null } : null,
+                    branchId: rest?.branchId || 'main'
                 };
                 tx.set(nORef, nOData);
             });
             clearCart();
-            if (newOId) telegramConfigs.filter(c => c.type === 'owner').forEach(c => sendTelegramMessage(c.chatId, `🎉 *طلب جديد!*\n*رقم:* \`${newOId?.substring(0, 6)}\`\n*الزبون:* ${addr.name}\n*المبلغ:* ${formatCurrency(cartTotal)}`));
             return newOId;
-        } catch (e: any) { toast({ title: "فشل الطلب", description: e.message.includes("USER_ERROR") ? e.message.replace("USER_ERROR: ", "") : "حدث خطأ.", variant: "destructive" }); return null; }
-    }, [userId, cart, coupons, restaurants, clearCart, telegramConfigs, toast]);
+        } catch (e: any) { 
+            toast({ title: "فشل الطلب", description: e.message.includes("USER_ERROR") ? e.message.replace("USER_ERROR: ", "") : "حدث خطأ.", variant: "destructive" }); 
+            return null; 
+        }
+    }, [userId, cart, coupons, restaurants, clearCart, toast]);
     
     const value = useMemo(() => ({
         isLoading, placeOrder, createSupportTicket, addMessageToTicket, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress, mySupportTicket, startNewTicketClient, activeTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId,
         filteredRestaurants, filteredProducts
-    }), [isLoading, cart, addresses, userId, mySupportTicket, activeTab, filteredRestaurants, filteredProducts]);
+    }), [isLoading, cart, addresses, userId, mySupportTicket, activeTab, filteredRestaurants, filteredProducts, setActiveTab]);
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
