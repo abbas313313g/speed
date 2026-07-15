@@ -27,6 +27,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
   const restaurant = useMemo(() => restaurants.find(r => r.id === product.restaurantId), [product, restaurants]);
 
   const isOutOfStock = useMemo(() => {
+    if (product.isUnlimitedStock) return false;
     if (product.sizes && product.sizes.length > 0) {
       return product.sizes.every(size => size.stock <= 0);
     }
@@ -36,7 +37,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
   const handleOpenProduct = () => {
     if (context) {
         context.setSelectedProductId(product.id);
-        context.setActiveTab(9); // 9 is ProductDetailPage in the stack
+        context.setActiveTab(9); 
     }
   };
 

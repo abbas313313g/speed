@@ -77,7 +77,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             if(savedAddresses) setAddresses(JSON.parse(savedAddresses));
         } catch (e) {}
         
-        // دعم زر الرجوع
         const handlePopState = (event: PopStateEvent) => {
             if (event.state && typeof event.state.tab === 'number') {
                 setActiveTabState(event.state.tab);
@@ -112,8 +111,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const filteredProducts = useMemo(() => {
         return products.filter(p => {
             const isApproved = p.status === 'approved';
+            const isActive = p.isActive !== false; // تفعيل الفلترة الجديدة
             const restaurantVisible = filteredRestaurants.some(r => r.id === p.restaurantId);
-            return isApproved && restaurantVisible;
+            return isApproved && isActive && restaurantVisible;
         });
     }, [products, filteredRestaurants]);
 
@@ -201,7 +201,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 }
                 if (coup?.trim() && !cData) throw new Error("USER_ERROR: كود الخصم غير صحيح.");
                 
-                // التحقق المطور للكوبون
                 if (cData) {
                     if (cData.usedCount >= cData.maxUses) throw new Error("USER_ERROR: الكود وصل للحد الأقصى للاستخدام.");
                     if (cData.usedBy?.includes(curId)) throw new Error("USER_ERROR: لقد استخدمت هذا الكود مسبقاً.");
@@ -223,15 +222,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     curCartTotal += (price * item.quantity);
                     tProfit += (price - (sProd.wholesalePrice || 0)) * item.quantity;
                     
-                    if (item.selectedSize) {
-                        const nSizes = [...sProd.sizes!];
-                        const sIdx = nSizes.findIndex(s => s.name === item.selectedSize!.name);
-                        if (sIdx === -1 || nSizes[sIdx].stock < item.quantity) throw new Error("USER_ERROR: كمية غير كافية.");
-                        nSizes[sIdx].stock -= item.quantity;
-                        tx.update(doc(db, "products", item.product.id), { sizes: nSizes });
-                    } else {
-                        if ((sProd.stock || 0) < item.quantity) throw new Error("USER_ERROR: كمية غير كافية.");
-                        tx.update(doc(db, "products", item.product.id), { stock: (sProd.stock || 0) - item.quantity });
+                    // تحديث المخزن فقط إذا لم تكن الكمية مفتوحة
+                    if (!sProd.isUnlimitedStock) {
+                        if (item.selectedSize) {
+                            const nSizes = [...sProd.sizes!];
+                            const sIdx = nSizes.findIndex(s => s.name === item.selectedSize!.name);
+                            if (sIdx === -1 || nSizes[sIdx].stock < item.quantity) throw new Error("USER_ERROR: كمية غير كافية.");
+                            nSizes[sIdx].stock -= item.quantity;
+                            tx.update(doc(db, "products", item.product.id), { sizes: nSizes });
+                        } else {
+                            if ((sProd.stock || 0) < item.quantity) throw new Error("USER_ERROR: كمية غير كافية.");
+                            tx.update(doc(db, "products", item.product.id), { stock: (sProd.stock || 0) - item.quantity });
+                        }
                     }
                 }
                 

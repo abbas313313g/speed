@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -41,7 +42,7 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils';
 import Image from 'next/image';
-import { Edit, Trash2, PlusCircle, X, Upload } from 'lucide-react';
+import { Edit, Trash2, PlusCircle, X, Upload, Eye, EyeOff } from 'lucide-react';
 import type { Product, ProductSize } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -55,7 +56,7 @@ const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
   name: '',
   price: 0,
   wholesalePrice: 0,
-  discountPrice: 0, // نستخدم 0 بدلاً من undefined
+  discountPrice: 0,
   sizes: [],
   stock: 0,
   description: '',
@@ -63,7 +64,9 @@ const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
   categoryId: '',
   restaurantId: '',
   status: 'approved',
-  branchId: 'main'
+  branchId: 'main',
+  isActive: true,
+  isUnlimitedStock: false
 };
 
 export default function AdminProductsPage({ branchId }: { branchId: string }) {
@@ -120,10 +123,11 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
             status: isEditing ? (currentProduct.status || 'approved') : 'approved',
             price: Number(currentProduct.price),
             wholesalePrice: Number(currentProduct.wholesalePrice) || 0,
-            stock: Number(currentProduct.stock) || 0
+            stock: currentProduct.isUnlimitedStock ? 999999 : (Number(currentProduct.stock) || 0),
+            isActive: currentProduct.isActive ?? true,
+            isUnlimitedStock: currentProduct.isUnlimitedStock ?? false
         };
 
-        // إزالة حقل الخصم إذا لم تكن هناك قيمة حقيقية لتجنب مشاكل الفايربيس
         if (!productToSave.discountPrice || Number(productToSave.discountPrice) <= 0) {
             delete productToSave.discountPrice;
         } else {
@@ -176,13 +180,38 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                         <Label className="text-right font-bold">السعر بعد الخصم (اختياري)</Label>
                         <Input type="number" value={currentProduct.discountPrice || ''} onChange={(e) => setCurrentProduct({...currentProduct, discountPrice: parseFloat(e.target.value) || 0})} className="col-span-3 rounded-xl" placeholder="اتركه 0 إذا لا يوجد خصم" />
                     </div>
+                    
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label className="text-right font-bold">سعر الجملة (IQD)</Label>
-                        <Input type="number" value={currentProduct.wholesalePrice ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, wholesalePrice: parseFloat(e.target.value) || 0})} className="col-span-3 rounded-xl" />
+                        <Label className="text-right font-bold">كمية المخزن</Label>
+                        <div className="col-span-3 flex items-center gap-4">
+                            <Input 
+                                type="number" 
+                                disabled={currentProduct.isUnlimitedStock}
+                                value={currentProduct.isUnlimitedStock ? '' : (currentProduct.stock ?? '')} 
+                                onChange={(e) => setCurrentProduct({...currentProduct, stock: parseInt(e.target.value) || 0})} 
+                                className="rounded-xl flex-1" 
+                                placeholder={currentProduct.isUnlimitedStock ? "كمية مفتوحة" : "أدخل الكمية"}
+                            />
+                            <div className="flex items-center gap-2">
+                                <Switch 
+                                    id="unlimited" 
+                                    checked={currentProduct.isUnlimitedStock} 
+                                    onCheckedChange={(val) => setCurrentProduct({...currentProduct, isUnlimitedStock: val})} 
+                                />
+                                <Label htmlFor="unlimited" className="text-[10px] font-black">مفتوح</Label>
+                            </div>
+                        </div>
                     </div>
+
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label className="text-right font-bold">الكمية في المخزن</Label>
-                        <Input type="number" value={currentProduct.stock ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, stock: parseInt(e.target.value) || 0})} className="col-span-3 rounded-xl" />
+                        <Label className="text-right font-bold">حالة العرض</Label>
+                        <div className="col-span-3 flex items-center gap-2">
+                            <Switch 
+                                checked={currentProduct.isActive ?? true} 
+                                onCheckedChange={(val) => setCurrentProduct({...currentProduct, isActive: val})} 
+                            />
+                            <span className="text-xs font-bold">{currentProduct.isActive ? 'ظاهر للزبائن' : 'مخفي عن الزبائن'}</span>
+                        </div>
                     </div>
                     
                     <div className="grid grid-cols-4 items-center gap-4">
@@ -193,7 +222,6 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                             </SelectTrigger>
                             <SelectContent>
                                 {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                                {categories.length === 0 && <div className="p-2 text-xs text-muted-foreground">لا توجد أقسام! أضف قسماً أولاً.</div>}
                             </SelectContent>
                         </Select>
                     </div>
@@ -206,7 +234,6 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                             </SelectTrigger>
                             <SelectContent>
                                 {restaurants.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-                                {restaurants.length === 0 && <div className="p-2 text-xs text-muted-foreground">لا توجد متاجر! أضف متجراً أولاً.</div>}
                             </SelectContent>
                         </Select>
                     </div>
@@ -228,7 +255,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                 </div>
                 <DialogFooter>
                     <Button onClick={handleSaveProduct} disabled={isSaving} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl">
-                        {isSaving ? <Loader2 className="animate-spin h-5 w-5"/> : "حفظ المنتج ونشره"}
+                        {isSaving ? <Loader2 className="animate-spin h-5 w-5"/> : "حفظ المنتج"}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -242,20 +269,24 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                 <TableHead>المنتج</TableHead>
                 <TableHead>السعر</TableHead>
                 <TableHead>المخزن</TableHead>
-                <TableHead>المتجر</TableHead>
+                <TableHead>الحالة</TableHead>
                 <TableHead>إجراءات</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {products.map((product) => (
-                <TableRow key={product.id} className="hover:bg-muted/20">
+                <TableRow key={product.id} className={cn("hover:bg-muted/20", !product.isActive && "opacity-50")}>
                   <TableCell>
                     <Image src={product.image || 'https://placehold.co/40x40.png'} alt={product.name} width={40} height={40} className="rounded-lg object-cover" unoptimized={true}/>
                   </TableCell>
                   <TableCell className="font-bold">{product.name}</TableCell>
                   <TableCell className="font-black text-primary">{formatCurrency(product.price)}</TableCell>
-                  <TableCell className="font-bold">{product.stock}</TableCell>
-                  <TableCell className="text-[10px] font-bold text-muted-foreground">{restaurants.find(r => r.id === product.restaurantId)?.name || '-'}</TableCell>
+                  <TableCell className="font-bold">
+                    {product.isUnlimitedStock ? <Badge className="bg-blue-500">مفتوح</Badge> : product.stock}
+                  </TableCell>
+                  <TableCell>
+                     {product.isActive ? <Eye className="h-4 w-4 text-green-500" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                  </TableCell>
                   <TableCell>
                       <div className="flex items-center gap-2">
                           <Button variant="outline" size="icon" onClick={() => handleOpenDialog(product)} className="rounded-lg h-8 w-8"><Edit className="h-4 w-4" /></Button>
@@ -266,7 +297,6 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
               ))}
             </TableBody>
           </Table>
-          {products.length === 0 && <div className="p-20 text-center text-muted-foreground italic font-bold bg-muted/5">لا توجد منتجات مضافة لهذا الفرع بعد.</div>}
       </div>
     </div>
   );

@@ -39,6 +39,8 @@ export interface Product {
   restaurantId: string;
   status: 'approved' | 'pending';
   branchId: string;
+  isActive?: boolean;
+  isUnlimitedStock?: boolean;
 }
 
 export interface Category {
