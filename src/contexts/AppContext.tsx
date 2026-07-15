@@ -98,13 +98,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const currentAddr = addresses[0];
 
-    // الفلترة الجغرافية الصارمة (20كم)
     const filteredRestaurants = useMemo(() => {
         if (!currentAddr?.latitude || !currentAddr?.longitude) return restaurants;
         return restaurants.filter(r => {
             if (!r.latitude || !r.longitude) return true;
             const dist = calculateDistance(currentAddr.latitude!, currentAddr.longitude!, r.latitude, r.longitude);
-            return dist <= 20; // إخفاء المتاجر التي تبعد أكثر من 20كم
+            return dist <= 20;
         });
     }, [restaurants, currentAddr]);
 
@@ -155,7 +154,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const clearCart = useCallback(() => { setCart([]); localStorage.removeItem('speedShopCart'); }, []);
 
     const cartTotal = useMemo(() => cart.reduce((total, item) => {
-        // استخدام || بدلاً من ?? لضمان عدم اعتبار الصفر كقيمة سعر صحيحة والنزول للسعر الأساسي
         const price = item.selectedSize?.price || item.product.discountPrice || item.product.price || 0;
         return total + price * item.quantity;
     }, 0), [cart]);
@@ -187,8 +185,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const placeOrder = useCallback(async (addr: Address, dFee: number, coup?: string): Promise<string | null> => {
         const curId = userId || localStorage.getItem('speedShopUserId');
         if (!curId || cart.length === 0) return null;
-        let newOId: string | null = null;
+        let finalOrderId: string | null = null;
         const curCart = [...cart];
+        
         try {
             await runTransaction(db, async (tx) => {
                 let cData: Coupon | null = null;
@@ -199,6 +198,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                         if (cSnap.exists()) cData = { id: cSnap.id, ...cSnap.data() } as Coupon;
                     }
                 }
+                
                 if (coup?.trim() && !cData) throw new Error("USER_ERROR: كود الخصم غير صحيح.");
                 
                 if (cData) {
@@ -213,31 +213,35 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     }
                 }
 
-                let tProfit = 0; let curCartTotal = 0;
-                for (let i = 0; i < curCart.length; i++) {
-                    const item = curCart[i];
+                let tProfit = 0; 
+                let curCartTotal = 0;
+                
+                for (const item of curCart) {
                     const pSnap = await tx.get(doc(db, "products", item.product.id));
+                    if (!pSnap.exists()) throw new Error("USER_ERROR: أحد المنتجات لم يعد متوفراً.");
+                    
                     const sProd = pSnap.data() as Product;
-                    // استخدام || هنا أيضاً لضمان الحساب الصحيح
                     const price = item.selectedSize?.price || sProd.discountPrice || sProd.price || 0;
+                    
                     curCartTotal += (price * item.quantity);
                     tProfit += (price - (sProd.wholesalePrice || 0)) * item.quantity;
                     
                     if (!sProd.isUnlimitedStock) {
                         if (item.selectedSize) {
-                            const nSizes = [...sProd.sizes!];
+                            const nSizes = [...(sProd.sizes || [])];
                             const sIdx = nSizes.findIndex(s => s.name === item.selectedSize!.name);
-                            if (sIdx === -1 || nSizes[sIdx].stock < item.quantity) throw new Error("USER_ERROR: كمية غير كافية.");
+                            if (sIdx === -1 || nSizes[sIdx].stock < item.quantity) throw new Error(`USER_ERROR: الكمية المطلوبة من ${item.product.name} غير متوفرة.`);
                             nSizes[sIdx].stock -= item.quantity;
                             tx.update(doc(db, "products", item.product.id), { sizes: nSizes });
                         } else {
-                            if ((sProd.stock || 0) < item.quantity) throw new Error("USER_ERROR: كمية غير كافية.");
+                            if ((sProd.stock || 0) < item.quantity) throw new Error(`USER_ERROR: الكمية المطلوبة من ${item.product.name} غير متوفرة.`);
                             tx.update(doc(db, "products", item.product.id), { stock: (sProd.stock || 0) - item.quantity });
                         }
                     }
                 }
                 
-                let disc = 0; let cInfo: any = null;
+                let disc = 0; 
+                let cInfo: any = null;
                 if (cData) { 
                     disc = cData.discountValue; 
                     cInfo = { code: cData.code, discountAmount: disc }; 
@@ -248,22 +252,54 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 }
                 
                 const fTotal = Math.max(0, curCartTotal - disc) + dFee;
-                const nORef = doc(collection(db, "orders")); newOId = nORef.id;
+                const nORef = doc(collection(db, "orders"));
+                finalOrderId = nORef.id;
+                
                 const rest = restaurants.find(r => r.id === curCart[0].product.restaurantId);
                 
-                const nOData: Omit<Order, 'id'> = {
-                    userId: curId, items: curCart as any, total: fTotal, date: new Date().toISOString(), status: 'unassigned', estimatedDelivery: new Date(Date.now() + 45*60*1000).toISOString(),
-                    address: addr, profit: tProfit, deliveryFee: dFee, deliveryWorkerId: null, deliveryWorker: null, isPaid: false, isFeePaid: false, isOrderPaidToOffice: false, appliedCoupon: cInfo,
-                    restaurant: rest ? { id: rest.id, name: rest.name, latitude: rest.latitude || null, longitude: rest.longitude || null } : null,
-                    branchId: rest?.branchId || 'main' 
+                const nOData: any = {
+                    userId: curId,
+                    items: curCart,
+                    total: fTotal,
+                    date: new Date().toISOString(),
+                    status: 'unassigned',
+                    estimatedDelivery: new Date(Date.now() + 45*60*1000).toISOString(),
+                    address: addr,
+                    profit: tProfit,
+                    deliveryFee: dFee,
+                    deliveryWorkerId: null,
+                    deliveryWorker: null,
+                    isPaid: false,
+                    isFeePaid: false,
+                    isOrderPaidToOffice: false,
+                    appliedCoupon: cInfo,
+                    restaurant: rest ? { 
+                        id: rest.id, 
+                        name: rest.name, 
+                        latitude: rest.latitude || null, 
+                        longitude: rest.longitude || null 
+                    } : null,
+                    branchId: rest?.branchId || 'main'
                 };
-                tx.set(nOData, nOData); // Correcting syntax to pass ref
-                tx.set(nORef, nOData);
+                
+                // تنظيف البيانات من الـ undefined قبل الإرسال للفايربيس
+                const cleanData = JSON.parse(JSON.stringify(nOData));
+                tx.set(nORef, cleanData);
             });
+            
             clearCart();
-            return newOId;
+            return finalOrderId;
         } catch (e: any) { 
-            toast({ title: "فشل الطلب", description: e.message.includes("USER_ERROR") ? e.message.replace("USER_ERROR: ", "") : "حدث خطأ.", variant: "destructive" }); 
+            console.error("Order Failure:", e);
+            const errorMsg = e.message.includes("USER_ERROR") 
+                ? e.message.replace("USER_ERROR: ", "") 
+                : "حدث خطأ فني أثناء محاولة إتمام الطلب، يرجى المحاولة لاحقاً.";
+            
+            toast({ 
+                title: "فشل الطلب", 
+                description: errorMsg, 
+                variant: "destructive" 
+            }); 
             return null; 
         }
     }, [userId, cart, coupons, restaurants, clearCart, toast]);
@@ -272,6 +308,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         isLoading, placeOrder, createSupportTicket, addMessageToTicket, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress, mySupportTicket, startNewTicketClient, activeTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId,
         filteredRestaurants, filteredProducts
-    }), [isLoading, cart, addresses, userId, mySupportTicket, activeTab, filteredRestaurants, filteredProducts, setActiveTab]);
+    }), [isLoading, cart, addresses, userId, mySupportTicket, activeTab, filteredRestaurants, filteredProducts, setActiveTab, placeOrder, createSupportTicket, addMessageToTicket, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, addAddress, deleteAddress, startNewTicketClient, setSelectedProductId, setSelectedRestaurantId]);
+
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
