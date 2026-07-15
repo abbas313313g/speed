@@ -10,6 +10,7 @@ import { useRestaurants } from '@/hooks/useRestaurants';
 import { useProducts } from '@/hooks/useProducts';
 import { Badge } from '@/components/ui/badge';
 import { AppContext } from '@/contexts/AppContext';
+import { Button } from '@/components/ui/button';
 
 export default function RestaurantProductsPage() {
   const context = useContext(AppContext);
@@ -44,6 +45,12 @@ export default function RestaurantProductsPage() {
 
   const imageUrl = restaurant.image && (restaurant.image.startsWith('http') || restaurant.image.startsWith('data:')) ? restaurant.image : 'https://placehold.co/100x100.png';
 
+  const handleOpenMap = () => {
+    if (restaurant.latitude && restaurant.longitude) {
+      window.open(`https://www.google.com/maps?q=${restaurant.latitude},${restaurant.longitude}`, '_blank');
+    }
+  };
+
   return (
     <div className="p-4 space-y-6 bg-background h-full overflow-y-auto pb-20">
        <header className="flex items-center gap-4">
@@ -56,31 +63,44 @@ export default function RestaurantProductsPage() {
             <h1 className="text-3xl font-black text-primary">{restaurant.name}</h1>
       </header>
 
-      <div className="flex items-start gap-4 p-5 rounded-[2rem] bg-card border-none shadow-md">
-         <div className="relative h-24 w-24 flex-shrink-0">
-          <Image
-            src={imageUrl}
-            alt={restaurant.name}
-            fill
-            className="object-cover rounded-2xl"
-            unoptimized={true}
-          />
-        </div>
-        <div className="space-y-3 flex-grow">
-            <Badge variant={restaurant.isStoreOpen ? 'secondary' : 'destructive'} className={`rounded-xl text-sm font-bold ${restaurant.isStoreOpen ? "bg-green-100 text-green-800" : ""}`}>
-              {restaurant.isStoreOpen ? 'مفتوح الآن' : 'مغلق حاليًا'}
-            </Badge>
-            <div className="flex items-center gap-2 text-amber-500">
-                <Star className="h-5 w-5 fill-current" />
-                <span className="font-black text-foreground text-xl">{restaurant.rating.toFixed(1)}</span>
+      <div className="flex flex-col p-5 rounded-[2rem] bg-card border-none shadow-md gap-4">
+         <div className="flex items-start gap-4">
+            <div className="relative h-24 w-24 flex-shrink-0">
+              <Image
+                src={imageUrl}
+                alt={restaurant.name}
+                fill
+                className="object-cover rounded-2xl"
+                unoptimized={true}
+              />
             </div>
-            {restaurant.openTime && restaurant.closeTime && (
-                <div className="flex items-center gap-2 text-base font-bold text-muted-foreground">
-                    <Clock className="h-5 w-5 text-primary"/>
-                    <span>{restaurant.openTime} - {restaurant.closeTime}</span>
+            <div className="space-y-2 flex-grow">
+                <Badge variant={restaurant.isStoreOpen ? 'secondary' : 'destructive'} className={`rounded-xl text-sm font-bold ${restaurant.isStoreOpen ? "bg-green-100 text-green-800" : ""}`}>
+                  {restaurant.isStoreOpen ? 'مفتوح الآن' : 'مغلق حاليًا'}
+                </Badge>
+                <div className="flex items-center gap-2 text-amber-500">
+                    <Star className="h-5 w-5 fill-current" />
+                    <span className="font-black text-foreground text-xl">{restaurant.rating.toFixed(1)}</span>
                 </div>
-            )}
-        </div>
+                {restaurant.openTime && restaurant.closeTime && (
+                    <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
+                        <Clock className="h-4 w-4 text-primary"/>
+                        <span>{restaurant.openTime} - {restaurant.closeTime}</span>
+                    </div>
+                )}
+            </div>
+         </div>
+         
+         {restaurant.latitude && restaurant.longitude && (
+           <Button 
+            variant="outline" 
+            className="w-full h-12 rounded-xl border-primary/20 text-primary font-bold gap-2"
+            onClick={handleOpenMap}
+           >
+             <MapPin className="h-5 w-5" />
+             عرض موقع المتجر على الخريطة
+           </Button>
+         )}
       </div>
 
        <div className="space-y-6">
