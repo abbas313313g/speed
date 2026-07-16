@@ -90,39 +90,6 @@ export default function AdminDeliveryZonesPage() {
         <Button onClick={() => handleOpenDialog()} className="rounded-xl h-12">إضافة منطقة جديدة</Button>
       </header>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="sm:max-w-[425px] rounded-[2rem]">
-                <DialogHeader>
-                    <DialogTitle className="text-xl font-black">{isEditing ? 'تعديل المنطقة' : 'إضافة منطقة جديدة'}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4 text-right">
-                    <div className="space-y-1">
-                        <Label className="font-bold">اسم المنطقة (الحي)</Label>
-                        <Input value={currentZone.name ?? ''} onChange={(e) => setCurrentZone({...currentZone, name: e.target.value})} className="rounded-xl h-12" placeholder="مثال: حي الحسين" />
-                    </div>
-                    <div className="space-y-1">
-                        <Label className="font-bold">الفرع / المدينة</Label>
-                        <Select value={currentZone.branchId} onValueChange={(val) => setCurrentZone({...currentZone, branchId: val})}>
-                            <SelectTrigger className="h-12 rounded-xl">
-                                <SelectValue placeholder="اختر الفرع..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="main">الإدارة الرئيسية (بابل)</SelectItem>
-                                {branches.map(b => (
-                                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button type="submit" onClick={handleSave} disabled={isSaving} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl">
-                        {isSaving ? <Loader2 className="ml-2 h-4 w-4 animate-spin"/> : "حفظ المنطقة"}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-
       <div className="bg-white rounded-[1.5rem] border shadow-xl overflow-hidden">
         <Table>
             <TableHeader className="bg-muted/50">
@@ -177,6 +144,39 @@ export default function AdminDeliveryZonesPage() {
         </Table>
         {deliveryZones.length === 0 && <div className="p-20 text-center text-muted-foreground font-bold italic">لا توجد مناطق مضافة حالياً.</div>}
       </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="sm:max-w-[425px] rounded-[2rem]">
+                <DialogHeader>
+                    <DialogTitle className="text-xl font-black">{isEditing ? 'تعديل المنطقة' : 'إضافة منطقة جديدة'}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4 text-right">
+                    <div className="space-y-1">
+                        <Label className="font-bold">اسم المنطقة (الحي)</Label>
+                        <Input value={currentZone.name ?? ''} onChange={(e) => setCurrentZone({...currentZone, name: e.target.value})} className="rounded-xl h-12" placeholder="مثال: حي الحسين" />
+                    </div>
+                    <div className="space-y-1">
+                        <Label className="font-bold">الفرع / المدينة</Label>
+                        <Select value={currentZone.branchId} onValueChange={(val) => setCurrentZone({...currentZone, branchId: val})}>
+                            <SelectTrigger className="h-12 rounded-xl">
+                                <SelectValue placeholder="اختر الفرع..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="main">الإدارة الرئيسية (بابل)</SelectItem>
+                                {branches.map(b => (
+                                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="submit" onClick={handleSave} disabled={isSaving} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl">
+                        {isSaving ? <Loader2 className="ml-2 h-4 w-4 animate-spin"/> : "حفظ المنطقة"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
   );
 }
