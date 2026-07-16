@@ -67,7 +67,6 @@ export const useRestaurants = (branchId?: string) => {
             const snapshot = await uploadString(storageRef, base64, 'data_url');
             return await getDownloadURL(snapshot.ref);
         } catch (e) {
-            console.warn("Storage upload failed, using base64:", e);
             return base64;
         }
     }, []);
@@ -93,7 +92,6 @@ export const useRestaurants = (branchId?: string) => {
             toast({ title: "تمت إضافة المتجر بنجاح" });
             return docRef.id;
         } catch (error: any) { 
-            console.error("Add restaurant error:", error);
             toast({ title: "فشل إضافة المتجر", description: error.message, variant: "destructive" }); 
             throw error;
         }
@@ -126,8 +124,7 @@ export const useRestaurants = (branchId?: string) => {
             await updateDoc(doc(db, "restaurants", id), sanitizedData);
             toast({ title: "تم تحديث المتجر بنجاح" });
         } catch (error: any) { 
-            console.error("Update restaurant error:", error);
-            toast({ title: "فشل تحديث المتجر", description: error.message, variant: "destructive" }); 
+            toast({ title: "فشل تحديث المتجر", variant: "destructive" }); 
             throw error;
         }
     }, [toast, uploadImage]);
@@ -137,7 +134,7 @@ export const useRestaurants = (branchId?: string) => {
             await deleteDoc(doc(db, "restaurants", restaurantId));
             toast({ title: "تم حذف المتجر بنجاح" });
         } catch (error: any) { 
-            toast({ title: "فشل حذف المتجر", description: error.message, variant: "destructive" }); 
+            toast({ title: "فشل حذف المتجر", variant: "destructive" }); 
         }
     }, [toast]);
 

@@ -4,7 +4,8 @@
 import React from 'react';
 
 /**
- * @deprecated تم استبدال الخرائط الداخلية بالروابط الخارجية لخرائط جوجل لضمان الدقة والسرعة وتجنب مشاكل الـ API Keys.
+ * @deprecated تم استبدال نظام الخرائط الداخلي بروابط خارجية (External Navigation) 
+ * لضمان الأمان، السرعة، ومنع أخطاء الـ API Keys في بيئة الإنتاج.
  */
 export function DeliveryMap() {
   return null;

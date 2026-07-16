@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MapPin, Loader2, CheckCircle2, ArrowRight } from "lucide-react";
+import { MapPin, Loader2, CheckCircle2, ArrowRight, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Address } from "@/lib/types";
 import { useAddresses } from "@/hooks/useAddresses";
@@ -40,7 +40,7 @@ export default function AddAddressPage() {
   });
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
-  // تصفية المناطق بناءً على الفرع المختار لضمان دقة الاختيار
+  // تصفية المناطق بناءً على الفرع المختار حصراً
   const filteredZones = useMemo(() => {
     if (!address.branchId) return [];
     return deliveryZones.filter(z => z.branchId === address.branchId);
@@ -70,24 +70,19 @@ export default function AddAddressPage() {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           });
-          toast({ title: "تم تحديد إحداثياتك بدقة 🛰️" });
+          toast({ title: "تم تحديد إحداثياتك بنجاح 🛰️" });
           setIsFetchingLocation(false);
         },
         () => {
           toast({
             title: "فشل تحديد الموقع",
-            description: "الرجاء التأكد من تفعيل خدمة تحديد المواقع في هاتفك.",
+            description: "يرجى تفعيل الـ GPS وإعطاء الإذن للمتصفح.",
             variant: "destructive",
           });
           setIsFetchingLocation(false);
         }
       );
     } else {
-      toast({
-        title: "غير مدعوم",
-        description: "متصفحك لا يدعم خدمة تحديد المواقع.",
-        variant: "destructive",
-      });
       setIsFetchingLocation(false);
     }
   };
@@ -97,7 +92,7 @@ export default function AddAddressPage() {
     if (!address.name || !address.phone || !address.branchId || !address.deliveryZone) {
       toast({
         title: "بيانات غير مكتملة",
-        description: "الرجاء ملء جميع الحقول المطلوبة.",
+        description: "يرجى اختيار المدينة والمنطقة أولاً.",
         variant: "destructive",
       });
       return;
@@ -114,29 +109,27 @@ export default function AddAddressPage() {
             <ArrowRight className="h-6 w-6" />
         </Button>
         <div className="text-right">
-            <h1 className="text-3xl font-black text-primary">إضافة عنوان جديد</h1>
-            <p className="text-muted-foreground font-bold text-xs">أدخل تفاصيل التوصيل بدقة لضمان وصول طلبك.</p>
+            <h1 className="text-2xl font-black text-primary leading-none">إضافة عنوان جديد</h1>
+            <p className="text-muted-foreground font-bold text-[10px] mt-1">يرجى تحديد المدينة أولاً ثم الحي.</p>
         </div>
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-                <Label htmlFor="name" className="font-black text-[10px] uppercase text-muted-foreground mr-1">اسم العنوان</Label>
+            <div className="space-y-1">
+                <Label className="text-[10px] font-black pr-1 uppercase text-muted-foreground">اسم العنوان</Label>
                 <Input
-                    id="name"
                     name="name"
-                    placeholder="مثلاً: المنزل"
+                    placeholder="المنزل، العمل..."
                     value={address.name}
                     onChange={handleChange}
                     className="h-12 rounded-xl font-bold shadow-sm"
                     required
                 />
             </div>
-            <div className="space-y-2">
-                <Label htmlFor="phone" className="font-black text-[10px] uppercase text-muted-foreground mr-1">رقم الهاتف</Label>
+            <div className="space-y-1">
+                <Label className="text-[10px] font-black pr-1 uppercase text-muted-foreground">رقم الهاتف</Label>
                 <Input
-                    id="phone"
                     name="phone"
                     type="tel"
                     dir="ltr"
@@ -149,13 +142,13 @@ export default function AddAddressPage() {
             </div>
         </div>
 
-        <Separator />
+        <Separator className="opacity-50" />
 
-        <div className="space-y-4">
-            <div className="space-y-2">
-                <Label className="font-black text-primary pr-1">1. اختر المدينة (الفرع)</Label>
+        <div className="space-y-4 bg-primary/5 p-4 rounded-[2rem] border-2 border-dashed border-primary/20">
+            <div className="space-y-1">
+                <Label className="text-[10px] font-black text-primary pr-1">1. اختر المدينة (الفرع المسؤل)</Label>
                 <Select value={address.branchId} onValueChange={handleBranchChange} required>
-                    <SelectTrigger className="h-14 rounded-2xl text-lg font-black border-2 border-primary/20 bg-primary/5">
+                    <SelectTrigger className="h-14 rounded-2xl text-lg font-black border-2 border-primary/20 bg-white">
                         <SelectValue placeholder="اختر مدينتك..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl">
@@ -170,10 +163,10 @@ export default function AddAddressPage() {
             </div>
 
             {address.branchId && (
-                <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
-                    <Label className="font-black text-primary pr-1">2. اختر منطقتك / الحي</Label>
+                <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
+                    <Label className="text-[10px] font-black text-primary pr-1">2. اختر منطقتك / الحي</Label>
                     <Select value={address.deliveryZone} onValueChange={handleZoneChange} required>
-                        <SelectTrigger className="h-14 rounded-2xl text-lg font-black border-2 border-primary/20">
+                        <SelectTrigger className="h-14 rounded-2xl text-lg font-black border-2 border-primary/20 bg-white">
                             <SelectValue placeholder="اختر الحي السكني..." />
                         </SelectTrigger>
                         <SelectContent className="rounded-2xl">
@@ -182,7 +175,7 @@ export default function AddAddressPage() {
                                     {zone.name}
                                 </SelectItem>
                             ))}
-                            {filteredZones.length === 0 && <div className="p-4 text-center text-xs font-bold italic">لا توجد مناطق مضافة لهذا الفرع حالياً.</div>}
+                            {filteredZones.length === 0 && <div className="p-4 text-center text-[10px] font-bold italic">لا توجد مناطق مضافة لهذا الفرع.</div>}
                         </SelectContent>
                     </Select>
                 </div>
@@ -197,28 +190,27 @@ export default function AddAddressPage() {
                 disabled={isFetchingLocation}
             >
                 {isFetchingLocation ? (
-                    <><Loader2 className="animate-spin h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">جارِ الاتصال بالأقمار الصناعية...</span></>
+                    <><Loader2 className="animate-spin h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">جارِ تحديد الموقع...</span></>
                 ) : address.latitude !== 0 ? (
-                    <><CheckCircle2 className="h-8 w-8 text-green-500" /> <span className="font-black text-green-600 text-sm">تم تحديد موقعك الجغرافي بنجاح ✅</span></>
+                    <><CheckCircle2 className="h-8 w-8 text-green-500" /> <span className="font-black text-green-600 text-sm">تم تحديد الموقع بنجاح ✅</span></>
                 ) : (
-                    <><MapPin className="h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">اضغط لتأكيد موقعك الحالي على الخريطة</span></>
+                    <><MapPin className="h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">اضغط لتحديد موقعك على الخريطة</span></>
                 )}
             </button>
         </div>
 
-        <div className="space-y-2">
-            <Label htmlFor="details" className="font-black text-[10px] uppercase text-muted-foreground mr-1">تفاصيل إضافية (اختياري)</Label>
+        <div className="space-y-1">
+            <Label className="text-[10px] font-black pr-1 uppercase text-muted-foreground">تفاصيل إضافية (اختياري)</Label>
             <Textarea
-                id="details"
                 name="details"
-                placeholder="أقرب نقطة دالة، رقم الشقة، أو أي تعليمات أخرى..."
+                placeholder="أقرب نقطة دالة، رقم الزقاق..."
                 value={address.details}
                 onChange={handleChange}
                 className="rounded-2xl min-h-[100px] font-bold shadow-sm"
             />
         </div>
 
-        <Button type="submit" className="w-full h-16 rounded-[2rem] text-xl font-black shadow-xl shadow-primary/20 transition-all active:scale-95" disabled={!address.deliveryZone}>
+        <Button type="submit" className="w-full h-16 rounded-[2rem] text-xl font-black shadow-xl shadow-primary/20 transition-all active:scale-95" disabled={!address.deliveryZone || address.latitude === 0}>
           حفظ العنوان والبدء بالتسوق
         </Button>
       </form>
