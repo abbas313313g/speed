@@ -7,7 +7,7 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { MapPin, Phone, ArrowRight, XCircle, Store, Map as MapIcon, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { MapPin, Phone, ArrowRight, XCircle, Store, Map as MapIcon, ChevronDown, ChevronUp } from 'lucide-react';
 import type { OrderStatus } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -112,11 +112,10 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
         </header>
 
         <div className="p-4 space-y-6">
-            {/* خيار الموقع الخارجي */}
             <div className="space-y-3">
                 <Button 
                     variant="outline" 
-                    className="w-full h-20 rounded-[2rem] border-2 border-primary/20 bg-primary/5 flex flex-col gap-1 items-center justify-center group active:scale-95 transition-all shadow-lg"
+                    className="w-full h-20 rounded-[2rem] border-2 border-primary/20 bg-primary/5 flex flex-col gap-1 items-center justify-center active:scale-95 transition-all shadow-lg"
                     onClick={handleOpenGoogleMaps}
                 >
                     <div className="flex items-center gap-2">
