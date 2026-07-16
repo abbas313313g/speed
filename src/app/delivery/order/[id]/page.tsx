@@ -92,7 +92,6 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
       onBack();
   }
 
-  // coordinates for map
   const origin = order.restaurant?.latitude && order.restaurant?.longitude ? { lat: order.restaurant.latitude, lng: order.restaurant.longitude } : null;
   const destination = order.address.latitude && order.address.longitude ? { lat: order.address.latitude, lng: order.address.longitude } : null;
 
@@ -109,24 +108,23 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
         </header>
 
         <div className="p-4 space-y-6">
-            {/* IN-APP MAP SECTION */}
             <div className="space-y-3">
                 <div className="flex items-center justify-between px-2">
                     <h2 className="text-sm font-black text-primary flex items-center gap-2"><MapIcon className="h-4 w-4"/> مسار التوصيل الذكي</h2>
                     {origin && destination && (
                         <Badge variant="secondary" className="text-[8px] font-black bg-primary/10 text-primary border-none">
-                            خريطة مدمجة
+                            تتبع مباشر
                         </Badge>
                     )}
                 </div>
                 {origin && destination ? (
-                    <div className="h-72 w-full shadow-2xl rounded-[2.5rem]">
+                    <div className="h-72 w-full">
                          <DeliveryMap origin={origin} destination={destination} />
                     </div>
                 ) : (
                     <div className="h-40 bg-muted/20 rounded-[2rem] border-2 border-dashed flex items-center justify-center text-center p-6">
                         <p className="text-[10px] font-bold text-muted-foreground leading-relaxed">
-                            عذراً، إحداثيات الموقع غير متوفرة لهذا الطلب.<br/>تأكد من وجود موقع المتجر وعنوان الزبون.
+                            إحداثيات الموقع غير متوفرة لهذا الطلب.<br/>يرجى مراجعة العنوان مع الزبون.
                         </p>
                     </div>
                 )}
@@ -146,7 +144,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                     <CardHeader className="p-3 pb-1 border-b bg-primary/5"><CardTitle className="text-[10px] font-black text-primary">المتجر</CardTitle></CardHeader>
                     <CardContent className="p-3 space-y-2">
                          <p className="text-xs font-black truncate">{order.restaurant?.name || 'غير معروف'}</p>
-                         <p className="text-[9px] text-muted-foreground font-bold">بابل / {order.address.deliveryZone}</p>
+                         <p className="text-[9px] text-muted-foreground font-bold">فرع {order.address.deliveryZone}</p>
                          <Button variant="ghost" size="sm" className="w-full h-8 rounded-lg text-[9px] font-black text-primary" onClick={() => window.open(`https://www.google.com/maps?q=${order.restaurant?.latitude},${order.restaurant?.longitude}`, '_blank')}><Store className="ml-1 h-3 w-3"/> الموقع</Button>
                     </CardContent>
                 </Card>
@@ -157,13 +155,14 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                     onClick={() => setShowBill(!showBill)}
                     className="w-full p-4 flex justify-between items-center bg-muted/30 hover:bg-muted/50 transition-colors"
                 >
-                    <span className="font-black text-xs">تفاصيل الفاتورة والمنتجات</span>
+                    <span className="font-black text-xs">تفاصيل الفاتورة (المنتجات)</span>
                     {showBill ? <ChevronUp className="h-4 w-4"/> : <ChevronDown className="h-4 w-4"/>}
                 </button>
                 {showBill && (
                     <CardContent className="p-4 space-y-4 animate-in slide-in-from-top-2 duration-300">
                         {order.items.map(item => {
-                        const itemPrice = item.selectedSize?.price || item.product.discountPrice || item.product.price;
+                        // تصحيح منطق السعر لضمان عدم ظهور الصفر
+                        const unitPrice = item.selectedSize?.price || item.product.discountPrice || item.product.price || 0;
                         return (
                             <div key={item.product.id + (item.selectedSize?.name || '')} className="flex justify-between items-center text-xs">
                                 <div className="flex items-center gap-3">
@@ -173,27 +172,27 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                                         {item.selectedSize && <p className="text-[9px] text-muted-foreground">{item.selectedSize.name}</p>}
                                     </div>
                                 </div>
-                                <span className="font-black">{formatCurrency(itemPrice * item.quantity)}</span>
+                                <span className="font-black">{formatCurrency(unitPrice * item.quantity)}</span>
                             </div>
                         )
                         })}
                         <Separator className="border-dashed"/>
                         <div className="flex justify-between text-xs font-bold text-muted-foreground">
-                            <span>أجرة التوصيل:</span>
+                            <span>سعر التوصيل:</span>
                             <span>{formatCurrency(order.deliveryFee)}</span>
                         </div>
                     </CardContent>
                 )}
-                <div className="bg-primary/5 p-4 flex justify-between items-center">
-                    <span className="font-black text-sm">المبلغ المطلوب تحصيله:</span>
-                    <span className="text-xl font-black text-primary">{formatCurrency(order.total)}</span>
+                <div className="bg-primary/5 p-5 flex justify-between items-center border-t border-primary/10">
+                    <span className="font-black text-sm">الإجمالي المطلوب تحصيله:</span>
+                    <span className="text-2xl font-black text-primary">{formatCurrency(order.total)}</span>
                 </div>
             </Card>
             
             {nextStatus[order.status] && (
                 <div className="flex flex-col gap-3">
-                    <Button size="lg" className="w-full h-16 rounded-2xl text-lg font-black shadow-xl" onClick={handleUpdateStatus}>
-                        تحديث الحالة: "{getStatusText(nextStatus[order.status]!)}"
+                    <Button size="lg" className="w-full h-16 rounded-2xl text-lg font-black shadow-xl shadow-primary/20" onClick={handleUpdateStatus}>
+                        تحديث: {getStatusText(nextStatus[order.status]!)}
                     </Button>
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -204,9 +203,9 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                         </AlertDialogTrigger>
                         <AlertDialogContent className="rounded-[2rem]">
                             <AlertDialogHeader>
-                                <AlertDialogTitle className="text-right">تأكيد الإلغاء</AlertDialogTitle>
+                                <AlertDialogTitle className="text-right">إلغاء هذا الطلب؟</AlertDialogTitle>
                                 <AlertDialogDescription className="text-right font-bold text-muted-foreground">
-                                    هل أنت متأكد من إلغاء هذا الطلب؟ سيتم إعادته لقائمة الانتظار.
+                                    سيتم سحب الطلب منك وإعادته للمكتب الرئيسي. هل أنت متأكد؟
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter className="flex-row gap-2">
@@ -219,8 +218,9 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
             )}
 
             {order.status === 'delivered' && (
-                <div className="text-center font-black text-green-600 p-10 bg-green-50 rounded-2xl border-2 border-green-100 animate-in zoom-in">
-                    تم توصيل الطلب بنجاح! 🎉
+                <div className="text-center font-black text-green-600 p-10 bg-green-50 rounded-[2.5rem] border-4 border-white shadow-inner animate-in zoom-in">
+                    <p className="text-3xl mb-2">🎉</p>
+                    تم التوصيل بنجاح!
                 </div>
             )}
         </div>
