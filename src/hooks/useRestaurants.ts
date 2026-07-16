@@ -113,15 +113,15 @@ export const useRestaurants = (branchId?: string) => {
                 longitude: restaurantData.longitude !== undefined ? Number(restaurantData.longitude) : undefined
             };
 
-            const sanitizedData: any = Object.fromEntries(Object.entries(finalData).filter(([_, v]) => v !== undefined));
+            const sanitizedUpdate: any = Object.fromEntries(Object.entries(finalData).filter(([_, v]) => v !== undefined));
 
             if (image && image.startsWith('data:')) {
-                sanitizedData.image = await uploadImage(image, `restaurants/${id}`);
+                sanitizedUpdate.image = await uploadImage(image, `restaurants/${id}`);
             } else if (image) {
-                sanitizedData.image = image;
+                sanitizedUpdate.image = image;
             }
 
-            await updateDoc(doc(db, "restaurants", id), sanitizedData);
+            await updateDoc(doc(db, "restaurants", id), sanitizedUpdate);
             toast({ title: "تم تحديث المتجر بنجاح" });
         } catch (error: any) { 
             toast({ title: "فشل تحديث المتجر", variant: "destructive" }); 

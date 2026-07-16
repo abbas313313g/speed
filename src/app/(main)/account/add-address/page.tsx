@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MapPin, Loader2, CheckCircle2, ArrowRight } from "lucide-react";
+import { MapPin, Loader2, CheckCircle2, ArrowRight, Navigation } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Address } from "@/lib/types";
 import { useAddresses } from "@/hooks/useAddresses";
@@ -95,6 +95,10 @@ export default function AddAddressPage() {
         variant: "destructive",
       });
       return;
+    }
+    if (address.latitude === 0) {
+        toast({ title: "تحديد الموقع مطلوب", description: "يجب الضغط على زر تحديد الموقع للمتابعة.", variant: "destructive" });
+        return;
     }
     addAddress(address);
     toast({ title: "تم حفظ العنوان بنجاح!" });
