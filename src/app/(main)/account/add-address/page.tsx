@@ -199,7 +199,7 @@ export default function AddAddressPage() {
                 {isFetchingLocation ? (
                     <><Loader2 className="animate-spin h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">جارِ الاتصال بالأقمار الصناعية...</span></>
                 ) : address.latitude !== 0 ? (
-                    <><CheckCircle2 className="h-8 w-8 text-green-500" /> <span className="font-black text-green-600 text-sm">تم تأكيد موقعك الجغرافي بنجاح ✅</span></>
+                    <><CheckCircle2 className="h-8 w-8 text-green-500" /> <span className="font-black text-green-600 text-sm">تم تحديد موقعك الجغرافي بنجاح ✅</span></>
                 ) : (
                     <><MapPin className="h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">اضغط لتأكيد موقعك الحالي على الخريطة</span></>
                 )}
