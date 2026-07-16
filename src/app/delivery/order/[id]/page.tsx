@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState } from 'react';
@@ -91,9 +92,16 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
 
   const handleOpenMaps = () => {
       if (order.address.latitude && order.address.longitude) {
-          // رابط عالمي يفتح الخرائط خارجياً ويطلب اختيار التطبيق
-          const url = `https://www.google.com/maps/dir/?api=1&destination=${order.address.latitude},${order.address.longitude}`;
-          window.open(url, '_blank');
+          // رابط عالمي يجبر الهاتف على إظهار قائمة اختيار تطبيق الخرائط الأصلي
+          const url = `google.navigation:q=${order.address.latitude},${order.address.longitude}&mode=d`;
+          // بديل للمتصفحات التي لا تدعم الـ URI Scheme مباشرة
+          const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${order.address.latitude},${order.address.longitude}`;
+          
+          window.location.href = url;
+          // بعد ثانيتين إذا لم يفتح التطبيق، نفتح الرابط في المتصفح
+          setTimeout(() => {
+             window.open(webUrl, '_blank');
+          }, 2000);
       } else {
           toast({ title: "الموقع غير متوفر", description: "يرجى التواصل مع الزبون هاتفياً.", variant: "destructive" });
       }
@@ -120,9 +128,9 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                 >
                     <div className="flex items-center gap-2">
                         <Navigation className="h-7 w-7 text-white animate-pulse" />
-                        <span className="text-xl font-black">بدء الملاحة (Maps)</span>
+                        <span className="text-xl font-black">فتح في تطبيق الخرائط</span>
                     </div>
-                    <span className="text-[10px] font-bold text-white/70 italic">اضغط للتوجه لموقع الزبون بدقة</span>
+                    <span className="text-[10px] font-bold text-white/70 italic">اضغط لاختيار تطبيق الملاحة المفضل لديك</span>
                 </Button>
             </div>
 
@@ -144,7 +152,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                     <CardHeader className="p-3 pb-1 border-b bg-primary/5 text-right"><CardTitle className="text-[10px] font-black text-primary">المتجر</CardTitle></CardHeader>
                     <CardContent className="p-3 space-y-2 text-right">
                          <p className="text-xs font-black truncate">{order.restaurant?.name || 'غير معروف'}</p>
-                         <p className="text-[9px] text-muted-foreground font-bold">فرع {order.branchId === 'main' ? 'بابل' : order.branchId}</p>
+                         <p className="text-[9px] text-muted-foreground font-bold">فرع {order.branchId === 'main' ? 'المركز الرئيسي' : order.branchId}</p>
                          <Button variant="ghost" size="sm" className="w-full h-9 rounded-xl text-[9px] font-black text-primary bg-primary/5" onClick={() => window.open(`https://www.google.com/maps?q=${order.restaurant?.latitude},${order.restaurant?.longitude}`, '_blank')}>
                             <Store className="ml-1 h-3.5 w-3.5"/> موقع المتجر
                          </Button>
