@@ -17,6 +17,7 @@ export interface Address {
     latitude?: number;
     longitude?: number;
     details?: string; 
+    branchId?: string; // لربط العنوان بالفرع
 }
 
 export interface ProductSize {
@@ -89,6 +90,7 @@ export interface CartItem {
 export interface DeliveryZone {
   id: string;
   name: string;
+  branchId: string; // ربط المنطقة بالفرع
 }
 
 export interface DeliveryWorker {

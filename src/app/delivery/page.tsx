@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
@@ -122,10 +123,19 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     const { allOrders, isLoading: ordersLoading, updateOrderStatus } = useOrders();
     const { deliveryWorkers, isLoading: workersLoading, updateWorkerStatus } = useDeliveryWorkers();
 
+    // الكشف الفوري عن المعرف بمجرد الدخول للصفحة
     useEffect(() => {
-        const id = localStorage.getItem('deliveryWorkerId');
-        if (id) setWorkerId(id);
-    }, []);
+        const checkId = () => {
+            const id = localStorage.getItem('deliveryWorkerId');
+            if (id && id !== workerId) {
+                setWorkerId(id);
+            }
+        };
+        
+        checkId();
+        const interval = setInterval(checkId, 1000); // مراقبة مستمرة لضمان التحديث بعد Login
+        return () => clearInterval(interval);
+    }, [workerId]);
     
     const worker = useMemo(() => {
         if (!workerId || !deliveryWorkers) return null;
@@ -181,9 +191,10 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         }
     };
     
-    const isLoading = ordersLoading || workersLoading || !workerId;
+    // الانتظار فقط عند جلب البيانات الأساسية
+    const isFetching = ordersLoading || workersLoading;
     
-    if (isLoading) {
+    if (isFetching || !workerId) {
         return (
             <div className="flex h-screen w-full flex-col items-center justify-center bg-background p-6">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />

@@ -33,11 +33,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { Star, Edit, Trash2, Loader2, MapPin, Upload, Percent } from 'lucide-react';
+import { Star, Edit, Trash2, Loader2, MapPin, Upload, Percent, Clock } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
 import { useRestaurants } from '@/hooks/useRestaurants';
+import { Separator } from '@/components/ui/separator';
 
 const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     restaurantNumber: '',
@@ -65,7 +66,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
 
   const handleSave = async () => {
     if (!currentStore.name || !currentStore.image || !currentStore.loginCode || !currentStore.restaurantNumber) {
-        toast({ title: "بيانات ناقصة", description: "الرجاء إكمال كافة الحقول المطلوبة بما في ذلك رقم المتجر والصورة.", variant: "destructive" }); 
+        toast({ title: "بيانات ناقصة", description: "الرجاء إكمال كافة الحقول المطلوبة.", variant: "destructive" }); 
         return;
     }
     
@@ -113,7 +114,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
         setIsLocating(false);
       },
       () => {
-        toast({ title: "فشل تحديد الموقع", description: "يرجى إعطاء الإذن للمتصفح بالوصول للموقع.", variant: "destructive" });
+        toast({ title: "فشل تحديد الموقع", variant: "destructive" });
         setIsLocating(false);
       }
     );
@@ -126,7 +127,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
       <header className="flex justify-between items-center">
         <div>
             <h1 className="text-3xl font-black text-primary">إدارة المتاجر</h1>
-            <p className="text-muted-foreground font-bold">عرض المتاجر التابعة لفرع: {branchId === 'main' ? 'الإدارة الرئيسية' : branchId}</p>
+            <p className="text-muted-foreground font-bold">عرض المتاجر وساعات العمل للفرع: {branchId === 'main' ? 'الإدارة الرئيسية' : branchId}</p>
         </div>
         <Button onClick={() => { setIsEditing(false); setCurrentStore({ ...EMPTY_STORE, branchId }); setOpen(true); }} className="rounded-xl h-12 px-6 font-bold shadow-lg">
             إضافة متجر جديد
@@ -138,51 +139,64 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
             <DialogHeader>
                 <DialogTitle className="text-2xl font-black">{isEditing ? 'تعديل بيانات المتجر' : 'إنشاء حساب متجر'}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4 text-right">
+            <div className="space-y-6 py-4 text-right">
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                         <Label className="font-bold">اسم المتجر</Label>
-                        <Input value={currentStore.name ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, name: e.target.value })} className="rounded-xl h-12" placeholder="مثال: مطعم النور" />
+                        <Input value={currentStore.name ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, name: e.target.value })} className="rounded-xl h-12" />
                     </div>
                     <div className="space-y-1">
-                        <Label className="font-bold">رقم المتجر (للدخول)</Label>
-                        <Input value={currentStore.restaurantNumber ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, restaurantNumber: e.target.value })} className="rounded-xl h-12 text-center font-bold" dir="ltr" placeholder="1001" />
+                        <Label className="font-bold">رقم المتجر (ID)</Label>
+                        <Input value={currentStore.restaurantNumber ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, restaurantNumber: e.target.value })} className="rounded-xl h-12 text-center" dir="ltr" />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                        <Label className="font-bold">الرمز السري (Login Code)</Label>
+                        <Label className="font-bold">الرمز السري</Label>
                         <Input value={currentStore.loginCode ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, loginCode: e.target.value })} className="rounded-xl h-12 text-center font-black" dir="ltr" />
                     </div>
                     <div className="space-y-1">
                         <Label className="font-bold">نسبة الشركة (%)</Label>
-                        <div className="relative">
-                            <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
-                            <Input type="number" value={currentStore.commissionRate ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, commissionRate: parseFloat(e.target.value) || 0 })} className="rounded-xl h-12 pl-10 text-center font-black" />
+                        <Input type="number" value={currentStore.commissionRate ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, commissionRate: parseFloat(e.target.value) || 0 })} className="rounded-xl h-12 text-center font-black" />
+                    </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-3 bg-primary/5 p-4 rounded-2xl border-2 border-dashed border-primary/20">
+                    <Label className="font-black flex items-center gap-2 text-primary"><Clock className="h-4 w-4"/> ساعات العمل المجدولة</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <Label className="text-[10px] font-bold">وقت الافتتاح</Label>
+                            <Input type="time" value={currentStore.openTime} onChange={(e) => setCurrentStore({...currentStore, openTime: e.target.value})} className="h-11 rounded-xl font-bold" />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-[10px] font-bold">وقت الإغلاق</Label>
+                            <Input type="time" value={currentStore.closeTime} onChange={(e) => setCurrentStore({...currentStore, closeTime: e.target.value})} className="h-11 rounded-xl font-bold" />
                         </div>
                     </div>
+                    <p className="text-[9px] text-muted-foreground italic font-bold">سيتم إغلاق المتجر تلقائياً للزبائن خارج هذه الأوقات.</p>
                 </div>
 
                 <div className="p-4 bg-muted/20 rounded-2xl border space-y-4">
                     <Label className="font-black flex items-center gap-2"><MapPin className="h-4 w-4 text-primary"/> موقع المتجر الجغرافي</Label>
                     <div className="grid grid-cols-2 gap-4">
                          <div className="space-y-1">
-                            <Label className="text-[10px] font-bold">خط العرض (Lat)</Label>
-                            <Input type="number" step="any" value={currentStore.latitude ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, latitude: parseFloat(e.target.value) || 0 })} className="h-10 rounded-xl font-mono text-xs" />
+                            <Label className="text-[10px] font-bold">خط العرض</Label>
+                            <Input type="number" step="any" value={currentStore.latitude ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, latitude: parseFloat(e.target.value) || 0 })} className="h-10 rounded-xl" />
                         </div>
                          <div className="space-y-1">
-                            <Label className="text-[10px] font-bold">خط الطول (Lng)</Label>
-                            <Input type="number" step="any" value={currentStore.longitude ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, longitude: parseFloat(e.target.value) || 0 })} className="h-10 rounded-xl font-mono text-xs" />
+                            <Label className="text-[10px] font-bold">خط الطول</Label>
+                            <Input type="number" step="any" value={currentStore.longitude ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, longitude: parseFloat(e.target.value) || 0 })} className="h-10 rounded-xl" />
                         </div>
                     </div>
                     <Button variant="outline" className="w-full rounded-xl border-primary/40 text-primary font-bold h-11" onClick={handleGetLocation} disabled={isLocating}>
-                        {isLocating ? <Loader2 className="animate-spin h-4 w-4 ml-2"/> : <MapPin className="h-4 w-4 ml-2"/>}
-                        تحديد إحداثيات موقعي الحالي
+                        <MapPin className="h-4 w-4 ml-2"/> تحديد إحداثياتي الحالية
                     </Button>
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-2">
                     <Label className="font-bold">صورة المتجر</Label>
                     <div className="flex gap-2">
                         <Input value={currentStore.image ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, image: e.target.value })} className="rounded-xl h-12" placeholder="رابط الصورة أو ارفع ملف..." />
@@ -199,7 +213,6 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                         }
                     }} />
                 </div>
-                {currentStore.image && <div className="flex justify-center"><Image src={currentStore.image} alt="preview" width={80} height={80} className="rounded-xl border object-cover" unoptimized={true} /></div>}
             </div>
             <DialogFooter>
                 <Button onClick={handleSave} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl" disabled={isSaving}>
@@ -215,14 +228,13 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                 <TableRow>
                     <TableHead className="font-black">صورة</TableHead>
                     <TableHead className="font-black">الاسم</TableHead>
-                    <TableHead className="font-black">نسبة الشركة</TableHead>
-                    <TableHead className="font-black">الموقع</TableHead>
+                    <TableHead className="font-black">ساعات العمل</TableHead>
                     <TableHead className="font-black">إجراءات</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {restaurants.map((store) => (
-                    <TableRow key={store.id} className="hover:bg-muted/20">
+                    <TableRow key={store.id}>
                         <TableCell>
                             <div className="relative h-10 w-10">
                                 <Image src={store.image || 'https://placehold.co/40x40.png'} fill className="rounded-lg object-cover" alt={store.name} unoptimized={true} />
@@ -233,12 +245,9 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                             <div className="text-[10px] text-muted-foreground font-mono">#{store.restaurantNumber}</div>
                         </TableCell>
                         <TableCell>
-                            <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-black">{store.commissionRate}%</span>
-                        </TableCell>
-                        <TableCell>
-                            <div className="flex flex-col text-[8px] font-mono text-muted-foreground">
-                                <span>Lat: {store.latitude?.toFixed(4)}</span>
-                                <span>Lng: {store.longitude?.toFixed(4)}</span>
+                            <div className="flex items-center gap-1 text-xs font-black text-primary">
+                                <Clock className="h-3 w-3" />
+                                <span>{store.openTime} - {store.closeTime}</span>
                             </div>
                         </TableCell>
                         <TableCell>
@@ -248,7 +257,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                                 </Button>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="text-destructive h-9 w-9 hover:bg-destructive/10">
+                                        <Button variant="ghost" size="icon" className="text-destructive h-9 w-9">
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
                                     </AlertDialogTrigger>
@@ -256,12 +265,12 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                                         <AlertDialogHeader>
                                             <AlertDialogTitle className="text-right">حذف المتجر؟</AlertDialogTitle>
                                             <AlertDialogDescription className="text-right font-bold">
-                                                هل أنت متأكد من حذف "{store.name}"؟ سيتم مسح بياناته من هذا الفرع.
+                                                سيتم حذف المتجر نهائياً من سجلات الفرع.
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter className="flex-row gap-2">
                                             <AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => deleteRestaurant(store.id)} className="bg-destructive hover:bg-destructive/90 flex-1 rounded-xl">نعم، حذف</AlertDialogAction>
+                                            <AlertDialogAction onClick={() => deleteRestaurant(store.id)} className="bg-destructive hover:bg-destructive/90 flex-1 rounded-xl">حذف</AlertDialogAction>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
@@ -271,11 +280,6 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                 ))}
             </TableBody>
         </Table>
-        {restaurants.length === 0 && (
-            <div className="text-center py-20 bg-muted/5">
-                <p className="text-muted-foreground font-bold italic">لا توجد متاجر مضافة لهذا الفرع حتى الآن.</p>
-            </div>
-        )}
       </Card>
     </div>
   );
