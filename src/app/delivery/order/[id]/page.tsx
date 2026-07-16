@@ -1,13 +1,13 @@
 
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { MapPin, Phone, ArrowRight, XCircle, Store } from 'lucide-react';
+import { MapPin, Phone, ArrowRight, XCircle, Store, Map as MapIcon, ChevronDown, ChevronUp } from 'lucide-react';
 import type { OrderStatus } from '@/lib/types';
 import {
   AlertDialog,
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { useOrders } from '@/hooks/useOrders';
+import { DeliveryMap } from '@/components/DeliveryMap';
 
 interface DeliveryOrderDetailPageProps {
     orderId: string;
@@ -31,6 +32,7 @@ interface DeliveryOrderDetailPageProps {
 export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrderDetailPageProps) {
   const { toast } = useToast();
   const { allOrders, isLoading, updateOrderStatus } = useOrders();
+  const [showBill, setShowBill] = useState(false);
 
   const order = useMemo(() => allOrders.find(o => o.id === orderId), [orderId, allOrders]);
 
@@ -88,84 +90,96 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
       onBack();
   }
 
+  // coordinates for map
+  const origin = order.restaurant?.latitude && order.restaurant?.longitude ? { lat: order.restaurant.latitude, lng: order.restaurant.longitude } : null;
+  const destination = order.address.latitude && order.address.longitude ? { lat: order.address.latitude, lng: order.address.longitude } : null;
+
   return (
     <div className="block bg-background pb-60">
         <header className="flex items-center gap-4 sticky top-0 bg-background/90 backdrop-blur-md z-30 p-4 border-b">
             <button onClick={onBack} className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all shadow-sm">
                 <ArrowRight className="h-6 w-6"/>
             </button>
-            <div>
-                <h1 className="text-xl font-black text-primary">تفاصيل الطلب #{order.id.substring(0,6)}</h1>
+            <div className="flex-1">
+                <h1 className="text-xl font-black text-primary">طلب #{order.id.substring(0,6)}</h1>
                 <p className="text-[10px] font-bold text-muted-foreground">{getStatusText(order.status)}</p>
             </div>
         </header>
 
         <div className="p-4 space-y-6">
-            <Card className="rounded-[1.5rem] border-none shadow-md">
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-black text-right">معلومات الزبون</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                    <div className="flex justify-between text-sm"><span>الاسم:</span> <span className="font-black text-primary">{order.address.name}</span></div>
-                    <div className="flex justify-between text-sm"><span>المنطقة:</span> <span className="font-bold">{order.address.deliveryZone}</span></div>
-                    <div className="flex justify-between text-sm"><span>العنوان:</span> <span className="font-medium text-muted-foreground">{order.address.details || 'لا توجد ملاحظات'}</span></div>
-                </CardContent>
-                <CardFooter className="grid grid-cols-2 gap-2 border-t pt-4">
-                    <a href={`tel:${order.address.phone}`} className="w-full">
-                        <Button variant="outline" className="w-full h-11 rounded-xl font-bold"><Phone className="ml-2 h-4 w-4"/>اتصال</Button>
-                    </a>
-                    <a href={`https://www.google.com/maps?q=${order.address.latitude},${order.address.longitude}`} target="_blank" rel="noopener noreferrer" className="w-full">
-                        <Button variant="outline" className="w-full h-11 rounded-xl font-bold"><MapPin className="ml-2 h-4 w-4"/>الموقع</Button>
-                    </a>
-                </CardFooter>
-            </Card>
-            
-            {order.restaurant && (
-                <Card className="rounded-[1.5rem] border-none shadow-md">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-black text-right">معلومات المتجر</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <div className="flex justify-between text-sm"><span>الاسم:</span> <span className="font-black text-primary">{order.restaurant.name}</span></div>
-                    </CardContent>
-                    <CardFooter className="border-t pt-4">
-                        <a href={`https://www.google.com/maps?q=${order.restaurant.latitude},${order.restaurant.longitude}`} target="_blank" rel="noopener noreferrer" className="w-full">
-                            <Button variant="outline" className="w-full h-11 rounded-xl font-bold"><Store className="ml-2 h-4 w-4"/>موقع المتجر</Button>
-                        </a>
-                    </CardFooter>
-            </Card>
-            )}
+            {/* IN-APP MAP SECTION */}
+            <div className="space-y-3">
+                <div className="flex items-center justify-between px-2">
+                    <h2 className="text-sm font-black text-primary flex items-center gap-2"><MapIcon className="h-4 w-4"/> مسار التوصيل الذكي</h2>
+                    {origin && destination && <Badge variant="secondary" className="text-[8px] font-black">خريطة داخلية</Badge>}
+                </div>
+                {origin && destination ? (
+                    <div className="h-72 w-full shadow-2xl">
+                         <DeliveryMap origin={origin} destination={destination} />
+                    </div>
+                ) : (
+                    <div className="h-40 bg-muted/20 rounded-[2rem] border-2 border-dashed flex items-center justify-center text-center p-6">
+                        <p className="text-[10px] font-bold text-muted-foreground">عذراً، إحداثيات الموقع غير متوفرة لهذا الطلب لرسم المسار.</p>
+                    </div>
+                )}
+            </div>
 
-            <Card className="rounded-[1.5rem] border-none shadow-md overflow-hidden">
-                <CardHeader className="bg-muted/20 pb-4">
-                    <CardTitle className="text-sm font-black text-center">الفاتورة والمنتجات</CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 space-y-4">
-                    {order.items.map(item => {
-                    const itemPrice = item.selectedSize?.price || item.product.discountPrice || item.product.price;
-                    return (
-                        <div key={item.product.id + (item.selectedSize?.name || '')} className="flex justify-between items-center text-xs">
-                            <div className="flex items-center gap-3">
-                                <div className="font-black p-2 bg-secondary rounded-lg text-primary">x{item.quantity}</div>
-                                <div>
-                                    <p className="font-bold">{item.product.name}</p>
-                                    {item.selectedSize && <p className="text-[9px] text-muted-foreground">{item.selectedSize.name}</p>}
+            <div className="grid grid-cols-2 gap-4">
+                <Card className="rounded-[1.5rem] border-none shadow-md overflow-hidden bg-white">
+                    <CardHeader className="p-3 pb-1 border-b bg-muted/20"><CardTitle className="text-[10px] font-black">الزبون</CardTitle></CardHeader>
+                    <CardContent className="p-3 space-y-2">
+                         <p className="text-xs font-black truncate">{order.address.name}</p>
+                         <p className="text-[9px] text-muted-foreground font-bold">{order.address.deliveryZone}</p>
+                         <a href={`tel:${order.address.phone}`} className="block"><Button variant="outline" size="sm" className="w-full h-8 rounded-lg text-[9px] font-black"><Phone className="ml-1 h-3 w-3"/> اتصال</Button></a>
+                    </CardContent>
+                </Card>
+
+                <Card className="rounded-[1.5rem] border-none shadow-md overflow-hidden bg-white">
+                    <CardHeader className="p-3 pb-1 border-b bg-primary/5"><CardTitle className="text-[10px] font-black text-primary">المتجر</CardTitle></CardHeader>
+                    <CardContent className="p-3 space-y-2">
+                         <p className="text-xs font-black truncate">{order.restaurant?.name || 'غير معروف'}</p>
+                         <p className="text-[9px] text-muted-foreground font-bold">بابل / {order.address.deliveryZone}</p>
+                         <Button variant="ghost" size="sm" className="w-full h-8 rounded-lg text-[9px] font-black text-primary" onClick={() => window.open(`https://www.google.com/maps?q=${order.restaurant?.latitude},${order.restaurant?.longitude}`, '_blank')}><Store className="ml-1 h-3 w-3"/> الموقع</Button>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <Card className="rounded-[2rem] border-none shadow-md overflow-hidden">
+                <button 
+                    onClick={() => setShowBill(!showBill)}
+                    className="w-full p-4 flex justify-between items-center bg-muted/30 hover:bg-muted/50 transition-colors"
+                >
+                    <span className="font-black text-xs">تفاصيل الفاتورة والمنتجات</span>
+                    {showBill ? <ChevronUp className="h-4 w-4"/> : <ChevronDown className="h-4 w-4"/>}
+                </button>
+                {showBill && (
+                    <CardContent className="p-4 space-y-4 animate-in slide-in-from-top-2 duration-300">
+                        {order.items.map(item => {
+                        const itemPrice = item.selectedSize?.price || item.product.discountPrice || item.product.price;
+                        return (
+                            <div key={item.product.id + (item.selectedSize?.name || '')} className="flex justify-between items-center text-xs">
+                                <div className="flex items-center gap-3">
+                                    <div className="font-black p-2 bg-secondary rounded-lg text-primary">x{item.quantity}</div>
+                                    <div>
+                                        <p className="font-bold">{item.product.name}</p>
+                                        {item.selectedSize && <p className="text-[9px] text-muted-foreground">{item.selectedSize.name}</p>}
+                                    </div>
                                 </div>
+                                <span className="font-black">{formatCurrency(itemPrice * item.quantity)}</span>
                             </div>
-                            <span className="font-black">{formatCurrency(itemPrice * item.quantity)}</span>
+                        )
+                        })}
+                        <Separator className="border-dashed"/>
+                        <div className="flex justify-between text-xs font-bold text-muted-foreground">
+                            <span>أجرة التوصيل:</span>
+                            <span>{formatCurrency(order.deliveryFee)}</span>
                         </div>
-                    )
-                    })}
-                    <Separator className="border-dashed"/>
-                    <div className="flex justify-between text-xs font-bold text-muted-foreground">
-                        <span>أجرة التوصيل:</span>
-                        <span>{formatCurrency(order.deliveryFee)}</span>
-                    </div>
-                    <div className="flex justify-between font-black text-xl text-primary bg-primary/5 p-4 rounded-xl">
-                        <span>المبلغ الكلي:</span>
-                        <span>{formatCurrency(order.total)}</span>
-                    </div>
-                </CardContent>
+                    </CardContent>
+                )}
+                <div className="bg-primary/5 p-4 flex justify-between items-center">
+                    <span className="font-black text-sm">المبلغ المطلوب تحصيله:</span>
+                    <span className="text-xl font-black text-primary">{formatCurrency(order.total)}</span>
+                </div>
             </Card>
             
             {nextStatus[order.status] && (

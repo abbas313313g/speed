@@ -26,7 +26,7 @@ export default function DeliveryLayout() {
         setActiveTab(1);
     }
 
-    // تهيئة OneSignal
+    // تهيئة OneSignal الاحترافية
     const initOneSignal = () => {
         const script = document.createElement('script');
         script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
@@ -37,15 +37,21 @@ export default function DeliveryLayout() {
         window.OneSignal.push(() => {
             window.OneSignal.init({
                 appId: "fbb7ab81-ec87-4f8c-aaa8-de12522e62b3",
-                safari_web_id: "web.onesignal.auto.52026857-e6f6-4528-9892-23c2a613612d",
+                allowLocalhostAsSecureOrigin: true,
                 notifyButton: {
                     enable: true,
+                    position: 'bottom-left'
                 },
+                welcomeNotification: {
+                    title: "سبيد شوب",
+                    message: "تم تفعيل الإشعارات بنجاح! 🚀"
+                }
             });
 
-            // ربط المندوب بالمعرف الخارجي إذا كان مسجلاً
+            // ربط المندوب بالمعرف الخارجي لضمان وصول الإشعار له وحده
             if (id) {
                 window.OneSignal.login(id);
+                console.log("OneSignal: User logged in as", id);
             }
         });
     };
@@ -68,7 +74,12 @@ export default function DeliveryLayout() {
           }} 
         >
           <div className="spa-page-view">
-             <DeliveryLoginPage onLogin={() => { setIsAuth(true); setActiveTab(1); }} />
+             <DeliveryLoginPage onLogin={() => { 
+                 setIsAuth(true); 
+                 const id = localStorage.getItem('deliveryWorkerId');
+                 if (id && window.OneSignal) window.OneSignal.login(id);
+                 setActiveTab(1); 
+             }} />
           </div>
           <div className="spa-page-view">
              <DeliveryPage 
