@@ -3,6 +3,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Loader2, Bike, Store, Home } from 'lucide-react';
+import { cn } from "@/lib/utils";
 
 interface DeliveryMapProps {
   origin: { lat: number, lng: number };
