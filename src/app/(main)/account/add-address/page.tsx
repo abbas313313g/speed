@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MapPin, Loader2, CheckCircle2, ArrowRight, Building2 } from "lucide-react";
+import { MapPin, Loader2, CheckCircle2, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Address } from "@/lib/types";
 import { useAddresses } from "@/hooks/useAddresses";
@@ -40,7 +40,6 @@ export default function AddAddressPage() {
   });
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
-  // تصفية المناطق بناءً على الفرع المختار حصراً
   const filteredZones = useMemo(() => {
     if (!address.branchId) return [];
     return deliveryZones.filter(z => z.branchId === address.branchId);

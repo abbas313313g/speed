@@ -7,7 +7,7 @@ import { formatCurrency } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Phone, ArrowRight, XCircle, Store, Map as MapIcon, ChevronDown, ChevronUp, Navigation } from 'lucide-react';
+import { Phone, ArrowRight, XCircle, Store, ChevronDown, ChevronUp, Navigation } from 'lucide-react';
 import type { OrderStatus } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -99,7 +99,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
   };
 
   return (
-    <div className="block bg-background pb-60 h-full overflow-y-auto">
+    <div className="block bg-background pb-60 h-full overflow-y-auto text-right">
         <header className="flex items-center gap-4 sticky top-0 bg-background/95 backdrop-blur-md z-30 p-4 border-b">
             <button onClick={onBack} className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all shadow-sm">
                 <ArrowRight className="h-6 w-6"/>
@@ -126,9 +126,9 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-                <Card className="rounded-[1.5rem] border-none shadow-md overflow-hidden bg-white text-right">
-                    <CardHeader className="p-3 pb-1 border-b bg-muted/20"><CardTitle className="text-[10px] font-black">الزبون</CardTitle></CardHeader>
-                    <CardContent className="p-3 space-y-2">
+                <Card className="rounded-[1.5rem] border-none shadow-md overflow-hidden bg-white">
+                    <CardHeader className="p-3 pb-1 border-b bg-muted/20 text-right"><CardTitle className="text-[10px] font-black">الزبون</CardTitle></CardHeader>
+                    <CardContent className="p-3 space-y-2 text-right">
                          <p className="text-xs font-black truncate">{order.address.name}</p>
                          <p className="text-[9px] text-muted-foreground font-bold">{order.address.deliveryZone}</p>
                          <a href={`tel:${order.address.phone}`} className="block w-full">
@@ -139,11 +139,11 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                     </CardContent>
                 </Card>
 
-                <Card className="rounded-[1.5rem] border-none shadow-md overflow-hidden bg-white text-right">
-                    <CardHeader className="p-3 pb-1 border-b bg-primary/5"><CardTitle className="text-[10px] font-black text-primary">المتجر</CardTitle></CardHeader>
-                    <CardContent className="p-3 space-y-2">
+                <Card className="rounded-[1.5rem] border-none shadow-md overflow-hidden bg-white">
+                    <CardHeader className="p-3 pb-1 border-b bg-primary/5 text-right"><CardTitle className="text-[10px] font-black text-primary">المتجر</CardTitle></CardHeader>
+                    <CardContent className="p-3 space-y-2 text-right">
                          <p className="text-xs font-black truncate">{order.restaurant?.name || 'غير معروف'}</p>
-                         <p className="text-[9px] text-muted-foreground font-bold">فرع {order.address.deliveryZone}</p>
+                         <p className="text-[9px] text-muted-foreground font-bold">فرع {order.branchId === 'main' ? 'بابل' : order.branchId}</p>
                          <Button variant="ghost" size="sm" className="w-full h-9 rounded-xl text-[9px] font-black text-primary bg-primary/5" onClick={() => window.open(`https://www.google.com/maps?q=${order.restaurant?.latitude},${order.restaurant?.longitude}`, '_blank')}>
                             <Store className="ml-1 h-3.5 w-3.5"/> موقع المتجر
                          </Button>
@@ -151,7 +151,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                 </Card>
             </div>
 
-            <Card className="rounded-[2.5rem] border-none shadow-md overflow-hidden text-right">
+            <Card className="rounded-[2.5rem] border-none shadow-md overflow-hidden">
                 <button 
                     onClick={() => setShowBill(!showBill)}
                     className="w-full p-5 flex justify-between items-center bg-muted/30 hover:bg-muted/50 transition-colors"
