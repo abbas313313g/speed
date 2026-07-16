@@ -9,6 +9,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Separator } from '@/components/ui/separator';
 import { MapPin, Phone, ArrowRight, XCircle, Store, Map as MapIcon, ChevronDown, ChevronUp } from 'lucide-react';
 import type { OrderStatus } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
