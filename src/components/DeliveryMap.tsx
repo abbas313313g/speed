@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -18,7 +19,6 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     
-    // فحص ذكي للمفتاح قبل محاولة التحميل
     if (!apiKey || apiKey === "" || apiKey.includes("YOUR_")) {
         setError("نظام التتبع المباشر سيتم تفعيله قريباً.");
         setIsLoading(false);
@@ -29,7 +29,6 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
         if (!mapRef.current) return;
 
         try {
-            // التعامل مع خطأ المصادقة من جوجل
             (window as any).gm_authFailure = () => {
                 setError("يرجى تفعيل صلاحيات الخرائط من لوحة التحكم.");
                 setIsLoading(false);
@@ -73,7 +72,6 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
                 }
             );
 
-            // ماركر المتجر
             new google.maps.Marker({
                 position: origin,
                 map: map,
@@ -87,7 +85,6 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
                 }
             });
 
-            // ماركر الزبون
             new google.maps.Marker({
                 position: destination,
                 map: map,
