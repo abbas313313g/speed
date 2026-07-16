@@ -108,7 +108,7 @@ export default function AdminDeliveryZonesPage() {
                     <TableCell>
                         <Badge variant="outline" className="gap-1 font-bold">
                             <Building2 className="h-3 w-3" />
-                            {zone.branchId === 'main' ? 'المركز الرئيسي' : (branch?.name || 'فرع مستقل')}
+                            {zone.branchId === 'main' ? 'المركز الرئيسي (المدحتية - الهاشمية)' : (branch?.name || 'فرع مستقل')}
                         </Badge>
                     </TableCell>
                     <TableCell>
@@ -162,7 +162,7 @@ export default function AdminDeliveryZonesPage() {
                                 <SelectValue placeholder="اختر الفرع..." />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="main">الإدارة الرئيسية (بابل)</SelectItem>
+                                <SelectItem value="main">المركز الرئيسي (المدحتية - الهاشمية)</SelectItem>
                                 {branches.map(b => (
                                     <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
                                 ))}

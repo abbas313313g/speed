@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -39,7 +40,7 @@ export default function AddAddressPage() {
   });
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
-  // منطق المدينة أولاً: فلترة المناطق بناءً على المدينة المختارة
+  // فلترة المناطق بناءً على المدينة المختارة
   const filteredZones = useMemo(() => {
     if (!address.branchId) return [];
     return deliveryZones.filter(z => z.branchId === address.branchId);
@@ -155,7 +156,7 @@ export default function AddAddressPage() {
                         <SelectValue placeholder="اختر مدينتك..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl">
-                        <SelectItem value="main" className="font-bold">الإدارة الرئيسية (بابل)</SelectItem>
+                        <SelectItem value="main" className="font-bold">المركز الرئيسي (المدحتية - الهاشمية)</SelectItem>
                         {branches.map((branch) => (
                             <SelectItem key={branch.id} value={branch.id} className="font-bold">
                                 {branch.name}

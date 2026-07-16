@@ -204,7 +204,7 @@ export default function MainAppLayout() {
                                     <SelectValue placeholder="اختر مدينتك..." />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-2xl">
-                                    <SelectItem value="main" className="font-bold">الإدارة الرئيسية (بابل)</SelectItem>
+                                    <SelectItem value="main" className="font-bold">المركز الرئيسي (المدحتية - الهاشمية)</SelectItem>
                                     {branches.map(b => <SelectItem key={b.id} value={b.id} className="font-bold">{b.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
