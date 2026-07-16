@@ -40,7 +40,7 @@ export default function AddAddressPage() {
   });
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
-  // تصفية المناطق بناءً على الفرع المختار
+  // تصفية المناطق بناءً على الفرع المختار لضمان دقة الاختيار
   const filteredZones = useMemo(() => {
     if (!address.branchId) return [];
     return deliveryZones.filter(z => z.branchId === address.branchId);
