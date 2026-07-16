@@ -7,7 +7,7 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { MapPin, Phone, ArrowRight, XCircle, Store, Map as MapIcon, ChevronDown, ChevronUp } from 'lucide-react';
+import { MapPin, Phone, ArrowRight, XCircle, Store, Map as MapIcon, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import type { OrderStatus } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { useOrders } from '@/hooks/useOrders';
-import { DeliveryMap } from '@/components/DeliveryMap';
 import Image from 'next/image';
 
 interface DeliveryOrderDetailPageProps {
@@ -92,8 +91,13 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
       onBack();
   }
 
-  const origin = order.restaurant?.latitude && order.restaurant?.longitude ? { lat: order.restaurant.latitude, lng: order.restaurant.longitude } : null;
-  const destination = order.address.latitude && order.address.longitude ? { lat: order.address.latitude, lng: order.address.longitude } : null;
+  const handleOpenGoogleMaps = () => {
+      if (order.address.latitude && order.address.longitude) {
+          window.open(`https://www.google.com/maps/dir/?api=1&destination=${order.address.latitude},${order.address.longitude}`, '_blank');
+      } else {
+          toast({ title: "الموقع غير متوفر", description: "يرجى التواصل مع الزبون هاتفياً.", variant: "destructive" });
+      }
+  };
 
   return (
     <div className="block bg-background pb-60 h-full overflow-y-auto">
@@ -108,26 +112,19 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
         </header>
 
         <div className="p-4 space-y-6">
+            {/* خيار الموقع الخارجي */}
             <div className="space-y-3">
-                <div className="flex items-center justify-between px-2">
-                    <h2 className="text-sm font-black text-primary flex items-center gap-2"><MapIcon className="h-4 w-4"/> مسار التوصيل الذكي</h2>
-                    {origin && destination && (
-                        <Badge variant="secondary" className="text-[8px] font-black bg-primary/10 text-primary border-none">
-                            تتبع مباشر
-                        </Badge>
-                    )}
-                </div>
-                {origin && destination ? (
-                    <div className="h-72 w-full">
-                         <DeliveryMap origin={origin} destination={destination} />
+                <Button 
+                    variant="outline" 
+                    className="w-full h-20 rounded-[2rem] border-2 border-primary/20 bg-primary/5 flex flex-col gap-1 items-center justify-center group active:scale-95 transition-all shadow-lg"
+                    onClick={handleOpenGoogleMaps}
+                >
+                    <div className="flex items-center gap-2">
+                        <MapIcon className="h-6 w-6 text-primary animate-pulse" />
+                        <span className="text-lg font-black text-primary">فتح خرائط جوجل</span>
                     </div>
-                ) : (
-                    <div className="h-40 bg-muted/20 rounded-[2rem] border-2 border-dashed flex items-center justify-center text-center p-6">
-                        <p className="text-[10px] font-bold text-muted-foreground leading-relaxed">
-                            إحداثيات الموقع غير متوفرة لهذا الطلب.<br/>يرجى مراجعة العنوان مع الزبون.
-                        </p>
-                    </div>
-                )}
+                    <span className="text-[10px] font-bold text-muted-foreground">اضغط لبدء الملاحة والتوجه للزبون</span>
+                </Button>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
