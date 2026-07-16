@@ -108,12 +108,12 @@ export default function AddAddressPage() {
   };
 
   return (
-    <div className="p-6 space-y-8 bg-background h-full overflow-y-auto pb-32">
+    <div className="p-6 space-y-8 bg-background h-full overflow-y-auto pb-32 text-right">
       <header className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-2xl bg-secondary text-primary">
             <ArrowRight className="h-6 w-6" />
         </Button>
-        <div>
+        <div className="text-right">
             <h1 className="text-3xl font-black text-primary">إضافة عنوان جديد</h1>
             <p className="text-muted-foreground font-bold text-xs">أدخل تفاصيل التوصيل بدقة لضمان وصول طلبك.</p>
         </div>
