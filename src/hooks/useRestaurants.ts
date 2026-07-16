@@ -118,7 +118,7 @@ export const useRestaurants = (branchId?: string) => {
             };
 
             // إزالة الـ undefined الناتجة
-            const sanitzedData = Object.fromEntries(Object.entries(finalData).filter(([_, v]) => v !== undefined));
+            const sanitizedData: any = Object.fromEntries(Object.entries(finalData).filter(([_, v]) => v !== undefined));
 
             if (image && image.startsWith('data:')) {
                 sanitizedData.image = await uploadImage(image, `restaurants/${id}`);
