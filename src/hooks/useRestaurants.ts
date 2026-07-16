@@ -76,7 +76,6 @@ export const useRestaurants = (branchId?: string) => {
         try {
             const imageUrl = await uploadImage(restaurantData.image, `restaurants/${uuidv4()}`);
             
-            // تنظيف البيانات
             const cleanData = Object.fromEntries(
                 Object.entries(restaurantData).filter(([_, v]) => v !== undefined)
             );
@@ -104,7 +103,6 @@ export const useRestaurants = (branchId?: string) => {
         try {
             const { id, image, ...restaurantData } = updatedRestaurant;
             
-            // تنظيف البيانات
             const cleanData = Object.fromEntries(
                 Object.entries(restaurantData).filter(([_, v]) => v !== undefined)
             );
@@ -117,7 +115,6 @@ export const useRestaurants = (branchId?: string) => {
                 longitude: restaurantData.longitude !== undefined ? Number(restaurantData.longitude) : undefined
             };
 
-            // إزالة الـ undefined الناتجة
             const sanitizedData: any = Object.fromEntries(Object.entries(finalData).filter(([_, v]) => v !== undefined));
 
             if (image && image.startsWith('data:')) {

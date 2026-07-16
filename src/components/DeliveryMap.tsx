@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Loader2, Bike, AlertTriangle, Map as MapIcon } from 'lucide-react';
+import { Loader2, Bike, Map as MapIcon } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 interface DeliveryMapProps {
@@ -20,7 +20,7 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     
     if (!apiKey || apiKey === "" || apiKey.includes("YOUR_")) {
-        setError("نظام التتبع المباشر سيتم تفعيله قريباً.");
+        setError("نظام التتبع المباشر يتطلب مفتاح Google Maps API. يرجى ضبطه في Vercel.");
         setIsLoading(false);
         return;
     }
@@ -29,10 +29,8 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
         if (!mapRef.current) return;
 
         try {
-            (window as any).gm_authFailure = () => {
-                setError("يرجى تفعيل صلاحيات الخرائط من لوحة التحكم.");
-                setIsLoading(false);
-            };
+            // منع التحميل المتكرر للمكتبة
+            if (!(window as any).google) return;
 
             const map = new google.maps.Map(mapRef.current, {
                 center: origin,
@@ -72,19 +70,22 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
                 }
             );
 
+            // أيقونة الدراجة (نقطة الانطلاق - المتجر)
             new google.maps.Marker({
                 position: origin,
                 map: map,
                 icon: {
-                    path: 'M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z',
+                    path: 'M15.5 19C15.5 20.1 14.6 21 13.5 21C12.4 21 11.5 20.1 11.5 19C11.5 17.9 12.4 17 13.5 17C14.6 17 15.5 17.9 15.5 19M7.5 17C6.4 17 5.5 17.9 5.5 19C5.5 20.1 6.4 21 7.5 21C8.6 21 9.5 20.1 9.5 19C9.5 17.9 8.6 17 7.5 17M15.1 15H19V17H17.4C16.8 15.8 15.5 15 14 15H13V13H15.3C16 13 16.6 12.6 16.9 12L18.4 9H20V7H17.4L16 11.5L14.4 7H11V9H13L14 11.5L12 15H7.5C5.8 15 4.5 16.3 4.5 18V21H2V23H22V21H20.5V18.1L19.4 15.4L18.1 12.8L15.1 15Z',
                     fillColor: '#00B358',
                     fillOpacity: 1,
-                    strokeWeight: 2,
-                    strokeColor: '#FFFFFF',
+                    strokeWeight: 0,
                     scale: 1.5,
-                }
+                    anchor: new google.maps.Point(12, 12)
+                },
+                title: "موقع المتجر"
             });
 
+            // أيقونة الزبون (نقطة الوصول)
             new google.maps.Marker({
                 position: destination,
                 map: map,
@@ -96,10 +97,11 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
                     strokeColor: '#FFFFFF',
                     scale: 1.5,
                     anchor: new google.maps.Point(12, 24)
-                }
+                },
+                title: "موقع الزبون"
             });
         } catch (e) {
-            setError("تعذر تشغيل الخريطة التفاعلية حالياً.");
+            setError("تعذر تشغيل الخريطة حالياً.");
             setIsLoading(false);
         }
     };
@@ -115,7 +117,7 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
             script.async = true;
             script.onload = initMap;
             script.onerror = () => {
-                setError("يرجى التحقق من اتصال الانترنت.");
+                setError("يرجى التحقق من اتصال الانترنت وصحة مفتاح API.");
                 setIsLoading(false);
             };
             document.head.appendChild(script);
@@ -129,7 +131,7 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
     <div className={cn("relative w-full h-full rounded-[2.5rem] overflow-hidden bg-muted/20 border-4 border-white shadow-2xl", className)}>
         {isLoading && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm">
-                <Bike className="h-16 w-16 text-primary animate-bounce mb-3" />
+                <Loader2 className="h-10 w-10 text-primary animate-spin mb-3" />
                 <p className="font-black text-xs text-primary animate-pulse italic">جاري رسم مسار التوصيل...</p>
             </div>
         )}
