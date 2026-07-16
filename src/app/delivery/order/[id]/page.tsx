@@ -91,7 +91,9 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
 
   const handleOpenMaps = () => {
       if (order.address.latitude && order.address.longitude) {
-          window.open(`https://www.google.com/maps/dir/?api=1&destination=${order.address.latitude},${order.address.longitude}`, '_blank');
+          // رابط عالمي يفتح الخرائط خارجياً ويطلب اختيار التطبيق
+          const url = `https://www.google.com/maps/dir/?api=1&destination=${order.address.latitude},${order.address.longitude}`;
+          window.open(url, '_blank');
       } else {
           toast({ title: "الموقع غير متوفر", description: "يرجى التواصل مع الزبون هاتفياً.", variant: "destructive" });
       }

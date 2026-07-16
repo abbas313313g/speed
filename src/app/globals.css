@@ -10,7 +10,7 @@
     --card-foreground: 224 71.4% 4.1%;
     --popover: 0 0% 100%;
     --popover-foreground: 224 71.4% 4.1%;
-    --primary: 151 100% 35%;
+    --primary: 151 100% 35%; /* تم تعديل اللون ليطابق شعار سبيد الأخضر */
     --primary-foreground: 0 0% 98%;
     --secondary: 150 20% 90%;
     --secondary-foreground: 151 100% 25%;
@@ -87,7 +87,6 @@ main {
     position: relative;
 }
 
-/* حل مشكلة الفراغ الأبيض الجانبي */
 .overflow-guard {
     overflow: hidden;
     width: 100%;
