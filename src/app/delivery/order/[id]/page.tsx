@@ -1,11 +1,10 @@
-
 "use client";
 
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { MapPin, Phone, ArrowRight, XCircle, Store, Map as MapIcon, ChevronDown, ChevronUp } from 'lucide-react';
 import type { OrderStatus } from '@/lib/types';
@@ -96,14 +95,14 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
   const destination = order.address.latitude && order.address.longitude ? { lat: order.address.latitude, lng: order.address.longitude } : null;
 
   return (
-    <div className="block bg-background pb-60">
+    <div className="block bg-background pb-60 h-full overflow-y-auto">
         <header className="flex items-center gap-4 sticky top-0 bg-background/90 backdrop-blur-md z-30 p-4 border-b">
             <button onClick={onBack} className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all shadow-sm">
                 <ArrowRight className="h-6 w-6"/>
             </button>
             <div className="flex-1">
-                <h1 className="text-xl font-black text-primary">طلب #{order.id.substring(0,6)}</h1>
-                <p className="text-[10px] font-bold text-muted-foreground">{getStatusText(order.status)}</p>
+                <h1 className="text-xl font-black text-primary leading-none">طلب #{order.id.substring(0,6)}</h1>
+                <p className="text-[10px] font-bold text-muted-foreground mt-1">{getStatusText(order.status)}</p>
             </div>
         </header>
 
@@ -136,7 +135,11 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                     <CardContent className="p-3 space-y-2">
                          <p className="text-xs font-black truncate">{order.address.name}</p>
                          <p className="text-[9px] text-muted-foreground font-bold">{order.address.deliveryZone}</p>
-                         <a href={`tel:${order.address.phone}`} className="block"><Button variant="outline" size="sm" className="w-full h-8 rounded-lg text-[9px] font-black"><Phone className="ml-1 h-3 w-3"/> اتصال</Button></a>
+                         <a href={`tel:${order.address.phone}`} className="block w-full">
+                            <Button variant="outline" size="sm" className="w-full h-9 rounded-xl text-[9px] font-black">
+                                <Phone className="ml-1 h-3.5 w-3.5 text-primary"/> اتصال
+                            </Button>
+                         </a>
                     </CardContent>
                 </Card>
 
@@ -145,7 +148,9 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                     <CardContent className="p-3 space-y-2">
                          <p className="text-xs font-black truncate">{order.restaurant?.name || 'غير معروف'}</p>
                          <p className="text-[9px] text-muted-foreground font-bold">فرع {order.address.deliveryZone}</p>
-                         <Button variant="ghost" size="sm" className="w-full h-8 rounded-lg text-[9px] font-black text-primary" onClick={() => window.open(`https://www.google.com/maps?q=${order.restaurant?.latitude},${order.restaurant?.longitude}`, '_blank')}><Store className="ml-1 h-3 w-3"/> الموقع</Button>
+                         <Button variant="ghost" size="sm" className="w-full h-9 rounded-xl text-[9px] font-black text-primary bg-primary/5" onClick={() => window.open(`https://www.google.com/maps?q=${order.restaurant?.latitude},${order.restaurant?.longitude}`, '_blank')}>
+                            <Store className="ml-1 h-3.5 w-3.5"/> الموقع
+                         </Button>
                     </CardContent>
                 </Card>
             </div>
@@ -160,21 +165,20 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                 </button>
                 {showBill && (
                     <CardContent className="p-4 space-y-4 animate-in slide-in-from-top-2 duration-300">
-                        {order.items.map(item => {
-                        // تصحيح منطق السعر لضمان عدم ظهور الصفر
-                        const unitPrice = item.selectedSize?.price || item.product.discountPrice || item.product.price || 0;
-                        return (
-                            <div key={item.product.id + (item.selectedSize?.name || '')} className="flex justify-between items-center text-xs">
-                                <div className="flex items-center gap-3">
-                                    <div className="font-black p-2 bg-secondary rounded-lg text-primary">x{item.quantity}</div>
-                                    <div>
-                                        <p className="font-bold">{item.product.name}</p>
-                                        {item.selectedSize && <p className="text-[9px] text-muted-foreground">{item.selectedSize.name}</p>}
+                        {order.items.map((item, idx) => {
+                            const unitPrice = item.selectedSize?.price || item.product.discountPrice || item.product.price || 0;
+                            return (
+                                <div key={idx} className="flex justify-between items-center text-xs">
+                                    <div className="flex items-center gap-3">
+                                        <div className="font-black p-2 bg-secondary rounded-lg text-primary">x{item.quantity}</div>
+                                        <div>
+                                            <p className="font-bold">{item.product.name}</p>
+                                            {item.selectedSize && <p className="text-[9px] text-muted-foreground">{item.selectedSize.name}</p>}
+                                        </div>
                                     </div>
+                                    <span className="font-black">{formatCurrency(unitPrice * item.quantity)}</span>
                                 </div>
-                                <span className="font-black">{formatCurrency(unitPrice * item.quantity)}</span>
-                            </div>
-                        )
+                            )
                         })}
                         <Separator className="border-dashed"/>
                         <div className="flex justify-between text-xs font-bold text-muted-foreground">
@@ -184,7 +188,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                     </CardContent>
                 )}
                 <div className="bg-primary/5 p-5 flex justify-between items-center border-t border-primary/10">
-                    <span className="font-black text-sm">الإجمالي المطلوب تحصيله:</span>
+                    <span className="font-black text-sm">الإجمالي للتحصيل:</span>
                     <span className="text-2xl font-black text-primary">{formatCurrency(order.total)}</span>
                 </div>
             </Card>
@@ -203,7 +207,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                         </AlertDialogTrigger>
                         <AlertDialogContent className="rounded-[2rem]">
                             <AlertDialogHeader>
-                                <AlertDialogTitle className="text-right">إلغاء هذا الطلب؟</AlertDialogTitle>
+                                <AlertDialogTitle className="text-right font-black">إلغاء هذا الطلب؟</AlertDialogTitle>
                                 <AlertDialogDescription className="text-right font-bold text-muted-foreground">
                                     سيتم سحب الطلب منك وإعادته للمكتب الرئيسي. هل أنت متأكد؟
                                 </AlertDialogDescription>

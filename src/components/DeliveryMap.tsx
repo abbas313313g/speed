@@ -1,8 +1,7 @@
-
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Loader2, Bike, AlertTriangle } from 'lucide-react';
+import { Loader2, Bike, AlertTriangle, Map as MapIcon } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 interface DeliveryMapProps {
@@ -19,9 +18,9 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     
-    // إذا لم يتوفر المفتاح، سنعرض واجهة بديلة أنيقة بدلاً من رسالة الخطأ القاسية
-    if (!apiKey || apiKey === "YOUR_GOOGLE_MAPS_API_KEY_HERE" || apiKey.length < 10) {
-        setError("نظام الخرائط قيد التهيئة البرمجية حالياً.");
+    // فحص ذكي للمفتاح قبل محاولة التحميل
+    if (!apiKey || apiKey === "" || apiKey.includes("YOUR_")) {
+        setError("نظام التتبع المباشر سيتم تفعيله قريباً.");
         setIsLoading(false);
         return;
     }
@@ -30,9 +29,9 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
         if (!mapRef.current) return;
 
         try {
-            // معالجة خطأ المصادقة من جوجل
+            // التعامل مع خطأ المصادقة من جوجل
             (window as any).gm_authFailure = () => {
-                setError("يرجى التأكد من تفعيل مفتاح Google Maps في لوحة التحكم.");
+                setError("يرجى تفعيل صلاحيات الخرائط من لوحة التحكم.");
                 setIsLoading(false);
             };
 
@@ -74,7 +73,7 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
                 }
             );
 
-            // إضافة علامة المتجر
+            // ماركر المتجر
             new google.maps.Marker({
                 position: origin,
                 map: map,
@@ -85,11 +84,10 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
                     strokeWeight: 2,
                     strokeColor: '#FFFFFF',
                     scale: 1.5,
-                },
-                title: "المتجر"
+                }
             });
 
-            // إضافة علامة الزبون
+            // ماركر الزبون
             new google.maps.Marker({
                 position: destination,
                 map: map,
@@ -101,11 +99,10 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
                     strokeColor: '#FFFFFF',
                     scale: 1.5,
                     anchor: new google.maps.Point(12, 24)
-                },
-                title: "الزبون"
+                }
             });
         } catch (e) {
-            setError("عذراً، تعذر تشغيل الخريطة التفاعلية حالياً.");
+            setError("تعذر تشغيل الخريطة التفاعلية حالياً.");
             setIsLoading(false);
         }
     };
@@ -121,7 +118,7 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
             script.async = true;
             script.onload = initMap;
             script.onerror = () => {
-                setError("تأكد من اتصال الانترنت لتحميل الخريطة.");
+                setError("يرجى التحقق من اتصال الانترنت.");
                 setIsLoading(false);
             };
             document.head.appendChild(script);
@@ -136,16 +133,16 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
         {isLoading && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm">
                 <Bike className="h-16 w-16 text-primary animate-bounce mb-3" />
-                <p className="font-black text-sm text-primary animate-pulse italic">جاري رسم مسار التوصيل...</p>
+                <p className="font-black text-xs text-primary animate-pulse italic">جاري رسم مسار التوصيل...</p>
             </div>
         )}
         {error && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-10 text-center bg-muted/10 backdrop-blur-md">
-                <div className="p-5 bg-white rounded-full shadow-lg mb-4">
-                    <AlertTriangle className="h-12 w-12 text-orange-500" />
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-8 text-center bg-white/80 backdrop-blur-md">
+                <div className="p-5 bg-primary/5 rounded-full mb-4">
+                    <MapIcon className="h-12 w-12 text-primary/40" />
                 </div>
                 <p className="text-foreground font-black text-sm leading-relaxed">{error}</p>
-                <p className="text-[10px] text-muted-foreground mt-2">يمكنك استخدام زر الموقع لفتح الخرائط الخارجية</p>
+                <p className="text-[10px] text-muted-foreground mt-2 font-bold">يمكن للمندوب استخدام زر "الموقع" لفتح خرائط جوجل الخارجية.</p>
             </div>
         )}
         <div ref={mapRef} className="w-full h-full" />
