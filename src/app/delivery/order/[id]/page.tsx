@@ -24,6 +24,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useOrders } from '@/hooks/useOrders';
 import { DeliveryMap } from '@/components/DeliveryMap';
+import Image from 'next/image';
 
 interface DeliveryOrderDetailPageProps {
     orderId: string;
@@ -112,15 +113,21 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
             <div className="space-y-3">
                 <div className="flex items-center justify-between px-2">
                     <h2 className="text-sm font-black text-primary flex items-center gap-2"><MapIcon className="h-4 w-4"/> مسار التوصيل الذكي</h2>
-                    {origin && destination && <Badge variant="secondary" className="text-[8px] font-black">خريطة داخلية</Badge>}
+                    {origin && destination && (
+                        <Badge variant="secondary" className="text-[8px] font-black bg-primary/10 text-primary border-none">
+                            خريطة مدمجة
+                        </Badge>
+                    )}
                 </div>
                 {origin && destination ? (
-                    <div className="h-72 w-full shadow-2xl">
+                    <div className="h-72 w-full shadow-2xl rounded-[2.5rem]">
                          <DeliveryMap origin={origin} destination={destination} />
                     </div>
                 ) : (
                     <div className="h-40 bg-muted/20 rounded-[2rem] border-2 border-dashed flex items-center justify-center text-center p-6">
-                        <p className="text-[10px] font-bold text-muted-foreground">عذراً، إحداثيات الموقع غير متوفرة لهذا الطلب لرسم المسار.</p>
+                        <p className="text-[10px] font-bold text-muted-foreground leading-relaxed">
+                            عذراً، إحداثيات الموقع غير متوفرة لهذا الطلب.<br/>تأكد من وجود موقع المتجر وعنوان الزبون.
+                        </p>
                     </div>
                 )}
             </div>

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Loader2, Bike, Store, Home } from 'lucide-react';
+import { Loader2, Bike, Store, Home, AlertTriangle } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 interface DeliveryMapProps {
@@ -19,8 +19,9 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     
-    if (!apiKey) {
-        setError("API Key is missing");
+    // التحقق مما إذا كان المفتاح موجوداً أو مجرد نص افتراضي
+    if (!apiKey || apiKey === "YOUR_GOOGLE_MAPS_API_KEY_HERE" || apiKey.length < 20) {
+        setError("مفتاح الخرائط غير صحيح. يرجى ضبط NEXT_PUBLIC_GOOGLE_MAPS_API_KEY في إعدادات Vercel.");
         setIsLoading(false);
         return;
     }
@@ -29,6 +30,12 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
         if (!mapRef.current) return;
 
         try {
+            // تعريف دالة للتعامل مع أخطاء جوجل العالمية (مثل المفتاح غير صالح)
+            (window as any).gm_authFailure = () => {
+                setError("فشل التحقق من مفتاح الخرائط (Invalid Key). يرجى التأكد من تفعيل الميزانية في جوجل.");
+                setIsLoading(false);
+            };
+
             const map = new google.maps.Map(mapRef.current, {
                 center: origin,
                 zoom: 14,
@@ -103,26 +110,23 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
             });
         } catch (e) {
             console.error("Map initialization failed", e);
-            setError("Failed to initialize map");
+            setError("حدث خطأ أثناء تشغيل الخريطة.");
             setIsLoading(false);
         }
     };
 
     const loadMapScript = () => {
-        // التحقق مما إذا كانت المكتبة محملة مسبقاً
         if (window.google && window.google.maps) {
             initMap();
             return;
         }
 
-        // التحقق مما إذا كان هناك وسم سكريبت قيد التحميل بالفعل
         const existingScript = document.getElementById('google-maps-script');
         if (existingScript) {
             existingScript.addEventListener('load', initMap);
             return;
         }
 
-        // إنشاء وسم سكريبت جديد
         const script = document.createElement('script');
         script.id = 'google-maps-script';
         script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,drawing,places`;
@@ -130,7 +134,7 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
         script.defer = true;
         script.onload = initMap;
         script.onerror = () => {
-            setError("Failed to load map script");
+            setError("فشل تحميل مكتبة الخرائط. تأكد من اتصال الانترنت.");
             setIsLoading(false);
         };
         document.head.appendChild(script);
@@ -140,35 +144,39 @@ export function DeliveryMap({ origin, destination, className }: DeliveryMapProps
   }, [origin, destination]);
 
   return (
-    <div className={cn("relative w-full h-full rounded-[2rem] overflow-hidden bg-muted/20", className)}>
+    <div className={cn("relative w-full h-full rounded-[2.5rem] overflow-hidden bg-muted/20 border-4 border-white shadow-inner", className)}>
         {isLoading && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm">
-                <Bike className="h-12 w-12 text-primary animate-bounce mb-2" />
-                <p className="font-black text-xs text-primary animate-pulse">جاري رسم المسار...</p>
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm">
+                <Bike className="h-14 w-14 text-primary animate-bounce mb-3" />
+                <p className="font-black text-sm text-primary animate-pulse">جاري رسم مسار التوصيل...</p>
             </div>
         )}
         {error && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center p-6 text-center bg-white/50 backdrop-blur-sm">
-                <p className="text-destructive font-black text-xs">{error}</p>
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-8 text-center bg-white/90 backdrop-blur-md">
+                <AlertTriangle className="h-12 w-12 text-destructive mb-3" />
+                <p className="text-destructive font-black text-xs leading-relaxed">{error}</p>
+                <button onClick={() => window.location.reload()} className="mt-4 text-[10px] font-black underline text-primary">تحديث الصفحة</button>
             </div>
         )}
         <div ref={mapRef} className="w-full h-full" />
         
         {/* Floating Legend */}
-        <div className="absolute bottom-4 left-4 right-4 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-xl flex justify-around items-center border border-primary/10">
-            <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-primary" />
-                <span className="text-[10px] font-black">المتجر</span>
+        {!error && !isLoading && (
+            <div className="absolute bottom-4 left-4 right-4 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-2xl flex justify-around items-center border border-primary/10">
+                <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-primary" />
+                    <span className="text-[10px] font-black">المتجر</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-red-500" />
+                    <span className="text-[10px] font-black">الزبون</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="h-1 w-8 bg-primary/60 rounded-full" />
+                    <span className="text-[10px] font-black">المسار</span>
+                </div>
             </div>
-            <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-red-500" />
-                <span className="text-[10px] font-black">الزبون</span>
-            </div>
-            <div className="flex items-center gap-2">
-                <div className="h-1 w-8 bg-primary/60 rounded-full" />
-                <span className="text-[10px] font-black">المسار</span>
-            </div>
-        </div>
+        )}
     </div>
   );
 }
