@@ -6,7 +6,7 @@ import { collection, onSnapshot, doc, runTransaction, getDoc, query, where, getD
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
-import { sendTelegramMessage } from '@/lib/telegram';
+import { sendOrderNotification } from '@/services/onesignal-service';
 
 export const useOrders = (branchId?: string) => {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
@@ -19,7 +19,6 @@ export const useOrders = (branchId?: string) => {
 
         try {
             const workersRef = collection(db, "deliveryWorkers");
-            // الفلترة حسب الفرع للمناديب أونلاين
             const wQuery = branchId && branchId !== 'all'
                 ? query(workersRef, where("isOnline", "==", true), where("branchId", "==", branchId))
                 : query(workersRef, where("isOnline", "==", true));
@@ -68,8 +67,6 @@ export const useOrders = (branchId?: string) => {
                 const bestWorker = sortedWorkers[0];
                 if (bestWorker) {
                     await updateOrderStatus(order.id, 'confirmed', bestWorker.id);
-                    const current = workerLoad.get(bestWorker.id)!;
-                    workerLoad.set(bestWorker.id, { restaurantId: targetRestaurantId, count: current.count + 1 });
                 }
             }
         } catch (e) {
@@ -79,7 +76,6 @@ export const useOrders = (branchId?: string) => {
 
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
-        // عزل تام: إذا كان هناك فرع محدد، نجلب بياناته فقط. إذا كان 'all' نجلب الكل (للإحصائيات العامة)
         let q = ordersRef;
         if (branchId && branchId !== 'all') {
             q = query(ordersRef, where('branchId', '==', branchId)) as any;
@@ -137,6 +133,11 @@ export const useOrders = (branchId?: string) => {
                 }
                 transaction.update(orderRef, updateData);
             });
+
+            // إرسال إشعار للمندوب فور تأكيد الطلب وتعيينه له
+            if (status === 'confirmed' && workerId) {
+                sendOrderNotification(workerId);
+            }
         } catch (error: any) {
             console.error("Update status failed:", error);
         }
