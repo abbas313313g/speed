@@ -5,8 +5,8 @@ import { useContext, useMemo, useState, useEffect, useRef } from 'react';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, PackageSearch, History, CheckCircle2, Clock, Volume2, VolumeX, BellRing, PackageCheck, Truck, XCircle, Info, Eye, PlayCircle, AlertCircle } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { LogOut, Loader2, PackageSearch, History, Clock, Volume2, VolumeX, PackageCheck, Truck, AlertCircle, PlayCircle, Info } from 'lucide-react';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -22,7 +22,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
 
     const [isMuted, setIsMuted] = useState(false);
     const [audioUnlocked, setAudioUnlocked] = useState(false);
-    const [notifEnabled, setNotifEnabled] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [incomingOrder, setIncomingOrder] = useState<Order | null>(null);
     
@@ -37,35 +36,35 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     const newOrders = myOrders.filter(o => o.status === 'unassigned' || o.status === 'pending_assignment');
     const preparingOrders = myOrders.filter(o => o.status === 'preparing');
     const readyOrders = myOrders.filter(o => o.status === 'ready_for_pickup');
-    const onTheWayOrders = myOrders.filter(o => o.status === 'on_the_way');
-    const deliveredOrders = myOrders.filter(o => o.status === 'delivered').slice(0, 10);
 
-    // تهيئة الصوت
+    // تهيئة الصوت كملف مدمج لضمان العمل
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-            audio.load();
+            audio.preload = 'auto';
             audio.loop = true;
             audioRef.current = audio;
         }
     }, []);
 
-    // تفعيل الصوت برمجياً (مهم لتجاوز حظر المتصفح)
+    // تفعيل قناة الصوت - ضروري جداً لمتصفحات الجوال
     const unlockAudio = () => {
         if (audioRef.current) {
             audioRef.current.play().then(() => {
                 audioRef.current?.pause();
                 audioRef.current!.currentTime = 0;
                 setAudioUnlocked(true);
-                toast({ title: "تم تفعيل نظام التنبيه الصوتي 🔔" });
-            }).catch(e => console.log("Audio unlock failed:", e));
+                toast({ title: "تم تفعيل نظام التنبيه الصوتي بنجاح ✅" });
+            }).catch(e => {
+                console.error("Audio unlock failed:", e);
+                toast({ title: "فشل تفعيل الصوت، يرجى المحاولة مرة أخرى", variant: "destructive" });
+            });
         }
     };
 
-    // مراقبة الطلبات الجديدة لفتح النافذة وتشغيل الصوت
+    // مراقبة الطلبات الجديدة
     useEffect(() => {
         if (newOrders.length > prevNewOrdersCount.current) {
-            // هناك طلب جديد وصل
             const latestOrder = newOrders[0];
             setIncomingOrder(latestOrder);
             
@@ -77,9 +76,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
 
         if (newOrders.length === 0) {
             setIncomingOrder(null);
-            if (audioRef.current) {
-                audioRef.current.pause();
-            }
+            if (audioRef.current) audioRef.current.pause();
         }
         
         prevNewOrdersCount.current = newOrders.length;
@@ -140,13 +137,12 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
 
     return (
         <div className="flex flex-col min-h-full bg-muted/5 pb-60">
-            {/* Header */}
             <header className="p-4 bg-white border-b shadow-sm flex justify-between items-center sticky top-0 z-50">
                 <div className="text-right">
                     <h1 className="text-xl font-black text-primary leading-none">{context.restaurant.name}</h1>
                     <div className="flex items-center gap-2 mt-1">
                         <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                        <p className="text-[10px] font-bold text-muted-foreground">متصل - مراقبة مباشرة</p>
+                        <p className="text-[10px] font-bold text-muted-foreground">متصل - استقبال فوري</p>
                     </div>
                 </div>
                 <div className="flex gap-2">
@@ -165,15 +161,13 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                 </div>
             </header>
 
-            {/* Audio Unlock Banner */}
             {!audioUnlocked && (
                 <div className="p-4 bg-primary text-white text-center font-bold text-sm flex items-center justify-center gap-3 animate-in slide-in-from-top duration-500 cursor-pointer shadow-lg z-40" onClick={unlockAudio}>
                     <PlayCircle className="h-5 w-5 animate-pulse" />
-                    <span>اضغط هنا لتفعيل تنبيهات الطلبات الجديدة بصوت عالٍ</span>
+                    <span>اضغط هنا لتفعيل جرس التنبيه (ضروري جداً)</span>
                 </div>
             )}
 
-            {/* Navigation */}
             <nav className="p-4 grid grid-cols-2 gap-3 sticky top-[73px] bg-background/50 z-40 backdrop-blur-md">
                 <Button onClick={() => onNavigate(2)} variant="outline" className="rounded-2xl h-14 bg-white text-primary border-2 border-primary/10 shadow-sm flex flex-col gap-0 active:scale-95 transition-all">
                     <PackageSearch className="h-5 w-5"/>
@@ -186,7 +180,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
             </nav>
 
             <main className="p-4 space-y-8">
-                {/* 1. قائمة التحضير الحالية */}
                 <section className="space-y-4">
                     <h2 className="text-lg font-black flex items-center gap-2 px-1">
                         <Clock className="h-5 w-5 text-orange-500"/>
@@ -195,7 +188,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                     {preparingOrders.length === 0 ? (
                         <div className="text-center py-12 bg-white rounded-[2.5rem] border-2 border-dashed border-muted opacity-60">
                             <Info className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
-                            <p className="text-muted-foreground text-xs font-bold">لا توجد طلبات قيد التحضير حالياً.</p>
+                            <p className="text-muted-foreground text-xs font-bold">لا توجد طلبات للتحضير حالياً.</p>
                         </div>
                     ) : (
                         <div className="space-y-3">
@@ -212,7 +205,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                     )}
                 </section>
 
-                {/* 2. جاهز للاستلام */}
                 <section className="space-y-4">
                     <h2 className="text-sm font-black flex items-center gap-2 px-1 text-green-600">
                         <PackageCheck className="h-5 w-5"/> بانتظار استلام المندوب ({readyOrders.length})
@@ -222,7 +214,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                             <div key={order.id} className="bg-white p-4 rounded-2xl shadow-sm border-r-4 border-r-green-500 flex items-center justify-between animate-pulse">
                                 <div>
                                     <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
-                                    <p className="text-[10px] text-green-600 font-bold">الكابتن في الطريق للمحل...</p>
+                                    <p className="text-[10px] text-green-600 font-bold">المندوب في طريقه إليكم...</p>
                                 </div>
                                 <Truck className="h-5 w-5 text-green-600"/>
                             </div>
@@ -231,18 +223,18 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                 </section>
             </main>
 
-            {/* نافذة التنبيه الفوري للطلب الجديد - نصف شاشة */}
+            {/* نافذة التنبيه الفوري - نصف شاشة احترافي */}
             <Dialog open={!!incomingOrder} onOpenChange={() => {}}>
-                <DialogContent className="max-w-[95vw] sm:max-w-md rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl animate-in zoom-in duration-300">
+                <DialogContent className="max-w-[100vw] sm:max-w-md rounded-t-[3rem] p-0 overflow-hidden border-none shadow-2xl animate-in slide-in-from-bottom duration-500 bottom-0 top-auto translate-y-0 translate-x-[-50%] fixed left-[50%]">
                     <DialogHeader className="p-6 bg-red-600 text-white flex flex-col items-center gap-2">
                         <div className="p-3 bg-white/20 rounded-full animate-bounce">
                             <AlertCircle className="h-8 w-8 text-white" />
                         </div>
                         <DialogTitle className="text-2xl font-black text-center">طلب جديد وصل! 🍔</DialogTitle>
-                        <p className="text-white/80 text-xs font-bold">يرجى مراجعة المنتجات والقبول فوراً</p>
+                        <p className="text-white/80 text-xs font-bold text-center">لن يتوقف جرس التنبيه حتى يتم القبول</p>
                     </DialogHeader>
                     
-                    <div className="p-6 bg-muted/10 max-h-[50vh] overflow-y-auto">
+                    <div className="p-6 bg-background max-h-[50vh] overflow-y-auto scrollbar-hide">
                         {incomingOrder && <OrderItemsList order={incomingOrder} />}
                     </div>
 
@@ -264,7 +256,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                 </DialogContent>
             </Dialog>
 
-            {/* نافذة تفاصيل الطلب العادية */}
             <Dialog open={!!selectedOrder} onOpenChange={(v) => !v && setSelectedOrder(null)}>
                 <DialogContent className="max-w-[90vw] sm:max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
                     <DialogHeader className="p-6 bg-primary text-white">

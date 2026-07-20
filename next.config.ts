@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
         hostname: '**',
       },
     ],
+    unoptimized: false, // نترك التفعيل لـ Next لعمل Caching
   },
 };
 
