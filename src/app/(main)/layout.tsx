@@ -17,6 +17,7 @@ import { useDeliveryZones } from '@/hooks/useDeliveryZones';
 import { useBranches } from '@/hooks/useBranches';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import Image from 'next/image';
 
 import HomePage from './home/page';
 import RestaurantsPage from './restaurants/page';
@@ -124,9 +125,22 @@ export default function MainAppLayout() {
 
   if (settingsLoading) {
     return (
-        <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
-            <Loader2 className="h-10 w-10 animate-spin text-primary"/>
-            <p className="mt-4 text-muted-foreground font-bold">جارِ التشغيل...</p>
+        <div className="flex h-screen w-full flex-col items-center justify-center bg-[#00b358] animate-in fade-in duration-500">
+            <div className="relative w-40 h-40 mb-4 animate-in zoom-in duration-700">
+                <Image 
+                    src="https://picsum.photos/seed/speedlogo/400/400" 
+                    alt="Speed Shop" 
+                    fill 
+                    className="rounded-[2.5rem] object-cover border-4 border-white/20 shadow-2xl"
+                    data-ai-hint="speed logo"
+                />
+            </div>
+            <h1 className="text-5xl font-black text-white italic tracking-tighter drop-shadow-md">Speed Shop</h1>
+            <div className="mt-12 flex gap-2">
+                <div className="h-3 w-3 bg-white rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <div className="h-3 w-3 bg-white rounded-full animate-bounce [animation-delay:-0.15s]" />
+                <div className="h-3 w-3 bg-white rounded-full animate-bounce" />
+            </div>
         </div>
     );
   }

@@ -25,6 +25,7 @@ export default function ProductDetailPage() {
   
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(undefined);
+  const [isImgLoading, setIsImgLoading] = useState(true);
 
   if (!context) return null;
   const { selectedProductId, setActiveTab, activeTab } = context;
@@ -34,13 +35,13 @@ export default function ProductDetailPage() {
   const product = useMemo(() => products.find(p => p.id === selectedProductId), [selectedProductId, products]);
   const restaurant = useMemo(() => product ? restaurants.find(r => r.id === product.restaurantId) : null, [product, restaurants]);
 
-  // حساب عدد المنتجات الكلي في السلة لإظهاره في العداد العلوي
   const cartCount = useMemo(() => cart.reduce((acc, item) => acc + item.quantity, 0), [cart]);
 
   useEffect(() => {
     if (isCurrentlyVisible) {
         setSelectedSize(undefined);
         setQuantity(1);
+        setIsImgLoading(true);
     }
   }, [product, isCurrentlyVisible]);
 
@@ -108,11 +109,10 @@ export default function ProductDetailPage() {
   };
 
   const hasDiscount = !!product.discountPrice && !selectedSize;
-  const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/600x400.png';
+  const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://picsum.photos/seed/speeddetail/600/600';
 
   return (
     <div className="flex flex-col h-full bg-background relative overflow-hidden">
-       {/* Top Navigation - Floating */}
        <div className="absolute top-4 left-4 right-4 z-20 flex justify-between items-center">
           <button 
             onClick={() => setActiveTab(0)} 
@@ -134,10 +134,17 @@ export default function ProductDetailPage() {
           </button>
        </div>
 
-      {/* Main Content Area - Scrollable */}
       <div className="flex-1 overflow-y-auto">
-          <div className="relative w-full aspect-square overflow-hidden sm:rounded-b-[3.5rem] shadow-2xl">
-            <Image src={imageUrl} alt={product.name} fill className="object-cover" unoptimized={true} priority />
+          <div className={cn("relative w-full aspect-square overflow-hidden sm:rounded-b-[3.5rem] shadow-2xl", isImgLoading && "animate-pulse bg-muted")}>
+            <Image 
+                src={imageUrl} 
+                alt={product.name} 
+                fill 
+                className={cn("object-cover transition-all duration-700", isImgLoading ? "blur-2xl scale-110" : "blur-0 scale-100")} 
+                unoptimized={true} 
+                priority 
+                onLoadingComplete={() => setIsImgLoading(false)}
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
           </div>
 
@@ -205,7 +212,6 @@ export default function ProductDetailPage() {
           </div>
       </div>
 
-      {/* Footer Area - Isolated from Content */}
       <div className="p-6 bg-white/80 backdrop-blur-xl border-t shrink-0 rounded-t-[2.5rem] shadow-t-xl">
           <Button 
                 size="lg" 

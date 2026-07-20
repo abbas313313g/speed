@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useMemo, useContext } from "react";
+import React, { useMemo, useContext, useState } from "react";
 import Image from "next/image";
 import { PlusCircle, ListChecks } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,6 +23,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
   const { addToCart } = useCart();
   const { restaurants } = useRestaurants();
   const context = useContext(AppContext);
+  const [isImgLoading, setIsImgLoading] = useState(true);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === product.restaurantId), [product, restaurants]);
 
@@ -57,7 +59,6 @@ function ProductCardComponent({ product }: ProductCardProps) {
     }
 
     if (hasSizes) {
-        // إذا كان له أحجام، نجبر الزبون على الدخول لصفحة التفاصيل للاختيار
         handleOpenProduct();
         return;
     }
@@ -79,22 +80,23 @@ function ProductCardComponent({ product }: ProductCardProps) {
       return product.discountPrice || product.price;
   }, [product, hasSizes]);
 
-  const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/600x400.png';
+  const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://picsum.photos/seed/speedp/600/400';
 
   return (
     <div 
         onClick={handleOpenProduct}
-        className={`group cursor-pointer transition-all active:scale-95 ${isOutOfStock || !restaurant?.isStoreOpen ? 'opacity-60' : ''}`}
+        className={cn("group cursor-pointer transition-all active:scale-95", (isOutOfStock || !restaurant?.isStoreOpen) && "opacity-60")}
     >
       <Card className="overflow-hidden border-none shadow-md rounded-[1.5rem] bg-card">
         <CardContent className="p-0">
-          <div className="relative w-full aspect-square">
+          <div className={cn("relative w-full aspect-square overflow-hidden", isImgLoading && "animate-pulse bg-muted")}>
             <Image
               src={imageUrl}
               alt={product.name}
               fill
-              className="object-cover"
+              className={cn("object-cover transition-all duration-700", isImgLoading ? "blur-xl scale-110" : "blur-0 scale-100")}
               unoptimized={true}
+              onLoadingComplete={() => setIsImgLoading(false)}
             />
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2">نفد</Badge>}
             {!restaurant?.isStoreOpen && <Badge variant="destructive" className="absolute top-2 left-2 text-[10px]">مغلق</Badge>}
