@@ -5,7 +5,7 @@ import { useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import { BottomNav } from '@/components/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useAddresses } from '@/hooks/useAddresses';
-import { HardHat, Loader2, MapPin, AlertCircle, ShoppingBag, CheckCircle2, Navigation, Building2 } from 'lucide-react';
+import { HardHat, Loader2, MapPin, AlertCircle, ShoppingBag, CheckCircle2, Navigation, Building2, Ghost } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -60,10 +60,10 @@ export default function MainAppLayout() {
   }, [setActiveTab]);
 
   useEffect(() => {
-    if (!settingsLoading && addresses.length === 0) {
+    if (!settingsLoading && !settings?.isMaintenanceMode && addresses.length === 0) {
       setShowAddressPrompt(true);
     }
-  }, [settingsLoading, addresses]);
+  }, [settingsLoading, settings?.isMaintenanceMode, addresses]);
 
   const filteredZones = useMemo(() => {
       if (!newAddr.selectedBranch) return [];
@@ -168,10 +168,18 @@ export default function MainAppLayout() {
               <Button onClick={() => setIsBlocked(false)} variant="outline" className="mt-8 rounded-xl">رجوع للمحاولة ثانية</Button>
             </div>
         ) : settings?.isMaintenanceMode ? (
-            <div className="flex h-full w-full flex-col items-center justify-center bg-muted/40 p-4 text-center">
-                <HardHat className="h-20 w-20 text-primary mb-6 animate-bounce"/>
-                <h1 className="text-3xl font-bold mb-2 text-primary">نحن في صيانة قصيرة</h1>
-                <p className="text-muted-foreground text-lg">نعمل على تحسين الخدمة. سنعود خلال دقائق!</p>
+            <div className="flex h-full w-full flex-col items-center justify-center bg-background p-10 text-center animate-in zoom-in duration-500">
+                <div className="p-8 bg-primary/5 rounded-full mb-8 relative">
+                   <HardHat className="h-24 w-24 text-primary animate-bounce"/>
+                   <Ghost className="h-8 w-8 text-primary/40 absolute top-4 right-4 animate-pulse" />
+                </div>
+                <h1 className="text-3xl font-black mb-4 text-primary leading-tight">عذراً، المتجر في استراحة قصيرة</h1>
+                <div className="p-6 bg-muted/30 rounded-[2rem] border-2 border-dashed border-primary/20 w-full">
+                    <p className="text-foreground font-bold text-lg leading-relaxed">
+                        {settings.maintenanceMessage || "نعمل حالياً على تحسين بعض الخدمات لنقدم لكم تجربة أفضل. سنعود للعمل خلال وقت قصير جداً!"}
+                    </p>
+                </div>
+                <p className="mt-10 text-xs font-black text-muted-foreground/60 uppercase tracking-widest">Speed Shop Operations</p>
             </div>
         ) : content}
 

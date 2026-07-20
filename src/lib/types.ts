@@ -176,6 +176,7 @@ export interface TelegramConfig {
 export interface AppSettings {
     id?: string;
     isMaintenanceMode: boolean;
+    maintenanceMessage?: string;
 }
 
 export interface AdminAccess {
