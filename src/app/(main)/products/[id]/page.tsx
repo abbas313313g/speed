@@ -28,7 +28,11 @@ export default function ProductDetailPage() {
   const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(undefined);
 
   if (!context) return null;
-  const { selectedProductId, setActiveTab } = context;
+  const { selectedProductId, setActiveTab, activeTab } = context;
+
+  // تأكد من أن المكون لا يعرض أي شيء إذا لم نكن في تاب التفاصيل
+  // هذا يمنع تداخل الأزرار الـ fixed في الشاشات الأخرى
+  const isCurrentlyVisible = activeTab === 9;
 
   const product = useMemo(() => products.find(p => p.id === selectedProductId), [selectedProductId, products]);
   const restaurant = useMemo(() => product ? restaurants.find(r => r.id === product.restaurantId) : null, [product, restaurants]);
@@ -38,9 +42,11 @@ export default function ProductDetailPage() {
   }, [product, products]);
 
   useEffect(() => {
-    setSelectedSize(undefined);
-    setQuantity(1);
-  }, [product]);
+    if (isCurrentlyVisible) {
+        setSelectedSize(undefined);
+        setQuantity(1);
+    }
+  }, [product, isCurrentlyVisible]);
 
   const displayPrice = useMemo(() => {
     if (selectedSize?.price) return selectedSize.price;
@@ -59,6 +65,8 @@ export default function ProductDetailPage() {
       }
       return (product?.stock ?? 0) <= 0;
   }, [product, selectedSize]);
+
+  if (!isCurrentlyVisible) return null;
 
   if (isLoading || !product) {
     return (
@@ -117,8 +125,8 @@ export default function ProductDetailPage() {
           >
               <ArrowRight className="h-6 w-6"/>
           </button>
-          <div className="p-3 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl">
-             <ShoppingCart className="h-6 w-6 text-primary" onClick={() => setActiveTab(3)}/>
+          <div className="p-3 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl cursor-pointer" onClick={() => setActiveTab(3)}>
+             <ShoppingCart className="h-6 w-6 text-primary"/>
           </div>
        </div>
 

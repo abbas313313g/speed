@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useContext, useCallback, useMemo } from 'react';
@@ -43,7 +44,21 @@ export default function MainAppLayout() {
   const [islocLoading, setIslocLoading] = useState(false);
 
   if (!context) return null;
-  const { activeTab } = context;
+  const { activeTab, setActiveTab } = context;
+
+  // إدارة زر الرجوع في المتصفح والموبايل لمنع الخروج
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && typeof event.state.tab === 'number') {
+        setActiveTab(event.state.tab, false); // تحديث التاب دون إضافة تاريخ جديد
+      } else {
+        setActiveTab(0, false);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [setActiveTab]);
 
   useEffect(() => {
     if (!settingsLoading && addresses.length === 0) {

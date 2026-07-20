@@ -3,8 +3,9 @@
 
 import { Home, User, ShoppingCart, ClipboardList, Store, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import React, { useContext } from "react";
+import React, { useContext, useMemo } from "react";
 import { AppContext } from "@/contexts/AppContext";
+import { Badge } from "@/components/ui/badge";
 
 const navItems = [
   { index: 0, label: "الرئيسية", icon: Home },
@@ -19,7 +20,11 @@ function BottomNavComponent() {
   const context = useContext(AppContext);
   if (!context) return null;
   
-  const { activeTab, setActiveTab } = context;
+  const { activeTab, setActiveTab, cart } = context;
+
+  const cartCount = useMemo(() => {
+    return cart.reduce((acc, item) => acc + item.quantity, 0);
+  }, [cart]);
 
   const handleTabClick = (index: number) => {
     if (activeTab > 5 && index === 5) {
@@ -34,13 +39,14 @@ function BottomNavComponent() {
       <div className="mx-auto grid h-20 max-w-screen-xl grid-cols-6 items-center justify-around px-2">
         {navItems.map((item) => {
           const isActive = (item.index === 5 && activeTab >= 5) || (activeTab === item.index);
+          const isCart = item.index === 3;
           
           return (
             <button
               key={item.index}
               onClick={() => handleTabClick(item.index)}
               className={cn(
-                "group flex flex-col items-center justify-center text-muted-foreground transition-all duration-300 active:scale-75",
+                "group relative flex flex-col items-center justify-center text-muted-foreground transition-all duration-300 active:scale-75",
                 isActive && "text-primary"
               )}
             >
@@ -49,6 +55,11 @@ function BottomNavComponent() {
                 isActive && "bg-primary/10"
               )}>
                 <item.icon className={cn("h-6 w-6 transition-transform", isActive && "scale-110")} />
+                {isCart && cartCount > 0 && (
+                   <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-[10px] font-black bg-destructive animate-in zoom-in">
+                      {cartCount}
+                   </Badge>
+                )}
               </div>
               <span className="mt-1 text-[10px] font-black">{item.label}</span>
             </button>

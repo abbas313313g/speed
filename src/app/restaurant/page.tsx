@@ -5,7 +5,7 @@ import { useContext, useMemo, useState, useEffect, useRef } from 'react';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, PackageSearch, History, CheckCircle2, Clock, Volume2, VolumeX, BellRing, PackageCheck, Truck, XCircle, Info, Eye } from 'lucide-react';
+import { LogOut, Loader2, PackageSearch, History, CheckCircle2, Clock, Volume2, VolumeX, BellRing, PackageCheck, Truck, XCircle, Info, Eye, PlayCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -21,6 +21,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     const { toast } = useToast();
 
     const [isMuted, setIsMuted] = useState(false);
+    const [audioUnlocked, setAudioUnlocked] = useState(false);
     const [notifEnabled, setNotifEnabled] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -40,17 +41,30 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-            audioRef.current.load();
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+            audio.load();
+            audioRef.current = audio;
         }
     }, []);
 
+    // تفعيل الصوت برمجياً عند الضغط لفتح صلاحية Play للمتصفح
+    const unlockAudio = () => {
+        if (audioRef.current) {
+            audioRef.current.play().then(() => {
+                audioRef.current?.pause();
+                audioRef.current!.currentTime = 0;
+                setAudioUnlocked(true);
+                toast({ title: "تم تفعيل نظام التنبيه المباشر" });
+            }).catch(e => console.log("Audio unlock failed:", e));
+        }
+    };
+
     useEffect(() => {
-        if (newOrders.length > prevOrdersCount.current && !isMuted) {
+        if (audioUnlocked && newOrders.length > prevOrdersCount.current && !isMuted) {
             if (audioRef.current) {
                 audioRef.current.currentTime = 0;
                 audioRef.current.loop = true;
-                audioRef.current.play().catch(() => console.log("Sound blocked"));
+                audioRef.current.play().catch(() => console.log("Sound blocked by browser"));
             }
         }
         if (newOrders.length === 0 || isMuted) {
@@ -60,7 +74,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
             }
         }
         prevOrdersCount.current = newOrders.length;
-    }, [newOrders.length, isMuted]);
+    }, [newOrders.length, isMuted, audioUnlocked]);
 
     const requestNotif = async () => {
         if (!("Notification" in window)) {
@@ -138,6 +152,13 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                     <Button variant="ghost" size="icon" onClick={context.logout} className="text-destructive"><LogOut className="h-5 w-5"/></Button>
                 </div>
             </header>
+
+            {!audioUnlocked && (
+                <div className="p-4 bg-primary text-white text-center font-bold text-sm flex items-center justify-center gap-3 animate-pulse cursor-pointer" onClick={unlockAudio}>
+                    <PlayCircle className="h-5 w-5" />
+                    اضغط هنا لتفعيل تنبيهات الصوت المباشرة
+                </div>
+            )}
 
             <nav className="p-4 grid grid-cols-2 gap-3 sticky top-[73px] bg-muted/5 z-40 backdrop-blur-md">
                 <Button onClick={() => onNavigate(2)} className="rounded-2xl h-14 bg-white text-primary border-2 border-primary/20 shadow-sm flex flex-col gap-0 active:scale-95 transition-all">
