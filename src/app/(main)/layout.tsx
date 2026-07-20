@@ -46,11 +46,10 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, setActiveTab } = context;
 
-  // إدارة زر الرجوع في المتصفح والموبايل لمنع الخروج
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       if (event.state && typeof event.state.tab === 'number') {
-        setActiveTab(event.state.tab, false); // تحديث التاب دون إضافة تاريخ جديد
+        setActiveTab(event.state.tab, false);
       } else {
         setActiveTab(0, false);
       }
@@ -81,12 +80,6 @@ export default function MainAppLayout() {
       return;
     }
 
-    const options = {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0
-    };
-
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
@@ -100,20 +93,20 @@ export default function MainAppLayout() {
         setIslocLoading(false);
       },
       (err) => {
-        toast({ title: "فشل تحديد الموقع", description: "يرجى تفعيل الـ GPS وإعطاء الإذن للمتصفح.", variant: "destructive" });
+        toast({ title: "فشل تحديد الموقع", variant: "destructive" });
         setIslocLoading(false);
       },
-      options
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   }, [toast]);
 
   const handleSaveAddress = () => {
     if (!newAddr.name || !newAddr.phone || !newAddr.selectedBranch || !newAddr.detectedZone) {
-      toast({ title: "بيانات ناقصة", description: "يرجى إكمال جميع الحقول المطلوبة.", variant: "destructive" });
+      toast({ title: "بيانات ناقصة", variant: "destructive" });
       return;
     }
     if (newAddr.lat === 0) {
-        toast({ title: "الموقع مطلوب", description: "يجب الضغط على زر تحديد الموقع للمتابعة.", variant: "destructive" });
+        toast({ title: "الموقع مطلوب", description: "يجب تحديد الموقع للمتابعة.", variant: "destructive" });
         return;
     }
     addAddress({
@@ -133,7 +126,7 @@ export default function MainAppLayout() {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
             <Loader2 className="h-10 w-10 animate-spin text-primary"/>
-            <p className="mt-4 text-muted-foreground animate-pulse font-bold">جارِ التشغيل...</p>
+            <p className="mt-4 text-muted-foreground font-bold">جارِ التشغيل...</p>
         </div>
     );
   }
@@ -158,7 +151,7 @@ export default function MainAppLayout() {
           <div className="spa-page-view"><RestaurantProductsPage /></div>
         </div>
       </main>
-      <div className="h-20 shrink-0"><BottomNav /></div>
+      <div className="h-20 shrink-0 bg-background border-t z-50"><BottomNav /></div>
     </div>
   );
 
@@ -166,12 +159,11 @@ export default function MainAppLayout() {
     <div className="min-h-screen w-full bg-slate-100 flex justify-center items-center p-0 sm:p-4 overflow-hidden">
       <div className="w-full max-w-[480px] h-[100dvh] sm:h-[850px] sm:max-h-[95vh] flex flex-col bg-card shadow-2xl relative overflow-hidden sm:rounded-[3rem] sm:border-[8px] sm:border-white">
         {isBlocked ? (
-            <div className="flex h-full w-full flex-col items-center justify-center bg-background p-8 text-center animate-in fade-in zoom-in duration-500">
+            <div className="flex h-full w-full flex-col items-center justify-center bg-background p-8 text-center">
               <AlertCircle className="h-24 w-24 text-destructive mb-6" />
               <h1 className="text-3xl font-black mb-4 text-primary">نعتذر منك جداً</h1>
               <p className="text-muted-foreground text-xl leading-relaxed">
                 تطبيق سبيد شوب مخصص حالياً لخدمة مناطق <br/><span className="text-foreground font-black underline">(المدحتية، الهاشمية، القاسم)</span> فقط.
-                <br/> سنصل إليك قريباً!
               </p>
               <Button onClick={() => setIsBlocked(false)} variant="outline" className="mt-8 rounded-xl">رجوع للمحاولة ثانية</Button>
             </div>
@@ -261,7 +253,7 @@ export default function MainAppLayout() {
             <div className="p-6 bg-background border-t">
                 <Button 
                     onClick={handleSaveAddress} 
-                    className="w-full py-8 text-2xl font-black rounded-3xl shadow-2xl shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95" 
+                    className="w-full py-8 text-2xl font-black rounded-3xl shadow-2xl shadow-primary/30" 
                     disabled={islocLoading || !newAddr.detectedZone || newAddr.lat === 0}
                 >
                     تأكيد والبدء بالتسوق

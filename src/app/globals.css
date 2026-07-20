@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,7 +11,7 @@
     --card-foreground: 224 71.4% 4.1%;
     --popover: 0 0% 100%;
     --popover-foreground: 224 71.4% 4.1%;
-    --primary: 151 100% 35%; /* تم تعديل اللون ليطابق شعار سبيد الأخضر */
+    --primary: 151 100% 35%; /* أخضر سبيد شوب */
     --primary-foreground: 0 0% 98%;
     --secondary: 150 20% 90%;
     --secondary-foreground: 151 100% 25%;
@@ -72,6 +73,9 @@ button, a, [role="button"] {
   -webkit-overflow-scrolling: touch;
   background: hsl(var(--background));
   scrollbar-width: none;
+  /* حل مشكلة البياض: التأكد من عدم وجود هوامش سفلية */
+  margin-bottom: 0;
+  padding-bottom: 0;
 }
 
 .spa-page-view::-webkit-scrollbar {

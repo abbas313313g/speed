@@ -27,14 +27,15 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
         if (restaurantsLoading) return;
         
         setIsInitialCheckDone(true);
-        const storedId = sessionStorage.getItem('restaurantId');
+        // تم تغيير sessionStorage إلى localStorage ليبقى المتجر مسجلاً
+        const storedId = localStorage.getItem('speedShopRestaurantId');
 
         if (storedId) {
             const found = restaurants.find(r => r.id === storedId);
             if (found) {
                 setRestaurant(found);
             } else {
-                sessionStorage.removeItem('restaurantId');
+                localStorage.removeItem('speedShopRestaurantId');
             }
         }
     }, [restaurants, restaurantsLoading]);
@@ -43,7 +44,7 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
         const selectedRestaurant = restaurants.find(r => r.restaurantNumber === restaurantNumber);
         
         if (selectedRestaurant && selectedRestaurant.loginCode === code) {
-            sessionStorage.setItem('restaurantId', selectedRestaurant.id);
+            localStorage.setItem('speedShopRestaurantId', selectedRestaurant.id);
             setRestaurant(selectedRestaurant);
             return true;
         }
@@ -51,7 +52,7 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
     }, [restaurants]);
 
     const logout = useCallback(() => {
-        sessionStorage.removeItem('restaurantId');
+        localStorage.removeItem('speedShopRestaurantId');
         setRestaurant(null);
     }, []);
 
