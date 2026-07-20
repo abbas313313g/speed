@@ -151,7 +151,7 @@ export default function MainAppLayout() {
           <div className="spa-page-view"><RestaurantProductsPage /></div>
         </div>
       </main>
-      <div className="h-20 shrink-0 bg-background border-t z-50"><BottomNav /></div>
+      <BottomNav />
     </div>
   );
 

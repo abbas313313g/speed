@@ -35,7 +35,7 @@ function BottomNavComponent() {
   };
 
   return (
-    <nav className="fixed bottom-0 right-0 z-50 w-full border-t bg-card/80 backdrop-blur-lg shadow-t-lg">
+    <nav className="w-full bg-card border-t shadow-t-lg shrink-0">
       <div className="mx-auto grid h-20 max-w-screen-xl grid-cols-6 items-center justify-around px-2">
         {navItems.map((item) => {
           const isActive = (item.index === 5 && activeTab >= 5) || (activeTab === item.index);
