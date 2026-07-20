@@ -5,7 +5,7 @@ import { useContext, useMemo, useState, useEffect, useRef } from 'react';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, PackageSearch, History, CheckCircle2, Clock, Volume2, VolumeX, BellRing, PackageCheck, Truck, XCircle, Info, Eye, PlayCircle } from 'lucide-react';
+import { LogOut, Loader2, PackageSearch, History, CheckCircle2, Clock, Volume2, VolumeX, BellRing, PackageCheck, Truck, XCircle, Info, Eye, PlayCircle, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -24,8 +24,10 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     const [audioUnlocked, setAudioUnlocked] = useState(false);
     const [notifEnabled, setNotifEnabled] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+    const [incomingOrder, setIncomingOrder] = useState<Order | null>(null);
+    
     const audioRef = useRef<HTMLAudioElement | null>(null);
-    const prevOrdersCount = useRef(0);
+    const prevNewOrdersCount = useRef(0);
 
     const myOrders = useMemo(() => {
         if (!context?.restaurant || !allOrders) return [];
@@ -37,64 +39,75 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     const readyOrders = myOrders.filter(o => o.status === 'ready_for_pickup');
     const onTheWayOrders = myOrders.filter(o => o.status === 'on_the_way');
     const deliveredOrders = myOrders.filter(o => o.status === 'delivered').slice(0, 10);
-    const cancelledOrders = myOrders.filter(o => o.status === 'cancelled').slice(0, 10);
 
+    // تهيئة الصوت
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
             audio.load();
+            audio.loop = true;
             audioRef.current = audio;
         }
     }, []);
 
-    // تفعيل الصوت برمجياً عند الضغط لفتح صلاحية Play للمتصفح
+    // تفعيل الصوت برمجياً (مهم لتجاوز حظر المتصفح)
     const unlockAudio = () => {
         if (audioRef.current) {
             audioRef.current.play().then(() => {
                 audioRef.current?.pause();
                 audioRef.current!.currentTime = 0;
                 setAudioUnlocked(true);
-                toast({ title: "تم تفعيل نظام التنبيه المباشر" });
+                toast({ title: "تم تفعيل نظام التنبيه الصوتي 🔔" });
             }).catch(e => console.log("Audio unlock failed:", e));
         }
     };
 
+    // مراقبة الطلبات الجديدة لفتح النافذة وتشغيل الصوت
     useEffect(() => {
-        if (audioUnlocked && newOrders.length > prevOrdersCount.current && !isMuted) {
-            if (audioRef.current) {
+        if (newOrders.length > prevNewOrdersCount.current) {
+            // هناك طلب جديد وصل
+            const latestOrder = newOrders[0];
+            setIncomingOrder(latestOrder);
+            
+            if (audioUnlocked && !isMuted && audioRef.current) {
                 audioRef.current.currentTime = 0;
-                audioRef.current.loop = true;
-                audioRef.current.play().catch(() => console.log("Sound blocked by browser"));
+                audioRef.current.play().catch(e => console.log("Sound play error:", e));
             }
         }
-        if (newOrders.length === 0 || isMuted) {
+
+        if (newOrders.length === 0) {
+            setIncomingOrder(null);
             if (audioRef.current) {
                 audioRef.current.pause();
-                audioRef.current.loop = false;
             }
         }
-        prevOrdersCount.current = newOrders.length;
-    }, [newOrders.length, isMuted, audioUnlocked]);
-
-    const requestNotif = async () => {
-        if (!("Notification" in window)) {
-            toast({ title: "المتصفح لا يدعم التنبيهات", variant: "destructive" });
-            return;
-        }
-        const permission = await Notification.requestPermission();
-        if (permission === "granted") {
-            setNotifEnabled(true);
-            toast({ title: "تم تفعيل التنبيهات بنجاح" });
-        }
-    };
+        
+        prevNewOrdersCount.current = newOrders.length;
+    }, [newOrders, audioUnlocked, isMuted]);
 
     const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
         await updateOrderStatus(orderId, status);
-        toast({ title: `تم تحديث الحالة` });
+        if (status === 'preparing') {
+            toast({ title: "تم قبول الطلب، ابدأ التحضير!" });
+            setIncomingOrder(null);
+            if (audioRef.current) audioRef.current.pause();
+        }
         setSelectedOrder(null);
     };
 
-    if (!context?.restaurant || oLoading) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
+    const handleReject = async (orderId: string) => {
+        await updateOrderStatus(orderId, 'cancelled');
+        toast({ title: "تم رفض وإلغاء الطلب", variant: "destructive" });
+        setIncomingOrder(null);
+        if (audioRef.current) audioRef.current.pause();
+    };
+
+    if (!context?.restaurant || oLoading) return (
+        <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+            <Loader2 className="animate-spin h-12 w-12 text-primary" />
+            <p className="mt-4 font-bold text-muted-foreground">جارِ مزامنة طلبات المتجر...</p>
+        </div>
+    );
 
     const OrderItemsList = ({ order }: { order: Order }) => (
         <div className="space-y-4 py-2">
@@ -102,13 +115,13 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                 const itemPrice = item.selectedSize?.price || item.product.discountPrice || item.product.price;
                 const img = item.product.image || 'https://placehold.co/100x100.png';
                 return (
-                    <div key={idx} className="flex items-center gap-4 bg-muted/20 p-3 rounded-2xl border">
-                        <div className="relative h-16 w-16 shrink-0">
-                            <Image src={img} alt={item.product.name} fill className="object-cover rounded-xl" unoptimized={true}/>
+                    <div key={idx} className="flex items-center gap-4 bg-white p-3 rounded-2xl border shadow-sm">
+                        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border">
+                            <Image src={img} alt={item.product.name} fill className="object-cover" unoptimized={true}/>
                         </div>
                         <div className="flex-1 min-w-0">
                             <h4 className="font-black text-sm truncate">{item.product.name}</h4>
-                            {item.selectedSize && <p className="text-[10px] font-bold text-muted-foreground">{item.selectedSize.name}</p>}
+                            {item.selectedSize && <Badge variant="secondary" className="text-[9px] font-black mt-0.5">{item.selectedSize.name}</Badge>}
                             <div className="flex justify-between items-center mt-1">
                                 <span className="font-bold text-xs">الكمية: {item.quantity}</span>
                                 <span className="font-black text-primary text-xs">{formatCurrency(itemPrice * item.quantity)}</span>
@@ -118,186 +131,150 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                 )
             })}
             <Separator className="my-2" />
-            <div className="flex justify-between items-center bg-primary/5 p-4 rounded-2xl">
-                <span className="font-black">المجموع الصافي:</span>
-                <span className="text-xl font-black text-primary">{formatCurrency(order.total - order.deliveryFee)}</span>
+            <div className="flex justify-between items-center bg-primary/5 p-4 rounded-2xl border border-primary/10">
+                <span className="font-black text-sm">صافي دخل المتجر:</span>
+                <span className="text-2xl font-black text-primary tracking-tighter">{formatCurrency(order.total - order.deliveryFee)}</span>
             </div>
         </div>
     );
 
     return (
-        <div className="flex flex-col min-h-full bg-muted/10 pb-60">
+        <div className="flex flex-col min-h-full bg-muted/5 pb-60">
+            {/* Header */}
             <header className="p-4 bg-white border-b shadow-sm flex justify-between items-center sticky top-0 z-50">
                 <div className="text-right">
                     <h1 className="text-xl font-black text-primary leading-none">{context.restaurant.name}</h1>
-                    <p className="text-[10px] font-bold text-muted-foreground mt-1">المراقبة المباشرة</p>
+                    <div className="flex items-center gap-2 mt-1">
+                        <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                        <p className="text-[10px] font-bold text-muted-foreground">متصل - مراقبة مباشرة</p>
+                    </div>
                 </div>
                 <div className="flex gap-2">
                     <Button 
                         variant="outline" 
                         size="icon" 
-                        className={cn("rounded-xl h-10 w-10 transition-all", !isMuted && newOrders.length > 0 && "animate-bounce bg-red-50 text-red-600 border-red-200")}
-                        onClick={() => setIsMuted(!isMuted)}
+                        className={cn("rounded-xl h-10 w-10 transition-all", !isMuted && incomingOrder && "animate-bounce bg-red-50 text-red-600 border-red-200")}
+                        onClick={() => {
+                            setIsMuted(!isMuted);
+                            if (audioRef.current) audioRef.current.pause();
+                        }}
                     >
                         {isMuted ? <VolumeX className="h-5 w-5"/> : <Volume2 className="h-5 w-5"/>}
                     </Button>
-                    <Button 
-                        variant={notifEnabled ? "secondary" : "outline"} 
-                        size="icon" 
-                        className={cn("rounded-xl h-10 w-10", notifEnabled && "bg-green-100 text-green-600")} 
-                        onClick={requestNotif}
-                    >
-                        <BellRing className="h-5 w-5"/>
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={context.logout} className="text-destructive"><LogOut className="h-5 w-5"/></Button>
+                    <Button variant="ghost" size="icon" onClick={context.logout} className="text-destructive rounded-xl hover:bg-destructive/5"><LogOut className="h-5 w-5"/></Button>
                 </div>
             </header>
 
+            {/* Audio Unlock Banner */}
             {!audioUnlocked && (
-                <div className="p-4 bg-primary text-white text-center font-bold text-sm flex items-center justify-center gap-3 animate-pulse cursor-pointer" onClick={unlockAudio}>
-                    <PlayCircle className="h-5 w-5" />
-                    اضغط هنا لتفعيل تنبيهات الصوت المباشرة
+                <div className="p-4 bg-primary text-white text-center font-bold text-sm flex items-center justify-center gap-3 animate-in slide-in-from-top duration-500 cursor-pointer shadow-lg z-40" onClick={unlockAudio}>
+                    <PlayCircle className="h-5 w-5 animate-pulse" />
+                    <span>اضغط هنا لتفعيل تنبيهات الطلبات الجديدة بصوت عالٍ</span>
                 </div>
             )}
 
-            <nav className="p-4 grid grid-cols-2 gap-3 sticky top-[73px] bg-muted/5 z-40 backdrop-blur-md">
-                <Button onClick={() => onNavigate(2)} className="rounded-2xl h-14 bg-white text-primary border-2 border-primary/20 shadow-sm flex flex-col gap-0 active:scale-95 transition-all">
+            {/* Navigation */}
+            <nav className="p-4 grid grid-cols-2 gap-3 sticky top-[73px] bg-background/50 z-40 backdrop-blur-md">
+                <Button onClick={() => onNavigate(2)} variant="outline" className="rounded-2xl h-14 bg-white text-primary border-2 border-primary/10 shadow-sm flex flex-col gap-0 active:scale-95 transition-all">
                     <PackageSearch className="h-5 w-5"/>
                     <span className="text-[10px] font-black">إدارة المنيو</span>
                 </Button>
-                <Button onClick={() => onNavigate(3)} className="rounded-2xl h-14 bg-white text-muted-foreground border-2 border-muted shadow-sm flex flex-col gap-0 active:scale-95 transition-all">
+                <Button onClick={() => onNavigate(3)} variant="outline" className="rounded-2xl h-14 bg-white text-muted-foreground border-2 border-muted shadow-sm flex flex-col gap-0 active:scale-95 transition-all">
                     <History className="h-5 w-5"/>
-                    <span className="text-[10px] font-black">الحسابات والتقارير</span>
+                    <span className="text-[10px] font-black">السجل والحسابات</span>
                 </Button>
             </nav>
 
             <main className="p-4 space-y-8">
-                {/* 1. الطلبات الجديدة */}
+                {/* 1. قائمة التحضير الحالية */}
                 <section className="space-y-4">
-                    <div className="flex items-center justify-between px-1">
-                        <h2 className="text-lg font-black flex items-center gap-2">
-                            <div className="h-2.5 w-2.5 rounded-full bg-red-500 animate-ping"/>
-                            طلبات بانتظار الموافقة ({newOrders.length})
-                        </h2>
-                    </div>
-                    {newOrders.length === 0 ? (
-                        <div className="text-center py-10 bg-white/50 rounded-[2.5rem] border-2 border-dashed border-muted">
+                    <h2 className="text-lg font-black flex items-center gap-2 px-1">
+                        <Clock className="h-5 w-5 text-orange-500"/>
+                        طلبات قيد التحضير ({preparingOrders.length})
+                    </h2>
+                    {preparingOrders.length === 0 ? (
+                        <div className="text-center py-12 bg-white rounded-[2.5rem] border-2 border-dashed border-muted opacity-60">
                             <Info className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
-                            <p className="text-muted-foreground text-xs font-bold">المتجر جاهز لاستقبال الطلبات الجديدة.</p>
+                            <p className="text-muted-foreground text-xs font-bold">لا توجد طلبات قيد التحضير حالياً.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 gap-4">
-                            {newOrders.map(order => (
-                                <Card key={order.id} className="rounded-[2rem] border-2 border-primary/20 shadow-lg overflow-hidden bg-white animate-in zoom-in duration-300">
-                                    <CardHeader className="p-4 pb-2 bg-primary/5 flex flex-row items-center justify-between">
-                                        <div>
-                                            <CardTitle className="text-sm font-black">طلب #{order.id.substring(0, 6)}</CardTitle>
-                                            <CardDescription className="text-[10px] font-bold">منذ {Math.floor((Date.now() - new Date(order.date).getTime()) / 60000)} دقيقة</CardDescription>
-                                        </div>
-                                        <Badge className="bg-red-500 animate-pulse">جديد</Badge>
-                                    </CardHeader>
-                                    <CardContent className="p-4 space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <span className="font-black text-primary text-lg">{formatCurrency(order.total - order.deliveryFee)}</span>
-                                            <span className="text-xs font-bold bg-muted px-2 py-1 rounded-lg">{order.items.length} منتجات</span>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <Button variant="outline" className="rounded-xl font-bold h-12" onClick={() => setSelectedOrder(order)}>
-                                                <Eye className="ml-1 h-4 w-4"/> التفاصيل
-                                            </Button>
-                                            <Button className="rounded-xl font-black h-12 shadow-lg shadow-primary/20" onClick={() => handleUpdateStatus(order.id, 'preparing')}>
-                                                قبول وبدء
-                                            </Button>
-                                        </div>
-                                    </CardContent>
+                        <div className="space-y-3">
+                            {preparingOrders.map(order => (
+                                <Card key={order.id} className="rounded-2xl border-none shadow-sm flex items-center justify-between p-4 bg-white">
+                                    <div onClick={() => setSelectedOrder(order)} className="cursor-pointer">
+                                        <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
+                                        <p className="text-[10px] text-muted-foreground font-bold">{order.items.length} قطع - {formatCurrency(order.total - order.deliveryFee)}</p>
+                                    </div>
+                                    <Button size="sm" className="rounded-xl h-10 font-black px-6 shadow-md" onClick={() => handleUpdateStatus(order.id, 'ready_for_pickup')}>تجهيز</Button>
                                 </Card>
                             ))}
                         </div>
                     )}
                 </section>
 
-                {/* 2. التحضير والاستلام */}
-                <div className="grid grid-cols-1 gap-6">
-                    <section className="space-y-3">
-                        <h2 className="text-sm font-black flex items-center gap-2 px-1 text-orange-500">
-                            <Clock className="h-4 w-4"/> قيد التحضير ({preparingOrders.length})
-                        </h2>
-                        {preparingOrders.map(order => (
-                            <div key={order.id} className="bg-white p-3 rounded-2xl shadow-sm border flex items-center justify-between">
-                                <div onClick={() => setSelectedOrder(order)} className="cursor-pointer">
-                                    <p className="font-black text-xs">#{order.id.substring(0, 6)}</p>
-                                    <p className="text-[10px] text-muted-foreground font-bold">{order.items.length} قطع - {formatCurrency(order.total - order.deliveryFee)}</p>
-                                </div>
-                                <Button size="sm" variant="secondary" className="rounded-lg h-9 font-black px-4 bg-orange-50 text-orange-600 border border-orange-100" onClick={() => handleUpdateStatus(order.id, 'ready_for_pickup')}>تجهيز</Button>
-                            </div>
-                        ))}
-                    </section>
-
-                    <section className="space-y-3">
-                        <h2 className="text-sm font-black flex items-center gap-2 px-1 text-green-600">
-                            <PackageCheck className="h-4 w-4"/> جاهز للاستلام ({readyOrders.length})
-                        </h2>
-                        {readyOrders.map(order => (
-                            <div key={order.id} className="bg-white p-3 rounded-2xl shadow-sm border border-green-100 border-r-4 border-r-green-500 flex items-center justify-between animate-pulse">
-                                <div onClick={() => setSelectedOrder(order)} className="cursor-pointer">
-                                    <p className="font-black text-xs">#{order.id.substring(0, 6)}</p>
-                                    <p className="text-[10px] text-green-600 font-bold">بانتظار المندوب...</p>
-                                </div>
-                                <div className="p-2 bg-green-50 rounded-lg"><Truck className="h-4 w-4 text-green-600"/></div>
-                            </div>
-                        ))}
-                    </section>
-                </div>
-
-                 {/* 3. الإلغاءات الأخيرة */}
-                 {cancelledOrders.length > 0 && (
-                    <section className="space-y-3 opacity-60">
-                        <h2 className="text-sm font-black flex items-center gap-2 px-1 text-destructive">
-                            <XCircle className="h-4 w-4"/> طلبات ملغاة مؤخراً
-                        </h2>
-                        <div className="space-y-2">
-                            {cancelledOrders.map(order => (
-                                <div key={order.id} className="flex justify-between items-center p-3 bg-red-50 rounded-xl text-[10px] font-bold border border-red-100">
-                                    <span>#{order.id.substring(0, 6)}</span>
-                                    <span className="text-destructive">ملغي</span>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedOrder(order)}><Eye className="h-3 w-3"/></Button>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-                 )}
-
-                 {/* 4. تم التوصيل */}
-                 <section className="space-y-3 opacity-50">
-                    <h2 className="text-sm font-black flex items-center gap-2 px-1 text-muted-foreground">
-                        <Truck className="h-4 w-4"/> آخر التوصيلات الناجحة
+                {/* 2. جاهز للاستلام */}
+                <section className="space-y-4">
+                    <h2 className="text-sm font-black flex items-center gap-2 px-1 text-green-600">
+                        <PackageCheck className="h-5 w-5"/> بانتظار استلام المندوب ({readyOrders.length})
                     </h2>
-                    <div className="space-y-2">
-                        {deliveredOrders.map(order => (
-                            <div key={order.id} className="flex justify-between items-center p-3 bg-white rounded-xl text-[10px] font-bold">
-                                <span>#{order.id.substring(0, 6)}</span>
-                                <span className="text-primary">تم التوصيل</span>
-                                <span className="font-black">{formatCurrency(order.total - order.deliveryFee)}</span>
+                    <div className="space-y-3">
+                        {readyOrders.map(order => (
+                            <div key={order.id} className="bg-white p-4 rounded-2xl shadow-sm border-r-4 border-r-green-500 flex items-center justify-between animate-pulse">
+                                <div>
+                                    <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
+                                    <p className="text-[10px] text-green-600 font-bold">الكابتن في الطريق للمحل...</p>
+                                </div>
+                                <Truck className="h-5 w-5 text-green-600"/>
                             </div>
                         ))}
                     </div>
                 </section>
             </main>
 
-            {/* نافذة تفاصيل الطلب */}
+            {/* نافذة التنبيه الفوري للطلب الجديد - نصف شاشة */}
+            <Dialog open={!!incomingOrder} onOpenChange={() => {}}>
+                <DialogContent className="max-w-[95vw] sm:max-w-md rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl animate-in zoom-in duration-300">
+                    <DialogHeader className="p-6 bg-red-600 text-white flex flex-col items-center gap-2">
+                        <div className="p-3 bg-white/20 rounded-full animate-bounce">
+                            <AlertCircle className="h-8 w-8 text-white" />
+                        </div>
+                        <DialogTitle className="text-2xl font-black text-center">طلب جديد وصل! 🍔</DialogTitle>
+                        <p className="text-white/80 text-xs font-bold">يرجى مراجعة المنتجات والقبول فوراً</p>
+                    </DialogHeader>
+                    
+                    <div className="p-6 bg-muted/10 max-h-[50vh] overflow-y-auto">
+                        {incomingOrder && <OrderItemsList order={incomingOrder} />}
+                    </div>
+
+                    <DialogFooter className="p-6 bg-white border-t flex flex-col gap-3">
+                        <Button 
+                            className="w-full h-16 rounded-[1.8rem] text-xl font-black shadow-xl shadow-primary/20 bg-green-600 hover:bg-green-700" 
+                            onClick={() => incomingOrder && handleUpdateStatus(incomingOrder.id, 'preparing')}
+                        >
+                            قبول وبدء التحضير
+                        </Button>
+                        <Button 
+                            variant="ghost" 
+                            className="w-full h-12 text-destructive font-bold rounded-xl" 
+                            onClick={() => incomingOrder && handleReject(incomingOrder.id)}
+                        >
+                            رفض الطلب
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* نافذة تفاصيل الطلب العادية */}
             <Dialog open={!!selectedOrder} onOpenChange={(v) => !v && setSelectedOrder(null)}>
                 <DialogContent className="max-w-[90vw] sm:max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
                     <DialogHeader className="p-6 bg-primary text-white">
                         <DialogTitle className="text-2xl font-black text-right">تفاصيل طلب #{selectedOrder?.id.substring(0, 6)}</DialogTitle>
                     </DialogHeader>
-                    <div className="p-6 max-h-[60vh] overflow-y-auto scrollbar-hide">
+                    <div className="p-6 max-h-[60vh] overflow-y-auto">
                         {selectedOrder && <OrderItemsList order={selectedOrder} />}
                     </div>
-                    <DialogFooter className="p-6 bg-muted/10 border-t flex flex-row gap-3">
-                        <Button variant="outline" className="flex-1 rounded-xl font-bold" onClick={() => setSelectedOrder(null)}>إغلاق</Button>
-                        {selectedOrder?.status === 'unassigned' && (
-                            <Button className="flex-1 rounded-xl font-black" onClick={() => handleUpdateStatus(selectedOrder.id, 'preparing')}>قبول الطلب</Button>
-                        )}
+                    <DialogFooter className="p-6 bg-muted/5 border-t">
+                        <Button variant="outline" className="w-full rounded-xl font-bold h-12" onClick={() => setSelectedOrder(null)}>إغلاق</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
