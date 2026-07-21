@@ -126,20 +126,13 @@ export default function MainAppLayout() {
   if (settingsLoading) {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-[#00b358] animate-in fade-in duration-500">
-            <div className="relative w-48 h-48 mb-6 animate-in zoom-in duration-700">
-                <Image 
-                    src="https://c.top4top.io/p_38536msle1.png" 
-                    alt="Speed Shop" 
-                    fill 
-                    className="object-contain drop-shadow-2xl"
-                    priority
-                />
-            </div>
-            <h1 className="text-5xl font-black text-white italic tracking-tighter drop-shadow-md">Speed Shop</h1>
-            <div className="mt-12 flex gap-2">
-                <div className="h-3 w-3 bg-white rounded-full animate-bounce [animation-delay:-0.3s]" />
-                <div className="h-3 w-3 bg-white rounded-full animate-bounce [animation-delay:-0.15s]" />
-                <div className="h-3 w-3 bg-white rounded-full animate-bounce" />
+            <h1 className="text-6xl font-black text-white italic tracking-tighter drop-shadow-[0_4px_4px_rgba(0,0,0,0.25)] select-none">
+              Speed Shop
+            </h1>
+            <div className="mt-16 flex gap-3">
+                <div className="h-2.5 w-2.5 bg-white/90 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <div className="h-2.5 w-2.5 bg-white/90 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                <div className="h-2.5 w-2.5 bg-white/90 rounded-full animate-bounce" />
             </div>
         </div>
     );
