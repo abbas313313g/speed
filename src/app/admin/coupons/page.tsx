@@ -84,56 +84,6 @@ export default function AdminCouponsPage() {
         <Button onClick={() => setOpen(true)} className="rounded-xl h-12 px-6">إنشاء كود جديد</Button>
       </header>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="sm:max-w-md rounded-[2.5rem]">
-                <DialogHeader>
-                    <DialogTitle className="text-2xl font-black">إنشاء كود خصم مطور</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4 text-right">
-                    <div className="space-y-1">
-                        <Label className="font-bold">كود الخصم (نص)</Label>
-                        <Input value={currentCoupon.code} onChange={(e) => setCurrentCoupon({...currentCoupon, code: e.target.value.toUpperCase()})} className="h-12 rounded-xl text-center text-xl font-black" placeholder="SPEED2024" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                            <Label className="font-bold">قيمة الخصم (IQD)</Label>
-                            <Input type="number" value={currentCoupon.discountValue || ''} onChange={(e) => setCurrentCoupon({...currentCoupon, discountValue: parseFloat(e.target.value) || 0})} className="h-12 rounded-xl font-bold" />
-                        </div>
-                        <div className="space-y-1">
-                            <Label className="font-bold">أقصى عدد استخدام</Label>
-                            <Input type="number" value={currentCoupon.maxUses || ''} onChange={(e) => setCurrentCoupon({...currentCoupon, maxUses: parseInt(e.target.value) || 0})} className="h-12 rounded-xl font-bold" />
-                        </div>
-                    </div>
-                    
-                    <div className="space-y-1">
-                        <Label className="font-bold">تخصيص لمتجر (اختياري)</Label>
-                        <Select value={currentCoupon.restaurantId} onValueChange={(val) => setCurrentCoupon({...currentCoupon, restaurantId: val})}>
-                            <SelectTrigger className="h-12 rounded-xl">
-                                <SelectValue placeholder="يعمل على كل المتاجر" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="">كل المتاجر</SelectItem>
-                                {restaurants.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border">
-                        <div className="flex flex-col">
-                            <span className="font-bold text-sm">للطلب الأول فقط</span>
-                            <span className="text-[10px] text-muted-foreground">يعمل فقط للحسابات التي لم تطلب سابقاً</span>
-                        </div>
-                        <Switch checked={currentCoupon.isFirstOrderOnly} onCheckedChange={(val) => setCurrentCoupon({...currentCoupon, isFirstOrderOnly: val})} />
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button onClick={handleSave} disabled={isSaving} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl">
-                        {isSaving ? <Loader2 className="animate-spin h-6 w-6"/> : "حفظ وتفعيل الكود"}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-
       <div className="bg-white rounded-[1.5rem] border shadow-xl overflow-hidden">
         <Table>
             <TableHeader className="bg-muted/50">
@@ -174,6 +124,59 @@ export default function AdminCouponsPage() {
             </TableBody>
         </Table>
       </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="sm:max-w-md rounded-[2.5rem]">
+                <DialogHeader>
+                    <DialogTitle className="text-2xl font-black">إنشاء كود خصم مطور</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4 text-right">
+                    <div className="space-y-1">
+                        <Label className="font-bold">كود الخصم (نص)</Label>
+                        <Input value={currentCoupon.code} onChange={(e) => setCurrentCoupon({...currentCoupon, code: e.target.value.toUpperCase()})} className="h-12 rounded-xl text-center text-xl font-black" placeholder="SPEED2024" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <Label className="font-bold">قيمة الخصم (IQD)</Label>
+                            <Input type="number" value={currentCoupon.discountValue || ''} onChange={(e) => setCurrentCoupon({...currentCoupon, discountValue: parseFloat(e.target.value) || 0})} className="h-12 rounded-xl font-bold" />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="font-bold">أقصى عدد استخدام</Label>
+                            <Input type="number" value={currentCoupon.maxUses || ''} onChange={(e) => setCurrentCoupon({...currentCoupon, maxUses: parseInt(e.target.value) || 0})} className="h-12 rounded-xl font-bold" />
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                        <Label className="font-bold">تخصيص لمتجر (اختياري)</Label>
+                        <Select 
+                            value={currentCoupon.restaurantId || 'all'} 
+                            onValueChange={(val) => setCurrentCoupon({...currentCoupon, restaurantId: val === 'all' ? '' : val})}
+                        >
+                            <SelectTrigger className="h-12 rounded-xl">
+                                <SelectValue placeholder="يعمل على كل المتاجر" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">كل المتاجر</SelectItem>
+                                {restaurants.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border">
+                        <div className="flex flex-col">
+                            <span className="font-bold text-sm">للطلب الأول فقط</span>
+                            <span className="text-[10px] text-muted-foreground">يعمل فقط للحسابات التي لم تطلب سابقاً</span>
+                        </div>
+                        <Switch checked={currentCoupon.isFirstOrderOnly} onCheckedChange={(val) => setCurrentCoupon({...currentCoupon, isFirstOrderOnly: val})} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button onClick={handleSave} disabled={isSaving} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl">
+                        {isSaving ? <Loader2 className="animate-spin h-6 w-6"/> : "حفظ وتفعيل الكود"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
   );
 }
