@@ -93,9 +93,13 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
 
     const handleToggleVisibility = async (product: any) => {
         try {
-            await updateProduct({ ...product, isActive: !product.isActive }, false);
-            toast({ title: product.isActive ? "تم إخفاء المنتج" : "تم تفعيل عرض المنتج" });
-        } catch (e) {}
+            const currentStatus = product.isActive ?? true;
+            // نرسل فقط المعرف والحالة الجديدة لضمان عدم تأثر باقي الحقول كالسعر
+            await updateProduct({ id: product.id, isActive: !currentStatus }, false);
+            toast({ title: currentStatus ? "تم إخفاء المنتج" : "تم تفعيل عرض المنتج" });
+        } catch (e) {
+            console.error("Toggle visibility error:", e);
+        }
     };
 
     const handleSave = async () => {
@@ -124,7 +128,6 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
         };
 
         if (isEditing) {
-            // التعديل من المتجر للأحجام والتوفر لا يتطلب موافقة الأدمن
             await updateProduct(dataToSave as any, false);
         } else {
             await addProduct({ ...dataToSave, restaurantId: context!.restaurant!.id, status: 'pending' } as any, true);

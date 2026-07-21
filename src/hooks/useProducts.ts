@@ -84,18 +84,15 @@ export const useProducts = (branchId?: string) => {
         try {
             const { id, ...productData } = updatedProduct;
             
-            const cleanData = Object.fromEntries(
+            // تنظيف البيانات من القيم غير المعرفة
+            const finalData: any = Object.fromEntries(
                 Object.entries(productData).filter(([_, v]) => v !== undefined)
             );
 
-            let finalData: any = { 
-                ...cleanData,
-                price: productData.price !== undefined ? Number(productData.price) : undefined,
-                stock: productData.stock !== undefined ? Number(productData.stock) : undefined,
-                wholesalePrice: productData.wholesalePrice !== undefined ? Number(productData.wholesalePrice) : undefined
-            };
-            
-            finalData = Object.fromEntries(Object.entries(finalData).filter(([_, v]) => v !== undefined));
+            // تحويل القيم الرقمية فقط إذا كانت موجودة (وليست خالية)
+            if (productData.price !== undefined && productData.price !== "") finalData.price = Number(productData.price);
+            if (productData.stock !== undefined && productData.stock !== "") finalData.stock = Number(productData.stock);
+            if (productData.wholesalePrice !== undefined && productData.wholesalePrice !== "") finalData.wholesalePrice = Number(productData.wholesalePrice);
 
             if (productData.image && productData.image.startsWith('data:')) {
                 finalData.image = await uploadImage(productData.image, `products/${id}`);
@@ -106,7 +103,7 @@ export const useProducts = (branchId?: string) => {
             }
 
             await updateDoc(doc(db, "products", id), finalData);
-            toast({ title: shouldMarkPending ? "تم إرسال التعديلات للموافقة" : "تم تحديث البيانات فوراً" });
+            toast({ title: shouldMarkPending ? "تم إرسال التعديلات للموافقة" : "تم تحديث البيانات بنجاح" });
         } catch (error: any) { 
             console.error("Update product error:", error);
             toast({ title: "فشل تحديث المنتج", description: error.message, variant: "destructive" }); 
