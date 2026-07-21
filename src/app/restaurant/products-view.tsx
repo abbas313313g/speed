@@ -75,7 +75,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
 
     const handleAddSize = () => {
         const sizes = [...currentP.sizes];
-        sizes.push({ name: '', price: 0, stock: 0 });
+        sizes.push({ name: '', price: 0, stock: 0, isUnlimited: false });
         setCurrentP({ ...currentP, sizes });
     }
 
@@ -114,7 +114,12 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
             ...currentP,
             price: Number(currentP.price),
             stock: currentP.isUnlimitedStock ? 999999 : Number(currentP.stock),
-            sizes: currentP.sizes.map(s => ({ ...s, price: Number(s.price), stock: Number(s.stock) }))
+            sizes: currentP.sizes.map(s => ({ 
+                ...s, 
+                price: Number(s.price), 
+                stock: s.isUnlimited ? 999999 : Number(s.stock),
+                isUnlimited: !!s.isUnlimited
+            }))
         };
 
         if (isEditing) {
@@ -149,7 +154,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                 <div className="bg-primary/5 p-4 rounded-2xl flex items-start gap-3 border border-primary/10">
                     <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                     <p className="text-[10px] font-bold text-primary leading-relaxed">
-                        يمكنك الآن إضافة أحجام مختلفة لكل منتج (مثلاً: ربع، نصف، كامل) بأسعار وكميات مخزن مستقلة. سيتم إخفاء المنتج تلقائياً عند نفاذ كافة الكميات.
+                        يمكنك الآن إضافة أحجام وأنواع مختلفة لكل منتج بأسعار وكميات مخزن مستقلة. سيتم إخفاء المنتج تلقائياً عند نفاذ كافة الكميات.
                     </p>
                 </div>
 
@@ -190,7 +195,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                                         </button>
                                     </div>
                                     <span className="text-[8px] font-black text-muted-foreground">
-                                        {p.sizes?.length > 0 ? `${p.sizes.length} أحجام` : `المخزن: ${p.stock}`}
+                                        {p.sizes?.length > 0 ? `${p.sizes.length} خيارات` : `المخزن: ${p.stock}`}
                                     </span>
                                 </div>
                             </div>
@@ -216,19 +221,25 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
 
                             <div className="space-y-4 bg-muted/20 p-4 rounded-[2rem] border-2 border-dashed border-primary/20">
                                 <div className="flex justify-between items-center">
-                                    <Label className="font-black text-primary">الأحجام والأسعار</Label>
+                                    <Label className="font-black text-primary">الأحجام والأنواع</Label>
                                     <Button variant="outline" size="sm" onClick={handleAddSize} className="rounded-lg h-9 text-xs font-bold gap-1 border-primary/40 text-primary">
-                                        <Plus className="h-3 w-3"/> إضافة حجم
+                                        <Plus className="h-3 w-3"/> إضافة حجم/نوع
                                     </Button>
                                 </div>
                                 {currentP.sizes.length > 0 ? (
                                     <div className="space-y-3">
                                         {currentP.sizes.map((s, i) => (
-                                            <div key={i} className="flex gap-2 items-center bg-white p-2 rounded-2xl border shadow-sm">
-                                                <Input placeholder="الاسم" value={s.name} onChange={(e)=>handleSizeChange(i, 'name', e.target.value)} className="h-9 text-[10px] rounded-xl flex-1" />
-                                                <Input type="number" placeholder="السعر" value={s.price || ''} onChange={(e)=>handleSizeChange(i, 'price', e.target.value)} className="h-9 text-[10px] rounded-xl w-16" />
-                                                <Input type="number" placeholder="مخزن" value={s.stock || ''} onChange={(e)=>handleSizeChange(i, 'stock', e.target.value)} className="h-9 text-[10px] rounded-xl w-12" />
-                                                <Button variant="ghost" size="icon" onClick={()=>handleRemoveSize(i)} className="text-destructive h-8 w-8 hover:bg-destructive/10 rounded-lg"><X className="h-4 w-4"/></Button>
+                                            <div key={i} className="flex flex-col gap-2 bg-white p-2 rounded-2xl border shadow-sm">
+                                                <div className="flex gap-2 items-center">
+                                                    <Input placeholder="الاسم" value={s.name} onChange={(e)=>handleSizeChange(i, 'name', e.target.value)} className="h-9 text-[10px] rounded-xl flex-1" />
+                                                    <Input type="number" placeholder="السعر" value={s.price || ''} onChange={(e)=>handleSizeChange(i, 'price', e.target.value)} className="h-9 text-[10px] rounded-xl w-16" />
+                                                    <Input type="number" disabled={s.isUnlimited} placeholder="مخزن" value={s.isUnlimited ? '' : (s.stock || '')} onChange={(e)=>handleSizeChange(i, 'stock', e.target.value)} className="h-9 text-[10px] rounded-xl w-12" />
+                                                    <Button variant="ghost" size="icon" onClick={()=>handleRemoveSize(i)} className="text-destructive h-8 w-8 hover:bg-destructive/10 rounded-lg"><X className="h-4 w-4"/></Button>
+                                                </div>
+                                                <div className="flex items-center gap-2 justify-end">
+                                                    <Switch checked={s.isUnlimited} onCheckedChange={(v)=>handleSizeChange(i, 'isUnlimited', v)} className="scale-75" />
+                                                    <span className="text-[8px] font-black text-primary">كمية مفتوحة دائمًا</span>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>

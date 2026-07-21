@@ -107,7 +107,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
 
   const handleAddSize = () => {
       const sizes = [...(currentProduct.sizes || [])];
-      sizes.push({ name: '', price: 0, stock: 0 });
+      sizes.push({ name: '', price: 0, stock: 0, isUnlimited: false });
       setCurrentProduct({ ...currentProduct, sizes });
   }
 
@@ -155,7 +155,8 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
             sizes: currentProduct.sizes?.map(s => ({
                 name: s.name,
                 price: Number(s.price),
-                stock: Number(s.stock)
+                stock: s.isUnlimited ? 999999 : (Number(s.stock) || 0),
+                isUnlimited: !!s.isUnlimited
             })) || []
         };
 
@@ -195,7 +196,6 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                 
                 <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
                     <div className="space-y-6 text-right pb-10">
-                        {/* Basic Info Section */}
                         <div className="space-y-4">
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right font-bold">اسم المنتج</Label>
@@ -230,35 +230,40 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
 
                         <Separator className="opacity-50" />
 
-                        {/* Inventory & Sizes Section */}
                         <div className="space-y-4 bg-muted/20 p-5 rounded-[2rem] border-2 border-dashed border-primary/20">
                             <div className="flex justify-between items-center mb-2">
-                                <Label className="font-black text-lg text-primary">الأحجام والأشكال</Label>
+                                <Label className="font-black text-lg text-primary">الأحجام والأنواع</Label>
                                 <Button type="button" variant="outline" size="sm" className="rounded-lg gap-2 border-primary/40 text-primary font-bold h-9" onClick={handleAddSize}>
-                                    <Plus className="h-4 w-4" /> إضافة حجم
+                                    <Plus className="h-4 w-4" /> إضافة حجم/نوع
                                 </Button>
                             </div>
                             
                             {currentProduct.sizes && currentProduct.sizes.length > 0 ? (
                                 <div className="space-y-3">
                                     {currentProduct.sizes.map((size, idx) => (
-                                        <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white p-3 rounded-2xl shadow-sm border">
-                                            <div className="col-span-4 space-y-1">
-                                                <Label className="text-[10px] font-bold text-muted-foreground mr-1">اسم الحجم</Label>
-                                                <Input placeholder="كبير" value={size.name} onChange={(e) => handleSizeChange(idx, 'name', e.target.value)} className="h-10 text-sm rounded-xl" />
+                                        <div key={idx} className="flex flex-col gap-2 bg-white p-3 rounded-2xl shadow-sm border">
+                                            <div className="grid grid-cols-12 gap-2 items-center">
+                                                <div className="col-span-5 space-y-1">
+                                                    <Label className="text-[10px] font-bold text-muted-foreground mr-1">الاسم (مثلاً: كبير أو حار)</Label>
+                                                    <Input placeholder="كبير" value={size.name} onChange={(e) => handleSizeChange(idx, 'name', e.target.value)} className="h-10 text-sm rounded-xl" />
+                                                </div>
+                                                <div className="col-span-3 space-y-1">
+                                                    <Label className="text-[10px] font-bold text-muted-foreground mr-1">السعر</Label>
+                                                    <Input type="number" placeholder="0" value={size.price || ''} onChange={(e) => handleSizeChange(idx, 'price', e.target.value)} className="h-10 text-sm rounded-xl" />
+                                                </div>
+                                                <div className="col-span-3 space-y-1">
+                                                    <Label className="text-[10px] font-bold text-muted-foreground mr-1">المخزن</Label>
+                                                    <Input type="number" disabled={size.isUnlimited} placeholder="0" value={size.isUnlimited ? '' : (size.stock || '')} onChange={(e) => handleSizeChange(idx, 'stock', e.target.value)} className="h-10 text-sm rounded-xl" />
+                                                </div>
+                                                <div className="col-span-1 flex justify-center pt-5">
+                                                    <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 rounded-xl" onClick={() => handleRemoveSize(idx)}>
+                                                        <X className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                             </div>
-                                            <div className="col-span-3 space-y-1">
-                                                <Label className="text-[10px] font-bold text-muted-foreground mr-1">السعر</Label>
-                                                <Input type="number" placeholder="0" value={size.price || ''} onChange={(e) => handleSizeChange(idx, 'price', e.target.value)} className="h-10 text-sm rounded-xl" />
-                                            </div>
-                                            <div className="col-span-3 space-y-1">
-                                                <Label className="text-[10px] font-bold text-muted-foreground mr-1">المخزن</Label>
-                                                <Input type="number" placeholder="0" value={size.stock || ''} onChange={(e) => handleSizeChange(idx, 'stock', e.target.value)} className="h-10 text-sm rounded-xl" />
-                                            </div>
-                                            <div className="col-span-2 flex justify-center pt-5">
-                                                <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 rounded-xl" onClick={() => handleRemoveSize(idx)}>
-                                                    <X className="h-5 w-5" />
-                                                </Button>
+                                            <div className="flex items-center gap-2 justify-end px-1">
+                                                <Switch checked={size.isUnlimited} onCheckedChange={(val) => handleSizeChange(idx, 'isUnlimited', val)} className="scale-75" />
+                                                <span className="text-[10px] font-black text-primary">كمية مفتوحة دائمًا</span>
                                             </div>
                                         </div>
                                     ))}
@@ -302,7 +307,6 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
 
                         <Separator className="opacity-50" />
 
-                        {/* Image & Description Section */}
                         <div className="space-y-4">
                             <div className="space-y-1">
                                 <Label className="font-bold pr-1">وصف المنتج</Label>
@@ -379,7 +383,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                     )}
                   </TableCell>
                   <TableCell>
-                     {product.sizes && product.sizes.length > 0 ? <Badge variant="outline" className="rounded-lg">{product.sizes.length} أحجام</Badge> : '-'}
+                     {product.sizes && product.sizes.length > 0 ? <Badge variant="outline" className="rounded-lg">{product.sizes.length} أحجام وأنواع</Badge> : '-'}
                   </TableCell>
                   <TableCell>
                       <div className="flex items-center gap-2">

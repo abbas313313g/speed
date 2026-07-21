@@ -32,7 +32,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
   const isOutOfStock = useMemo(() => {
     if (product.isUnlimitedStock) return false;
     if (hasSizes) {
-      return product.sizes!.every(size => size.stock <= 0);
+      return product.sizes!.every(size => !size.isUnlimited && size.stock <= 0);
     }
     return product.stock <= 0;
   }, [product, hasSizes]);
@@ -100,7 +100,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
             />
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2">نفد</Badge>}
             {!restaurant?.isStoreOpen && <Badge variant="destructive" className="absolute top-2 left-2 text-[10px]">مغلق</Badge>}
-            {hasSizes && <Badge className="absolute top-2 right-2 bg-primary/80 backdrop-blur-md text-[10px]">{product.sizes!.length} أحجام</Badge>}
+            {hasSizes && <Badge className="absolute top-2 right-2 bg-primary/80 backdrop-blur-md text-[10px] font-black">أحجام وأنواع</Badge>}
           </div>
           <div className="p-3">
             <h3 className="truncate font-bold text-sm">{product.name}</h3>

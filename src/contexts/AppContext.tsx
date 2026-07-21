@@ -104,27 +104,42 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const currentAddr = addresses[0];
 
+    // ترتيب المحلات: المفتوحة أولاً
     const filteredRestaurants = useMemo(() => {
-        if (!currentAddr?.latitude || !currentAddr?.longitude) return restaurants;
-        return restaurants.filter(r => {
-            if (!r.latitude || !r.longitude) return true;
-            const dist = calculateDistance(currentAddr.latitude!, currentAddr.longitude!, r.latitude, r.longitude);
-            return dist <= 20;
+        let list = [...restaurants];
+        if (currentAddr?.latitude && currentAddr?.longitude) {
+            list = list.filter(r => {
+                if (!r.latitude || !r.longitude) return true;
+                const dist = calculateDistance(currentAddr.latitude!, currentAddr.longitude!, r.latitude, r.longitude);
+                return dist <= 20;
+            });
+        }
+        return list.sort((a, b) => {
+            if (a.isStoreOpen === b.isStoreOpen) return 0;
+            return a.isStoreOpen ? -1 : 1;
         });
     }, [restaurants, currentAddr]);
 
+    // ترتيب المنتجات: التابعة لمتاجر مفتوحة أولاً
     const filteredProducts = useMemo(() => {
-        return products.filter(p => {
+        const list = products.filter(p => {
             const isApproved = p.status === 'approved';
             const isActive = p.isActive !== false;
             const restaurantVisible = filteredRestaurants.some(r => r.id === p.restaurantId);
             return isApproved && isActive && restaurantVisible;
         });
+        
+        return list.sort((a, b) => {
+            const aOpen = filteredRestaurants.find(r => r.id === a.restaurantId)?.isStoreOpen;
+            const bOpen = filteredRestaurants.find(r => r.id === b.restaurantId)?.isStoreOpen;
+            if (aOpen === bOpen) return 0;
+            return aOpen ? -1 : 1;
+        });
     }, [products, filteredRestaurants]);
 
     const addToCart = useCallback((product: Product, quantity: number, selectedSize?: ProductSize): boolean => {
         if (product.sizes && product.sizes.length > 0 && !selectedSize) {
-            toast({ title: "تنبيه", description: "يرجى اختيار حجم المنتج أولاً." });
+            toast({ title: "تنبيه", description: "يرجى اختيار الحجم والنوع أولاً." });
             return false;
         }
         const restaurantId = product.restaurantId;
@@ -236,9 +251,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                         if (item.selectedSize) {
                             const nSizes = [...(sProd.sizes || [])];
                             const sIdx = nSizes.findIndex(s => s.name === item.selectedSize!.name);
-                            if (sIdx === -1 || nSizes[sIdx].stock < item.quantity) throw new Error(`USER_ERROR: الكمية المطلوبة من ${item.product.name} غير متوفرة.`);
-                            nSizes[sIdx].stock -= item.quantity;
-                            tx.update(doc(db, "products", item.product.id), { sizes: nSizes });
+                            if (sIdx !== -1 && !nSizes[sIdx].isUnlimited) {
+                                if (nSizes[sIdx].stock < item.quantity) throw new Error(`USER_ERROR: الكمية المطلوبة من ${item.product.name} غير متوفرة.`);
+                                nSizes[sIdx].stock -= item.quantity;
+                                tx.update(doc(db, "products", item.product.id), { sizes: nSizes });
+                            }
                         } else {
                             if ((sProd.stock || 0) < item.quantity) throw new Error(`USER_ERROR: الكمية المطلوبة من ${item.product.name} غير متوفرة.`);
                             tx.update(doc(db, "products", item.product.id), { stock: (sProd.stock || 0) - item.quantity });

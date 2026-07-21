@@ -24,6 +24,7 @@ export interface ProductSize {
   name: string;
   price: number;
   stock: number;
+  isUnlimited?: boolean; // دعم الكمية المفتوحة للحجم
 }
 
 export interface Product {
