@@ -58,9 +58,9 @@ export default function ProductDetailPage() {
   const isOutOfStock = useMemo(() => {
       if (product?.sizes && product.sizes.length > 0) {
           if (!selectedSize) return false;
-          return selectedSize.stock <= 0;
+          return !selectedSize.isUnlimited && selectedSize.stock <= 0;
       }
-      return (product?.stock ?? 0) <= 0;
+      return !product?.isUnlimitedStock && (product?.stock ?? 0) <= 0;
   }, [product, selectedSize]);
 
   if (!isCurrentlyVisible) return null;
@@ -81,7 +81,7 @@ export default function ProductDetailPage() {
         return;
       }
       if (product.sizes && product.sizes.length > 0 && !selectedSize) {
-        toast({ title: "يرجى اختيار الحجم أولاً", variant: "destructive" });
+        toast({ title: "يرجى اختيار الحجم والنوع أولاً", variant: "destructive" });
         return;
       }
       if (isOutOfStock) {
@@ -99,7 +99,8 @@ export default function ProductDetailPage() {
   };
 
   const handleQuantityChange = (newQuantity: number) => {
-    if (newQuantity > availableStock && !product.isUnlimitedStock) {
+    const isUnlimited = selectedSize?.isUnlimited || product.isUnlimitedStock;
+    if (!isUnlimited && newQuantity > availableStock) {
       setQuantity(availableStock);
     } else if (newQuantity < 1) {
       setQuantity(1);
@@ -173,23 +174,23 @@ export default function ProductDetailPage() {
                         </div>
                     </div>
                     <Badge variant={isOutOfStock ? "destructive" : "secondary"} className="rounded-xl px-4 py-1 font-black">
-                        {isOutOfStock ? "نفد" : product.isUnlimitedStock ? "متوفر" : `باقي: ${availableStock}`}
+                        {isOutOfStock ? "نفد" : (selectedSize?.isUnlimited || product.isUnlimitedStock) ? "متوفر" : `باقي: ${availableStock}`}
                     </Badge>
                 </div>
 
                 {product.sizes && product.sizes.length > 0 && (
                   <div className="space-y-4">
-                    <Label className="font-black text-lg">اختر الحجم:</Label>
+                    <Label className="font-black text-lg">اختر الحجم والنوع:</Label>
                     <div className="grid grid-cols-2 gap-3">
                       {product.sizes.map((size) => (
                         <button
                             key={size.name}
-                            disabled={size.stock <= 0}
+                            disabled={!size.isUnlimited && size.stock <= 0}
                             onClick={() => setSelectedSize(size)}
                             className={cn(
                                 "flex flex-col items-center gap-1 p-4 rounded-[2rem] border-2 transition-all",
                                 selectedSize?.name === size.name ? 'border-primary bg-primary/5 text-primary' : 'border-slate-100 bg-slate-50',
-                                size.stock <= 0 && 'opacity-30 grayscale'
+                                !size.isUnlimited && size.stock <= 0 && 'opacity-30 grayscale'
                             )}
                         >
                             <span className="font-black text-sm">{size.name}</span>
