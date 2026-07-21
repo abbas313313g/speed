@@ -27,15 +27,20 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === product.restaurantId), [product, restaurants]);
 
-  const hasSizes = product.sizes && product.sizes.length > 0;
+  // فلترة الأحجام النشطة فقط
+  const activeSizes = useMemo(() => {
+    return product.sizes?.filter(s => s.isActive !== false) || [];
+  }, [product.sizes]);
+
+  const hasSizes = activeSizes.length > 0;
 
   const isOutOfStock = useMemo(() => {
     if (product.isUnlimitedStock) return false;
     if (hasSizes) {
-      return product.sizes!.every(size => !size.isUnlimited && size.stock <= 0);
+      return activeSizes.every(size => !size.isUnlimited && size.stock <= 0);
     }
     return product.stock <= 0;
-  }, [product, hasSizes]);
+  }, [product, hasSizes, activeSizes]);
 
   const handleOpenProduct = () => {
     if (context) {
@@ -74,11 +79,11 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const displayPrice = useMemo(() => {
       if (hasSizes) {
-          const prices = product.sizes!.map(s => s.price);
+          const prices = activeSizes.map(s => s.price);
           return Math.min(...prices);
       }
       return product.discountPrice || product.price;
-  }, [product, hasSizes]);
+  }, [product, hasSizes, activeSizes]);
 
   const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://picsum.photos/seed/speedp/600/400';
 

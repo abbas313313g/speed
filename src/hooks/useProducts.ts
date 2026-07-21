@@ -57,7 +57,6 @@ export const useProducts = (branchId?: string) => {
         try {
             const imageUrl = await uploadImage(productData.image, `products/${uuidv4()}`);
             
-            // تنظيف البيانات من الـ undefined
             const cleanData = Object.fromEntries(
                 Object.entries(productData).filter(([_, v]) => v !== undefined)
             );
@@ -81,11 +80,10 @@ export const useProducts = (branchId?: string) => {
         }
     }, [toast, uploadImage, branchId]);
 
-    const updateProduct = useCallback(async (updatedProduct: Partial<Product> & { id: string }, isFromStore = false) => {
+    const updateProduct = useCallback(async (updatedProduct: Partial<Product> & { id: string }, shouldMarkPending = false) => {
         try {
             const { id, ...productData } = updatedProduct;
             
-            // تنظيف البيانات من الـ undefined
             const cleanData = Object.fromEntries(
                 Object.entries(productData).filter(([_, v]) => v !== undefined)
             );
@@ -97,19 +95,18 @@ export const useProducts = (branchId?: string) => {
                 wholesalePrice: productData.wholesalePrice !== undefined ? Number(productData.wholesalePrice) : undefined
             };
             
-            // إزالة الـ undefined التي نتجت عن التحويل
             finalData = Object.fromEntries(Object.entries(finalData).filter(([_, v]) => v !== undefined));
 
             if (productData.image && productData.image.startsWith('data:')) {
                 finalData.image = await uploadImage(productData.image, `products/${id}`);
             }
             
-            if (isFromStore) {
+            if (shouldMarkPending) {
                 finalData.status = 'pending';
             }
 
             await updateDoc(doc(db, "products", id), finalData);
-            toast({ title: isFromStore ? "تم إرسال التعديلات للموافقة" : "تم تحديث المنتج بنجاح" });
+            toast({ title: shouldMarkPending ? "تم إرسال التعديلات للموافقة" : "تم تحديث البيانات فوراً" });
         } catch (error: any) { 
             console.error("Update product error:", error);
             toast({ title: "فشل تحديث المنتج", description: error.message, variant: "destructive" }); 

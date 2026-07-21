@@ -68,14 +68,14 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
             stock: product.stock || 0,
             isActive: product.isActive ?? true,
             isUnlimitedStock: product.isUnlimitedStock ?? false,
-            sizes: product.sizes || []
+            sizes: (product.sizes || []).map((s: any) => ({ ...s, isActive: s.isActive ?? true }))
         });
         setIsAdding(true);
     };
 
     const handleAddSize = () => {
         const sizes = [...currentP.sizes];
-        sizes.push({ name: '', price: 0, stock: 0, isUnlimited: false });
+        sizes.push({ name: '', price: 0, stock: 0, isUnlimited: false, isActive: true });
         setCurrentP({ ...currentP, sizes });
     }
 
@@ -118,12 +118,14 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                 ...s, 
                 price: Number(s.price), 
                 stock: s.isUnlimited ? 999999 : Number(s.stock),
-                isUnlimited: !!s.isUnlimited
+                isUnlimited: !!s.isUnlimited,
+                isActive: s.isActive ?? true
             }))
         };
 
         if (isEditing) {
-            await updateProduct(dataToSave as any, true);
+            // التعديل من المتجر للأحجام والتوفر لا يتطلب موافقة الأدمن
+            await updateProduct(dataToSave as any, false);
         } else {
             await addProduct({ ...dataToSave, restaurantId: context!.restaurant!.id, status: 'pending' } as any, true);
         }
@@ -143,7 +145,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                 </Button>
                 <div className="text-right">
                     <h1 className="text-xl font-black text-primary leading-none">منيو المتجر</h1>
-                    <p className="text-[10px] font-bold text-muted-foreground mt-1">إدارة العناصر</p>
+                    <p className="text-[10px] font-bold text-muted-foreground mt-1">إدارة العناصر والتوفر</p>
                 </div>
                 <Button onClick={() => { setIsEditing(false); setCurrentP({...currentP, sizes: []}); setIsAdding(true); }} className="mr-auto rounded-xl h-10 px-4 font-black">
                     <Plus className="ml-1 h-4 w-4"/> إضافة
@@ -153,9 +155,10 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
             <main className="p-4 space-y-6 container mx-auto max-w-6xl">
                 <div className="bg-primary/5 p-4 rounded-2xl flex items-start gap-3 border border-primary/10">
                     <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <p className="text-[10px] font-bold text-primary leading-relaxed">
-                        يمكنك الآن إضافة أحجام وأنواع مختلفة لكل منتج بأسعار وكميات مخزن مستقلة. سيتم إخفاء المنتج تلقائياً عند نفاذ كافة الكميات.
-                    </p>
+                    <div className="text-[10px] font-bold text-primary leading-relaxed">
+                        <p>يمكنك الآن إيقاف أي حجم أو نوع من داخل تعديل المنتج وسيتوقف ظهوره للزبائن فوراً.</p>
+                        <p className="mt-1 text-orange-600">ملاحظة: تعديلات التوفر تعمل فوراً بدون انتظار موافقة الإدارة.</p>
+                    </div>
                 </div>
 
                 <div className="relative">
@@ -179,7 +182,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                                 <h3 className="font-black text-sm truncate leading-none">{p.name}</h3>
                                 <div className="font-black text-primary text-xs">
                                      {p.sizes && p.sizes.length > 0 ? (
-                                         <span>تبدأ من {formatCurrency(Math.min(...p.sizes.map((s:any)=>s.price)))}</span>
+                                         <span>تبدأ من {formatCurrency(Math.min(...p.sizes.filter(s => s.isActive !== false).map((s:any)=>s.price)) || p.price)}</span>
                                      ) : formatCurrency(p.price)}
                                 </div>
                                 <div className="flex justify-between items-center pt-2 border-t border-muted">
@@ -195,7 +198,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                                         </button>
                                     </div>
                                     <span className="text-[8px] font-black text-muted-foreground">
-                                        {p.sizes?.length > 0 ? `${p.sizes.length} خيارات` : `المخزن: ${p.stock}`}
+                                        {p.sizes?.length > 0 ? `${p.sizes.filter(s => s.isActive !== false).length} نشط` : `المخزن: ${p.stock}`}
                                     </span>
                                 </div>
                             </div>
@@ -229,16 +232,26 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                                 {currentP.sizes.length > 0 ? (
                                     <div className="space-y-3">
                                         {currentP.sizes.map((s, i) => (
-                                            <div key={i} className="flex flex-col gap-2 bg-white p-2 rounded-2xl border shadow-sm">
+                                            <div key={i} className={cn("flex flex-col gap-2 bg-white p-2 rounded-2xl border shadow-sm", !(s.isActive ?? true) && "opacity-60 bg-slate-50")}>
                                                 <div className="flex gap-2 items-center">
-                                                    <Input placeholder="الاسم" value={s.name} onChange={(e)=>handleSizeChange(i, 'name', e.target.value)} className="h-9 text-[10px] rounded-xl flex-1" />
+                                                    <div className="flex-1 space-y-1">
+                                                        <Input placeholder="الاسم" value={s.name} onChange={(e)=>handleSizeChange(i, 'name', e.target.value)} className="h-9 text-[10px] rounded-xl w-full" />
+                                                    </div>
                                                     <Input type="number" placeholder="السعر" value={s.price || ''} onChange={(e)=>handleSizeChange(i, 'price', e.target.value)} className="h-9 text-[10px] rounded-xl w-16" />
                                                     <Input type="number" disabled={s.isUnlimited} placeholder="مخزن" value={s.isUnlimited ? '' : (s.stock || '')} onChange={(e)=>handleSizeChange(i, 'stock', e.target.value)} className="h-9 text-[10px] rounded-xl w-12" />
                                                     <Button variant="ghost" size="icon" onClick={()=>handleRemoveSize(i)} className="text-destructive h-8 w-8 hover:bg-destructive/10 rounded-lg"><X className="h-4 w-4"/></Button>
                                                 </div>
-                                                <div className="flex items-center gap-2 justify-end">
-                                                    <Switch checked={s.isUnlimited} onCheckedChange={(v)=>handleSizeChange(i, 'isUnlimited', v)} className="scale-75" />
-                                                    <span className="text-[8px] font-black text-primary">كمية مفتوحة دائمًا</span>
+                                                <div className="flex items-center justify-between px-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <Switch checked={s.isActive ?? true} onCheckedChange={(v)=>handleSizeChange(i, 'isActive', v)} className="scale-75" />
+                                                        <span className={cn("text-[8px] font-black", (s.isActive ?? true) ? "text-green-600" : "text-destructive")}>
+                                                            {(s.isActive ?? true) ? "معروض للزبائن" : "مخفي الآن"}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Switch checked={s.isUnlimited} onCheckedChange={(v)=>handleSizeChange(i, 'isUnlimited', v)} className="scale-75" />
+                                                        <span className="text-[8px] font-black text-primary">كمية مفتوحة</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
@@ -297,7 +310,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
 
                     <DialogFooter className="p-6 bg-card border-t shrink-0">
                         <Button onClick={handleSave} className="w-full h-16 rounded-[1.8rem] text-xl font-black shadow-xl shadow-primary/20">
-                            {isEditing ? 'حفظ التعديلات' : 'إرسال للموافقة والنشر'}
+                            {isEditing ? 'حفظ التغييرات فوراً' : 'إرسال للموافقة والنشر'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

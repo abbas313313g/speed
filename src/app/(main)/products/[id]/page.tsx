@@ -35,6 +35,11 @@ export default function ProductDetailPage() {
   const product = useMemo(() => products.find(p => p.id === selectedProductId), [selectedProductId, products]);
   const restaurant = useMemo(() => product ? restaurants.find(r => r.id === product.restaurantId) : null, [product, restaurants]);
 
+  // فلترة الأحجام النشطة فقط
+  const activeSizes = useMemo(() => {
+      return product?.sizes?.filter(s => s.isActive !== false) || [];
+  }, [product]);
+
   const cartCount = useMemo(() => cart.reduce((acc, item) => acc + item.quantity, 0), [cart]);
 
   useEffect(() => {
@@ -56,12 +61,12 @@ export default function ProductDetailPage() {
   }, [selectedSize, product]);
 
   const isOutOfStock = useMemo(() => {
-      if (product?.sizes && product.sizes.length > 0) {
+      if (activeSizes.length > 0) {
           if (!selectedSize) return false;
           return !selectedSize.isUnlimited && selectedSize.stock <= 0;
       }
       return !product?.isUnlimitedStock && (product?.stock ?? 0) <= 0;
-  }, [product, selectedSize]);
+  }, [product, selectedSize, activeSizes]);
 
   if (!isCurrentlyVisible) return null;
 
@@ -80,7 +85,7 @@ export default function ProductDetailPage() {
         toast({ title: "المتجر مغلق حاليًا", variant: "destructive" });
         return;
       }
-      if (product.sizes && product.sizes.length > 0 && !selectedSize) {
+      if (activeSizes.length > 0 && !selectedSize) {
         toast({ title: "يرجى اختيار الحجم والنوع أولاً", variant: "destructive" });
         return;
       }
@@ -112,7 +117,7 @@ export default function ProductDetailPage() {
   const hasDiscount = !!product.discountPrice && !selectedSize;
   const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://picsum.photos/seed/speeddetail/600/600';
 
-  const hasSizes = product.sizes && product.sizes.length > 0;
+  const hasSizes = activeSizes.length > 0;
 
   return (
     <div className="flex flex-col h-full bg-background relative overflow-hidden">
@@ -187,7 +192,7 @@ export default function ProductDetailPage() {
                   <div className="space-y-4">
                     <Label className="font-black text-lg">اختر الحجم والنوع:</Label>
                     <div className="grid grid-cols-2 gap-3">
-                      {product.sizes!.map((size) => (
+                      {activeSizes.map((size) => (
                         <button
                             key={size.name}
                             disabled={!size.isUnlimited && size.stock <= 0}

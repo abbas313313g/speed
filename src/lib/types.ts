@@ -25,6 +25,7 @@ export interface ProductSize {
   price: number;
   stock: number;
   isUnlimited?: boolean; // دعم الكمية المفتوحة للحجم
+  isActive?: boolean; // حالة الحجم (مفعل أو مخفي)
 }
 
 export interface Product {
