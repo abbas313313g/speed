@@ -35,7 +35,10 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
                 const itemPrice = item.selectedSize?.price ?? item.product.discountPrice ?? item.product.price;
                 return sum + (itemPrice * item.quantity);
             }, 0);
-            return acc + orderRevenue;
+            
+            // حساب الصافي للمتجر بعد خصم العموله
+            const netForOrder = orderRevenue * (1 - (restaurant.commissionRate / 100));
+            return acc + netForOrder;
         }, 0);
 
         return { myPaidOrders: filtered, totalIncome: income };
@@ -55,17 +58,17 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="icon" onClick={onBack}><ArrowRight className="h-5 w-5"/></Button>
                     <div>
-                        <h1 className="text-3xl font-bold">سجل الطلبات</h1>
-                        <p className="text-muted-foreground">عرض الطلبات المكتملة والدخل المستحق</p>
+                        <h1 className="text-3xl font-bold">سجل الطلبات والحسابات</h1>
+                        <p className="text-muted-foreground">عرض الدخل الصافي المستحق لكم</p>
                     </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={logout}><LogOut className="h-5 w-5"/></Button>
             </header>
 
-            <Card className="rounded-[2rem] border-none shadow-md">
+            <Card className="rounded-[2rem] border-none shadow-md bg-primary/5">
                 <CardHeader>
-                    <CardTitle>إجمالي الدخل المستحق</CardTitle>
-                    <CardDescription>هذا هو مجموع المبالغ المستحقة لكم من الطلبات المكتملة التي لم تتم تسويتها بعد.</CardDescription>
+                    <CardTitle className="text-primary">إجمالي الدخل الصافي المستحق</CardTitle>
+                    <CardDescription className="font-bold">هذا هو المبلغ الذي ستتسلمونه من المكتب بعد خصم عمولة الشركة ({(restaurant.commissionRate)}%).</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <p className="text-4xl font-black text-primary">{formatCurrency(totalIncome)}</p>
@@ -73,29 +76,29 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
             </Card>
 
             <Card className="rounded-[2rem] border-none shadow-md overflow-hidden">
-                <CardHeader>
-                    <CardTitle>الطلبات المكتملة</CardTitle>
+                <CardHeader className="bg-muted/20">
+                    <CardTitle className="text-lg font-black">طلبات لم يتم تسويتها بعد</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-0">
                      <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>رقم الطلب</TableHead>
-                                <TableHead>التاريخ</TableHead>
-                                <TableHead>المبلغ</TableHead>
+                                <TableHead className="font-black">رقم الطلب</TableHead>
+                                <TableHead className="font-black">التاريخ</TableHead>
+                                <TableHead className="font-black text-center">الإجراء</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {myPaidOrders.map(order => (
                                 <TableRow key={order.id}>
                                     <TableCell className="font-bold">#{order.id.substring(0,6)}</TableCell>
-                                    <TableCell className="text-xs">{new Date(order.date).toLocaleDateString('ar-IQ')}</TableCell>
-                                    <TableCell className="font-black text-primary">{formatCurrency(order.total)}</TableCell>
+                                    <TableCell className="text-xs font-bold">{new Date(order.date).toLocaleDateString('ar-IQ')}</TableCell>
+                                    <TableCell className="text-center"><Badge variant="outline">بانتظار التصفية</Badge></TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                     </Table>
-                    {myPaidOrders.length === 0 && <p className="text-center text-muted-foreground py-8 font-bold italic">لا توجد طلبات في السجل حاليًا.</p>}
+                    {myPaidOrders.length === 0 && <p className="text-center text-muted-foreground py-20 font-bold italic">لا توجد مبالغ معلقة حالياً.</p>}
                 </CardContent>
             </Card>
         </div>
