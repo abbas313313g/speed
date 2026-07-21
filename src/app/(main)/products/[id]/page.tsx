@@ -112,6 +112,8 @@ export default function ProductDetailPage() {
   const hasDiscount = !!product.discountPrice && !selectedSize;
   const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://picsum.photos/seed/speeddetail/600/600';
 
+  const hasSizes = product.sizes && product.sizes.length > 0;
+
   return (
     <div className="flex flex-col h-full bg-background relative overflow-hidden">
        <div className="absolute top-4 left-4 right-4 z-20 flex justify-between items-center">
@@ -174,15 +176,18 @@ export default function ProductDetailPage() {
                         </div>
                     </div>
                     <Badge variant={isOutOfStock ? "destructive" : "secondary"} className="rounded-xl px-4 py-1 font-black">
-                        {isOutOfStock ? "نفد" : (selectedSize?.isUnlimited || product.isUnlimitedStock) ? "متوفر" : `باقي: ${availableStock}`}
+                        {isOutOfStock ? "نفد" : 
+                         (hasSizes && !selectedSize) ? "يرجى اختيار الحجم" :
+                         (selectedSize?.isUnlimited || product.isUnlimitedStock) ? "متوفر" : 
+                         `باقي: ${availableStock}`}
                     </Badge>
                 </div>
 
-                {product.sizes && product.sizes.length > 0 && (
+                {hasSizes && (
                   <div className="space-y-4">
                     <Label className="font-black text-lg">اختر الحجم والنوع:</Label>
                     <div className="grid grid-cols-2 gap-3">
-                      {product.sizes.map((size) => (
+                      {product.sizes!.map((size) => (
                         <button
                             key={size.name}
                             disabled={!size.isUnlimited && size.stock <= 0}
@@ -218,7 +223,7 @@ export default function ProductDetailPage() {
                 size="lg" 
                 className={cn(
                     "w-full h-16 text-xl font-black rounded-3xl shadow-2xl transition-all",
-                    (!selectedSize && product.sizes && product.sizes.length > 0) ? "bg-slate-200 text-slate-400" : "bg-primary shadow-primary/20"
+                    (!selectedSize && hasSizes) ? "bg-slate-200 text-slate-400" : "bg-primary shadow-primary/20"
                 )}
                 onClick={handleAddToCart} 
                 disabled={isOutOfStock || (restaurant && !restaurant.isStoreOpen)}
