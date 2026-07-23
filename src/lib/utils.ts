@@ -48,17 +48,22 @@ export const isLocationInAllowedZones = (lat: number, lng: number) => {
     }
 }
 
+/**
+ * حساب سعر التوصيل بناءً على قاعدة: كل 3 كيلو = 1000 دينار عراقي
+ * مع التقريب لأقرب 250 دينار (ربع، خمسمية، 750، ألف)
+ */
 export const calculateDeliveryFee = (distanceInKm: number) => {
-    const minFee = 1000;
-    const maxFee = 15000;
-    const ratePerKm = 500;
+    if (!distanceInKm || distanceInKm <= 0) return 1000;
     
-    if (!distanceInKm || distanceInKm <= 0) return minFee;
-    if (distanceInKm <= 2) return minFee;
+    const ratePerKm = 1000 / 3; // القاعدة: 1000 دينار لكل 3 كم
+    let totalFee = distanceInKm * ratePerKm;
     
-    let totalFee = minFee + (distanceInKm - 2) * ratePerKm;
+    // التقريب لأقرب 250 دينار لضمان حساب (الربع، والخمسمية، والنص، والـ 750)
     totalFee = Math.round(totalFee / 250) * 250;
-    return Math.min(Math.max(totalFee, minFee), maxFee);
+    
+    // نضع حد أدنى 250 دينار لضمان عدم وجود توصيل مجاني للمسافات القريبة جداً
+    // وحد أقصى اختياري (مثلاً 15000) لمنع الأرقام الفلكية
+    return Math.min(Math.max(totalFee, 250), 15000);
 }
 
 // نظام التخزين الآمن والمحمي للـ WebView
