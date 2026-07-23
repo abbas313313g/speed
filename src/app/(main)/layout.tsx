@@ -47,6 +47,24 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, setActiveTab } = context;
 
+  // الاستماع للموقع من فلاتر فلاو
+  useEffect(() => {
+    (window as any).updateLocationFromFlutter = (lat: number, lng: number) => {
+        if (!isLocationInAllowedZones(lat, lng)) {
+          setIsBlocked(true);
+          setShowAddressPrompt(false);
+        } else {
+          toast({ title: "تم استلام موقعك من الهاتف بنجاح 🛰️" });
+          setNewAddr(prev => ({ ...prev, lat: lat, lng: lng }));
+        }
+        setIslocLoading(false);
+    };
+
+    return () => {
+        delete (window as any).updateLocationFromFlutter;
+    };
+  }, [toast]);
+
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       if (event.state && typeof event.state.tab === 'number') {
@@ -75,30 +93,17 @@ export default function MainAppLayout() {
     setIslocLoading(true);
     setNewAddr(prev => ({ ...prev, lat: 0, lng: 0 }));
 
-    if (!navigator.geolocation) {
-      toast({ title: "عذراً، متصفحك لا يدعم تحديد الموقع", variant: "destructive" });
-      setIslocLoading(false);
-      return;
+    // إرسال إشارة لفلاتر فلاو لطلب الموقع
+    if (window.parent) {
+        window.parent.postMessage('REQUEST_LOCATION', '*');
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        if (!isLocationInAllowedZones(latitude, longitude)) {
-          setIsBlocked(true);
-          setShowAddressPrompt(false);
-        } else {
-          toast({ title: "تم تحديد موقعك بدقة 🛰️" });
-          setNewAddr(prev => ({ ...prev, lat: latitude, lng: longitude }));
-        }
+    toast({ title: "بانتظار تحديد الموقع من جهازك... 📱" });
+    
+    // مهلة زمنية في حال لم يستجب التطبيق
+    setTimeout(() => {
         setIslocLoading(false);
-      },
-      (err) => {
-        toast({ title: "فشل تحديد الموقع", variant: "destructive" });
-        setIslocLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+    }, 15000);
   }, [toast]);
 
   const handleSaveAddress = () => {
@@ -107,7 +112,7 @@ export default function MainAppLayout() {
       return;
     }
     if (newAddr.lat === 0) {
-        toast({ title: "الموقع مطلوب", description: "يجب تحديد الموقع للمتابعة.", variant: "destructive" });
+        toast({ title: "الموقع مطلوب", description: "يرجى تفعيل الموقع في هاتفك والمحاولة مرة أخرى.", variant: "destructive" });
         return;
     }
     addAddress({
@@ -255,11 +260,11 @@ export default function MainAppLayout() {
                             disabled={islocLoading}
                         >
                             {islocLoading ? (
-                                <><Loader2 className="animate-spin h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">جارِ الاتصال بالأقمار الصناعية...</span></>
+                                <><Loader2 className="animate-spin h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">بانتظار GPS الهاتف...</span></>
                             ) : newAddr.lat !== 0 ? (
-                                <><CheckCircle2 className="h-8 w-8 text-green-500" /> <span className="font-black text-green-600 text-sm">تم تحديد إحداثياتك بنجاح ✅</span></>
+                                <><CheckCircle2 className="h-8 w-8 text-green-500" /> <span className="font-black text-green-600 text-sm">تم استلام الموقع بنجاح ✅</span></>
                             ) : (
-                                <><MapPin className="h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">اضغط لتأكيد موقعك على الخريطة</span></>
+                                <><MapPin className="h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">اضغط لتحديد موقعك من هاتفك</span></>
                             )}
                         </button>
                     </div>

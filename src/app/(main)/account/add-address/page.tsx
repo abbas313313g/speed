@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,23 @@ export default function AddAddressPage() {
   });
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
+  // الاستماع للموقع من فلاتر فلاو
+  useEffect(() => {
+    (window as any).updateLocationFromFlutter = (lat: number, lng: number) => {
+        setAddress(prev => ({
+            ...prev,
+            latitude: lat,
+            longitude: lng,
+        }));
+        toast({ title: "تم استلام إحداثياتك بنجاح من الهاتف 🛰️" });
+        setIsFetchingLocation(false);
+    };
+
+    return () => {
+        delete (window as any).updateLocationFromFlutter;
+    };
+  }, [toast]);
+
   const filteredZones = useMemo(() => {
     if (!address.branchId) return [];
     return deliveryZones.filter(z => z.branchId === address.branchId);
@@ -61,29 +78,18 @@ export default function AddAddressPage() {
 
   const handleFetchLocation = () => {
     setIsFetchingLocation(true);
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setAddress({
-            ...address,
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-          toast({ title: "تم تحديد إحداثياتك بنجاح 🛰️" });
-          setIsFetchingLocation(false);
-        },
-        () => {
-          toast({
-            title: "فشل تحديد الموقع",
-            description: "يرجى تفعيل الـ GPS وإعطاء الإذن للمتصفح.",
-            variant: "destructive",
-          });
-          setIsFetchingLocation(false);
-        }
-      );
-    } else {
-      setIsFetchingLocation(false);
+    
+    // إرسال إشارة لفلاتر فلاو لطلب الموقع
+    if (window.parent) {
+        window.parent.postMessage('REQUEST_LOCATION', '*');
     }
+
+    toast({ title: "بانتظار استجابة GPS الهاتف... 📱" });
+
+    // مهلة زمنية
+    setTimeout(() => {
+        setIsFetchingLocation(false);
+    }, 15000);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -97,7 +103,7 @@ export default function AddAddressPage() {
       return;
     }
     if (address.latitude === 0) {
-        toast({ title: "تحديد الموقع مطلوب", description: "يجب الضغط على زر تحديد الموقع للمتابعة.", variant: "destructive" });
+        toast({ title: "تحديد الموقع مطلوب", description: "يرجى السماح بالوصول للموقع من إعدادات الهاتف.", variant: "destructive" });
         return;
     }
     addAddress(address);
@@ -113,7 +119,7 @@ export default function AddAddressPage() {
         </Button>
         <div className="text-right">
             <h1 className="text-2xl font-black text-primary leading-none">إضافة عنوان جديد</h1>
-            <p className="text-muted-foreground font-bold text-[10px] mt-1">يرجى تحديد المدينة أولاً ثم الحي.</p>
+            <p className="text-muted-foreground font-bold text-[10px] mt-1">يتم استلام الموقع تلقائياً من تطبيق الهاتف.</p>
         </div>
       </header>
 
@@ -193,11 +199,11 @@ export default function AddAddressPage() {
                 disabled={isFetchingLocation}
             >
                 {isFetchingLocation ? (
-                    <><Loader2 className="animate-spin h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">جارِ تحديد الموقع...</span></>
+                    <><Loader2 className="animate-spin h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">بانتظار GPS هاتفك...</span></>
                 ) : address.latitude !== 0 ? (
-                    <><CheckCircle2 className="h-8 w-8 text-green-500" /> <span className="font-black text-green-600 text-sm">تم تحديد الموقع بنجاح ✅</span></>
+                    <><CheckCircle2 className="h-8 w-8 text-green-500" /> <span className="font-black text-green-600 text-sm">تم استلام الموقع بنجاح ✅</span></>
                 ) : (
-                    <><MapPin className="h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">اضغط لتحديد موقعك على الخريطة</span></>
+                    <><MapPin className="h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">اضغط لتحديد موقعك من هاتفك</span></>
                 )}
             </button>
         </div>
