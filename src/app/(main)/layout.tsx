@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useContext, useCallback, useMemo } from 'react';
@@ -47,11 +48,11 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, setActiveTab } = context;
 
-  // مؤقت أمان قسري: إخفاء شاشة التحميل الخضراء بعد 3 ثوانٍ مهما حدث لضمان عدم التعليق
+  // مؤقت أمان قسري: إخفاء شاشة التحميل الخضراء بعد ثانيتين مهما حدث لضمان عدم التعليق في App Inventor
   useEffect(() => {
     const timer = setTimeout(() => {
         setForceHideLoading(true);
-    }, 3000);
+    }, 2500);
     return () => clearTimeout(timer);
   }, []);
 
