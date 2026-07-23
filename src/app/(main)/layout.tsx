@@ -47,7 +47,6 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, setActiveTab } = context;
 
-  // دعم استلام الموقع من أي مصدر خارجي (مثل فلاتر فلاو) كخيار إضافي
   useEffect(() => {
     (window as any).updateLocationFromFlutter = (lat: number, lng: number) => {
         if (!isLocationInAllowedZones(lat, lng)) {
@@ -59,7 +58,7 @@ export default function MainAppLayout() {
         }
         setIslocLoading(false);
     };
-    return () => { delete (window as any).updateLocationFromFlutter; };
+    return () => { try { delete (window as any).updateLocationFromFlutter; } catch(e) {} };
   }, [toast]);
 
   useEffect(() => {
@@ -88,7 +87,7 @@ export default function MainAppLayout() {
   const handleGetLocation = useCallback(() => {
     setIslocLoading(true);
     
-    if (navigator.geolocation) {
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude } = position.coords;
@@ -103,9 +102,10 @@ export default function MainAppLayout() {
             },
             (error) => {
                 console.error("Geolocation error:", error);
-                // إرسال إشارة لفلاتر فلاو كخيار بديل في حال فشل المتصفح
                 if (window.parent) {
-                    window.parent.postMessage('REQUEST_LOCATION', '*');
+                    try {
+                        window.parent.postMessage('REQUEST_LOCATION', '*');
+                    } catch(e) {}
                 }
                 toast({ 
                     title: "يرجى تفعيل الموقع", 

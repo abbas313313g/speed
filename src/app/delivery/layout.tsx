@@ -20,40 +20,45 @@ export default function DeliveryLayout() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
-    const id = localStorage.getItem('deliveryWorkerId');
+    let id: string | null = null;
+    try {
+        id = localStorage.getItem('deliveryWorkerId');
+    } catch (e) {}
+
     if (id) {
         setIsAuth(true);
         setActiveTab(1);
     }
 
-    // تهيئة OneSignal الاحترافية
     const initOneSignal = () => {
-        const script = document.createElement('script');
-        script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
-        script.async = true;
-        document.head.appendChild(script);
+        try {
+            const script = document.createElement('script');
+            script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
+            script.async = true;
+            document.head.appendChild(script);
 
-        window.OneSignal = window.OneSignal || [];
-        window.OneSignal.push(() => {
-            window.OneSignal.init({
-                appId: "fbb7ab81-ec87-4f8c-aaa8-de12522e62b3",
-                allowLocalhostAsSecureOrigin: true,
-                notifyButton: {
-                    enable: true,
-                    position: 'bottom-left'
-                },
-                welcomeNotification: {
-                    title: "سبيد شوب",
-                    message: "تم تفعيل الإشعارات بنجاح! 🚀"
+            window.OneSignal = window.OneSignal || [];
+            window.OneSignal.push(() => {
+                window.OneSignal.init({
+                    appId: "fbb7ab81-ec87-4f8c-aaa8-de12522e62b3",
+                    allowLocalhostAsSecureOrigin: true,
+                    notifyButton: {
+                        enable: true,
+                        position: 'bottom-left'
+                    },
+                    welcomeNotification: {
+                        title: "سبيد شوب",
+                        message: "تم تفعيل الإشعارات بنجاح! 🚀"
+                    }
+                });
+
+                if (id) {
+                    window.OneSignal.login(id);
                 }
             });
-
-            // ربط المندوب بالمعرف الخارجي لضمان وصول الإشعار له وحده
-            if (id) {
-                window.OneSignal.login(id);
-                console.log("OneSignal: User logged in as", id);
-            }
-        });
+        } catch (e) {
+            console.error("OneSignal init failed", e);
+        }
     };
 
     initOneSignal();
@@ -76,8 +81,13 @@ export default function DeliveryLayout() {
           <div className="spa-page-view">
              <DeliveryLoginPage onLogin={() => { 
                  setIsAuth(true); 
-                 const id = localStorage.getItem('deliveryWorkerId');
-                 if (id && window.OneSignal) window.OneSignal.login(id);
+                 let id: string | null = null;
+                 try {
+                     id = localStorage.getItem('deliveryWorkerId');
+                 } catch(e) {}
+                 if (id && window.OneSignal) {
+                     try { window.OneSignal.login(id); } catch(e) {}
+                 }
                  setActiveTab(1); 
              }} />
           </div>

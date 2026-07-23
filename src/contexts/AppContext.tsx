@@ -65,8 +65,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const isLoading = productsLoading || restaurantsLoading || ticketsLoading || couponsLoading || telegramLoading;
 
     useEffect(() => {
-        let id = localStorage.getItem('speedShopUserId');
-        if (!id) { id = uuidv4(); localStorage.setItem('speedShopUserId', id); }
+        let id: string | null = null;
+        try {
+            id = localStorage.getItem('speedShopUserId');
+            if (!id) { 
+                id = uuidv4(); 
+                localStorage.setItem('speedShopUserId', id); 
+            }
+        } catch (e) {
+            id = uuidv4();
+        }
         setUserId(id);
 
         try {
@@ -95,16 +103,30 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const setActiveTab = useCallback((index: number, pushToHistory = true) => {
         setActiveTabState(index);
         if (pushToHistory) {
-            window.history.pushState({ tab: index }, '');
+            try {
+                window.history.pushState({ tab: index }, '');
+            } catch (e) {}
         }
     }, []);
 
-    useEffect(() => { if (!isLoading) localStorage.setItem('speedShopCart', JSON.stringify(cart)); }, [cart, isLoading]);
-    useEffect(() => { if (!isLoading) localStorage.setItem('speedShopAddresses', JSON.stringify(addresses)); }, [addresses, isLoading]);
+    useEffect(() => { 
+        if (!isLoading) {
+            try {
+                localStorage.setItem('speedShopCart', JSON.stringify(cart)); 
+            } catch (e) {}
+        }
+    }, [cart, isLoading]);
+
+    useEffect(() => { 
+        if (!isLoading) {
+            try {
+                localStorage.setItem('speedShopAddresses', JSON.stringify(addresses)); 
+            } catch (e) {}
+        }
+    }, [addresses, isLoading]);
 
     const currentAddr = addresses[0];
 
-    // ترتيب المحلات: المفتوحة أولاً
     const filteredRestaurants = useMemo(() => {
         let list = [...restaurants];
         if (currentAddr?.latitude && currentAddr?.longitude) {
@@ -120,7 +142,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         });
     }, [restaurants, currentAddr]);
 
-    // ترتيب المنتجات: التابعة لمتاجر مفتوحة أولاً
     const filteredProducts = useMemo(() => {
         const list = products.filter(p => {
             const isApproved = p.status === 'approved';
@@ -172,7 +193,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setCart(prev => prev.map(item => (item.product.id === productId && item.selectedSize?.name === sizeName) ? { ...item, quantity } : item));
     }, [removeFromCart]);
     
-    const clearCart = useCallback(() => { setCart([]); localStorage.removeItem('speedShopCart'); }, []);
+    const clearCart = useCallback(() => { 
+        setCart([]); 
+        try {
+            localStorage.removeItem('speedShopCart'); 
+        } catch (e) {}
+    }, []);
 
     const cartTotal = useMemo(() => cart.reduce((total, item) => {
         const price = item.selectedSize?.price || item.product.discountPrice || item.product.price || 0;
@@ -204,7 +230,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [userId, mySupportTicket, addresses, createTicketHook, addMessageToTicket]);
 
     const placeOrder = useCallback(async (addr: Address, dFee: number, coup?: string): Promise<string | null> => {
-        const curId = userId || localStorage.getItem('speedShopUserId');
+        let curId = userId;
+        if (!curId) {
+            try {
+                curId = localStorage.getItem('speedShopUserId');
+            } catch(e) {}
+        }
         if (!curId || cart.length === 0) return null;
         let finalOrderId: string | null = null;
         const curCart = [...cart];
@@ -224,7 +255,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 
                 if (cData) {
                     if (cData.usedCount >= cData.maxUses) throw new Error("USER_ERROR: الكود وصل للحد الأقصى للاستخدام.");
-                    if (cData.usedBy?.includes(curId)) throw new Error("USER_ERROR: لقد استخدمت هذا الكود مسبقاً.");
+                    if (cData.usedBy?.includes(curId!)) throw new Error("USER_ERROR: لقد استخدمت هذا الكود مسبقاً.");
                     if (cData.restaurantId && cData.restaurantId !== curCart[0].product.restaurantId) throw new Error("USER_ERROR: هذا الكود مخصص لمتجر آخر.");
                     
                     if (cData.isFirstOrderOnly) {
@@ -270,7 +301,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     cInfo = { code: cData.code, discountAmount: disc }; 
                     tx.update(doc(db, "coupons", cData.id), { 
                         usedCount: (cData.usedCount || 0) + 1, 
-                        usedBy: arrayUnion(curId) 
+                        usedBy: arrayUnion(curId!) 
                     }); 
                 }
                 

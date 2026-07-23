@@ -14,17 +14,21 @@ export const useAdminAccess = (branchId?: string) => {
     const { toast } = useToast();
 
     const getDeviceId = useCallback(() => {
-        let deviceId = localStorage.getItem('speedShopDeviceId');
-        if (!deviceId) {
+        let deviceId: string | null = null;
+        try {
+            deviceId = localStorage.getItem('speedShopDeviceId');
+            if (!deviceId) {
+                deviceId = `dev_${uuidv4()}`;
+                localStorage.setItem('speedShopDeviceId', deviceId);
+            }
+        } catch (e) {
             deviceId = `dev_${uuidv4()}`;
-            localStorage.setItem('speedShopDeviceId', deviceId);
         }
         return deviceId;
     }, []);
 
     useEffect(() => {
         const accessRef = collection(db, 'adminAccess');
-        // فلترة سجلات الوصول بناءً على الفرع لضمان استقلال الأذونات
         let q = query(accessRef);
         if (branchId && branchId !== 'all') {
             q = query(accessRef, where('branchId', '==', branchId));
@@ -95,7 +99,6 @@ export const useAdminAccess = (branchId?: string) => {
         try {
             const q = query(collection(db, 'adminAccess'), where('branchId', '==', bId));
             const snap = await getDocs(q);
-            // إذا كان هذا أول جهاز يطلب الدخول لهذا الفرع تحديداً، يتم اعتماده تلقائياً
             if (snap.empty) {
                 await addDoc(collection(db, "adminAccess"), {
                     deviceId,
