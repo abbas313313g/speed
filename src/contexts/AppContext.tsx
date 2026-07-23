@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -6,7 +5,7 @@ import { collection, doc, runTransaction, arrayUnion, updateDoc, getDocs, query,
 import { db } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
-import { calculateDistance } from '@/lib/utils';
+import { calculateDistance, safeStorage } from '@/lib/utils';
 import { ToastAction } from '@/components/ui/toast';
 import type { 
     Product, Order, SupportTicket, Coupon, Address, CartItem, Message, ProductSize, Restaurant
@@ -62,38 +61,36 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
 
-    const isLoading = productsLoading || restaurantsLoading || ticketsLoading || couponsLoading || telegramLoading;
+    const isLoading = (productsLoading || restaurantsLoading || ticketsLoading || couponsLoading || telegramLoading);
 
     useEffect(() => {
-        let id: string | null = null;
         try {
-            id = localStorage.getItem('speedShopUserId');
+            let id = safeStorage.get('speedShopUserId');
             if (!id) { 
                 id = uuidv4(); 
-                localStorage.setItem('speedShopUserId', id); 
+                safeStorage.set('speedShopUserId', id); 
             }
-        } catch (e) {
-            id = uuidv4();
-        }
-        setUserId(id);
+            setUserId(id);
 
-        try {
-            const savedCart = localStorage.getItem('speedShopCart');
+            const savedCart = safeStorage.get('speedShopCart');
             if(savedCart) setCart(JSON.parse(savedCart));
-            const savedAddresses = localStorage.getItem('speedShopAddresses');
+
+            const savedAddresses = safeStorage.get('speedShopAddresses');
             if(savedAddresses) setAddresses(JSON.parse(savedAddresses));
+            
+            if (window.history.state === null) {
+                window.history.replaceState({ tab: 0 }, '');
+            }
         } catch (e) {}
-        
-        if (window.history.state === null) {
-            window.history.replaceState({ tab: 0 }, '');
-        }
 
         const handlePopState = (event: PopStateEvent) => {
-            if (event.state && typeof event.state.tab === 'number') {
-                setActiveTabState(event.state.tab);
-            } else {
-                setActiveTabState(0);
-            }
+            try {
+                if (event.state && typeof event.state.tab === 'number') {
+                    setActiveTabState(event.state.tab);
+                } else {
+                    setActiveTabState(0);
+                }
+            } catch(e) {}
         };
 
         window.addEventListener('popstate', handlePopState);
@@ -112,7 +109,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => { 
         if (!isLoading) {
             try {
-                localStorage.setItem('speedShopCart', JSON.stringify(cart)); 
+                safeStorage.set('speedShopCart', JSON.stringify(cart)); 
             } catch (e) {}
         }
     }, [cart, isLoading]);
@@ -120,7 +117,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => { 
         if (!isLoading) {
             try {
-                localStorage.setItem('speedShopAddresses', JSON.stringify(addresses)); 
+                safeStorage.set('speedShopAddresses', JSON.stringify(addresses)); 
             } catch (e) {}
         }
     }, [addresses, isLoading]);
@@ -195,9 +192,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     
     const clearCart = useCallback(() => { 
         setCart([]); 
-        try {
-            localStorage.removeItem('speedShopCart'); 
-        } catch (e) {}
+        safeStorage.remove('speedShopCart'); 
     }, []);
 
     const cartTotal = useMemo(() => cart.reduce((total, item) => {
@@ -230,13 +225,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [userId, mySupportTicket, addresses, createTicketHook, addMessageToTicket]);
 
     const placeOrder = useCallback(async (addr: Address, dFee: number, coup?: string): Promise<string | null> => {
-        let curId = userId;
-        if (!curId) {
-            try {
-                curId = localStorage.getItem('speedShopUserId');
-            } catch(e) {}
-        }
+        let curId = userId || safeStorage.get('speedShopUserId');
         if (!curId || cart.length === 0) return null;
+        
         let finalOrderId: string | null = null;
         const curCart = [...cart];
         
@@ -336,14 +327,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     branchId: rest?.branchId || 'main'
                 };
                 
-                const cleanData = JSON.parse(JSON.stringify(nOData));
-                tx.set(nORef, cleanData);
+                tx.set(nORef, JSON.parse(JSON.stringify(nOData)));
             });
             
             clearCart();
             return finalOrderId;
         } catch (e: any) { 
-            console.error("Order Failure:", e);
             const errorMsg = e.message.includes("USER_ERROR") 
                 ? e.message.replace("USER_ERROR: ", "") 
                 : "حدث خطأ فني أثناء محاولة إتمام الطلب، يرجى المحاولة لاحقاً.";

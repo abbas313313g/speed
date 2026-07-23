@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useContext, useCallback, useMemo } from 'react';
@@ -43,31 +42,44 @@ export default function MainAppLayout() {
   const [isBlocked, setIsBlocked] = useState(false);
   const [newAddr, setNewAddr] = useState({ name: '', phone: '', details: '', lat: 0, lng: 0, selectedBranch: '', detectedZone: '' });
   const [islocLoading, setIslocLoading] = useState(false);
+  const [forceHideLoading, setForceHideLoading] = useState(false);
 
   if (!context) return null;
   const { activeTab, setActiveTab } = context;
 
+  // مؤقت أمان قسري: إخفاء شاشة التحميل الخضراء بعد 3 ثوانٍ مهما حدث لضمان عدم التعليق
   useEffect(() => {
-    (window as any).updateLocationFromFlutter = (lat: number, lng: number) => {
-        if (!isLocationInAllowedZones(lat, lng)) {
-          setIsBlocked(true);
-          setShowAddressPrompt(false);
-        } else {
-          setNewAddr(prev => ({ ...prev, lat: lat, lng: lng }));
-          toast({ title: "تم تحديث موقعك بنجاح ✅" });
-        }
-        setIslocLoading(false);
-    };
+    const timer = setTimeout(() => {
+        setForceHideLoading(true);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    try {
+        (window as any).updateLocationFromFlutter = (lat: number, lng: number) => {
+            if (!isLocationInAllowedZones(lat, lng)) {
+              setIsBlocked(true);
+              setShowAddressPrompt(false);
+            } else {
+              setNewAddr(prev => ({ ...prev, lat: lat, lng: lng }));
+              toast({ title: "تم تحديث موقعك بنجاح ✅" });
+            }
+            setIslocLoading(false);
+        };
+    } catch (e) {}
     return () => { try { delete (window as any).updateLocationFromFlutter; } catch(e) {} };
   }, [toast]);
 
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
-      if (event.state && typeof event.state.tab === 'number') {
-        setActiveTab(event.state.tab, false);
-      } else {
-        setActiveTab(0, false);
-      }
+      try {
+          if (event.state && typeof event.state.tab === 'number') {
+            setActiveTab(event.state.tab, false);
+          } else {
+            setActiveTab(0, false);
+          }
+      } catch (e) {}
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -90,18 +102,19 @@ export default function MainAppLayout() {
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                const { latitude, longitude } = position.coords;
-                if (!isLocationInAllowedZones(latitude, longitude)) {
-                    setIsBlocked(true);
-                    setShowAddressPrompt(false);
-                } else {
-                    setNewAddr(prev => ({ ...prev, lat: latitude, lng: longitude }));
-                    toast({ title: "تم تحديد موقعك بدقة بنجاح 🛰️" });
-                }
+                try {
+                    const { latitude, longitude } = position.coords;
+                    if (!isLocationInAllowedZones(latitude, longitude)) {
+                        setIsBlocked(true);
+                        setShowAddressPrompt(false);
+                    } else {
+                        setNewAddr(prev => ({ ...prev, lat: latitude, lng: longitude }));
+                        toast({ title: "تم تحديد موقعك بدقة بنجاح 🛰️" });
+                    }
+                } catch(e) {}
                 setIslocLoading(false);
             },
             (error) => {
-                console.error("Geolocation error:", error);
                 if (window.parent) {
                     try {
                         window.parent.postMessage('REQUEST_LOCATION', '*');
@@ -114,7 +127,7 @@ export default function MainAppLayout() {
                 });
                 setIslocLoading(false);
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
         );
     } else {
         toast({ title: "المتصفح لا يدعم تحديد الموقع", variant: "destructive" });
@@ -144,9 +157,11 @@ export default function MainAppLayout() {
     toast({ title: "أهلاً بك في سبيد شوب!" });
   };
 
-  if (settingsLoading) {
+  const isActuallyLoading = settingsLoading && !forceHideLoading;
+
+  if (isActuallyLoading) {
     return (
-        <div className="flex h-screen w-full flex-col items-center justify-center bg-[#00b358] animate-in fade-in duration-500">
+        <div className="flex h-screen w-full flex-col items-center justify-center bg-[#00b358] animate-in fade-in duration-300">
             <h1 className="text-6xl font-black text-white italic tracking-tighter drop-shadow-[0_4px_4px_rgba(0,0,0,0.25)] select-none">
               Speed Shop
             </h1>
@@ -193,7 +208,7 @@ export default function MainAppLayout() {
               <p className="text-muted-foreground text-xl leading-relaxed">
                 تطبيق سبيد شوب مخصص حالياً لخدمة مناطق <br/><span className="text-foreground font-black underline">(المدحتية، الهاشمية، القاسم)</span> فقط.
               </p>
-              <Button onClick={() => setIsBlocked(false)} variant="outline" className="mt-8 rounded-xl">رجوع للمحاولة ثانية</Button>
+              <button onClick={() => setIsBlocked(false)} className="mt-8 px-6 py-3 border-2 border-primary text-primary font-black rounded-xl active:scale-95 transition-all">رجوع للمحاولة ثانية</button>
             </div>
         ) : settings?.isMaintenanceMode ? (
             <div className="flex h-full w-full flex-col items-center justify-center bg-background p-10 text-center animate-in zoom-in duration-500">
