@@ -40,7 +40,7 @@ export default function AddAddressPage() {
   });
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
-  // الاستماع للموقع من فلاتر فلاو
+  // دعم الاستلام الخارجي كخيار إضافي
   useEffect(() => {
     (window as any).updateLocationFromFlutter = (lat: number, lng: number) => {
         setAddress(prev => ({
@@ -48,13 +48,10 @@ export default function AddAddressPage() {
             latitude: lat,
             longitude: lng,
         }));
-        toast({ title: "تم استلام موقعك بنجاح 🛰️" });
+        toast({ title: "تم استلام الموقع بنجاح ✅" });
         setIsFetchingLocation(false);
     };
-
-    return () => {
-        delete (window as any).updateLocationFromFlutter;
-    };
+    return () => { delete (window as any).updateLocationFromFlutter; };
   }, [toast]);
 
   const filteredZones = useMemo(() => {
@@ -79,7 +76,6 @@ export default function AddAddressPage() {
   const handleFetchLocation = () => {
     setIsFetchingLocation(true);
     
-    // 1. محاولة طلب الموقع من المتصفح أولاً
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -88,31 +84,24 @@ export default function AddAddressPage() {
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
                 }));
-                toast({ title: "تم تحديد موقعك من المتصفح ✅" });
+                toast({ title: "تم تحديد موقعك بدقة 🎯" });
                 setIsFetchingLocation(false);
             },
             (error) => {
-                // 2. إذا فشل المتصفح، نعتمد على إشارة فلاتر فلاو
-                console.log("Browser geolocation failed, using Flutter signal...");
+                console.error("Geolocation error:", error);
+                // محاولة إرسال إشارة للتطبيق المستضيف كخيار بديل
                 if (window.parent) {
                     window.parent.postMessage('REQUEST_LOCATION', '*');
                 }
-                toast({ title: "بانتظار GPS الهاتف... 📱" });
+                toast({ title: "يرجى السماح بالوصول للموقع في إعدادات هاتفك.", variant: "destructive" });
+                setIsFetchingLocation(false);
             },
-            { enableHighAccuracy: true, timeout: 5000 }
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     } else {
-        // إذا كان المتصفح لا يدعم Geolocation
-        if (window.parent) {
-            window.parent.postMessage('REQUEST_LOCATION', '*');
-        }
-        toast({ title: "بانتظار GPS الهاتف... 📱" });
-    }
-
-    // مهلة زمنية قصوى
-    setTimeout(() => {
+        toast({ title: "المتصفح لا يدعم تحديد الموقع", variant: "destructive" });
         setIsFetchingLocation(false);
-    }, 15000);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -120,13 +109,13 @@ export default function AddAddressPage() {
     if (!address.name || !address.phone || !address.branchId || !address.deliveryZone) {
       toast({
         title: "بيانات غير مكتملة",
-        description: "يرجى اختيار المدينة والمنطقة أولاً.",
+        description: "يرجى ملء جميع الحقول واختيار المنطقة.",
         variant: "destructive",
       });
       return;
     }
     if (address.latitude === 0) {
-        toast({ title: "تحديد الموقع مطلوب", description: "يرجى السماح بالوصول للموقع من إعدادات الهاتف.", variant: "destructive" });
+        toast({ title: "تحديد الموقع مطلوب", description: "يرجى الضغط على زر تحديد الموقع قبل الحفظ.", variant: "destructive" });
         return;
     }
     addAddress(address);
@@ -142,7 +131,7 @@ export default function AddAddressPage() {
         </Button>
         <div className="text-right">
             <h1 className="text-2xl font-black text-primary leading-none">إضافة عنوان جديد</h1>
-            <p className="text-muted-foreground font-bold text-[10px] mt-1">يتم استلام الموقع من المتصفح أو تطبيق الهاتف.</p>
+            <p className="text-muted-foreground font-bold text-[10px] mt-1">تحديد الموقع المباشر لضمان دقة التوصيل.</p>
         </div>
       </header>
 
@@ -222,11 +211,11 @@ export default function AddAddressPage() {
                 disabled={isFetchingLocation}
             >
                 {isFetchingLocation ? (
-                    <><Loader2 className="animate-spin h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">بانتظار GPS هاتفك...</span></>
+                    <><Loader2 className="animate-spin h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">جارِ تحديد موقعك...</span></>
                 ) : address.latitude !== 0 ? (
-                    <><CheckCircle2 className="h-8 w-8 text-green-500" /> <span className="font-black text-green-600 text-sm">تم تحديد الموقع بنجاح ✅</span></>
+                    <><CheckCircle2 className="h-8 w-8 text-green-500" /> <span className="font-black text-green-600 text-sm">تم استلام الموقع بنجاح ✅</span></>
                 ) : (
-                    <><MapPin className="h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">اضغط لتحديد موقعك</span></>
+                    <><MapPin className="h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">اضغط لتحديد موقعك المباشر</span></>
                 )}
             </button>
         </div>

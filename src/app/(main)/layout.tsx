@@ -47,22 +47,19 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, setActiveTab } = context;
 
-  // الاستماع للموقع من فلاتر فلاو
+  // دعم استلام الموقع من أي مصدر خارجي (مثل فلاتر فلاو) كخيار إضافي
   useEffect(() => {
     (window as any).updateLocationFromFlutter = (lat: number, lng: number) => {
         if (!isLocationInAllowedZones(lat, lng)) {
           setIsBlocked(true);
           setShowAddressPrompt(false);
         } else {
-          toast({ title: "تم استلام موقعك بنجاح 🛰️" });
           setNewAddr(prev => ({ ...prev, lat: lat, lng: lng }));
+          toast({ title: "تم تحديث موقعك بنجاح ✅" });
         }
         setIslocLoading(false);
     };
-
-    return () => {
-        delete (window as any).updateLocationFromFlutter;
-    };
+    return () => { delete (window as any).updateLocationFromFlutter; };
   }, [toast]);
 
   useEffect(() => {
@@ -73,7 +70,6 @@ export default function MainAppLayout() {
         setActiveTab(0, false);
       }
     };
-
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [setActiveTab]);
@@ -91,9 +87,7 @@ export default function MainAppLayout() {
 
   const handleGetLocation = useCallback(() => {
     setIslocLoading(true);
-    setNewAddr(prev => ({ ...prev, lat: 0, lng: 0 }));
-
-    // 1. محاولة طلب الموقع عبر المتصفح أولاً (للمتصفحات العادية)
+    
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -103,32 +97,29 @@ export default function MainAppLayout() {
                     setShowAddressPrompt(false);
                 } else {
                     setNewAddr(prev => ({ ...prev, lat: latitude, lng: longitude }));
-                    toast({ title: "تم تحديد موقعك من المتصفح بنجاح ✅" });
+                    toast({ title: "تم تحديد موقعك بدقة بنجاح 🛰️" });
                 }
                 setIslocLoading(false);
             },
             (error) => {
-                // 2. إذا فشل المتصفح (قد نكون في WebView)، نرسل إشارة لـ FlutterFlow
-                console.log("Browser geolocation failed, trying Flutter signal...");
+                console.error("Geolocation error:", error);
+                // إرسال إشارة لفلاتر فلاو كخيار بديل في حال فشل المتصفح
                 if (window.parent) {
                     window.parent.postMessage('REQUEST_LOCATION', '*');
                 }
-                toast({ title: "بانتظار تحديد الموقع من جهازك... 📱" });
+                toast({ 
+                    title: "يرجى تفعيل الموقع", 
+                    description: "فشل الوصول للموقع التلقائي، تأكد من تفعيل الـ GPS.", 
+                    variant: "destructive" 
+                });
+                setIslocLoading(false);
             },
-            { enableHighAccuracy: true, timeout: 5000 }
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     } else {
-        // إذا كان المتصفح لا يدعم الموقع إطلاقاً، نعتمد كلياً على الإشارة
-        if (window.parent) {
-            window.parent.postMessage('REQUEST_LOCATION', '*');
-        }
-        toast({ title: "بانتظار تحديد الموقع من جهازك... 📱" });
-    }
-    
-    // مهلة زمنية في حال لم يستجب أي طرف
-    setTimeout(() => {
+        toast({ title: "المتصفح لا يدعم تحديد الموقع", variant: "destructive" });
         setIslocLoading(false);
-    }, 15000);
+    }
   }, [toast]);
 
   const handleSaveAddress = () => {
@@ -137,7 +128,7 @@ export default function MainAppLayout() {
       return;
     }
     if (newAddr.lat === 0) {
-        toast({ title: "الموقع مطلوب", description: "يرجى تفعيل الموقع في هاتفك والمحاولة مرة أخرى.", variant: "destructive" });
+        toast({ title: "الموقع مطلوب", description: "يرجى الضغط على زر تحديد الموقع أولاً.", variant: "destructive" });
         return;
     }
     addAddress({
@@ -285,11 +276,11 @@ export default function MainAppLayout() {
                             disabled={islocLoading}
                         >
                             {islocLoading ? (
-                                <><Loader2 className="animate-spin h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">بانتظار GPS الهاتف...</span></>
+                                <><Loader2 className="animate-spin h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">جارِ تحديد موقعك...</span></>
                             ) : newAddr.lat !== 0 ? (
                                 <><CheckCircle2 className="h-8 w-8 text-green-500" /> <span className="font-black text-green-600 text-sm">تم استلام الموقع بنجاح ✅</span></>
                             ) : (
-                                <><MapPin className="h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">اضغط لتحديد موقعك من هاتفك</span></>
+                                <><MapPin className="h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">اضغط لتحديد موقعك المباشر</span></>
                             )}
                         </button>
                     </div>
