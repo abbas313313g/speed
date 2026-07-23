@@ -54,7 +54,7 @@ export default function MainAppLayout() {
           setIsBlocked(true);
           setShowAddressPrompt(false);
         } else {
-          toast({ title: "تم استلام موقعك من الهاتف بنجاح 🛰️" });
+          toast({ title: "تم استلام موقعك بنجاح 🛰️" });
           setNewAddr(prev => ({ ...prev, lat: lat, lng: lng }));
         }
         setIslocLoading(false);
@@ -93,14 +93,39 @@ export default function MainAppLayout() {
     setIslocLoading(true);
     setNewAddr(prev => ({ ...prev, lat: 0, lng: 0 }));
 
-    // إرسال إشارة لفلاتر فلاو لطلب الموقع
-    if (window.parent) {
-        window.parent.postMessage('REQUEST_LOCATION', '*');
+    // 1. محاولة طلب الموقع عبر المتصفح أولاً (للمتصفحات العادية)
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                if (!isLocationInAllowedZones(latitude, longitude)) {
+                    setIsBlocked(true);
+                    setShowAddressPrompt(false);
+                } else {
+                    setNewAddr(prev => ({ ...prev, lat: latitude, lng: longitude }));
+                    toast({ title: "تم تحديد موقعك من المتصفح بنجاح ✅" });
+                }
+                setIslocLoading(false);
+            },
+            (error) => {
+                // 2. إذا فشل المتصفح (قد نكون في WebView)، نرسل إشارة لـ FlutterFlow
+                console.log("Browser geolocation failed, trying Flutter signal...");
+                if (window.parent) {
+                    window.parent.postMessage('REQUEST_LOCATION', '*');
+                }
+                toast({ title: "بانتظار تحديد الموقع من جهازك... 📱" });
+            },
+            { enableHighAccuracy: true, timeout: 5000 }
+        );
+    } else {
+        // إذا كان المتصفح لا يدعم الموقع إطلاقاً، نعتمد كلياً على الإشارة
+        if (window.parent) {
+            window.parent.postMessage('REQUEST_LOCATION', '*');
+        }
+        toast({ title: "بانتظار تحديد الموقع من جهازك... 📱" });
     }
-
-    toast({ title: "بانتظار تحديد الموقع من جهازك... 📱" });
     
-    // مهلة زمنية في حال لم يستجب التطبيق
+    // مهلة زمنية في حال لم يستجب أي طرف
     setTimeout(() => {
         setIslocLoading(false);
     }, 15000);

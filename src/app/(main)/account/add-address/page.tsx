@@ -48,7 +48,7 @@ export default function AddAddressPage() {
             latitude: lat,
             longitude: lng,
         }));
-        toast({ title: "تم استلام إحداثياتك بنجاح من الهاتف 🛰️" });
+        toast({ title: "تم استلام موقعك بنجاح 🛰️" });
         setIsFetchingLocation(false);
     };
 
@@ -79,14 +79,37 @@ export default function AddAddressPage() {
   const handleFetchLocation = () => {
     setIsFetchingLocation(true);
     
-    // إرسال إشارة لفلاتر فلاو لطلب الموقع
-    if (window.parent) {
-        window.parent.postMessage('REQUEST_LOCATION', '*');
+    // 1. محاولة طلب الموقع من المتصفح أولاً
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setAddress(prev => ({
+                    ...prev,
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                }));
+                toast({ title: "تم تحديد موقعك من المتصفح ✅" });
+                setIsFetchingLocation(false);
+            },
+            (error) => {
+                // 2. إذا فشل المتصفح، نعتمد على إشارة فلاتر فلاو
+                console.log("Browser geolocation failed, using Flutter signal...");
+                if (window.parent) {
+                    window.parent.postMessage('REQUEST_LOCATION', '*');
+                }
+                toast({ title: "بانتظار GPS الهاتف... 📱" });
+            },
+            { enableHighAccuracy: true, timeout: 5000 }
+        );
+    } else {
+        // إذا كان المتصفح لا يدعم Geolocation
+        if (window.parent) {
+            window.parent.postMessage('REQUEST_LOCATION', '*');
+        }
+        toast({ title: "بانتظار GPS الهاتف... 📱" });
     }
 
-    toast({ title: "بانتظار استجابة GPS الهاتف... 📱" });
-
-    // مهلة زمنية
+    // مهلة زمنية قصوى
     setTimeout(() => {
         setIsFetchingLocation(false);
     }, 15000);
@@ -119,7 +142,7 @@ export default function AddAddressPage() {
         </Button>
         <div className="text-right">
             <h1 className="text-2xl font-black text-primary leading-none">إضافة عنوان جديد</h1>
-            <p className="text-muted-foreground font-bold text-[10px] mt-1">يتم استلام الموقع تلقائياً من تطبيق الهاتف.</p>
+            <p className="text-muted-foreground font-bold text-[10px] mt-1">يتم استلام الموقع من المتصفح أو تطبيق الهاتف.</p>
         </div>
       </header>
 
@@ -201,9 +224,9 @@ export default function AddAddressPage() {
                 {isFetchingLocation ? (
                     <><Loader2 className="animate-spin h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">بانتظار GPS هاتفك...</span></>
                 ) : address.latitude !== 0 ? (
-                    <><CheckCircle2 className="h-8 w-8 text-green-500" /> <span className="font-black text-green-600 text-sm">تم استلام الموقع بنجاح ✅</span></>
+                    <><CheckCircle2 className="h-8 w-8 text-green-500" /> <span className="font-black text-green-600 text-sm">تم تحديد الموقع بنجاح ✅</span></>
                 ) : (
-                    <><MapPin className="h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">اضغط لتحديد موقعك من هاتفك</span></>
+                    <><MapPin className="h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">اضغط لتحديد موقعك</span></>
                 )}
             </button>
         </div>
