@@ -85,6 +85,8 @@ function ProductCardComponent({ product }: ProductCardProps) {
       return product.discountPrice || product.price;
   }, [product, hasSizes, activeSizes]);
 
+  const hasDiscount = !!product.discountPrice && !hasSizes;
+
   const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://picsum.photos/seed/speedp/600/400';
 
   return (
@@ -105,7 +107,10 @@ function ProductCardComponent({ product }: ProductCardProps) {
             />
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2">نفد</Badge>}
             {!restaurant?.isStoreOpen && <Badge variant="destructive" className="absolute top-2 left-2 text-[10px]">مغلق</Badge>}
-            {hasSizes && <Badge className="absolute top-2 right-2 bg-primary/80 backdrop-blur-md text-[10px] font-black">أحجام وأنواع</Badge>}
+            {hasSizes && <Badge className="absolute top-2 right-2 bg-primary/80 backdrop-blur-md text-[10px] font-black">أنواع</Badge>}
+            {hasDiscount && (
+                <div className="absolute top-2 right-2 bg-red-600 text-white text-[9px] font-black px-2 py-1 rounded-lg shadow-lg">خصم %</div>
+            )}
           </div>
           <div className="p-3">
             <h3 className="truncate font-bold text-sm">{product.name}</h3>
@@ -113,8 +118,8 @@ function ProductCardComponent({ product }: ProductCardProps) {
               <div className="flex flex-col">
                   {hasSizes ? (
                       <p className="text-[9px] text-muted-foreground font-bold">يبدأ من:</p>
-                  ) : product.discountPrice ? (
-                     <p className="text-[10px] text-muted-foreground line-through">
+                  ) : hasDiscount ? (
+                     <p className="text-[10px] text-muted-foreground line-through decoration-destructive/50 font-bold">
                         {formatCurrency(product.price)}
                      </p>
                   ) : null}

@@ -43,7 +43,7 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency, cn } from '@/lib/utils';
 import Image from 'next/image';
-import { Edit, Trash2, PlusCircle, X, Upload, Eye, EyeOff, Plus } from 'lucide-react';
+import { Edit, Trash2, PlusCircle, X, Upload, Eye, EyeOff, Plus, Tag } from 'lucide-react';
 import type { Product, ProductSize } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -107,7 +107,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
 
   const handleAddSize = () => {
       const sizes = [...(currentProduct.sizes || [])];
-      sizes.push({ name: '', price: 0, stock: 0, isUnlimited: false });
+      sizes.push({ name: '', price: 0, stock: 0, isUnlimited: false, isActive: true });
       setCurrentProduct({ ...currentProduct, sizes });
   }
 
@@ -149,6 +149,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
             status: isEditing ? (currentProduct.status || 'approved') : 'approved',
             price: Number(currentProduct.price) || 0,
             wholesalePrice: Number(currentProduct.wholesalePrice) || 0,
+            discountPrice: Number(currentProduct.discountPrice) || 0,
             stock: currentProduct.isUnlimitedStock ? 999999 : (Number(currentProduct.stock) || 0),
             isActive: currentProduct.isActive ?? true,
             isUnlimitedStock: currentProduct.isUnlimitedStock ?? false,
@@ -156,7 +157,8 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                 name: s.name,
                 price: Number(s.price),
                 stock: s.isUnlimited ? 999999 : (Number(s.stock) || 0),
-                isUnlimited: !!s.isUnlimited
+                isUnlimited: !!s.isUnlimited,
+                isActive: s.isActive ?? true
             })) || []
         };
 
@@ -232,7 +234,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
 
                         <div className="space-y-4 bg-muted/20 p-5 rounded-[2rem] border-2 border-dashed border-primary/20">
                             <div className="flex justify-between items-center mb-2">
-                                <Label className="font-black text-lg text-primary">الأحجام والأنواع</Label>
+                                <Label className="font-black text-lg text-primary">الأسعار والتوفر</Label>
                                 <Button type="button" variant="outline" size="sm" className="rounded-lg gap-2 border-primary/40 text-primary font-bold h-9" onClick={handleAddSize}>
                                     <Plus className="h-4 w-4" /> إضافة حجم/نوع
                                 </Button>
@@ -244,7 +246,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                                         <div key={idx} className="flex flex-col gap-2 bg-white p-3 rounded-2xl shadow-sm border">
                                             <div className="grid grid-cols-12 gap-2 items-center">
                                                 <div className="col-span-5 space-y-1">
-                                                    <Label className="text-[10px] font-bold text-muted-foreground mr-1">الاسم (مثلاً: كبير أو حار)</Label>
+                                                    <Label className="text-[10px] font-bold text-muted-foreground mr-1">الاسم (مثلاً: كبير)</Label>
                                                     <Input placeholder="كبير" value={size.name} onChange={(e) => handleSizeChange(idx, 'name', e.target.value)} className="h-10 text-sm rounded-xl" />
                                                 </div>
                                                 <div className="col-span-3 space-y-1">
@@ -261,9 +263,15 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                                                     </Button>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2 justify-end px-1">
-                                                <Switch checked={size.isUnlimited} onCheckedChange={(val) => handleSizeChange(idx, 'isUnlimited', val)} className="scale-75" />
-                                                <span className="text-[10px] font-black text-primary">كمية مفتوحة دائمًا</span>
+                                            <div className="flex items-center justify-between px-1">
+                                                <div className="flex items-center gap-2">
+                                                    <Switch checked={size.isActive ?? true} onCheckedChange={(val) => handleSizeChange(idx, 'isActive', val)} className="scale-75" />
+                                                    <span className="text-[10px] font-black">نشط</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Switch checked={size.isUnlimited} onCheckedChange={(val) => handleSizeChange(idx, 'isUnlimited', val)} className="scale-75" />
+                                                    <span className="text-[10px] font-black text-primary">كمية مفتوحة</span>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -273,31 +281,37 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1">
                                             <Label className="font-bold text-xs pr-1">سعر البيع الأساسي (IQD)</Label>
-                                            <Input type="number" value={currentProduct.price || ''} onChange={(e) => setCurrentProduct({...currentProduct, price: parseFloat(e.target.value) || 0})} className="rounded-xl h-11 font-black text-primary" />
+                                            <Input type="number" value={currentProduct.price || ''} onChange={(e) => setCurrentProduct({...currentProduct, price: parseFloat(e.target.value) || 0})} className="rounded-xl h-11 font-black" />
                                         </div>
+                                        <div className="space-y-1">
+                                            <Label className="font-bold text-xs pr-1 text-primary flex items-center gap-1"><Tag className="h-3 w-3"/> السعر بعد الخصم</Label>
+                                            <Input type="number" value={currentProduct.discountPrice || ''} onChange={(e) => setCurrentProduct({...currentProduct, discountPrice: parseFloat(e.target.value) || 0})} className="rounded-xl h-11 font-black text-primary border-primary/30" placeholder="اختياري..." />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1">
                                             <Label className="font-bold text-xs pr-1">سعر الجملة</Label>
                                             <Input type="number" value={currentProduct.wholesalePrice || ''} onChange={(e) => setCurrentProduct({...currentProduct, wholesalePrice: parseFloat(e.target.value) || 0})} className="rounded-xl h-11 text-muted-foreground" />
                                         </div>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="font-bold text-xs pr-1">الكمية المتوفرة</Label>
-                                        <div className="flex items-center gap-4 bg-white p-3 rounded-2xl border shadow-inner">
-                                            <Input 
-                                                type="number" 
-                                                disabled={currentProduct.isUnlimitedStock}
-                                                value={currentProduct.isUnlimitedStock ? '' : (currentProduct.stock ?? '')} 
-                                                onChange={(e) => setCurrentProduct({...currentProduct, stock: parseInt(e.target.value) || 0})} 
-                                                className="rounded-xl flex-1 h-11" 
-                                                placeholder={currentProduct.isUnlimitedStock ? "كمية مفتوحة دائمًا" : "أدخل عدد القطع"}
-                                            />
-                                            <div className="flex items-center gap-2 px-3 border-r pr-4">
-                                                <Switch 
-                                                    id="unlimited" 
-                                                    checked={currentProduct.isUnlimitedStock} 
-                                                    onCheckedChange={(val) => setCurrentProduct({...currentProduct, isUnlimitedStock: val})} 
+                                        <div className="space-y-1">
+                                            <Label className="font-bold text-xs pr-1">الكمية المتوفرة</Label>
+                                            <div className="flex items-center gap-4 bg-white p-2 rounded-xl border shadow-inner h-11">
+                                                <Input 
+                                                    type="number" 
+                                                    disabled={currentProduct.isUnlimitedStock}
+                                                    value={currentProduct.isUnlimitedStock ? '' : (currentProduct.stock ?? '')} 
+                                                    onChange={(e) => setCurrentProduct({...currentProduct, stock: parseInt(e.target.value) || 0})} 
+                                                    className="border-none shadow-none flex-1 h-8" 
+                                                    placeholder={currentProduct.isUnlimitedStock ? "مفتوح" : "عدد القطع"}
                                                 />
-                                                <Label htmlFor="unlimited" className="text-xs font-black cursor-pointer">مفتوح</Label>
+                                                <div className="flex items-center gap-1 border-r pr-2">
+                                                    <Switch 
+                                                        checked={currentProduct.isUnlimitedStock} 
+                                                        onCheckedChange={(val) => setCurrentProduct({...currentProduct, isUnlimitedStock: val})} 
+                                                        className="scale-75"
+                                                    />
+                                                    <span className="text-[9px] font-black">مفتوح</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -354,7 +368,6 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                 <TableHead className="font-black">المنتج</TableHead>
                 <TableHead className="font-black">السعر</TableHead>
                 <TableHead className="font-black">المخزن</TableHead>
-                <TableHead className="font-black">الخيارات</TableHead>
                 <TableHead className="font-black">إجراءات</TableHead>
               </TableRow>
             </TableHeader>
@@ -370,20 +383,24 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                     {product.name}
                     <div className="text-[9px] text-muted-foreground">{categories.find(c=>c.id === product.categoryId)?.name}</div>
                   </TableCell>
-                  <TableCell className="font-black text-primary">
-                    {product.sizes && product.sizes.length > 0 ? (
-                        <div className="text-[10px]">تبدأ من {formatCurrency(Math.min(...product.sizes.map(s=>s.price)))}</div>
-                    ) : formatCurrency(product.price)}
+                  <TableCell>
+                    <div className="flex flex-col">
+                        {product.discountPrice ? (
+                            <>
+                                <span className="text-[10px] text-muted-foreground line-through decoration-destructive/50">{formatCurrency(product.price)}</span>
+                                <span className="font-black text-primary">{formatCurrency(product.discountPrice)}</span>
+                            </>
+                        ) : (
+                            <span className="font-black">{formatCurrency(product.price)}</span>
+                        )}
+                    </div>
                   </TableCell>
-                  <TableCell className="font-bold">
+                  <TableCell className="font-bold text-xs">
                     {product.isUnlimitedStock ? <Badge className="bg-blue-500 rounded-lg">مفتوح</Badge> : (
                         product.sizes && product.sizes.length > 0 
-                        ? <span className="text-xs text-muted-foreground">متعدد</span> 
+                        ? <Badge variant="outline" className="rounded-lg">{product.sizes.length} أنواع</Badge> 
                         : product.stock
                     )}
-                  </TableCell>
-                  <TableCell>
-                     {product.sizes && product.sizes.length > 0 ? <Badge variant="outline" className="rounded-lg">{product.sizes.length} أحجام وأنواع</Badge> : '-'}
                   </TableCell>
                   <TableCell>
                       <div className="flex items-center gap-2">

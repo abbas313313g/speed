@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect, useContext } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
-import { Minus, Plus, ShoppingCart, ArrowRight, Star } from 'lucide-react';
+import { Minus, Plus, ShoppingCart, ArrowRight, Star, Tag } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
@@ -154,6 +154,12 @@ export default function ProductDetailPage() {
                 onLoadingComplete={() => setIsImgLoading(false)}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            {hasDiscount && (
+                <div className="absolute bottom-12 right-6 bg-red-600 text-white font-black px-4 py-2 rounded-2xl shadow-2xl animate-bounce flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    عرض خاص!
+                </div>
+            )}
           </div>
 
           <div className="px-6 -mt-10 relative z-10 pb-10">
@@ -176,7 +182,7 @@ export default function ProductDetailPage() {
                     <div className="space-y-1">
                         <span className="text-[10px] font-black text-muted-foreground uppercase">السعر الحالي</span>
                         <div className="flex items-center gap-3">
-                             {hasDiscount && <p className="text-base font-bold text-muted-foreground line-through opacity-60">{formatCurrency(product.price)}</p>}
+                             {hasDiscount && <p className="text-base font-bold text-muted-foreground line-through decoration-destructive/40">{formatCurrency(product.price)}</p>}
                              <p className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(displayPrice)}</p>
                         </div>
                     </div>
