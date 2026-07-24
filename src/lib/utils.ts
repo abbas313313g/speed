@@ -49,24 +49,28 @@ export const isLocationInAllowedZones = (lat: number, lng: number) => {
 }
 
 /**
- * حساب سعر التوصيل بناءً على قاعدة:
- * سعر أساسي (أقل شي) = 1000 دينار عراقي
- * ثم تضاف الأجور بناءً على المسافة (كل 3 كم بـ 1000 دينار إضافية)
- * التقريب يكون لأقرب 250 دينار عراقي
+ * حساب سعر التوصيل المطور:
+ * الـ 1000 دينار هي الحد الأدنى وتغطي أول 3 كم.
+ * ما زاد عن 3 كم يتم احتسابه (1000 دينار لكل 3 كم إضافية).
+ * التقريب لأقرب 250 دينار.
  */
 export const calculateDeliveryFee = (distanceInKm: number) => {
-    if (!distanceInKm || distanceInKm <= 0) return 1000;
+    const minFee = 1000;
+    const includedDistance = 3; // كيلومترات مشمولة في الألف الأولى
+    const ratePerKm = 1000 / 3; // سعر الكيلومتر الواحد بعد المسافة المشمولة
+
+    if (!distanceInKm || distanceInKm <= includedDistance) {
+        return minFee;
+    }
     
-    const baseFee = 1000; // الحد الأدنى المقرر (فتح الطلب)
-    const ratePerKm = 1000 / 3; // سعر الكيلومتر (1000 دينار لكل 3 كم)
+    // حساب المسافة الإضافية التي تزيد عن الـ 3 كم
+    const extraDistance = distanceInKm - includedDistance;
+    let totalFee = minFee + (extraDistance * ratePerKm);
     
-    // المبلغ الإجمالي = السعر الأساسي + أجور المسافة المقطوعة
-    let totalFee = baseFee + (distanceInKm * ratePerKm);
-    
-    // التقريب لأقرب فئة نقدية عراقية متوفرة (250، 500، 750، 1000)
+    // التقريب لأقرب فئة نقدية عراقية (250 دينار)
     totalFee = Math.round(totalFee / 250) * 250;
     
-    // ضمان بقاء السعر فوق 1000 وعدم تخطيه حدوداً غير منطقية
+    // السقف الأعلى للتوصيل 15000 لضمان المنطقية
     return Math.min(Math.max(totalFee, 1000), 15000);
 }
 

@@ -5,8 +5,8 @@ import { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Minus, Plus, Trash2, Home, Loader2, MapPin, AlertCircle } from "lucide-react";
-import { formatCurrency, calculateDistance, calculateDeliveryFee } from "@/lib/utils";
+import { ShoppingBag, Minus, Plus, Trash2, Home, Loader2, MapPin, AlertCircle, ReceiptText } from "lucide-react";
+import { formatCurrency, calculateDistance, calculateDeliveryFee, cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,7 +60,6 @@ export default function CartPage() {
     
     const address = addresses.find(a => a.id === selectedAddressId);
     if (!address || !address.latitude || !address.longitude || !cartRestaurant.latitude || !cartRestaurant.longitude) {
-       // حتى لو الموقع ناقص، نرجع الحد الأدنى للسعر للتذكير
        return { deliveryFee: 1000, distance: null, isDistanceTooFar: false };
     }
 
@@ -116,6 +115,10 @@ export default function CartPage() {
     return `~${distance.toFixed(1)} كم`;
   }, [distance]);
 
+  const finalTotalAmount = useMemo(() => {
+    return cartTotal + deliveryFee;
+  }, [cartTotal, deliveryFee]);
+
   if (cart.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] text-center p-4">
@@ -132,59 +135,58 @@ export default function CartPage() {
   }
 
   return (
-    <div className="p-4 space-y-6 pb-24">
+    <div className="p-4 space-y-6 pb-32">
       <header>
-        <h1 className="text-3xl font-bold">سلة التسوق</h1>
-        {cartRestaurant && <p className="text-muted-foreground">الطلب من متجر: {cartRestaurant.name}</p>}
+        <h1 className="text-3xl font-black text-primary">سلة التسوق</h1>
+        {cartRestaurant && <p className="text-muted-foreground font-bold">الطلب من متجر: {cartRestaurant.name}</p>}
       </header>
 
       <div className="space-y-4">
         {cart.map(({ product, quantity, selectedSize }) => {
-          // استخدام || لضمان الحساب الصحيح
           const itemPrice = selectedSize?.price || product.discountPrice || product.price || 0;
           const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/80x80.png';
           return (
-            <div key={product.id + (selectedSize?.name || '')} className="flex items-center gap-4">
-              <Image
-                src={imageUrl}
-                alt={product.name}
-                width={80}
-                height={80}
-                className="rounded-lg object-cover"
-                unoptimized={true}
-              />
-              <div className="flex-grow">
-                <h3 className="font-semibold">{product.name}</h3>
-                {selectedSize && <p className="text-sm text-muted-foreground">{selectedSize.name}</p>}
-                <p className="text-primary font-bold">
+            <div key={product.id + (selectedSize?.name || '')} className="flex items-center gap-4 bg-white p-3 rounded-2xl border shadow-sm">
+              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border">
+                <Image
+                  src={imageUrl}
+                  alt={product.name}
+                  fill
+                  className="object-cover"
+                  unoptimized={true}
+                />
+              </div>
+              <div className="flex-grow min-w-0">
+                <h3 className="font-black text-sm truncate">{product.name}</h3>
+                {selectedSize && <Badge variant="secondary" className="text-[10px] font-black">{selectedSize.name}</Badge>}
+                <p className="text-primary font-black text-lg mt-1">
                   {formatCurrency(itemPrice)}
                 </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => updateCartQuantity(product.id, quantity - 1, selectedSize?.name)}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <span>{quantity}</span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => updateCartQuantity(product.id, quantity + 1, selectedSize?.name)}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                <div className="flex items-center gap-3 mt-2">
+                  <div className="flex items-center gap-4 bg-muted/50 p-1 rounded-xl">
+                    <button
+                        className="h-8 w-8 rounded-lg bg-white flex items-center justify-center shadow-sm active:scale-75 transition-all"
+                        onClick={() => updateCartQuantity(product.id, quantity - 1, selectedSize?.name)}
+                    >
+                        <Minus className="h-4 w-4" />
+                    </button>
+                    <span className="font-black text-lg w-4 text-center">{quantity}</span>
+                    <button
+                        className="h-8 w-8 rounded-lg bg-primary text-white flex items-center justify-center shadow-sm active:scale-75 transition-all"
+                        onClick={() => updateCartQuantity(product.id, quantity + 1, selectedSize?.name)}
+                    >
+                        <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
+                className="text-destructive rounded-xl hover:bg-destructive/5"
                 onClick={() => removeFromCart(product.id, selectedSize?.name)}
               >
-                <Trash2 className="h-5 w-5 text-destructive" />
+                <Trash2 className="h-5 w-5" />
               </Button>
             </div>
           )
@@ -192,17 +194,17 @@ export default function CartPage() {
       </div>
       
        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">اختر عنوان التوصيل</h2>
+          <h2 className="text-lg font-black flex items-center gap-2 px-1"><MapPin className="h-5 w-5 text-primary"/> اختر عنوان التوصيل</h2>
           {addresses.length > 0 ? (
              <Select value={selectedAddressId} onValueChange={setSelectedAddressId}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full h-14 rounded-2xl border-2 font-bold bg-white">
                     <SelectValue placeholder="اختر عنوانًا..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-2xl">
                     {addresses.map(address => (
-                        <SelectItem key={address.id} value={address.id}>
+                        <SelectItem key={address.id} value={address.id} className="font-bold">
                             <div className="flex items-center gap-2">
-                                <Home className="h-4 w-4"/>
+                                <Home className="h-4 w-4 text-primary"/>
                                 <span>{address.name} ({address.deliveryZone})</span>
                             </div>
                         </SelectItem>
@@ -210,85 +212,93 @@ export default function CartPage() {
                 </SelectContent>
             </Select>
           ) : (
-              <div className="text-center p-4 border rounded-lg space-y-2">
-                <p>يجب إضافة عنوان لتتمكن من الطلب.</p>
-                 <Button asChild>
+              <div className="text-center p-6 border-2 border-dashed rounded-[2rem] space-y-4 bg-muted/20">
+                <p className="font-bold text-muted-foreground">يجب إضافة عنوان لتتمكن من الطلب.</p>
+                 <Button asChild className="rounded-xl h-12">
                     <Link href="/account/add-address">إضافة عنوان جديد</Link>
                 </Button>
               </div>
           )}
        </div>
 
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">كود الخصم (اختياري)</h2>
-        <div className="flex gap-2">
-            <Input 
-                placeholder="أدخل كود الخصم" 
+      <div className="space-y-4 bg-white p-6 rounded-[2.5rem] shadow-xl border border-primary/5">
+        <h2 className="text-lg font-black flex items-center gap-2"><ReceiptText className="h-5 w-5 text-primary"/> ملخص الحساب</h2>
+        
+        <div className="space-y-3 font-bold text-sm">
+            <div className="flex justify-between items-center text-muted-foreground">
+                <span>مجموع المنتجات:</span>
+                <span className="text-foreground">{formatCurrency(cartTotal)}</span>
+            </div>
+            <div className="flex justify-between items-center text-muted-foreground">
+                <div className="flex flex-col">
+                    <span>أجور التوصيل:</span>
+                    {displayDistance && <span className="text-[10px] flex items-center gap-1"><MapPin className="h-3 w-3"/>{displayDistance}</span>}
+                </div>
+                <span className={cn("text-foreground", isDistanceTooFar && "text-destructive")}>{formatCurrency(deliveryFee)}</span>
+            </div>
+            
+            <Separator className="my-2 border-dashed" />
+            
+            <div className="flex justify-between items-center pt-2">
+                <span className="text-lg font-black">المجموع الكلي:</span>
+                <div className="text-right">
+                    <span className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(finalTotalAmount)}</span>
+                    <p className="text-[9px] text-muted-foreground">تشمل المنتجات + التوصيل</p>
+                </div>
+            </div>
+        </div>
+
+        <div className="pt-4">
+             <Label className="text-[10px] font-black pr-1 mb-1 block">كود الخصم (اختياري)</Label>
+             <Input 
+                placeholder="أدخل الكود هنا..." 
                 value={couponCode} 
-                onChange={(e) => setCouponCode(e.target.value)}
+                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                className="h-12 rounded-xl text-center font-black bg-muted/20 border-none shadow-inner"
             />
         </div>
       </div>
 
-      <div className="border-t pt-4 space-y-2">
-        <div className="flex justify-between">
-          <span>المجموع الفرعي:</span>
-          <span>{formatCurrency(cartTotal)}</span>
-        </div>
-         <div className="flex justify-between">
-          <span>سعر التوصيل:</span>
-          <div className="flex flex-col items-end">
-            <span className={isDistanceTooFar ? 'text-destructive' : ''}>{formatCurrency(deliveryFee)}</span>
-            {displayDistance && <span className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3"/>{displayDistance}</span>}
-          </div>
-        </div>
-        <Separator className="my-2"/>
-        <p className="text-xs text-muted-foreground text-center">سيتم حساب الخصم والمجموع النهائي عند إكمال الطلب.</p>
-      </div>
-
        {isDistanceTooFar && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>مسافة التوصيل بعيدة جداً</AlertTitle>
-          <AlertDescription>
-            عذراً، هذا المتجر يبعد أكثر من {MAX_DELIVERY_DISTANCE} كم عن عنوانك المختار. لا يمكننا توصيل الطلب.
+        <Alert variant="destructive" className="rounded-2xl border-2">
+          <AlertCircle className="h-5 w-5" />
+          <AlertTitle className="font-black">مسافة التوصيل بعيدة جداً</AlertTitle>
+          <AlertDescription className="font-bold">
+            عذراً، هذا المتجر يبعد أكثر من {MAX_DELIVERY_DISTANCE} كم عن موقعك. لا يمكننا توصيل الطلب حالياً.
           </AlertDescription>
         </Alert>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex gap-3 pt-4">
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="outline" className="flex-1">
+            <Button variant="outline" className="flex-1 h-14 rounded-2xl font-bold border-2 text-muted-foreground">
               <Trash2 className="ml-2 h-4 w-4" />
               إفراغ السلة
             </Button>
           </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-              <AlertDialogDescription>
-                سيتم حذف جميع المنتجات من سلة التسوق الخاصة بك.
+          <AlertDialogContent className="rounded-[2.5rem]">
+            <AlertDialogHeader className="text-right">
+              <AlertDialogTitle className="text-xl font-black">هل أنت متأكد؟</AlertDialogTitle>
+              <AlertDialogDescription className="font-bold">
+                سيتم حذف جميع المنتجات والبدء من جديد.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>إلغاء</AlertDialogCancel>
-              <AlertDialogAction onClick={() => {
-                  clearCart();
-                  setCouponCode("");
-              }}>
-                نعم، قم بالحذف
-              </AlertDialogAction>
+            <AlertDialogFooter className="flex-row gap-3">
+              <AlertDialogCancel className="flex-1 rounded-xl font-bold">إلغاء</AlertDialogCancel>
+              <AlertDialogAction onClick={() => { clearCart(); setCouponCode(""); }} className="flex-1 rounded-xl bg-destructive hover:bg-destructive/90 font-bold">نعم، إفراغ</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
         <Button 
-            className="flex-1" 
+            className="flex-[2] h-14 rounded-2xl text-lg font-black shadow-xl shadow-primary/20 transition-all active:scale-95" 
             onClick={handlePlaceOrder} 
             disabled={isSubmitting || addresses.length === 0 || !selectedAddressId || isDistanceTooFar}>
-            {isSubmitting ? <><Loader2 className="ml-2 h-4 w-4 animate-spin"/> جارِ إرسال الطلب...</> : "إكمال الطلب"}
+            {isSubmitting ? <><Loader2 className="ml-2 h-5 w-5 animate-spin"/> جارِ الإرسال...</> : "تأكيد الطلب كاش"}
         </Button>
       </div>
+      <p className="text-center text-[10px] font-bold text-muted-foreground italic px-4">بالضغط على تأكيد الطلب، فإنك توافق على سياسة التوصيل المتبعة في سبيد شوب.</p>
     </div>
   );
 }
