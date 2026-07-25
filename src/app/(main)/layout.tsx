@@ -5,19 +5,18 @@ import { useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import { BottomNav } from '@/components/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useAddresses } from '@/hooks/useAddresses';
-import { HardHat, Loader2, MapPin, AlertCircle, ShoppingBag, CheckCircle2, Navigation, Building2, Ghost } from 'lucide-react';
+import { HardHat, Loader2, MapPin, AlertCircle, CheckCircle2, Navigation, Ghost, User, Phone, Map, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { isLocationInAllowedZones, getZoneNameFromCoordinates } from '@/lib/utils';
+import { isLocationInAllowedZones } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { AppContext } from '@/contexts/AppContext';
 import { useDeliveryZones } from '@/hooks/useDeliveryZones';
 import { useBranches } from '@/hooks/useBranches';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import Image from 'next/image';
 
 import HomePage from './home/page';
 import RestaurantsPage from './restaurants/page';
@@ -48,7 +47,6 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, setActiveTab } = context;
 
-  // مؤقت أمان قسري: إخفاء شاشة التحميل الخضراء بعد ثانيتين مهما حدث لضمان عدم التعليق في App Inventor
   useEffect(() => {
     const timer = setTimeout(() => {
         setForceHideLoading(true);
@@ -71,20 +69,6 @@ export default function MainAppLayout() {
     } catch (e) {}
     return () => { try { delete (window as any).updateLocationFromFlutter; } catch(e) {} };
   }, [toast]);
-
-  useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      try {
-          if (event.state && typeof event.state.tab === 'number') {
-            setActiveTab(event.state.tab, false);
-          } else {
-            setActiveTab(0, false);
-          }
-      } catch (e) {}
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [setActiveTab]);
 
   useEffect(() => {
     if (!settingsLoading && !settings?.isMaintenanceMode && addresses.length === 0) {
@@ -116,14 +100,9 @@ export default function MainAppLayout() {
                 setIslocLoading(false);
             },
             (error) => {
-                if (window.parent) {
-                    try {
-                        window.parent.postMessage('REQUEST_LOCATION', '*');
-                    } catch(e) {}
-                }
                 toast({ 
                     title: "يرجى تفعيل الموقع", 
-                    description: "فشل الوصول للموقع التلقائي، تأكد من تفعيل الـ GPS.", 
+                    description: "تأكد من تفعيل الـ GPS في إعدادات هاتفك.", 
                     variant: "destructive" 
                 });
                 setIslocLoading(false);
@@ -138,11 +117,11 @@ export default function MainAppLayout() {
 
   const handleSaveAddress = () => {
     if (!newAddr.name || !newAddr.phone || !newAddr.selectedBranch || !newAddr.detectedZone) {
-      toast({ title: "بيانات ناقصة", variant: "destructive" });
+      toast({ title: "يرجى إكمال البيانات", variant: "destructive" });
       return;
     }
     if (newAddr.lat === 0) {
-        toast({ title: "الموقع مطلوب", description: "يرجى الضغط على زر تحديد الموقع أولاً.", variant: "destructive" });
+        toast({ title: "تحديد الموقع مطلوب", variant: "destructive" });
         return;
     }
     addAddress({
@@ -228,89 +207,124 @@ export default function MainAppLayout() {
         ) : content}
 
         <Sheet open={showAddressPrompt} onOpenChange={() => {}}>
-            <SheetContent side="bottom" className="h-[85vh] max-h-[90vh] w-full p-0 border-none shadow-none flex flex-col bg-background rounded-t-[3.5rem]">
-            <div className="flex-1 overflow-y-auto px-6 pt-8 pb-4 space-y-6 scrollbar-hide">
-                <SheetHeader className="text-right pb-2">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-primary/10 rounded-2xl shadow-inner"><Navigation className="h-7 w-7 text-primary animate-pulse" /></div>
-                        <div>
-                            <SheetTitle className="text-2xl font-black text-primary leading-tight">معلومات التوصيل</SheetTitle>
-                            <p className="text-muted-foreground text-xs font-bold mt-1">يرجى ملء بياناتك لضمان وصول طلباتك بدقة.</p>
-                        </div>
-                    </div>
-                </SheetHeader>
+            <SheetContent side="bottom" className="h-[90vh] w-full p-0 border-none shadow-none flex flex-col bg-background rounded-t-[3.5rem] overflow-hidden">
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-muted rounded-full" />
                 
-                <div className="space-y-5">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                            <Label className="text-[10px] font-black pr-1 uppercase text-muted-foreground">الاسم بالكامل</Label>
-                            <Input value={newAddr.name} onChange={(e) => setNewAddr({...newAddr, name: e.target.value})} placeholder="اكتب اسمك..." className="h-12 rounded-xl text-sm font-bold shadow-sm" />
-                        </div>
-                        <div className="space-y-1">
-                            <Label className="text-[10px] font-black pr-1 uppercase text-muted-foreground">رقم الهاتف</Label>
-                            <Input value={newAddr.phone} onChange={(e) => setNewAddr({...newAddr, phone: e.target.value})} placeholder="07XXXXXXXX" type="tel" dir="ltr" className="h-12 rounded-xl text-sm font-bold shadow-sm" />
-                        </div>
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-4">
-                        <div className="space-y-1">
-                            <Label className="text-[10px] font-black pr-1 text-primary">1. اختر المدينة (الفرع)</Label>
-                            <Select value={newAddr.selectedBranch} onValueChange={(val) => setNewAddr({...newAddr, selectedBranch: val, detectedZone: ''})}>
-                                <SelectTrigger className="h-14 rounded-2xl text-lg font-black border-2 border-primary/20 bg-primary/5">
-                                    <SelectValue placeholder="اختر مدينتك..." />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-2xl">
-                                    <SelectItem value="main" className="font-bold">المركز الرئيسي (المدحتية - الهاشمية)</SelectItem>
-                                    {branches.map(b => <SelectItem key={b.id} value={b.id} className="font-bold">{b.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {newAddr.selectedBranch && (
-                            <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
-                                <Label className="text-[10px] font-black pr-1 text-primary">2. اختر منطقتك / الحي</Label>
-                                <Select value={newAddr.detectedZone} onValueChange={(val) => setNewAddr({...newAddr, detectedZone: val})}>
-                                    <SelectTrigger className="h-14 rounded-2xl text-lg font-black border-2 border-primary/20">
-                                        <SelectValue placeholder="اختر الحي السكني..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-2xl">
-                                        {filteredZones.map(z => <SelectItem key={z.id} value={z.name} className="font-bold">{z.name}</SelectItem>)}
-                                        {filteredZones.length === 0 && <div className="p-4 text-center text-xs font-bold italic">لا توجد مناطق مضافة لهذا الفرع.</div>}
-                                    </SelectContent>
-                                </Select>
+                <div className="flex-1 overflow-y-auto px-6 pt-10 pb-4 space-y-8 scrollbar-hide">
+                    <SheetHeader className="text-right pb-2">
+                        <div className="flex items-center gap-4">
+                            <div className="p-4 bg-primary/10 rounded-[1.5rem] shadow-inner">
+                                <Navigation className="h-8 w-8 text-primary animate-pulse" />
                             </div>
-                        )}
-                    </div>
+                            <div>
+                                <SheetTitle className="text-3xl font-black text-slate-800 leading-tight">مرحباً بك!</SheetTitle>
+                                <p className="text-muted-foreground text-sm font-bold mt-1">لنبدأ بتجهيز معلومات التوصيل الخاصة بك.</p>
+                            </div>
+                        </div>
+                    </SheetHeader>
+                    
+                    <div className="space-y-6">
+                        {/* القسم الأول: الهوية */}
+                        <div className="space-y-4">
+                            <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
+                                <User className="h-4 w-4" /> 1. معلوماتك الشخصية
+                            </h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black pr-1 text-muted-foreground">الاسم الكامل</Label>
+                                    <Input 
+                                        value={newAddr.name} 
+                                        onChange={(e) => setNewAddr({...newAddr, name: e.target.value})} 
+                                        placeholder="اكتب اسمك..." 
+                                        className="h-14 rounded-2xl text-base font-bold bg-muted/30 border-none shadow-inner focus-visible:ring-primary/50" 
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black pr-1 text-muted-foreground">رقم الهاتف</Label>
+                                    <Input 
+                                        value={newAddr.phone} 
+                                        onChange={(e) => setNewAddr({...newAddr, phone: e.target.value})} 
+                                        placeholder="07XXXXXXXX" 
+                                        type="tel" 
+                                        dir="ltr" 
+                                        className="h-14 rounded-2xl text-base font-bold bg-muted/30 border-none shadow-inner focus-visible:ring-primary/50" 
+                                    />
+                                </div>
+                            </div>
+                        </div>
 
-                    <div className="pt-2">
-                        <button 
-                            onClick={handleGetLocation} 
-                            type="button"
-                            className={`w-full py-6 flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-[2.5rem] transition-all ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50 shadow-inner' : 'border-primary/40 bg-card hover:bg-primary/5'}`}
-                            disabled={islocLoading}
-                        >
-                            {islocLoading ? (
-                                <><Loader2 className="animate-spin h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">جارِ تحديد موقعك...</span></>
-                            ) : newAddr.lat !== 0 ? (
-                                <><CheckCircle2 className="h-8 w-8 text-green-500" /> <span className="font-black text-green-600 text-sm">تم استلام الموقع بنجاح ✅</span></>
-                            ) : (
-                                <><MapPin className="h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">اضغط لتحديد موقعك المباشر</span></>
-                            )}
-                        </button>
+                        <Separator className="opacity-40" />
+
+                        {/* القسم الثاني: المنطقة الجغرافية */}
+                        <div className="space-y-4">
+                            <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
+                                <Map className="h-4 w-4" /> 2. العنوان الجغرافي
+                            </h3>
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black pr-1 text-muted-foreground">المدينة / الفرع</Label>
+                                    <Select value={newAddr.selectedBranch} onValueChange={(val) => setNewAddr({...newAddr, selectedBranch: val, detectedZone: ''})}>
+                                        <SelectTrigger className="h-14 rounded-2xl text-lg font-black border-2 border-primary/10 bg-primary/5">
+                                            <SelectValue placeholder="اختر مدينتك..." />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-2xl border-none shadow-2xl">
+                                            <SelectItem value="main" className="font-bold py-3">المركز الرئيسي (المدحتية - الهاشمية)</SelectItem>
+                                            {branches.map(b => (
+                                                <SelectItem key={b.id} value={b.id} className="font-bold py-3">{b.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {newAddr.selectedBranch && (
+                                    <div className="space-y-2 animate-in slide-in-from-top-4 duration-500">
+                                        <Label className="text-[10px] font-black pr-1 text-muted-foreground">الحي السكني / المنطقة</Label>
+                                        <Select value={newAddr.detectedZone} onValueChange={(val) => setNewAddr({...newAddr, detectedZone: val})}>
+                                            <SelectTrigger className="h-14 rounded-2xl text-lg font-black border-2 border-primary/20">
+                                                <SelectValue placeholder="اختر منطقتك..." />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-2xl border-none shadow-2xl">
+                                                {filteredZones.map(z => (
+                                                    <SelectItem key={z.id} value={z.name} className="font-bold py-3">{z.name}</SelectItem>
+                                                ))}
+                                                {filteredZones.length === 0 && <div className="p-4 text-center text-xs font-bold italic text-muted-foreground">لا توجد مناطق مضافة حالياً.</div>}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* القسم الثالث: الموقع الدقيق */}
+                        <div className="pt-2">
+                            <button 
+                                onClick={handleGetLocation} 
+                                type="button"
+                                className={`w-full py-8 flex flex-col items-center justify-center gap-2 border-4 border-dashed rounded-[3rem] transition-all active:scale-95 ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50 shadow-inner' : 'border-primary/20 bg-card hover:bg-primary/5 shadow-sm'}`}
+                                disabled={islocLoading}
+                            >
+                                {islocLoading ? (
+                                    <><Loader2 className="animate-spin h-10 w-10 text-primary" /> <span className="font-black text-primary text-base">جارِ تحديد إحداثياتك...</span></>
+                                ) : newAddr.lat !== 0 ? (
+                                    <><CheckCircle2 className="h-10 w-10 text-green-500 animate-in zoom-in" /> <span className="font-black text-green-600 text-base">تم استلام الموقع بدقة ✅</span></>
+                                ) : (
+                                    <><MapPin className="h-10 w-10 text-primary" /> <span className="font-black text-slate-700 text-base">اضغط لتحديد موقعك المباشر (GPS)</span></>
+                                )}
+                            </button>
+                            <p className="text-[10px] text-center text-muted-foreground font-bold mt-3 px-4">ملاحظة: هذا الزر ضروري لضمان وصول المندوب لباب منزلك مباشرة.</p>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div className="p-6 bg-background border-t">
-                <Button 
-                    onClick={handleSaveAddress} 
-                    className="w-full py-8 text-2xl font-black rounded-3xl shadow-2xl shadow-primary/30" 
-                    disabled={islocLoading || !newAddr.detectedZone || newAddr.lat === 0}
-                >
-                    تأكيد والبدء بالتسوق
-                </Button>
-            </div>
+
+                <div className="p-6 bg-background border-t shadow-2xl rounded-t-[2.5rem]">
+                    <Button 
+                        onClick={handleSaveAddress} 
+                        className="w-full py-9 text-2xl font-black rounded-[2rem] shadow-xl shadow-primary/30 transition-all active:scale-95" 
+                        disabled={islocLoading || !newAddr.detectedZone || newAddr.lat === 0}
+                    >
+                        حفظ والعثور على مطاعم
+                    </Button>
+                </div>
             </SheetContent>
         </Sheet>
       </div>

@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MapPin, Loader2, CheckCircle2, ArrowRight } from "lucide-react";
+import { MapPin, Loader2, CheckCircle2, ArrowRight, User, Phone, Map, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Address } from "@/lib/types";
 import { useAddresses } from "@/hooks/useAddresses";
@@ -40,20 +40,6 @@ export default function AddAddressPage() {
   });
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
-  // دعم الاستلام الخارجي كخيار إضافي
-  useEffect(() => {
-    (window as any).updateLocationFromFlutter = (lat: number, lng: number) => {
-        setAddress(prev => ({
-            ...prev,
-            latitude: lat,
-            longitude: lng,
-        }));
-        toast({ title: "تم استلام الموقع بنجاح ✅" });
-        setIsFetchingLocation(false);
-    };
-    return () => { delete (window as any).updateLocationFromFlutter; };
-  }, [toast]);
-
   const filteredZones = useMemo(() => {
     if (!address.branchId) return [];
     return deliveryZones.filter(z => z.branchId === address.branchId);
@@ -75,7 +61,6 @@ export default function AddAddressPage() {
 
   const handleFetchLocation = () => {
     setIsFetchingLocation(true);
-    
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -84,16 +69,11 @@ export default function AddAddressPage() {
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
                 }));
-                toast({ title: "تم تحديد موقعك بدقة 🎯" });
+                toast({ title: "تم تحديد موقعك بدقة 🛰️" });
                 setIsFetchingLocation(false);
             },
             (error) => {
-                console.error("Geolocation error:", error);
-                // محاولة إرسال إشارة للتطبيق المستضيف كخيار بديل
-                if (window.parent) {
-                    window.parent.postMessage('REQUEST_LOCATION', '*');
-                }
-                toast({ title: "يرجى السماح بالوصول للموقع في إعدادات هاتفك.", variant: "destructive" });
+                toast({ title: "يرجى تفعيل الموقع في إعدادات هاتفك.", variant: "destructive" });
                 setIsFetchingLocation(false);
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -107,132 +87,142 @@ export default function AddAddressPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!address.name || !address.phone || !address.branchId || !address.deliveryZone) {
-      toast({
-        title: "بيانات غير مكتملة",
-        description: "يرجى ملء جميع الحقول واختيار المنطقة.",
-        variant: "destructive",
-      });
+      toast({ title: "بيانات غير مكتملة", variant: "destructive" });
       return;
     }
     if (address.latitude === 0) {
-        toast({ title: "تحديد الموقع مطلوب", description: "يرجى الضغط على زر تحديد الموقع قبل الحفظ.", variant: "destructive" });
+        toast({ title: "تحديد الموقع مطلوب", variant: "destructive" });
         return;
     }
     addAddress(address);
-    toast({ title: "تم حفظ العنوان بنجاح!" });
     router.back();
   };
 
   return (
-    <div className="p-6 space-y-8 bg-background h-full overflow-y-auto pb-32 text-right">
+    <div className="p-6 space-y-8 bg-background h-full overflow-y-auto pb-40 text-right animate-in fade-in slide-in-from-left-4 duration-500">
       <header className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-2xl bg-secondary text-primary">
+        <Button variant="outline" size="icon" onClick={() => router.back()} className="rounded-[1.2rem] h-12 w-12 border-2 text-primary shadow-sm active:scale-75 transition-all">
             <ArrowRight className="h-6 w-6" />
         </Button>
         <div className="text-right">
-            <h1 className="text-2xl font-black text-primary leading-none">إضافة عنوان جديد</h1>
-            <p className="text-muted-foreground font-bold text-[10px] mt-1">تحديد الموقع المباشر لضمان دقة التوصيل.</p>
+            <h1 className="text-2xl font-black text-slate-800 leading-none">إضافة عنوان جديد</h1>
+            <p className="text-muted-foreground font-bold text-[10px] mt-1 uppercase tracking-widest">New Delivery Information</p>
         </div>
       </header>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-                <Label className="text-[10px] font-black pr-1 uppercase text-muted-foreground">اسم العنوان</Label>
-                <Input
-                    name="name"
-                    placeholder="المنزل، العمل..."
-                    value={address.name}
-                    onChange={handleChange}
-                    className="h-12 rounded-xl font-bold shadow-sm"
-                    required
-                />
-            </div>
-            <div className="space-y-1">
-                <Label className="text-[10px] font-black pr-1 uppercase text-muted-foreground">رقم الهاتف</Label>
-                <Input
-                    name="phone"
-                    type="tel"
-                    dir="ltr"
-                    placeholder="07XXXXXXXX"
-                    value={address.phone}
-                    onChange={handleChange}
-                    className="h-12 rounded-xl font-bold shadow-sm"
-                    required
-                />
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* القسم 1: المعلومات الأساسية */}
+        <div className="space-y-4">
+            <h3 className="text-xs font-black text-primary flex items-center gap-2 px-1">
+                <User className="h-4 w-4" /> 1. معلوماتك الشخصية
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label className="text-[10px] font-black pr-1 text-muted-foreground">اسم العنوان (مثل: المنزل)</Label>
+                    <Input
+                        name="name"
+                        placeholder="المنزل، العمل..."
+                        value={address.name}
+                        onChange={handleChange}
+                        className="h-14 rounded-2xl font-bold bg-muted/20 border-none shadow-inner"
+                        required
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label className="text-[10px] font-black pr-1 text-muted-foreground">رقم الهاتف للتواصل</Label>
+                    <Input
+                        name="phone"
+                        type="tel"
+                        dir="ltr"
+                        placeholder="07XXXXXXXX"
+                        value={address.phone}
+                        onChange={handleChange}
+                        className="h-14 rounded-2xl font-bold bg-muted/20 border-none shadow-inner"
+                        required
+                    />
+                </div>
             </div>
         </div>
 
         <Separator className="opacity-50" />
 
-        <div className="space-y-4 bg-primary/5 p-4 rounded-[2rem] border-2 border-dashed border-primary/20">
-            <div className="space-y-1">
-                <Label className="text-[10px] font-black text-primary pr-1">1. اختر المدينة (الفرع المسؤل)</Label>
-                <Select value={address.branchId} onValueChange={handleBranchChange} required>
-                    <SelectTrigger className="h-14 rounded-2xl text-lg font-black border-2 border-primary/20 bg-white">
-                        <SelectValue placeholder="اختر مدينتك..." />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl">
-                        <SelectItem value="main" className="font-bold">المركز الرئيسي (المدحتية - الهاشمية)</SelectItem>
-                        {branches.map((branch) => (
-                            <SelectItem key={branch.id} value={branch.id} className="font-bold">
-                                {branch.name}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-
-            {address.branchId && (
-                <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
-                    <Label className="text-[10px] font-black text-primary pr-1">2. اختر منطقتك / الحي</Label>
-                    <Select value={address.deliveryZone} onValueChange={handleZoneChange} required>
-                        <SelectTrigger className="h-14 rounded-2xl text-lg font-black border-2 border-primary/20 bg-white">
-                            <SelectValue placeholder="اختر الحي السكني..." />
+        {/* القسم 2: الموقع والسكن */}
+        <div className="space-y-6">
+            <h3 className="text-xs font-black text-primary flex items-center gap-2 px-1">
+                <Map className="h-4 w-4" /> 2. تفاصيل المنطقة
+            </h3>
+            <div className="bg-primary/5 p-5 rounded-[2.5rem] border-2 border-dashed border-primary/20 space-y-5 shadow-inner">
+                <div className="space-y-2">
+                    <Label className="text-[10px] font-black text-primary pr-1">المدينة / الفرع</Label>
+                    <Select value={address.branchId} onValueChange={handleBranchChange} required>
+                        <SelectTrigger className="h-14 rounded-2xl text-lg font-black border-2 border-primary/10 bg-white">
+                            <SelectValue placeholder="اختر مدينتك..." />
                         </SelectTrigger>
-                        <SelectContent className="rounded-2xl">
-                            {filteredZones.map((zone) => (
-                                <SelectItem key={zone.id} value={zone.name} className="font-bold">
-                                    {zone.name}
-                                </SelectItem>
+                        <SelectContent className="rounded-2xl shadow-2xl border-none">
+                            <SelectItem value="main" className="font-bold py-3">المركز الرئيسي (المدحتية - الهاشمية)</SelectItem>
+                            {branches.map((branch) => (
+                                <SelectItem key={branch.id} value={branch.id} className="font-bold py-3">{branch.name}</SelectItem>
                             ))}
-                            {filteredZones.length === 0 && <div className="p-4 text-center text-[10px] font-bold italic">لا توجد مناطق مضافة لهذا الفرع.</div>}
                         </SelectContent>
                     </Select>
                 </div>
-            )}
+
+                {address.branchId && (
+                    <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                        <Label className="text-[10px] font-black text-primary pr-1">الحي السكني</Label>
+                        <Select value={address.deliveryZone} onValueChange={handleZoneChange} required>
+                            <SelectTrigger className="h-14 rounded-2xl text-lg font-black border-2 border-primary/10 bg-white">
+                                <SelectValue placeholder="اختر المنطقة..." />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-2xl shadow-2xl border-none">
+                                {filteredZones.map((zone) => (
+                                    <SelectItem key={zone.id} value={zone.name} className="font-bold py-3">{zone.name}</SelectItem>
+                                ))}
+                                {filteredZones.length === 0 && <div className="p-4 text-center text-xs font-bold italic text-muted-foreground">لا توجد مناطق حالياً.</div>}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+            </div>
         </div>
 
-        <div className="pt-2">
+        {/* القسم 3: تحديد الموقع GPS */}
+        <div className="space-y-4">
+            <h3 className="text-xs font-black text-primary flex items-center gap-2 px-1">
+                <Navigation className="h-4 w-4" /> 3. الموقع الدقيق (GPS)
+            </h3>
             <button
                 type="button"
-                className={`w-full py-6 flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-[2.5rem] transition-all ${address.latitude !== 0 ? 'border-green-500 bg-green-50 shadow-inner' : 'border-primary/40 bg-card hover:bg-primary/5'}`}
+                className={`w-full py-8 flex flex-col items-center justify-center gap-2 border-4 border-dashed rounded-[3rem] transition-all active:scale-95 ${address.latitude !== 0 ? 'border-green-500 bg-green-50 shadow-inner' : 'border-primary/30 bg-card hover:bg-primary/5 shadow-sm'}`}
                 onClick={handleFetchLocation}
                 disabled={isFetchingLocation}
             >
                 {isFetchingLocation ? (
-                    <><Loader2 className="animate-spin h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">جارِ تحديد موقعك...</span></>
+                    <><Loader2 className="animate-spin h-10 w-10 text-primary" /> <span className="font-black text-primary text-base">جارِ المزامنة مع القمر الصناعي...</span></>
                 ) : address.latitude !== 0 ? (
-                    <><CheckCircle2 className="h-8 w-8 text-green-500" /> <span className="font-black text-green-600 text-sm">تم استلام الموقع بنجاح ✅</span></>
+                    <><CheckCircle2 className="h-10 w-10 text-green-500 animate-in zoom-in" /> <span className="font-black text-green-600 text-base">تم تثبيت موقعك بنجاح ✅</span></>
                 ) : (
-                    <><MapPin className="h-8 w-8 text-primary" /> <span className="font-black text-primary text-sm">اضغط لتحديد موقعك المباشر</span></>
+                    <><MapPin className="h-10 w-10 text-primary" /> <span className="font-black text-slate-700 text-base">اضغط لتحديد الموقع الجغرافي</span></>
                 )}
             </button>
         </div>
 
-        <div className="space-y-1">
-            <Label className="text-[10px] font-black pr-1 uppercase text-muted-foreground">تفاصيل إضافية (اختياري)</Label>
+        {/* القسم 4: التفاصيل الإضافية */}
+        <div className="space-y-4">
+            <h3 className="text-xs font-black text-primary flex items-center gap-2 px-1">
+                <FileText className="h-4 w-4" /> 4. ملاحظات إضافية
+            </h3>
             <Textarea
                 name="details"
-                placeholder="أقرب نقطة دالة، رقم الزقاق..."
+                placeholder="أقرب نقطة دالة، رقم الزقاق، أو أي تفاصيل تساعد السائق..."
                 value={address.details}
                 onChange={handleChange}
-                className="rounded-2xl min-h-[100px] font-bold shadow-sm"
+                className="rounded-[1.8rem] min-h-[120px] font-bold shadow-inner bg-muted/20 border-none p-5 focus-visible:ring-primary/50"
             />
         </div>
 
-        <Button type="submit" className="w-full h-16 rounded-[2rem] text-xl font-black shadow-xl shadow-primary/20 transition-all active:scale-95" disabled={!address.deliveryZone || address.latitude === 0}>
-          حفظ العنوان والبدء بالتسوق
+        <Button type="submit" className="w-full h-20 rounded-[2.5rem] text-2xl font-black shadow-2xl shadow-primary/30 transition-all active:scale-95" disabled={!address.deliveryZone || address.latitude === 0}>
+          حفظ وبدء التسوق
         </Button>
       </form>
     </div>
