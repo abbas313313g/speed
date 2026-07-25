@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MapPin, Loader2, CheckCircle2, ArrowRight, User, Phone, Map, FileText } from "lucide-react";
+import { MapPin, Loader2, CheckCircle2, ArrowRight, User, Phone, Map, FileText, Navigation } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Address } from "@/lib/types";
 import { useAddresses } from "@/hooks/useAddresses";
