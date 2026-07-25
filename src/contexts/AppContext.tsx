@@ -1,7 +1,8 @@
+
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, doc, runTransaction, arrayUnion, updateDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, runTransaction, arrayUnion, updateDoc, getDocs, query, where, onSnapshot, addDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
@@ -63,6 +64,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const isLoading = (productsLoading || restaurantsLoading || ticketsLoading || couponsLoading || telegramLoading);
 
+    // 1. إدارة الهوية (User ID)
     useEffect(() => {
         try {
             let id = safeStorage.get('speedShopUserId');
@@ -74,9 +76,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
             const savedCart = safeStorage.get('speedShopCart');
             if(savedCart) setCart(JSON.parse(savedCart));
-
-            const savedAddresses = safeStorage.get('speedShopAddresses');
-            if(savedAddresses) setAddresses(JSON.parse(savedAddresses));
             
             if (window.history.state === null) {
                 window.history.replaceState({ tab: 0 }, '');
@@ -97,6 +96,25 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         return () => window.removeEventListener('popstate', handlePopState);
     }, []);
 
+    // 2. مزامنة العناوين من Firebase بدلاً من LocalStorage
+    useEffect(() => {
+        if (!userId) return;
+
+        const q = query(collection(db, "addresses"), where("userId", "==", userId));
+        const unsub = onSnapshot(q, (snapshot) => {
+            const addrData = snapshot.docs.map(doc => ({ 
+                id: doc.id, 
+                ...doc.data() 
+            })) as Address[];
+            // ترتيب العناوين حسب الأحدث
+            setAddresses(addrData.sort((a: any, b: any) => (b.createdAt || 0) > (a.createdAt || 0) ? 1 : -1));
+        }, (error) => {
+            console.error("Firestore addresses sync error:", error);
+        });
+
+        return () => unsub();
+    }, [userId]);
+
     const setActiveTab = useCallback((index: number, pushToHistory = true) => {
         setActiveTabState(index);
         if (pushToHistory) {
@@ -113,14 +131,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             } catch (e) {}
         }
     }, [cart, isLoading]);
-
-    useEffect(() => { 
-        if (!isLoading) {
-            try {
-                safeStorage.set('speedShopAddresses', JSON.stringify(addresses)); 
-            } catch (e) {}
-        }
-    }, [addresses, isLoading]);
 
     const currentAddr = addresses[0];
 
@@ -200,8 +210,29 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         return total + price * item.quantity;
     }, 0), [cart]);
 
-    const addAddress = useCallback((addr: Omit<Address, 'id'>) => { setAddresses(prev => [{ ...addr, id: `addr_${uuidv4()}` }, ...prev]); }, []);
-    const deleteAddress = useCallback((id: string) => { setAddresses(prev => prev.filter(a => a.id !== id)); }, []);
+    // 3. إضافة وحذف العناوين في Firestore
+    const addAddress = useCallback(async (addr: Omit<Address, 'id'>) => { 
+        if (!userId) return;
+        try {
+            await addDoc(collection(db, "addresses"), {
+                ...addr,
+                userId: userId,
+                createdAt: new Date().toISOString()
+            });
+            toast({ title: "تم حفظ العنوان بنجاح" });
+        } catch (e) {
+            toast({ title: "فشل حفظ العنوان", variant: "destructive" });
+        }
+    }, [userId, toast]);
+
+    const deleteAddress = useCallback(async (id: string) => { 
+        try {
+            await deleteDoc(doc(db, "addresses", id));
+            toast({ title: "تم حذف العنوان" });
+        } catch (e) {
+            toast({ title: "فشل الحذف", variant: "destructive" });
+        }
+    }, [toast]);
     
     const mySupportTicket = useMemo(() => {
         if (isForceNewTicket || !userId) return null;
