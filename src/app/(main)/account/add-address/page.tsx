@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useContext } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,10 +21,12 @@ import { useAddresses } from "@/hooks/useAddresses";
 import { useDeliveryZones } from "@/hooks/useDeliveryZones";
 import { useBranches } from "@/hooks/useBranches";
 import { Separator } from "@/components/ui/separator";
+import { AppContext } from "@/contexts/AppContext";
 
 export default function AddAddressPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const context = useContext(AppContext);
   const { addAddress } = useAddresses();
   const { deliveryZones } = useDeliveryZones();
   const { branches } = useBranches();
@@ -39,6 +41,7 @@ export default function AddAddressPage() {
     branchId: ""
   });
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const filteredZones = useMemo(() => {
     if (!address.branchId) return [];
@@ -84,7 +87,7 @@ export default function AddAddressPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!address.name || !address.phone || !address.branchId || !address.deliveryZone) {
       toast({ title: "بيانات غير مكتملة", variant: "destructive" });
@@ -94,8 +97,17 @@ export default function AddAddressPage() {
         toast({ title: "تحديد الموقع مطلوب", variant: "destructive" });
         return;
     }
-    addAddress(address);
-    router.back();
+    
+    setIsSaving(true);
+    try {
+        // الحفظ السحابي
+        await addAddress(address);
+        router.back();
+    } catch (e) {
+        toast({ title: "فشل الحفظ السحابي", variant: "destructive" });
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   return (
@@ -106,12 +118,11 @@ export default function AddAddressPage() {
         </Button>
         <div className="text-right">
             <h1 className="text-2xl font-black text-slate-800 leading-none">إضافة عنوان جديد</h1>
-            <p className="text-muted-foreground font-bold text-[10px] mt-1 uppercase tracking-widest">New Delivery Information</p>
+            <p className="text-muted-foreground font-bold text-[10px] mt-1 uppercase tracking-widest">المزامنة سحابياً مفعلة</p>
         </div>
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* القسم 1: المعلومات الأساسية */}
         <div className="space-y-4">
             <h3 className="text-xs font-black text-primary flex items-center gap-2 px-1">
                 <User className="h-4 w-4" /> 1. معلوماتك الشخصية
@@ -146,7 +157,6 @@ export default function AddAddressPage() {
 
         <Separator className="opacity-50" />
 
-        {/* القسم 2: الموقع والسكن */}
         <div className="space-y-6">
             <h3 className="text-xs font-black text-primary flex items-center gap-2 px-1">
                 <Map className="h-4 w-4" /> 2. تفاصيل المنطقة
@@ -186,7 +196,6 @@ export default function AddAddressPage() {
             </div>
         </div>
 
-        {/* القسم 3: تحديد الموقع GPS */}
         <div className="space-y-4">
             <h3 className="text-xs font-black text-primary flex items-center gap-2 px-1">
                 <Navigation className="h-4 w-4" /> 3. الموقع الدقيق (GPS)
@@ -207,7 +216,6 @@ export default function AddAddressPage() {
             </button>
         </div>
 
-        {/* القسم 4: التفاصيل الإضافية */}
         <div className="space-y-4">
             <h3 className="text-xs font-black text-primary flex items-center gap-2 px-1">
                 <FileText className="h-4 w-4" /> 4. ملاحظات إضافية
@@ -221,8 +229,8 @@ export default function AddAddressPage() {
             />
         </div>
 
-        <Button type="submit" className="w-full h-20 rounded-[2.5rem] text-2xl font-black shadow-2xl shadow-primary/30 transition-all active:scale-95" disabled={!address.deliveryZone || address.latitude === 0}>
-          حفظ وبدء التسوق
+        <Button type="submit" className="w-full h-20 rounded-[2.5rem] text-2xl font-black shadow-2xl shadow-primary/30 transition-all active:scale-95" disabled={!address.deliveryZone || address.latitude === 0 || isSaving}>
+          {isSaving ? <Loader2 className="animate-spin h-6 w-6 mr-2" /> : "حفظ البيانات سحابياً"}
         </Button>
       </form>
     </div>

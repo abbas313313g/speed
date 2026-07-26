@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, doc, runTransaction, arrayUnion, updateDoc, getDocs, query, where, onSnapshot, addDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, runTransaction, arrayUnion, updateDoc, getDocs, query, where, onSnapshot, addDoc, deleteDoc, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
@@ -30,7 +30,7 @@ interface AppContextType {
     cartTotal: number;
     userId: string | null;
     addresses: Address[];
-    addAddress: (address: Omit<Address, 'id'>) => void;
+    addAddress: (address: Omit<Address, 'id'>) => Promise<void>;
     deleteAddress: (addressId: string) => void;
     mySupportTicket: SupportTicket | null;
     startNewTicketClient: () => void;
@@ -42,6 +42,7 @@ interface AppContextType {
     setSelectedRestaurantId: (id: string | null) => void;
     filteredRestaurants: Restaurant[];
     filteredProducts: Product[];
+    syncUserByPhone: (phone: string) => Promise<string | null>;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -64,7 +65,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const isLoading = (productsLoading || restaurantsLoading || ticketsLoading || couponsLoading || telegramLoading);
 
-    // 1. إدارة الهوية (User ID)
     useEffect(() => {
         try {
             let id = safeStorage.get('speedShopUserId');
@@ -96,7 +96,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         return () => window.removeEventListener('popstate', handlePopState);
     }, []);
 
-    // 2. مزامنة العناوين من Firebase بدلاً من LocalStorage
     useEffect(() => {
         if (!userId) return;
 
@@ -106,7 +105,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 id: doc.id, 
                 ...doc.data() 
             })) as Address[];
-            // ترتيب العناوين حسب الأحدث
             setAddresses(addrData.sort((a: any, b: any) => (b.createdAt || 0) > (a.createdAt || 0) ? 1 : -1));
         }, (error) => {
             console.error("Firestore addresses sync error:", error);
@@ -132,10 +130,29 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, [cart, isLoading]);
 
-    const currentAddr = addresses[0];
+    // وظيفة استرجاع حساب المستخدم القديم برقم الهاتف
+    const syncUserByPhone = useCallback(async (phone: string): Promise<string | null> => {
+        if (!phone) return null;
+        try {
+            const q = query(collection(db, "addresses"), where("phone", "==", phone), limit(1));
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+                const oldUserId = snap.docs[0].data().userId;
+                if (oldUserId) {
+                    setUserId(oldUserId);
+                    safeStorage.set('speedShopUserId', oldUserId);
+                    return oldUserId;
+                }
+            }
+        } catch (e) {
+            console.error("Sync user by phone failed:", e);
+        }
+        return null;
+    }, []);
 
     const filteredRestaurants = useMemo(() => {
         let list = [...restaurants];
+        const currentAddr = addresses[0];
         if (currentAddr?.latitude && currentAddr?.longitude) {
             list = list.filter(r => {
                 if (!r.latitude || !r.longitude) return true;
@@ -147,7 +164,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             if (a.isStoreOpen === b.isStoreOpen) return 0;
             return a.isStoreOpen ? -1 : 1;
         });
-    }, [restaurants, currentAddr]);
+    }, [restaurants, addresses]);
 
     const filteredProducts = useMemo(() => {
         const list = products.filter(p => {
@@ -210,20 +227,27 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         return total + price * item.quantity;
     }, 0), [cart]);
 
-    // 3. إضافة وحذف العناوين في Firestore
     const addAddress = useCallback(async (addr: Omit<Address, 'id'>) => { 
-        if (!userId) return;
+        let targetId = userId;
+        // محاولة ربط المستخدم بالرقم إذا لم يكن مسجلاً محلياً
+        if (addr.phone) {
+            const foundId = await syncUserByPhone(addr.phone);
+            if (foundId) targetId = foundId;
+        }
+
+        if (!targetId) return;
+
         try {
             await addDoc(collection(db, "addresses"), {
                 ...addr,
-                userId: userId,
+                userId: targetId,
                 createdAt: new Date().toISOString()
             });
-            toast({ title: "تم حفظ العنوان بنجاح" });
+            toast({ title: "تم حفظ العنوان سحابياً بنجاح ✅" });
         } catch (e) {
             toast({ title: "فشل حفظ العنوان", variant: "destructive" });
         }
-    }, [userId, toast]);
+    }, [userId, toast, syncUserByPhone]);
 
     const deleteAddress = useCallback(async (id: string) => { 
         try {
@@ -380,8 +404,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const value = useMemo(() => ({
         isLoading, placeOrder, createSupportTicket, addMessageToTicket, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress, mySupportTicket, startNewTicketClient, activeTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId,
-        filteredRestaurants, filteredProducts
-    }), [isLoading, cart, addresses, userId, mySupportTicket, activeTab, filteredRestaurants, filteredProducts, setActiveTab, placeOrder, createSupportTicket, addMessageToTicket, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, addAddress, deleteAddress, startNewTicketClient, setSelectedProductId, setSelectedRestaurantId]);
+        filteredRestaurants, filteredProducts, syncUserByPhone
+    }), [isLoading, cart, addresses, userId, mySupportTicket, activeTab, filteredRestaurants, filteredProducts, setActiveTab, placeOrder, createSupportTicket, addMessageToTicket, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, addAddress, deleteAddress, startNewTicketClient, setSelectedProductId, setSelectedRestaurantId, syncUserByPhone]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

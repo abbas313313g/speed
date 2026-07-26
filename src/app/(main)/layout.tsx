@@ -42,10 +42,11 @@ export default function MainAppLayout() {
   const [isBlocked, setIsBlocked] = useState(false);
   const [newAddr, setNewAddr] = useState({ name: '', phone: '', details: '', lat: 0, lng: 0, selectedBranch: '', detectedZone: '' });
   const [islocLoading, setIslocLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [forceHideLoading, setForceHideLoading] = useState(false);
 
   if (!context) return null;
-  const { activeTab, setActiveTab } = context;
+  const { activeTab, setActiveTab, syncUserByPhone } = context;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -53,22 +54,6 @@ export default function MainAppLayout() {
     }, 2500);
     return () => clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    try {
-        (window as any).updateLocationFromFlutter = (lat: number, lng: number) => {
-            if (!isLocationInAllowedZones(lat, lng)) {
-              setIsBlocked(true);
-              setShowAddressPrompt(false);
-            } else {
-              setNewAddr(prev => ({ ...prev, lat: lat, lng: lng }));
-              toast({ title: "تم تحديث موقعك بنجاح ✅" });
-            }
-            setIslocLoading(false);
-        };
-    } catch (e) {}
-    return () => { try { delete (window as any).updateLocationFromFlutter; } catch(e) {} };
-  }, [toast]);
 
   useEffect(() => {
     if (!settingsLoading && !settings?.isMaintenanceMode && addresses.length === 0) {
@@ -102,7 +87,7 @@ export default function MainAppLayout() {
             (error) => {
                 toast({ 
                     title: "يرجى تفعيل الموقع", 
-                    description: "تأكد من تفعيل الـ GPS في إعدادات هاتفك.", 
+                    description: "تأكد من تفعيل الـ GPS في إعدادات هاتفك لضمان دقة التوصيل.", 
                     variant: "destructive" 
                 });
                 setIslocLoading(false);
@@ -115,7 +100,7 @@ export default function MainAppLayout() {
     }
   }, [toast]);
 
-  const handleSaveAddress = () => {
+  const handleSaveAddress = async () => {
     if (!newAddr.name || !newAddr.phone || !newAddr.selectedBranch || !newAddr.detectedZone) {
       toast({ title: "يرجى إكمال البيانات", variant: "destructive" });
       return;
@@ -124,17 +109,33 @@ export default function MainAppLayout() {
         toast({ title: "تحديد الموقع مطلوب", variant: "destructive" });
         return;
     }
-    addAddress({
-      name: newAddr.name,
-      phone: newAddr.phone,
-      deliveryZone: newAddr.detectedZone,
-      details: newAddr.details,
-      latitude: newAddr.lat,
-      longitude: newAddr.lng,
-      branchId: newAddr.selectedBranch
-    });
-    setShowAddressPrompt(false);
-    toast({ title: "أهلاً بك في سبيد شوب!" });
+
+    setIsSaving(true);
+    try {
+        // خطوة سحرية: استرجاع الحساب القديم إذا وجدنا رقم الهاتف في فايربيس
+        const existingUserId = await syncUserByPhone(newAddr.phone);
+        
+        await addAddress({
+            name: newAddr.name,
+            phone: newAddr.phone,
+            deliveryZone: newAddr.detectedZone,
+            details: newAddr.details,
+            latitude: newAddr.lat,
+            longitude: newAddr.lng,
+            branchId: newAddr.selectedBranch
+        });
+
+        setShowAddressPrompt(false);
+        if (existingUserId) {
+            toast({ title: "أهلاً بك مجدداً! تم استعادة بياناتك سحابياً ☁️" });
+        } else {
+            toast({ title: "أهلاً بك في سبيد شوب!" });
+        }
+    } catch (e) {
+        toast({ title: "حدث خطأ أثناء الحفظ", variant: "destructive" });
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   const isActuallyLoading = settingsLoading && !forceHideLoading;
@@ -224,7 +225,6 @@ export default function MainAppLayout() {
                     </SheetHeader>
                     
                     <div className="space-y-6">
-                        {/* القسم الأول: الهوية */}
                         <div className="space-y-4">
                             <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
                                 <User className="h-4 w-4" /> 1. معلوماتك الشخصية
@@ -255,7 +255,6 @@ export default function MainAppLayout() {
 
                         <Separator className="opacity-40" />
 
-                        {/* القسم الثاني: المنطقة الجغرافية */}
                         <div className="space-y-4">
                             <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
                                 <Map className="h-4 w-4" /> 2. العنوان الجغرافي
@@ -295,7 +294,6 @@ export default function MainAppLayout() {
                             </div>
                         </div>
 
-                        {/* القسم الثالث: الموقع الدقيق */}
                         <div className="pt-2">
                             <button 
                                 onClick={handleGetLocation} 
@@ -311,7 +309,7 @@ export default function MainAppLayout() {
                                     <><MapPin className="h-10 w-10 text-primary" /> <span className="font-black text-slate-700 text-base">اضغط لتحديد موقعك المباشر (GPS)</span></>
                                 )}
                             </button>
-                            <p className="text-[10px] text-center text-muted-foreground font-bold mt-3 px-4">ملاحظة: هذا الزر ضروري لضمان وصول المندوب لباب منزلك مباشرة.</p>
+                            <p className="text-[10px] text-center text-muted-foreground font-bold mt-3 px-4">ملاحظة: استرجاع البيانات سحابياً يتم تلقائياً عبر رقم هاتفك.</p>
                         </div>
                     </div>
                 </div>
@@ -320,9 +318,10 @@ export default function MainAppLayout() {
                     <Button 
                         onClick={handleSaveAddress} 
                         className="w-full py-9 text-2xl font-black rounded-[2rem] shadow-xl shadow-primary/30 transition-all active:scale-95" 
-                        disabled={islocLoading || !newAddr.detectedZone || newAddr.lat === 0}
+                        disabled={islocLoading || isSaving || !newAddr.detectedZone || newAddr.lat === 0}
                     >
-                        حفظ والعثور على مطاعم
+                        {isSaving ? <Loader2 className="animate-spin h-6 w-6 mr-2" /> : null}
+                        {isSaving ? "جارِ المزامنة السحابية..." : "حفظ وبدء التسوق"}
                     </Button>
                 </div>
             </SheetContent>
