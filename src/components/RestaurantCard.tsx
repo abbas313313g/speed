@@ -1,24 +1,33 @@
 
 "use client";
 
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useMemo } from "react";
 import Image from "next/image";
-import { Star } from "lucide-react";
+import { Star, MapPin } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import type { Restaurant } from "@/lib/types";
 import { Badge } from "./ui/badge";
 import { AppContext } from "@/contexts/AppContext";
 import { cn } from "@/lib/utils";
+import { useBranches } from "@/hooks/useBranches";
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
+  large?: boolean;
 }
 
-function RestaurantCardComponent({ restaurant }: RestaurantCardProps) {
+function RestaurantCardComponent({ restaurant, large = false }: RestaurantCardProps) {
   const context = useContext(AppContext);
+  const { branches } = useBranches();
   const [isImgLoading, setIsImgLoading] = useState(true);
+  
   const imageUrl = restaurant.image && (restaurant.image.startsWith('http') || restaurant.image.startsWith('data:')) ? restaurant.image : 'https://picsum.photos/seed/speedr/400/400';
   
+  const branchName = useMemo(() => {
+      if (restaurant.branchId === 'main') return 'المركز الرئيسي';
+      return branches.find(b => b.id === restaurant.branchId)?.name || 'فرع مستقل';
+  }, [restaurant.branchId, branches]);
+
   const handleOpenRestaurant = () => {
     if (context) {
         context.setSelectedRestaurantId(restaurant.id);
@@ -27,9 +36,16 @@ function RestaurantCardComponent({ restaurant }: RestaurantCardProps) {
   };
 
   return (
-    <div onClick={handleOpenRestaurant} className="group cursor-pointer">
-      <Card className="overflow-hidden border-none shadow-md rounded-[1.5rem] bg-card p-3 flex items-center gap-4 transition-all active:scale-95">
-        <div className={cn("relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl", isImgLoading && "animate-pulse bg-muted")}>
+    <div onClick={handleOpenRestaurant} className="group cursor-pointer w-full">
+      <Card className={cn(
+          "overflow-hidden border-none shadow-md bg-card transition-all active:scale-95",
+          large ? "p-4 rounded-[2.5rem]" : "p-3 rounded-[1.5rem] flex items-center gap-4"
+      )}>
+        <div className={cn(
+            "relative flex-shrink-0 overflow-hidden rounded-2xl",
+            large ? "w-full aspect-[16/9] mb-4" : "h-20 w-20",
+            isImgLoading && "animate-pulse bg-muted"
+        )}>
           <Image
             src={imageUrl}
             alt={restaurant.name}
@@ -38,17 +54,34 @@ function RestaurantCardComponent({ restaurant }: RestaurantCardProps) {
             unoptimized={true}
             onLoadingComplete={() => setIsImgLoading(false)}
           />
+          {large && !restaurant.isStoreOpen && (
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center">
+                  <Badge variant="destructive" className="text-sm font-black px-4 py-1.5 rounded-xl">مغلق حالياً</Badge>
+              </div>
+          )}
         </div>
-        <div className="flex-grow">
-          <CardTitle className="text-lg font-black">{restaurant.name}</CardTitle>
-          <div className="mt-1 flex items-center gap-1 text-amber-500">
-            <Star className="h-4 w-4 fill-current" />
-            <span className="font-bold text-foreground text-sm">{restaurant.rating.toFixed(1)}</span>
+        <div className="flex-grow text-right">
+          <div className="flex justify-between items-start">
+             <CardTitle className={cn("font-black text-slate-800", large ? "text-2xl" : "text-lg")}>{restaurant.name}</CardTitle>
+             {!large && (
+                 <Badge variant={restaurant.isStoreOpen ? 'secondary' : 'destructive'} className={cn("rounded-xl text-[10px]", restaurant.isStoreOpen && "bg-green-100 text-green-700")}>
+                    {restaurant.isStoreOpen ? 'مفتوح' : 'مغلق'}
+                 </Badge>
+             )}
+          </div>
+          
+          <div className="flex flex-col gap-1 mt-1">
+            <div className="flex items-center gap-1 text-primary">
+                <MapPin className="h-3 w-3" />
+                <span className="text-[10px] font-black">{branchName}</span>
+            </div>
+            <div className="flex items-center gap-1 text-amber-500">
+                <Star className="h-4 w-4 fill-current" />
+                <span className="font-black text-foreground text-sm">{restaurant.rating.toFixed(1)}</span>
+                <span className="text-[10px] text-muted-foreground font-bold mr-1">(أكثر من 100 تقييم)</span>
+            </div>
           </div>
         </div>
-         <Badge variant={restaurant.isStoreOpen ? 'secondary' : 'destructive'} className={`rounded-xl ${restaurant.isStoreOpen ? "bg-green-100 text-green-700" : ""}`}>
-              {restaurant.isStoreOpen ? 'مفتوح' : 'مغلق'}
-          </Badge>
       </Card>
     </div>
   );

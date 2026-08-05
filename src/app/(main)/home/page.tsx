@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/carousel";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Layers } from "lucide-react";
+import { Layers, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCategories } from "@/hooks/useCategories";
 import { useBanners } from "@/hooks/useBanners";
@@ -168,14 +168,17 @@ export default function HomePage() {
 
       <section className="pb-8">
          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-black">أشهر المتاجر</h2>
-             <button onClick={() => setActiveTab(1)} className="text-primary font-bold">عرض الكل</button>
+            <h2 className="text-2xl font-black flex items-center gap-2">
+                <Sparkles className="h-6 w-6 text-primary animate-pulse" />
+                أشهر المتاجر
+            </h2>
+             <button onClick={() => setActiveTab(1)} className="text-primary font-bold">تصفح الكل</button>
         </div>
         <ScrollArea className="w-full whitespace-nowrap">
-            <div className="flex w-max space-x-4 space-x-reverse pb-4">
+            <div className="flex w-max space-x-5 space-x-reverse pb-6 px-1">
               {restaurants.map((restaurant) => (
-                <div key={restaurant.id} className="w-72 flex-shrink-0">
-                  <RestaurantCard restaurant={restaurant} />
+                <div key={restaurant.id} className="w-[300px] flex-shrink-0">
+                  <RestaurantCard restaurant={restaurant} large={true} />
                 </div>
               ))}
             </div>

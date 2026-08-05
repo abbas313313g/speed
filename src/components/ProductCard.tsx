@@ -3,7 +3,7 @@
 
 import React, { useMemo, useContext, useState } from "react";
 import Image from "next/image";
-import { PlusCircle, ListChecks } from "lucide-react";
+import { PlusCircle, ListChecks, Store } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -27,7 +27,6 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === product.restaurantId), [product, restaurants]);
 
-  // فلترة الأحجام النشطة فقط
   const activeSizes = useMemo(() => {
     return product.sizes?.filter(s => s.isActive !== false) || [];
   }, [product.sizes]);
@@ -112,18 +111,24 @@ function ProductCardComponent({ product }: ProductCardProps) {
                 <div className="absolute top-2 right-2 bg-red-600 text-white text-[9px] font-black px-2 py-1 rounded-lg shadow-lg">خصم %</div>
             )}
           </div>
-          <div className="p-3">
-            <h3 className="truncate font-bold text-sm">{product.name}</h3>
-            <div className="mt-1 flex items-center justify-between">
-              <div className="flex flex-col">
+          <div className="p-3 text-right">
+            <h3 className="truncate font-black text-sm text-slate-800">{product.name}</h3>
+            {restaurant && (
+                <div className="flex items-center gap-1 mt-0.5 text-primary">
+                    <Store className="h-3 w-3" />
+                    <span className="text-[9px] font-bold truncate">{restaurant.name}</span>
+                </div>
+            )}
+            <div className="mt-2 flex items-center justify-between">
+              <div className="flex flex-col text-right">
                   {hasSizes ? (
-                      <p className="text-[9px] text-muted-foreground font-bold">يبدأ من:</p>
+                      <p className="text-[8px] text-muted-foreground font-black">يبدأ من:</p>
                   ) : hasDiscount ? (
-                     <p className="text-[10px] text-muted-foreground line-through decoration-destructive/50 font-bold">
+                     <p className="text-[9px] text-muted-foreground line-through decoration-destructive/50 font-bold">
                         {formatCurrency(product.price)}
                      </p>
                   ) : null}
-                  <p className="text-sm font-black text-primary">
+                  <p className="text-sm font-black text-primary leading-none">
                     {formatCurrency(displayPrice)}
                   </p>
               </div>

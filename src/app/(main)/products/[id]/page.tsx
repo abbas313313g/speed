@@ -28,14 +28,13 @@ export default function ProductDetailPage() {
   const [isImgLoading, setIsImgLoading] = useState(true);
 
   if (!context) return null;
-  const { selectedProductId, setActiveTab, activeTab } = context;
+  const { selectedProductId, setActiveTab, activeTab, previousTab } = context;
 
   const isCurrentlyVisible = activeTab === 9;
 
   const product = useMemo(() => products.find(p => p.id === selectedProductId), [selectedProductId, products]);
   const restaurant = useMemo(() => product ? restaurants.find(r => r.id === product.restaurantId) : null, [product, restaurants]);
 
-  // فلترة الأحجام النشطة فقط
   const activeSizes = useMemo(() => {
       return product?.sizes?.filter(s => s.isActive !== false) || [];
   }, [product]);
@@ -114,6 +113,11 @@ export default function ProductDetailPage() {
     }
   };
 
+  const handleBack = () => {
+      // الرجوع للصفحة السابقة بدلاً من الصفر
+      setActiveTab(previousTab);
+  };
+
   const hasDiscount = !!product.discountPrice && !selectedSize;
   const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://picsum.photos/seed/speeddetail/600/600';
 
@@ -123,7 +127,7 @@ export default function ProductDetailPage() {
     <div className="flex flex-col h-full bg-background relative overflow-hidden">
        <div className="absolute top-4 left-4 right-4 z-20 flex justify-between items-center">
           <button 
-            onClick={() => setActiveTab(0)} 
+            onClick={handleBack} 
             className="p-3 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl text-primary active:scale-75 transition-all"
           >
               <ArrowRight className="h-6 w-6"/>
@@ -166,7 +170,10 @@ export default function ProductDetailPage() {
             <div className="bg-white rounded-[2.5rem] p-6 shadow-2xl space-y-6">
                 <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                        <h1 className="text-2xl font-black text-slate-800 leading-tight">{product.name}</h1>
+                        <div className="space-y-1">
+                            <h1 className="text-2xl font-black text-slate-800 leading-tight">{product.name}</h1>
+                            {restaurant && <p className="text-xs font-bold text-primary">متجر: {restaurant.name}</p>}
+                        </div>
                         <div className="flex items-center gap-1 text-amber-500 bg-amber-50 px-3 py-1 rounded-full">
                             <Star className="h-4 w-4 fill-current"/>
                             <span className="text-xs font-black">4.9</span>

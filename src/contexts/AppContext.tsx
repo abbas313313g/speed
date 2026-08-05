@@ -35,6 +35,7 @@ interface AppContextType {
     mySupportTicket: SupportTicket | null;
     startNewTicketClient: () => void;
     activeTab: number;
+    previousTab: number;
     setActiveTab: (index: number, pushToHistory?: boolean) => void;
     selectedProductId: string | null;
     setSelectedProductId: (id: string | null) => void;
@@ -60,6 +61,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [userId, setUserId] = useState<string|null>(null);
     const [isForceNewTicket, setIsForceNewTicket] = useState(false);
     const [activeTab, setActiveTabState] = useState(0);
+    const [previousTab, setPreviousTab] = useState(0);
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
 
@@ -114,13 +116,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [userId]);
 
     const setActiveTab = useCallback((index: number, pushToHistory = true) => {
+        if (activeTab !== index) {
+            setPreviousTab(activeTab);
+        }
         setActiveTabState(index);
         if (pushToHistory) {
             try {
                 window.history.pushState({ tab: index }, '');
             } catch (e) {}
         }
-    }, []);
+    }, [activeTab]);
 
     useEffect(() => { 
         if (!isLoading) {
@@ -130,7 +135,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, [cart, isLoading]);
 
-    // وظيفة استرجاع حساب المستخدم القديم برقم الهاتف
     const syncUserByPhone = useCallback(async (phone: string): Promise<string | null> => {
         if (!phone) return null;
         try {
@@ -229,14 +233,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const addAddress = useCallback(async (addr: Omit<Address, 'id'>) => { 
         let targetId = userId;
-        // محاولة ربط المستخدم بالرقم إذا لم يكن مسجلاً محلياً
         if (addr.phone) {
             const foundId = await syncUserByPhone(addr.phone);
             if (foundId) targetId = foundId;
         }
-
         if (!targetId) return;
-
         try {
             await addDoc(collection(db, "addresses"), {
                 ...addr,
@@ -282,10 +283,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const placeOrder = useCallback(async (addr: Address, dFee: number, coup?: string): Promise<string | null> => {
         let curId = userId || safeStorage.get('speedShopUserId');
         if (!curId || cart.length === 0) return null;
-        
         let finalOrderId: string | null = null;
         const curCart = [...cart];
-        
         try {
             await runTransaction(db, async (tx) => {
                 let cData: Coupon | null = null;
@@ -296,34 +295,25 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                         if (cSnap.exists()) cData = { id: cSnap.id, ...cSnap.data() } as Coupon;
                     }
                 }
-                
                 if (coup?.trim() && !cData) throw new Error("USER_ERROR: كود الخصم غير صحيح.");
-                
                 if (cData) {
                     if (cData.usedCount >= cData.maxUses) throw new Error("USER_ERROR: الكود وصل للحد الأقصى للاستخدام.");
                     if (cData.usedBy?.includes(curId!)) throw new Error("USER_ERROR: لقد استخدمت هذا الكود مسبقاً.");
                     if (cData.restaurantId && cData.restaurantId !== curCart[0].product.restaurantId) throw new Error("USER_ERROR: هذا الكود مخصص لمتجر آخر.");
-                    
                     if (cData.isFirstOrderOnly) {
                         const ordersQuery = query(collection(db, "orders"), where("userId", "==", curId));
                         const ordersSnap = await getDocs(ordersQuery);
                         if (!ordersSnap.empty) throw new Error("USER_ERROR: هذا الكود مخصص للطلب الأول فقط.");
                     }
                 }
-
-                let tProfit = 0; 
-                let curCartTotal = 0;
-                
+                let tProfit = 0; let curCartTotal = 0;
                 for (const item of curCart) {
                     const pSnap = await tx.get(doc(db, "products", item.product.id));
                     if (!pSnap.exists()) throw new Error("USER_ERROR: أحد المنتجات لم يعد متوفراً.");
-                    
                     const sProd = pSnap.data() as Product;
                     const price = item.selectedSize?.price || sProd.discountPrice || sProd.price || 0;
-                    
                     curCartTotal += (price * item.quantity);
                     tProfit += (price - (sProd.wholesalePrice || 0)) * item.quantity;
-                    
                     if (!sProd.isUnlimitedStock) {
                         if (item.selectedSize) {
                             const nSizes = [...(sProd.sizes || [])];
@@ -339,24 +329,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                         }
                     }
                 }
-                
-                let disc = 0; 
-                let cInfo: any = null;
+                let disc = 0; let cInfo: any = null;
                 if (cData) { 
                     disc = cData.discountValue; 
                     cInfo = { code: cData.code, discountAmount: disc }; 
-                    tx.update(doc(db, "coupons", cData.id), { 
-                        usedCount: (cData.usedCount || 0) + 1, 
-                        usedBy: arrayUnion(curId!) 
-                    }); 
+                    tx.update(doc(db, "coupons", cData.id), { usedCount: (cData.usedCount || 0) + 1, usedBy: arrayUnion(curId!) }); 
                 }
-                
                 const fTotal = Math.max(0, curCartTotal - disc) + dFee;
                 const nORef = doc(collection(db, "orders"));
                 finalOrderId = nORef.id;
-                
                 const rest = restaurants.find(r => r.id === curCart[0].product.restaurantId);
-                
                 const nOData: any = {
                     userId: curId,
                     items: curCart,
@@ -373,39 +355,25 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     isFeePaid: false,
                     isOrderPaidToOffice: false,
                     appliedCoupon: cInfo,
-                    restaurant: rest ? { 
-                        id: rest.id, 
-                        name: rest.name, 
-                        latitude: rest.latitude || null, 
-                        longitude: rest.longitude || null 
-                    } : null,
+                    restaurant: rest ? { id: rest.id, name: rest.name, latitude: rest.latitude || null, longitude: rest.longitude || null } : null,
                     branchId: rest?.branchId || 'main'
                 };
-                
                 tx.set(nORef, JSON.parse(JSON.stringify(nOData)));
             });
-            
             clearCart();
             return finalOrderId;
         } catch (e: any) { 
-            const errorMsg = e.message.includes("USER_ERROR") 
-                ? e.message.replace("USER_ERROR: ", "") 
-                : "حدث خطأ فني أثناء محاولة إتمام الطلب، يرجى المحاولة لاحقاً.";
-            
-            toast({ 
-                title: "فشل الطلب", 
-                description: errorMsg, 
-                variant: "destructive" 
-            }); 
+            const errorMsg = e.message.includes("USER_ERROR") ? e.message.replace("USER_ERROR: ", "") : "حدث خطأ فني أثناء محاولة إتمام الطلب.";
+            toast({ title: "فشل الطلب", description: errorMsg, variant: "destructive" }); 
             return null; 
         }
     }, [userId, cart, coupons, restaurants, clearCart, toast]);
     
     const value = useMemo(() => ({
         isLoading, placeOrder, createSupportTicket, addMessageToTicket, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
-        userId, addresses, addAddress, deleteAddress, mySupportTicket, startNewTicketClient, activeTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId,
+        userId, addresses, addAddress, deleteAddress, mySupportTicket, startNewTicketClient, activeTab, previousTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId,
         filteredRestaurants, filteredProducts, syncUserByPhone
-    }), [isLoading, cart, addresses, userId, mySupportTicket, activeTab, filteredRestaurants, filteredProducts, setActiveTab, placeOrder, createSupportTicket, addMessageToTicket, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, addAddress, deleteAddress, startNewTicketClient, setSelectedProductId, setSelectedRestaurantId, syncUserByPhone]);
+    }), [isLoading, cart, addresses, userId, mySupportTicket, activeTab, previousTab, filteredRestaurants, filteredProducts, setActiveTab, placeOrder, createSupportTicket, addMessageToTicket, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, addAddress, deleteAddress, startNewTicketClient, setSelectedProductId, setSelectedRestaurantId, syncUserByPhone]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
