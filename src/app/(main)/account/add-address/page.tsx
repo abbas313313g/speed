@@ -1,25 +1,15 @@
-
 "use client";
 
-import { useState, useMemo, useContext } from "react";
+import { useState, useContext } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { MapPin, Loader2, CheckCircle2, ArrowRight, User, Phone, Map, FileText, Navigation } from "lucide-react";
+import { MapPin, Loader2, CheckCircle2, ArrowRight, User, Phone, FileText, Navigation } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Address } from "@/lib/types";
 import { useAddresses } from "@/hooks/useAddresses";
-import { useDeliveryZones } from "@/hooks/useDeliveryZones";
-import { useBranches } from "@/hooks/useBranches";
 import { Separator } from "@/components/ui/separator";
 import { AppContext } from "@/contexts/AppContext";
 
@@ -28,38 +18,23 @@ export default function AddAddressPage() {
   const { toast } = useToast();
   const context = useContext(AppContext);
   const { addAddress } = useAddresses();
-  const { deliveryZones } = useDeliveryZones();
-  const { branches } = useBranches();
   
   const [address, setAddress] = useState<Omit<Address, "id">>({
     name: "",
     phone: "",
-    deliveryZone: "",
+    deliveryZone: "عام",
     details: "",
     latitude: 0,
     longitude: 0,
-    branchId: ""
+    branchId: "main"
   });
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  const filteredZones = useMemo(() => {
-    if (!address.branchId) return [];
-    return deliveryZones.filter(z => z.branchId === address.branchId);
-  }, [address.branchId, deliveryZones]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     setAddress({ ...address, [e.target.name]: e.target.value });
-  };
-
-  const handleBranchChange = (value: string) => {
-    setAddress({ ...address, branchId: value, deliveryZone: "" });
-  };
-
-  const handleZoneChange = (value: string) => {
-    setAddress({ ...address, deliveryZone: value });
   };
 
   const handleFetchLocation = () => {
@@ -89,7 +64,7 @@ export default function AddAddressPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!address.name || !address.phone || !address.branchId || !address.deliveryZone) {
+    if (!address.name || !address.phone) {
       toast({ title: "بيانات غير مكتملة", variant: "destructive" });
       return;
     }
@@ -156,48 +131,9 @@ export default function AddAddressPage() {
 
         <Separator className="opacity-50" />
 
-        <div className="space-y-6">
-            <h3 className="text-xs font-black text-primary flex items-center gap-2 px-1">
-                <Map className="h-4 w-4" /> 2. تفاصيل المنطقة
-            </h3>
-            <div className="bg-primary/5 p-5 rounded-[2.5rem] border-2 border-dashed border-primary/20 space-y-5 shadow-inner">
-                <div className="space-y-2">
-                    <Label className="text-[10px] font-black text-primary pr-1">المدينة / الفرع</Label>
-                    <Select value={address.branchId} onValueChange={handleBranchChange} required>
-                        <SelectTrigger className="h-14 rounded-2xl text-lg font-black border-2 border-primary/10 bg-white">
-                            <SelectValue placeholder="اختر مدينتك..." />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl shadow-2xl border-none">
-                            <SelectItem value="main" className="font-bold py-3">فرع المدحتية</SelectItem>
-                            {branches.map((branch) => (
-                                <SelectItem key={branch.id} value={branch.id} className="font-bold py-3">{branch.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                {address.branchId && (
-                    <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
-                        <Label className="text-[10px] font-black text-primary pr-1">الحي السكني</Label>
-                        <Select value={address.deliveryZone} onValueChange={handleZoneChange} required>
-                            <SelectTrigger className="h-14 rounded-2xl text-lg font-black border-2 border-primary/10 bg-white">
-                                <SelectValue placeholder="اختر المنطقة..." />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-2xl shadow-2xl border-none">
-                                {filteredZones.map((zone) => (
-                                    <SelectItem key={zone.id} value={zone.name} className="font-bold py-3">{zone.name}</SelectItem>
-                                ))}
-                                {filteredZones.length === 0 && <div className="p-4 text-center text-xs font-bold italic text-muted-foreground">لا توجد مناطق حالياً.</div>}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                )}
-            </div>
-        </div>
-
         <div className="space-y-4">
             <h3 className="text-xs font-black text-primary flex items-center gap-2 px-1">
-                <Navigation className="h-4 w-4" /> 3. الموقع الدقيق (GPS)
+                <Navigation className="h-4 w-4" /> 2. الموقع الدقيق (GPS)
             </h3>
             <button
                 type="button"
@@ -217,7 +153,7 @@ export default function AddAddressPage() {
 
         <div className="space-y-4">
             <h3 className="text-xs font-black text-primary flex items-center gap-2 px-1">
-                <FileText className="h-4 w-4" /> 4. ملاحظات إضافية
+                <FileText className="h-4 w-4" /> 3. ملاحظات إضافية
             </h3>
             <Textarea
                 name="details"
@@ -228,7 +164,7 @@ export default function AddAddressPage() {
             />
         </div>
 
-        <Button type="submit" className="w-full h-20 rounded-[2.5rem] text-2xl font-black shadow-2xl shadow-primary/30 transition-all active:scale-95" disabled={!address.deliveryZone || address.latitude === 0 || isSaving}>
+        <Button type="submit" className="w-full h-20 rounded-[2.5rem] text-2xl font-black shadow-2xl shadow-primary/30 transition-all active:scale-95" disabled={address.latitude === 0 || isSaving}>
           {isSaving ? <Loader2 className="animate-spin h-6 w-6 mr-2" /> : "حفظ البيانات سحابياً"}
         </Button>
       </form>

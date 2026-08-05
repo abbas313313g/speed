@@ -1,11 +1,10 @@
-
 "use client";
 
 import { useMemo, useContext } from 'react';
 import { ProductCard } from '@/components/ProductCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
-import { Star, ArrowRight, MapPin, Clock } from 'lucide-react';
+import { ArrowRight, MapPin, Clock } from 'lucide-react';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useProducts } from '@/hooks/useProducts';
 import { Badge } from '@/components/ui/badge';
@@ -78,12 +77,8 @@ export default function RestaurantProductsPage() {
                 <Badge variant={restaurant.isStoreOpen ? 'secondary' : 'destructive'} className={`rounded-xl text-sm font-bold ${restaurant.isStoreOpen ? "bg-green-100 text-green-800" : ""}`}>
                   {restaurant.isStoreOpen ? 'مفتوح الآن' : 'مغلق حاليًا'}
                 </Badge>
-                <div className="flex items-center gap-2 text-amber-500">
-                    <Star className="h-5 w-5 fill-current" />
-                    <span className="font-black text-foreground text-xl">{restaurant.rating.toFixed(1)}</span>
-                </div>
                 {restaurant.openTime && restaurant.closeTime && (
-                    <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
+                    <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground pt-2">
                         <Clock className="h-4 w-4 text-primary"/>
                         <span>{restaurant.openTime} - {restaurant.closeTime}</span>
                     </div>

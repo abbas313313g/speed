@@ -1,11 +1,10 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, useContext } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
-import { Minus, Plus, ShoppingCart, ArrowRight, Star, Tag } from 'lucide-react';
+import { Minus, Plus, ShoppingCart, ArrowRight, Tag } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
@@ -114,7 +113,6 @@ export default function ProductDetailPage() {
   };
 
   const handleBack = () => {
-      // الرجوع للصفحة السابقة بدلاً من الصفر
       setActiveTab(previousTab);
   };
 
@@ -173,10 +171,6 @@ export default function ProductDetailPage() {
                         <div className="space-y-1">
                             <h1 className="text-2xl font-black text-slate-800 leading-tight">{product.name}</h1>
                             {restaurant && <p className="text-xs font-bold text-primary">متجر: {restaurant.name}</p>}
-                        </div>
-                        <div className="flex items-center gap-1 text-amber-500 bg-amber-50 px-3 py-1 rounded-full">
-                            <Star className="h-4 w-4 fill-current"/>
-                            <span className="text-xs font-black">4.9</span>
                         </div>
                     </div>
                 </div>

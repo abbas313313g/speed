@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -207,7 +206,7 @@ export default function CartPage() {
                         <SelectItem key={address.id} value={address.id} className="font-bold">
                             <div className="flex items-center gap-2">
                                 <Home className="h-4 w-4 text-primary"/>
-                                <span>{address.name} ({address.deliveryZone})</span>
+                                <span>{address.name}</span>
                             </div>
                         </SelectItem>
                     ))}

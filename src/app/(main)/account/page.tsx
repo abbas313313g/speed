@@ -1,7 +1,6 @@
 "use client";
 
 import { useContext } from 'react';
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -88,8 +87,8 @@ export default function AccountPage() {
               </CardHeader>
               <CardContent>
                 <div className="p-3 bg-muted/30 rounded-xl">
-                    <p className="font-bold text-primary">المنطقة: {address.deliveryZone}</p>
-                    {address.details && <p className="text-muted-foreground mt-1">{address.details}</p>}
+                    {address.details && <p className="text-muted-foreground">{address.details}</p>}
+                    {!address.details && <p className="text-xs text-muted-foreground italic font-bold">تم تحديد الموقع عبر الخريطة</p>}
                 </div>
               </CardContent>
             </Card>

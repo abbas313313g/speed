@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState } from 'react';
@@ -92,13 +91,10 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
 
   const handleOpenMaps = () => {
       if (order.address.latitude && order.address.longitude) {
-          // رابط عالمي يجبر الهاتف على إظهار قائمة اختيار تطبيق الخرائط الأصلي
           const url = `google.navigation:q=${order.address.latitude},${order.address.longitude}&mode=d`;
-          // بديل للمتصفحات التي لا تدعم الـ URI Scheme مباشرة
           const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${order.address.latitude},${order.address.longitude}`;
           
           window.location.href = url;
-          // بعد ثانيتين إذا لم يفتح التطبيق، نفتح الرابط في المتصفح
           setTimeout(() => {
              window.open(webUrl, '_blank');
           }, 2000);
@@ -139,7 +135,6 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                     <CardHeader className="p-3 pb-1 border-b bg-muted/20 text-right"><CardTitle className="text-[10px] font-black">الزبون</CardTitle></CardHeader>
                     <CardContent className="p-3 space-y-2 text-right">
                          <p className="text-xs font-black truncate">{order.address.name}</p>
-                         <p className="text-[9px] text-muted-foreground font-bold">{order.address.deliveryZone}</p>
                          <a href={`tel:${order.address.phone}`} className="block w-full">
                             <Button variant="outline" size="sm" className="w-full h-9 rounded-xl text-[9px] font-black border-primary text-primary">
                                 <Phone className="ml-1 h-3.5 w-3.5"/> اتصال سريع
@@ -152,7 +147,6 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                     <CardHeader className="p-3 pb-1 border-b bg-primary/5 text-right"><CardTitle className="text-[10px] font-black text-primary">المتجر</CardTitle></CardHeader>
                     <CardContent className="p-3 space-y-2 text-right">
                          <p className="text-xs font-black truncate">{order.restaurant?.name || 'غير معروف'}</p>
-                         <p className="text-[9px] text-muted-foreground font-bold">{order.branchId === 'main' ? 'فرع المدحتية' : order.branchId}</p>
                          <Button variant="ghost" size="sm" className="w-full h-9 rounded-xl text-[9px] font-black text-primary bg-primary/5" onClick={() => window.open(`https://www.google.com/maps?q=${order.restaurant?.latitude},${order.restaurant?.longitude}`, '_blank')}>
                             <Store className="ml-1 h-3.5 w-3.5"/> موقع المتجر
                          </Button>

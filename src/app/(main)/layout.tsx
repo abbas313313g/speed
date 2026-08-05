@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useContext, useCallback, useMemo } from 'react';
@@ -13,9 +12,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { isLocationInAllowedZones } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { AppContext } from '@/contexts/AppContext';
-import { useDeliveryZones } from '@/hooks/useDeliveryZones';
-import { useBranches } from '@/hooks/useBranches';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 
 import HomePage from './home/page';
@@ -34,13 +30,11 @@ export default function MainAppLayout() {
   const context = useContext(AppContext);
   const { settings, isLoading: settingsLoading } = useAppSettings();
   const { addresses, addAddress } = useAddresses();
-  const { deliveryZones } = useDeliveryZones();
-  const { branches } = useBranches();
   const { toast } = useToast();
   
   const [showAddressPrompt, setShowAddressPrompt] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
-  const [newAddr, setNewAddr] = useState({ name: '', phone: '', details: '', lat: 0, lng: 0, selectedBranch: '', detectedZone: '' });
+  const [newAddr, setNewAddr] = useState({ name: '', phone: '', details: '', lat: 0, lng: 0 });
   const [islocLoading, setIslocLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [forceHideLoading, setForceHideLoading] = useState(false);
@@ -60,11 +54,6 @@ export default function MainAppLayout() {
       setShowAddressPrompt(true);
     }
   }, [settingsLoading, settings?.isMaintenanceMode, addresses]);
-
-  const filteredZones = useMemo(() => {
-      if (!newAddr.selectedBranch) return [];
-      return deliveryZones.filter(z => z.branchId === newAddr.selectedBranch);
-  }, [newAddr.selectedBranch, deliveryZones]);
 
   const handleGetLocation = useCallback(() => {
     setIslocLoading(true);
@@ -101,7 +90,7 @@ export default function MainAppLayout() {
   }, [toast]);
 
   const handleSaveAddress = async () => {
-    if (!newAddr.name || !newAddr.phone || !newAddr.selectedBranch || !newAddr.detectedZone) {
+    if (!newAddr.name || !newAddr.phone) {
       toast({ title: "يرجى إكمال البيانات", variant: "destructive" });
       return;
     }
@@ -117,11 +106,11 @@ export default function MainAppLayout() {
         await addAddress({
             name: newAddr.name,
             phone: newAddr.phone,
-            deliveryZone: newAddr.detectedZone,
+            deliveryZone: "عام",
             details: newAddr.details,
             latitude: newAddr.lat,
             longitude: newAddr.lng,
-            branchId: newAddr.selectedBranch
+            branchId: "main"
         });
 
         setShowAddressPrompt(false);
@@ -207,7 +196,7 @@ export default function MainAppLayout() {
         ) : content}
 
         <Sheet open={showAddressPrompt} onOpenChange={() => {}}>
-            <SheetContent side="bottom" className="h-[90vh] w-full p-0 border-none shadow-none flex flex-col bg-background rounded-t-[3.5rem] overflow-hidden">
+            <SheetContent side="bottom" className="h-[75vh] w-full p-0 border-none shadow-none flex flex-col bg-background rounded-t-[3.5rem] overflow-hidden">
                 <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-muted rounded-full" />
                 
                 <div className="flex-1 overflow-y-auto px-6 pt-10 pb-4 space-y-8 scrollbar-hide">
@@ -254,46 +243,10 @@ export default function MainAppLayout() {
 
                         <Separator className="opacity-40" />
 
-                        <div className="space-y-4">
-                            <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
-                                <Map className="h-4 w-4" /> 2. العنوان الجغرافي
-                            </h3>
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black pr-1 text-muted-foreground">المدينة / الفرع</Label>
-                                    <Select value={newAddr.selectedBranch} onValueChange={(val) => setNewAddr({...newAddr, selectedBranch: val, detectedZone: ''})}>
-                                        <SelectTrigger className="h-14 rounded-2xl text-lg font-black border-2 border-primary/10 bg-primary/5">
-                                            <SelectValue placeholder="اختر مدينتك..." />
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-2xl border-none shadow-2xl">
-                                            <SelectItem value="main" className="font-bold py-3">فرع المدحتية</SelectItem>
-                                            {branches.map(b => (
-                                                <SelectItem key={b.id} value={b.id} className="font-bold py-3">{b.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                {newAddr.selectedBranch && (
-                                    <div className="space-y-2 animate-in slide-in-from-top-4 duration-500">
-                                        <Label className="text-[10px] font-black pr-1 text-muted-foreground">الحي السكني / المنطقة</Label>
-                                        <Select value={newAddr.detectedZone} onValueChange={(val) => setNewAddr({...newAddr, detectedZone: val})}>
-                                            <SelectTrigger className="h-14 rounded-2xl text-lg font-black border-2 border-primary/20">
-                                                <SelectValue placeholder="اختر منطقتك..." />
-                                            </SelectTrigger>
-                                            <SelectContent className="rounded-2xl border-none shadow-2xl">
-                                                {filteredZones.map(z => (
-                                                    <SelectItem key={z.id} value={z.name} className="font-bold py-3">{z.name}</SelectItem>
-                                                ))}
-                                                {filteredZones.length === 0 && <div className="p-4 text-center text-xs font-bold italic text-muted-foreground">لا توجد مناطق مضافة حالياً.</div>}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
                         <div className="pt-2">
+                            <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2 mb-4">
+                                <Map className="h-4 w-4" /> 2. الموقع الجغرافي
+                            </h3>
                             <button 
                                 onClick={handleGetLocation} 
                                 type="button"
@@ -317,7 +270,7 @@ export default function MainAppLayout() {
                     <Button 
                         onClick={handleSaveAddress} 
                         className="w-full py-9 text-2xl font-black rounded-[2rem] shadow-xl shadow-primary/30 transition-all active:scale-95" 
-                        disabled={islocLoading || isSaving || !newAddr.detectedZone || newAddr.lat === 0}
+                        disabled={islocLoading || isSaving || newAddr.lat === 0}
                     >
                         {isSaving ? <Loader2 className="animate-spin h-6 w-6 mr-2" /> : null}
                         {isSaving ? "جارِ المزامنة السحابية..." : "حفظ وبدء التسوق"}

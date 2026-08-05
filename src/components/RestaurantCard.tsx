@@ -1,15 +1,12 @@
-
 "use client";
 
-import React, { useContext, useState, useMemo } from "react";
+import React, { useContext, useState } from "react";
 import Image from "next/image";
-import { Star, MapPin } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import type { Restaurant } from "@/lib/types";
 import { Badge } from "./ui/badge";
 import { AppContext } from "@/contexts/AppContext";
 import { cn } from "@/lib/utils";
-import { useBranches } from "@/hooks/useBranches";
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
@@ -18,15 +15,9 @@ interface RestaurantCardProps {
 
 function RestaurantCardComponent({ restaurant, large = false }: RestaurantCardProps) {
   const context = useContext(AppContext);
-  const { branches } = useBranches();
   const [isImgLoading, setIsImgLoading] = useState(true);
   
   const imageUrl = restaurant.image && (restaurant.image.startsWith('http') || restaurant.image.startsWith('data:')) ? restaurant.image : 'https://picsum.photos/seed/speedr/400/400';
-  
-  const branchName = useMemo(() => {
-      if (restaurant.branchId === 'main') return 'فرع المدحتية';
-      return branches.find(b => b.id === restaurant.branchId)?.name || 'فرع مستقل';
-  }, [restaurant.branchId, branches]);
 
   const handleOpenRestaurant = () => {
     if (context) {
@@ -71,15 +62,7 @@ function RestaurantCardComponent({ restaurant, large = false }: RestaurantCardPr
           </div>
           
           <div className="flex flex-col gap-1 mt-1">
-            <div className="flex items-center gap-1 text-primary">
-                <MapPin className="h-3 w-3" />
-                <span className="text-[10px] font-black">{branchName}</span>
-            </div>
-            <div className="flex items-center gap-1 text-amber-500">
-                <Star className="h-4 w-4 fill-current" />
-                <span className="font-black text-foreground text-sm">{restaurant.rating.toFixed(1)}</span>
-                <span className="text-[10px] text-muted-foreground font-bold mr-1">(أكثر من 100 تقييم)</span>
-            </div>
+             <p className="text-[10px] text-muted-foreground font-bold">أسرع توصيل في منطقتك</p>
           </div>
         </div>
       </Card>
