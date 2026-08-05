@@ -64,7 +64,7 @@ export default function AddAddressPage() {
 
   const handleFetchLocation = () => {
     setIsFetchingLocation(true);
-    if (navigator.geolocation) {
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 setAddress(prev => ({
@@ -100,7 +100,6 @@ export default function AddAddressPage() {
     
     setIsSaving(true);
     try {
-        // الحفظ السحابي
         await addAddress(address);
         router.back();
     } catch (e) {
@@ -169,7 +168,7 @@ export default function AddAddressPage() {
                             <SelectValue placeholder="اختر مدينتك..." />
                         </SelectTrigger>
                         <SelectContent className="rounded-2xl shadow-2xl border-none">
-                            <SelectItem value="main" className="font-bold py-3">المركز الرئيسي (المدحتية - الهاشمية)</SelectItem>
+                            <SelectItem value="main" className="font-bold py-3">فرع المدحتية</SelectItem>
                             {branches.map((branch) => (
                                 <SelectItem key={branch.id} value={branch.id} className="font-bold py-3">{branch.name}</SelectItem>
                             ))}

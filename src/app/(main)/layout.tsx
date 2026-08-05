@@ -112,7 +112,6 @@ export default function MainAppLayout() {
 
     setIsSaving(true);
     try {
-        // خطوة سحرية: استرجاع الحساب القديم إذا وجدنا رقم الهاتف في فايربيس
         const existingUserId = await syncUserByPhone(newAddr.phone);
         
         await addAddress({
@@ -267,7 +266,7 @@ export default function MainAppLayout() {
                                             <SelectValue placeholder="اختر مدينتك..." />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-2xl border-none shadow-2xl">
-                                            <SelectItem value="main" className="font-bold py-3">المركز الرئيسي (المدحتية - الهاشمية)</SelectItem>
+                                            <SelectItem value="main" className="font-bold py-3">فرع المدحتية</SelectItem>
                                             {branches.map(b => (
                                                 <SelectItem key={b.id} value={b.id} className="font-bold py-3">{b.name}</SelectItem>
                                             ))}

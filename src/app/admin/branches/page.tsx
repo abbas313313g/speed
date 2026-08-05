@@ -15,14 +15,24 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trash2, PlusCircle, MapPin, Building2, Loader2, ExternalLink } from 'lucide-react';
+import { Trash2, PlusCircle, MapPin, Building2, Loader2, ExternalLink, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 export default function AdminBranchesPage() {
     const { branches, isLoading, addBranch, deleteBranch } = useBranches();
     const [name, setName] = useState("");
     const [location, setLocation] = useState("");
     const [isSaving, setIsSaving] = useState(false);
+    const [editBranch, setEditBranch] = useState<{id: string, name: string, locationName: string} | null>(null);
     const { toast } = useToast();
 
     const handleAdd = async () => {
@@ -34,8 +44,24 @@ export default function AdminBranchesPage() {
         setIsSaving(false);
     }
 
+    const handleUpdate = async () => {
+        if (!editBranch) return;
+        setIsSaving(true);
+        try {
+            await updateDoc(doc(db, "branches", editBranch.id), {
+                name: editBranch.name,
+                locationName: editBranch.locationName
+            });
+            toast({ title: "تم تحديث بيانات الفرع بنجاح" });
+            setEditBranch(null);
+        } catch (e) {
+            toast({ title: "فشل تحديث البيانات", variant: "destructive" });
+        } finally {
+            setIsSaving(false);
+        }
+    }
+
     const enterBranch = (id: string) => {
-        // نفتح رابط الفرع في نافذة جديدة أو نغير الفرع في اللوحة الحالية
         window.location.href = `/admin?branch=${id}`;
         toast({ title: "جاري الانتقال للفرع..." });
     }
@@ -82,6 +108,20 @@ export default function AdminBranchesPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
+                            <TableRow className="bg-primary/5">
+                                <TableCell className="font-bold flex items-center gap-2">
+                                    <div className="p-2 bg-primary/20 rounded-lg"><Building2 className="h-4 w-4 text-primary"/></div>
+                                    فرع المدحتية (الرئيسي)
+                                </TableCell>
+                                <TableCell className="font-bold text-muted-foreground">المدحتية</TableCell>
+                                <TableCell>
+                                    <div className="flex justify-center gap-2">
+                                        <Button variant="outline" size="sm" className="rounded-xl font-bold gap-2" onClick={() => enterBranch('main')}>
+                                            <ExternalLink className="h-4 w-4"/> دخول اللوحة
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
                             {branches.map((b) => (
                                 <TableRow key={b.id}>
                                     <TableCell className="font-bold flex items-center gap-2">
@@ -91,6 +131,9 @@ export default function AdminBranchesPage() {
                                     <TableCell className="font-bold text-muted-foreground">{b.locationName}</TableCell>
                                     <TableCell>
                                         <div className="flex justify-center gap-2">
+                                            <Button variant="outline" size="icon" className="rounded-lg" onClick={() => setEditBranch(b)}>
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
                                             <Button variant="outline" size="sm" className="rounded-xl font-bold gap-2" onClick={() => enterBranch(b.id)}>
                                                 <ExternalLink className="h-4 w-4"/> دخول اللوحة
                                             </Button>
@@ -105,6 +148,29 @@ export default function AdminBranchesPage() {
                     </Table>
                 </Card>
             </div>
+
+            <Dialog open={!!editBranch} onOpenChange={(v) => !v && setEditBranch(null)}>
+                <DialogContent className="sm:max-w-md rounded-[2rem]">
+                    <DialogHeader>
+                        <DialogTitle className="text-2xl font-black">تعديل بيانات الفرع</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-1">
+                            <Label className="font-bold">اسم الفرع</Label>
+                            <Input value={editBranch?.name || ''} onChange={(e) => editBranch && setEditBranch({...editBranch, name: e.target.value})} className="h-12 rounded-xl" />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="font-bold">الموقع</Label>
+                            <Input value={editBranch?.locationName || ''} onChange={(e) => editBranch && setEditBranch({...editBranch, locationName: e.target.value})} className="h-12 rounded-xl" />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button onClick={handleUpdate} className="w-full h-14 rounded-2xl text-lg font-black" disabled={isSaving}>
+                            {isSaving ? <Loader2 className="animate-spin h-5 w-5"/> : "حفظ التعديلات"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

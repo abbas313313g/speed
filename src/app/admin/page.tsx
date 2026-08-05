@@ -13,7 +13,6 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 export default function AdminDashboard({ branchId }: { branchId: string }) {
-  // العزل التام: نجلب فقط بيانات الفرع الحالي حتى في اللوحة الرئيسية
   const { products, approveProduct, deleteProduct, isLoading: pLoading } = useProducts(branchId);
   const { allOrders, isLoading: oLoading } = useOrders(branchId);
   const { branches, isLoading: bLoading } = useBranches();
@@ -36,8 +35,8 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="text-4xl font-black text-primary">إحصائيات {isMain ? 'المركز الرئيسي' : 'الفرع'}</h1>
-        <p className="text-muted-foreground font-bold">متابعة الأداء العملياتي لفرع: {branchId}</p>
+        <h1 className="text-4xl font-black text-primary">إحصائيات {isMain ? 'المدحتية' : 'الفرع'}</h1>
+        <p className="text-muted-foreground font-bold">متابعة الأداء العملياتي لفرع: {branchId === 'main' ? 'المدحتية' : branchId}</p>
       </header>
 
       <div className="grid gap-4 md:grid-cols-4">
