@@ -24,7 +24,7 @@ function RestaurantCardComponent({ restaurant, large = false }: RestaurantCardPr
   const imageUrl = restaurant.image && (restaurant.image.startsWith('http') || restaurant.image.startsWith('data:')) ? restaurant.image : 'https://picsum.photos/seed/speedr/400/400';
   
   const branchName = useMemo(() => {
-      if (restaurant.branchId === 'main') return 'المركز الرئيسي';
+      if (restaurant.branchId === 'main') return 'فرع المدحتية';
       return branches.find(b => b.id === restaurant.branchId)?.name || 'فرع مستقل';
   }, [restaurant.branchId, branches]);
 

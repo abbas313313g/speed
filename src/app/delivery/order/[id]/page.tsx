@@ -152,7 +152,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                     <CardHeader className="p-3 pb-1 border-b bg-primary/5 text-right"><CardTitle className="text-[10px] font-black text-primary">المتجر</CardTitle></CardHeader>
                     <CardContent className="p-3 space-y-2 text-right">
                          <p className="text-xs font-black truncate">{order.restaurant?.name || 'غير معروف'}</p>
-                         <p className="text-[9px] text-muted-foreground font-bold">فرع {order.branchId === 'main' ? 'المركز الرئيسي' : order.branchId}</p>
+                         <p className="text-[9px] text-muted-foreground font-bold">{order.branchId === 'main' ? 'فرع المدحتية' : order.branchId}</p>
                          <Button variant="ghost" size="sm" className="w-full h-9 rounded-xl text-[9px] font-black text-primary bg-primary/5" onClick={() => window.open(`https://www.google.com/maps?q=${order.restaurant?.latitude},${order.restaurant?.longitude}`, '_blank')}>
                             <Store className="ml-1 h-3.5 w-3.5"/> موقع المتجر
                          </Button>
