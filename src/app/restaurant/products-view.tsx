@@ -5,7 +5,7 @@ import { useContext, useMemo, useState, useRef, useEffect } from 'react';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useProducts } from '@/hooks/useProducts';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Plus, Search, Trash2, PackageOpen, Loader2, Info, Edit3, Eye, EyeOff, X, Upload } from 'lucide-react';
+import { ArrowRight, Plus, Search, Trash2, PackageOpen, Loader2, Info, Edit3, Eye, EyeOff, X, Upload, Tag } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -68,7 +68,11 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
             stock: product.stock || 0,
             isActive: product.isActive ?? true,
             isUnlimitedStock: product.isUnlimitedStock ?? false,
-            sizes: (product.sizes || []).map((s: any) => ({ ...s, isActive: s.isActive ?? true }))
+            sizes: (product.sizes || []).map((s: any) => ({ 
+                ...s, 
+                isActive: s.isActive ?? true,
+                isUnlimited: s.isUnlimited ?? false 
+            }))
         });
         setIsAdding(true);
     };
@@ -94,7 +98,6 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
     const handleToggleVisibility = async (product: any) => {
         try {
             const currentStatus = product.isActive ?? true;
-            // نرسل فقط المعرف والحالة الجديدة لضمان عدم تأثر باقي الحقول كالسعر
             await updateProduct({ id: product.id, isActive: !currentStatus }, false);
             toast({ title: currentStatus ? "تم إخفاء المنتج" : "تم تفعيل عرض المنتج" });
         } catch (e) {
@@ -170,43 +173,49 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {filteredMyProducts.map(p => (
-                        <Card key={p.id} className={cn("rounded-2xl border-none shadow-md overflow-hidden bg-white transition-all hover:shadow-lg", !(p.isActive ?? true) && "grayscale opacity-70")}>
-                            <div className="relative aspect-video">
-                                <Image src={p.image || 'https://placehold.co/100x60.png'} fill className="object-cover" alt={p.name} unoptimized={true} />
-                                <div className="absolute top-1 left-1 flex flex-col gap-1">
-                                    <Badge className={cn("rounded-lg text-[8px] px-1.5 py-0", p.status === 'approved' ? "bg-green-500" : "bg-orange-500")}>
-                                        {p.status === 'approved' ? 'نشط' : 'معلق'}
-                                    </Badge>
-                                    {!(p.isActive ?? true) && <Badge className="bg-destructive rounded-lg text-[8px] px-1.5 py-0">مخفي</Badge>}
-                                </div>
-                            </div>
-                            <div className="p-3 text-right space-y-2">
-                                <h3 className="font-black text-sm truncate leading-none">{p.name}</h3>
-                                <div className="font-black text-primary text-xs">
-                                     {p.sizes && p.sizes.length > 0 ? (
-                                         <span>تبدأ من {formatCurrency(Math.min(...p.sizes.filter(s => s.isActive !== false).map((s:any)=>s.price)) || p.price)}</span>
-                                     ) : formatCurrency(p.price)}
-                                </div>
-                                <div className="flex justify-between items-center pt-2 border-t border-muted">
-                                    <div className="flex gap-1">
-                                        <button className="p-2 text-primary bg-primary/5 rounded-lg" onClick={() => handleOpenEdit(p)}>
-                                            <Edit3 className="h-4 w-4"/>
-                                        </button>
-                                        <button className={cn("p-2 rounded-lg", (p.isActive ?? true) ? "text-orange-500 bg-orange-50" : "text-green-500 bg-green-50")} onClick={() => handleToggleVisibility(p)}>
-                                            {(p.isActive ?? true) ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
-                                        </button>
-                                        <button className="p-2 text-destructive bg-destructive/5 rounded-lg" onClick={() => deleteProduct(p.id)}>
-                                            <Trash2 className="h-4 w-4"/>
-                                        </button>
+                    {filteredMyProducts.map(p => {
+                         const hasSizes = p.sizes && p.sizes.length > 0;
+                         const activeSizes = p.sizes?.filter(s => s.isActive !== false) || [];
+                         const startingPrice = hasSizes ? Math.min(...activeSizes.map((s:any)=>s.price)) : p.price;
+
+                         return (
+                            <Card key={p.id} className={cn("rounded-2xl border-none shadow-md overflow-hidden bg-white transition-all hover:shadow-lg", !(p.isActive ?? true) && "grayscale opacity-70")}>
+                                <div className="relative aspect-video">
+                                    <Image src={p.image || 'https://placehold.co/100x60.png'} fill className="object-cover" alt={p.name} unoptimized={true} />
+                                    <div className="absolute top-1 left-1 flex flex-col gap-1">
+                                        <Badge className={cn("rounded-lg text-[8px] px-1.5 py-0", p.status === 'approved' ? "bg-green-500" : "bg-orange-500")}>
+                                            {p.status === 'approved' ? 'نشط' : 'معلق'}
+                                        </Badge>
+                                        {!(p.isActive ?? true) && <Badge className="bg-destructive rounded-lg text-[8px] px-1.5 py-0">مخفي</Badge>}
                                     </div>
-                                    <span className="text-[8px] font-black text-muted-foreground">
-                                        {p.sizes?.length > 0 ? `${p.sizes.filter(s => s.isActive !== false).length} نشط` : `المخزن: ${p.stock}`}
-                                    </span>
                                 </div>
-                            </div>
-                        </Card>
-                    ))}
+                                <div className="p-3 text-right space-y-2">
+                                    <h3 className="font-black text-sm truncate leading-none">{p.name}</h3>
+                                    <div className="font-black text-primary text-xs">
+                                         {hasSizes ? (
+                                             <span>تبدأ من {formatCurrency(startingPrice || p.price)}</span>
+                                         ) : formatCurrency(p.price)}
+                                    </div>
+                                    <div className="flex justify-between items-center pt-2 border-t border-muted">
+                                        <div className="flex gap-1">
+                                            <button className="p-2 text-primary bg-primary/5 rounded-lg" onClick={() => handleOpenEdit(p)}>
+                                                <Edit3 className="h-4 w-4"/>
+                                            </button>
+                                            <button className={cn("p-2 rounded-lg", (p.isActive ?? true) ? "text-orange-500 bg-orange-50" : "text-green-500 bg-green-50")} onClick={() => handleToggleVisibility(p)}>
+                                                {(p.isActive ?? true) ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
+                                            </button>
+                                            <button className="p-2 text-destructive bg-destructive/5 rounded-lg" onClick={() => deleteProduct(p.id)}>
+                                                <Trash2 className="h-4 w-4"/>
+                                            </button>
+                                        </div>
+                                        <span className="text-[8px] font-black text-muted-foreground">
+                                            {hasSizes ? `${activeSizes.length} نشط` : (p.isUnlimitedStock ? 'كمية مفتوحة' : `المخزن: ${p.stock}`)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </Card>
+                         );
+                    })}
                 </div>
             </main>
 
@@ -220,67 +229,76 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                         <div className="space-y-6 py-2 text-right pb-10">
                             <div className="space-y-1">
                                 <Label className="font-bold pr-1">اسم المنتج</Label>
-                                <Input value={currentP.name} onChange={(e)=>setCurrentP({...currentP, name: e.target.value})} className="h-11 rounded-xl" placeholder="اسم الوجبة أو المادة..." />
+                                <Input value={currentP.name} onChange={(e)=>setCurrentP({...currentP, name: e.target.value})} className="h-11 rounded-xl" placeholder="الوجبة..." />
                             </div>
 
                             <Separator className="opacity-50" />
 
                             <div className="space-y-4 bg-muted/20 p-4 rounded-[2rem] border-2 border-dashed border-primary/20">
                                 <div className="flex justify-between items-center">
-                                    <Label className="font-black text-primary">الأحجام والأنواع</Label>
+                                    <Label className="font-black text-primary flex items-center gap-2"><Tag className="h-4 w-4"/> الأنواع والأحجام</Label>
                                     <Button variant="outline" size="sm" onClick={handleAddSize} className="rounded-lg h-9 text-xs font-bold gap-1 border-primary/40 text-primary">
-                                        <Plus className="h-3 w-3"/> إضافة حجم/نوع
+                                        <Plus className="h-3 w-3"/> إضافة نوع
                                     </Button>
                                 </div>
+                                
                                 {currentP.sizes.length > 0 ? (
                                     <div className="space-y-3">
                                         {currentP.sizes.map((s, i) => (
                                             <div key={i} className={cn("flex flex-col gap-2 bg-white p-2 rounded-2xl border shadow-sm", !(s.isActive ?? true) && "opacity-60 bg-slate-50")}>
                                                 <div className="flex gap-2 items-center">
-                                                    <div className="flex-1 space-y-1">
-                                                        <Input placeholder="الاسم" value={s.name} onChange={(e)=>handleSizeChange(i, 'name', e.target.value)} className="h-9 text-[10px] rounded-xl w-full" />
-                                                    </div>
-                                                    <Input type="number" placeholder="السعر" value={s.price || ''} onChange={(e)=>handleSizeChange(i, 'price', e.target.value)} className="h-9 text-[10px] rounded-xl w-16" />
-                                                    <Input type="number" disabled={s.isUnlimited} placeholder="مخزن" value={s.isUnlimited ? '' : (s.stock || '')} onChange={(e)=>handleSizeChange(i, 'stock', e.target.value)} className="h-9 text-[10px] rounded-xl w-12" />
+                                                    <Input placeholder="الاسم (مثلاً: صغير)" value={s.name} onChange={(e)=>handleSizeChange(i, 'name', e.target.value)} className="h-9 text-[10px] rounded-xl flex-1" />
+                                                    <Input type="number" placeholder="السعر" value={s.price || ''} onChange={(e)=>handleSizeChange(i, 'price', e.target.value)} className="h-9 text-[10px] rounded-xl w-16 font-black text-primary" />
                                                     <Button variant="ghost" size="icon" onClick={()=>handleRemoveSize(i)} className="text-destructive h-8 w-8 hover:bg-destructive/10 rounded-lg"><X className="h-4 w-4"/></Button>
                                                 </div>
                                                 <div className="flex items-center justify-between px-1">
                                                     <div className="flex items-center gap-2">
-                                                        <Switch checked={s.isActive ?? true} onCheckedChange={(v)=>handleSizeChange(i, 'isActive', v)} className="scale-75" />
-                                                        <span className={cn("text-[8px] font-black", (s.isActive ?? true) ? "text-green-600" : "text-destructive")}>
-                                                            {(s.isActive ?? true) ? "معروض للزبائن" : "مخفي الآن"}
-                                                        </span>
+                                                        <Label className="text-[9px] font-bold">المخزن:</Label>
+                                                        <Input 
+                                                            type="number" 
+                                                            disabled={s.isUnlimited} 
+                                                            placeholder="0" 
+                                                            value={s.isUnlimited ? '' : (s.stock || '')} 
+                                                            onChange={(e)=>handleSizeChange(i, 'stock', e.target.value)} 
+                                                            className="h-7 text-[10px] rounded-lg w-12 text-center" 
+                                                        />
                                                     </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <Switch checked={s.isUnlimited} onCheckedChange={(v)=>handleSizeChange(i, 'isUnlimited', v)} className="scale-75" />
-                                                        <span className="text-[8px] font-black text-primary">كمية مفتوحة</span>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex items-center gap-1">
+                                                            <Switch checked={s.isUnlimited} onCheckedChange={(v)=>handleSizeChange(i, 'isUnlimited', v)} className="scale-75" />
+                                                            <span className="text-[8px] font-black text-primary">مفتوح</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <Switch checked={s.isActive ?? true} onCheckedChange={(v)=>handleSizeChange(i, 'isActive', v)} className="scale-75" />
+                                                            <span className={cn("text-[8px] font-black", (s.isActive ?? true) ? "text-green-600" : "text-destructive")}>نشط</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-2 gap-3 bg-white p-4 rounded-2xl border">
                                         <div className="space-y-1">
                                             <Label className="text-[10px] font-bold pr-1">السعر (IQD)</Label>
                                             <Input type="number" value={currentP.price || ''} onChange={(e)=>setCurrentP({...currentP, price: parseFloat(e.target.value) || 0})} className="h-11 rounded-xl font-black text-primary" />
                                         </div>
                                         <div className="space-y-1">
-                                            <Label className="text-[10px] font-bold pr-1">الكمية</Label>
-                                            <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
+                                            <Label className="text-[10px] font-bold pr-1">المخزن</Label>
+                                            <div className="flex items-center gap-2">
                                                 <Input 
                                                     type="number" 
                                                     disabled={currentP.isUnlimitedStock} 
                                                     value={currentP.isUnlimitedStock ? '' : (currentP.stock || '')} 
                                                     onChange={(e)=>setCurrentP({...currentP, stock: parseInt(e.target.value) || 0})} 
-                                                    className="h-8 rounded-lg flex-1 border-none shadow-none text-xs" 
+                                                    className="h-11 rounded-xl flex-1" 
                                                     placeholder="0"
                                                 />
-                                                <div className="flex items-center gap-1 border-r pr-1">
-                                                    <Switch checked={currentP.isUnlimitedStock} onCheckedChange={(v)=>setCurrentP({...currentP, isUnlimitedStock: v})} className="scale-75" />
-                                                    <span className="text-[8px] font-black">مفتوح</span>
-                                                </div>
                                             </div>
+                                        </div>
+                                        <div className="col-span-2 flex items-center justify-between p-2 bg-muted/20 rounded-xl">
+                                            <span className="text-[10px] font-black">تفعيل الكمية المفتوحة (لا تنفد)</span>
+                                            <Switch checked={currentP.isUnlimitedStock} onCheckedChange={(v)=>setCurrentP({...currentP, isUnlimitedStock: v})} />
                                         </div>
                                     </div>
                                 )}
@@ -290,13 +308,13 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
 
                             <div className="space-y-1">
                                 <Label className="font-bold pr-1">وصف المنتج</Label>
-                                <Input value={currentP.description} onChange={(e)=>setCurrentP({...currentP, description: e.target.value})} className="h-11 rounded-xl" placeholder="مثال: لحم بلدي، مقرمش، كبير..." />
+                                <Input value={currentP.description} onChange={(e)=>setCurrentP({...currentP, description: e.target.value})} className="h-11 rounded-xl" placeholder="وصف سريع..." />
                             </div>
 
                             <div className="space-y-2">
                                 <Label className="font-bold pr-1">صورة المنتج</Label>
                                 <div className="flex gap-2">
-                                    <Input value={currentP.image} onChange={(e)=>setCurrentP({...currentP, image: e.target.value})} className="h-11 rounded-xl" placeholder="رابط الصورة أو ارفع..." />
+                                    <Input value={currentP.image} onChange={(e)=>setCurrentP({...currentP, image: e.target.value})} className="h-11 rounded-xl" placeholder="رابط الصورة..." />
                                     <Button variant="outline" size="icon" className="rounded-xl h-11 w-12 shrink-0 border-primary text-primary" onClick={()=>fileRef.current?.click()}>
                                         <Upload className="h-5 w-5" />
                                     </Button>
