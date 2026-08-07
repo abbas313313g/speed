@@ -17,15 +17,15 @@ export interface Address {
     latitude?: number;
     longitude?: number;
     details?: string; 
-    branchId?: string; // لربط العنوان بالفرع
+    branchId?: string; 
 }
 
 export interface ProductSize {
   name: string;
   price: number;
   stock: number;
-  isUnlimited?: boolean; // دعم الكمية المفتوحة للحجم
-  isActive?: boolean; // حالة الحجم (مفعل أو مخفي)
+  isUnlimited?: boolean; 
+  isActive?: boolean; 
 }
 
 export interface Product {
@@ -38,7 +38,8 @@ export interface Product {
   sizes?: ProductSize[];
   stock: number;
   image: string;
-  categoryId: string;
+  categoryId: string; // الفئة العامة (مطعم، ماركت...)
+  storeSectionId?: string; // القسم الداخلي للمتجر (بيتزا، مشروبات...)
   restaurantId: string;
   status: 'approved' | 'pending';
   branchId: string;
@@ -67,6 +68,8 @@ export interface Restaurant {
   loginCode: string;
   commissionRate: number;
   branchId: string;
+  categoryId: string; // الفئة العامة التي ينتمي لها المتجر
+  menuSections?: string[]; // قائمة الأقسام الداخلية للمتجر (نصوص)
 }
 
 export interface Branch {
@@ -92,7 +95,7 @@ export interface CartItem {
 export interface DeliveryZone {
   id: string;
   name: string;
-  branchId: string; // ربط المنطقة بالفرع
+  branchId: string; 
 }
 
 export interface DeliveryWorker {

@@ -1,26 +1,44 @@
+
 "use client";
 
-import { useMemo, useContext } from 'react';
+import { useMemo, useContext, useState } from 'react';
 import { ProductCard } from '@/components/ProductCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
-import { ArrowRight, MapPin, Clock } from 'lucide-react';
+import { ArrowRight, Clock, Search, LayoutGrid, PackageOpen } from 'lucide-react';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useProducts } from '@/hooks/useProducts';
 import { Badge } from '@/components/ui/badge';
 import { AppContext } from '@/contexts/AppContext';
-import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function RestaurantProductsPage() {
   const context = useContext(AppContext);
   const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
   const { products, isLoading: productsLoading } = useProducts();
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeSection, setActiveSection] = useState('all');
 
   if (!context) return null;
   const { selectedRestaurantId, setActiveTab } = context;
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === selectedRestaurantId), [selectedRestaurantId, restaurants]);
-  const restaurantProducts = useMemo(() => products.filter(p => p.restaurantId === selectedRestaurantId), [selectedRestaurantId, products]);
+  
+  const restaurantProducts = useMemo(() => {
+      let list = products.filter(p => p.restaurantId === selectedRestaurantId && p.status === 'approved' && p.isActive !== false);
+      
+      if (activeSection !== 'all') {
+          list = list.filter(p => p.storeSectionId === activeSection);
+      }
+      
+      if (searchTerm.trim() !== '') {
+          list = list.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+      }
+      
+      return list;
+  }, [selectedRestaurantId, products, activeSection, searchTerm]);
   
   const isLoading = restaurantsLoading || productsLoading;
 
@@ -34,37 +52,36 @@ export default function RestaurantProductsPage() {
                     <Skeleton className="h-6 w-24" />
                 </div>
             </div>
+            <Skeleton className="h-12 w-full rounded-2xl" />
+            <div className="grid grid-cols-2 gap-4">
+                <Skeleton className="h-64 w-full rounded-3xl" />
+                <Skeleton className="h-64 w-full rounded-3xl" />
+            </div>
         </div>
     );
   }
 
   if (!restaurant) {
-      return <div className="text-center py-10 font-bold">لم يتم اختيار متجر بعد.</div>
+      return <div className="text-center py-20 font-bold">لم يتم اختيار متجر بعد.</div>
   }
 
   const imageUrl = restaurant.image && (restaurant.image.startsWith('http') || restaurant.image.startsWith('data:')) ? restaurant.image : 'https://placehold.co/100x100.png';
 
-  const handleOpenMap = () => {
-    if (restaurant.latitude && restaurant.longitude) {
-      window.open(`https://www.google.com/maps?q=${restaurant.latitude},${restaurant.longitude}`, '_blank');
-    }
-  };
-
   return (
-    <div className="p-4 space-y-6 bg-background h-full overflow-y-auto pb-20">
+    <div className="p-4 space-y-6 bg-background h-full overflow-y-auto pb-32">
        <header className="flex items-center gap-4">
             <button 
                 onClick={() => setActiveTab(1)} 
-                className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all"
+                className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all shadow-sm"
             >
                 <ArrowRight className="h-6 w-6"/>
             </button>
-            <h1 className="text-3xl font-black text-primary">{restaurant.name}</h1>
+            <h1 className="text-2xl font-black text-slate-800 truncate">{restaurant.name}</h1>
       </header>
 
-      <div className="flex flex-col p-5 rounded-[2rem] bg-card border-none shadow-md gap-4">
-         <div className="flex items-start gap-4">
-            <div className="relative h-24 w-24 flex-shrink-0">
+      <div className="flex flex-col p-5 rounded-[2.5rem] bg-card border-none shadow-md gap-4">
+         <div className="flex items-center gap-4">
+            <div className="relative h-20 w-20 flex-shrink-0">
               <Image
                 src={imageUrl}
                 alt={restaurant.name}
@@ -73,33 +90,61 @@ export default function RestaurantProductsPage() {
                 unoptimized={true}
               />
             </div>
-            <div className="space-y-2 flex-grow">
-                <Badge variant={restaurant.isStoreOpen ? 'secondary' : 'destructive'} className={`rounded-xl text-sm font-bold ${restaurant.isStoreOpen ? "bg-green-100 text-green-800" : ""}`}>
+            <div className="space-y-1 flex-grow">
+                <Badge variant={restaurant.isStoreOpen ? 'secondary' : 'destructive'} className={`rounded-xl text-[10px] font-black ${restaurant.isStoreOpen ? "bg-green-100 text-green-800" : ""}`}>
                   {restaurant.isStoreOpen ? 'مفتوح الآن' : 'مغلق حاليًا'}
                 </Badge>
                 {restaurant.openTime && restaurant.closeTime && (
-                    <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground pt-2">
-                        <Clock className="h-4 w-4 text-primary"/>
+                    <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground">
+                        <Clock className="h-3 w-3 text-primary"/>
                         <span>{restaurant.openTime} - {restaurant.closeTime}</span>
                     </div>
                 )}
             </div>
          </div>
-         
-         {restaurant.latitude && restaurant.longitude && (
-           <Button 
-            variant="outline" 
-            className="w-full h-12 rounded-xl border-primary/20 text-primary font-bold gap-2"
-            onClick={handleOpenMap}
-           >
-             <MapPin className="h-5 w-5" />
-             عرض موقع المتجر على الخريطة
-           </Button>
-         )}
       </div>
 
-       <div className="space-y-6">
-        <h2 className="text-2xl font-black text-primary">قائمة المنتجات</h2>
+      <div className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input 
+                placeholder={`ابحث في منيو ${restaurant.name}...`}
+                className="pl-10 h-12 rounded-2xl border-2 font-bold shadow-sm"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          {restaurant.menuSections && restaurant.menuSections.length > 0 && (
+              <Tabs value={activeSection} onValueChange={setActiveSection} className="w-full">
+                  <div className="overflow-x-auto scrollbar-hide">
+                      <TabsList className="flex w-max h-auto bg-transparent gap-2 p-0">
+                          <TabsTrigger 
+                              value="all" 
+                              className="h-10 px-5 rounded-xl font-black data-[state=active]:bg-primary data-[state=active]:text-white border-2 border-muted"
+                          >
+                              الكل
+                          </TabsTrigger>
+                          {restaurant.menuSections.map((section) => (
+                              <TabsTrigger 
+                                  key={section} 
+                                  value={section}
+                                  className="h-10 px-5 rounded-xl font-black data-[state=active]:bg-primary data-[state=active]:text-white border-2 border-muted"
+                              >
+                                  {section}
+                              </TabsTrigger>
+                          ))}
+                      </TabsList>
+                  </div>
+              </Tabs>
+          )}
+      </div>
+
+       <div className="space-y-4">
+        <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+            <LayoutGrid className="h-5 w-5 text-primary"/>
+            قائمة المنتجات
+        </h2>
         {restaurantProducts && restaurantProducts.length > 0 ? (
              <div className="grid grid-cols-2 gap-4">
                 {restaurantProducts.map((product) => (
@@ -107,8 +152,9 @@ export default function RestaurantProductsPage() {
                 ))}
              </div>
         ): (
-            <div className="text-center py-12 bg-muted/10 rounded-[2rem] border-2 border-dashed">
-                <p className="text-muted-foreground font-bold">لا توجد منتجات متوفرة حالياً في هذا المتجر.</p>
+            <div className="text-center py-20 bg-muted/10 rounded-[2.5rem] border-2 border-dashed">
+                <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/20 mb-2" />
+                <p className="text-muted-foreground font-black">لا توجد نتائج مطابقة لبحثك.</p>
             </div>
         )}
       </div>
