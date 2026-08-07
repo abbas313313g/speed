@@ -11,9 +11,10 @@ import { cn } from "@/lib/utils";
 interface RestaurantCardProps {
   restaurant: Restaurant;
   large?: boolean;
+  compact?: boolean; // وضعية الحجم المتوسط للصفوف الأفقية
 }
 
-function RestaurantCardComponent({ restaurant, large = false }: RestaurantCardProps) {
+function RestaurantCardComponent({ restaurant, large = false, compact = false }: RestaurantCardProps) {
   const context = useContext(AppContext);
   const [isImgLoading, setIsImgLoading] = useState(true);
   
@@ -25,6 +26,38 @@ function RestaurantCardComponent({ restaurant, large = false }: RestaurantCardPr
         context.setActiveTab(10); 
     }
   };
+
+  // الوضع المدمج (Compact) المستخدم في الصفوف الأفقية
+  if (compact) {
+      return (
+        <div onClick={handleOpenRestaurant} className="group cursor-pointer w-[240px] shrink-0">
+            <Card className="overflow-hidden border-none shadow-md bg-card transition-all active:scale-95 p-3 rounded-[2rem]">
+                <div className={cn(
+                    "relative w-full aspect-[4/3] overflow-hidden rounded-2xl mb-3",
+                    isImgLoading && "animate-pulse bg-muted"
+                )}>
+                    <Image
+                        src={imageUrl}
+                        alt={restaurant.name}
+                        fill
+                        className={cn("object-cover transition-all duration-700", isImgLoading ? "blur-xl scale-110" : "blur-0 scale-100")}
+                        unoptimized={true}
+                        onLoadingComplete={() => setIsImgLoading(false)}
+                    />
+                    {!restaurant.isStoreOpen && (
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                            <Badge variant="destructive" className="text-[8px] font-black px-2 py-0.5 rounded-lg">مغلق</Badge>
+                        </div>
+                    )}
+                </div>
+                <div className="text-right px-1">
+                    <CardTitle className="font-black text-slate-800 text-sm truncate">{restaurant.name}</CardTitle>
+                    <p className="text-[9px] text-muted-foreground font-bold mt-1">توصيل سريع 🚀</p>
+                </div>
+            </Card>
+        </div>
+      );
+  }
 
   return (
     <div onClick={handleOpenRestaurant} className="group cursor-pointer w-full">
