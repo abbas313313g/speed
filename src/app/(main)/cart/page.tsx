@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -159,7 +160,7 @@ export default function CartPage() {
               </div>
               <div className="flex-grow min-w-0">
                 <h3 className="font-black text-sm truncate">{product.name}</h3>
-                {selectedSize && <Badge variant="secondary" className="text-[10px] font-black">{selectedSize.name}</Badge>}
+                {selectedSize && <Badge variant="secondary" className="text-[9px] font-black">{selectedSize.name}</Badge>}
                 <p className="text-primary font-black text-lg mt-1">
                   {formatCurrency(itemPrice)}
                 </p>
@@ -231,9 +232,9 @@ export default function CartPage() {
                 <span className="text-foreground">{formatCurrency(cartTotal)}</span>
             </div>
             <div className="flex justify-between items-center text-muted-foreground">
-                <div className="flex flex-col">
+                <div className="flex flex-col text-right">
                     <span>أجور التوصيل:</span>
-                    {displayDistance && <span className="text-[10px] flex items-center gap-1"><MapPin className="h-3 w-3"/>{displayDistance}</span>}
+                    {displayDistance && <span className="text-[10px] flex items-center gap-1 justify-end"><MapPin className="h-3 w-3"/>{displayDistance}</span>}
                 </div>
                 <span className={cn("text-foreground", isDistanceTooFar && "text-destructive")}>{formatCurrency(deliveryFee)}</span>
             </div>

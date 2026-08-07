@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import {
   Table,
@@ -33,7 +33,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { Star, Edit, Trash2, Loader2, MapPin, Upload, Percent, Clock, LayoutGrid, Tags } from 'lucide-react';
+import { Star, Edit, Trash2, Loader2, MapPin, Upload, Plus, X, Tags } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
@@ -41,7 +41,6 @@ import { useRestaurants } from '@/hooks/useRestaurants';
 import { useCategories } from '@/hooks/useCategories';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 
 const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     restaurantNumber: '',
@@ -66,49 +65,81 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
   
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentStore, setCurrentStore] = useState<Partial<Restaurant> & {image?:string, sectionsText?: string}>({ ...EMPTY_STORE });
+  const [currentStore, setCurrentStore] = useState<Partial<Restaurant> & {image?:string}>({ ...EMPTY_STORE });
   const [isSaving, setIsSaving] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [newSection, setNewSection] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenDialog = (store?: Restaurant) => {
       if (store) {
           setIsEditing(true);
-          setCurrentStore({ 
-              ...store, 
-              sectionsText: store.menuSections?.join(', ') || '' 
-          });
+          setCurrentStore({ ...store });
       } else {
           setIsEditing(false);
-          setCurrentStore({ ...EMPTY_STORE, branchId, sectionsText: '' });
+          setCurrentStore({ ...EMPTY_STORE, branchId, menuSections: [] });
       }
+      setNewSection('');
       setOpen(true);
+  };
+
+  const addSection = () => {
+    if (!newSection.trim()) return;
+    const sections = [...(currentStore.menuSections || [])];
+    if (sections.includes(newSection.trim())) {
+        toast({ title: "هذا القسم موجود مسبقاً", variant: "destructive" });
+        return;
+    }
+    sections.push(newSection.trim());
+    setCurrentStore({ ...currentStore, menuSections: sections });
+    setNewSection('');
+  };
+
+  const removeSection = (idx: number) => {
+    const sections = [...(currentStore.menuSections || [])];
+    sections.splice(idx, 1);
+    setCurrentStore({ ...currentStore, menuSections: sections });
+  };
+
+  const handleFetchLocation = () => {
+    setIsLocating(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCurrentStore({
+            ...currentStore,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+          toast({ title: "تم التقاط إحداثيات المتجر بدقة ✅" });
+          setIsLocating(false);
+        },
+        () => {
+          toast({ title: "فشل تحديد الموقع", variant: "destructive" });
+          setIsLocating(false);
+        },
+        { enableHighAccuracy: true }
+      );
+    }
   };
 
   const handleSave = async () => {
     if (!currentStore.name || !currentStore.image || !currentStore.loginCode || !currentStore.restaurantNumber || !currentStore.categoryId) {
-        toast({ title: "بيانات ناقصة", description: "الرجاء اختيار فئة المتجر وإكمال الحقول المطلوبة.", variant: "destructive" }); 
+        toast({ title: "بيانات ناقصة", description: "الرجاء إكمال كافة الحقول المطلوبة.", variant: "destructive" }); 
         return;
     }
     
     setIsSaving(true);
     try {
-        const sections = currentStore.sectionsText 
-            ? currentStore.sectionsText.split(',').map(s => s.trim()).filter(s => s !== '') 
-            : [];
-
         const storeToSave = { 
             ...currentStore, 
             branchId: branchId || 'main',
             rating: Number(currentStore.rating) || 5,
             commissionRate: Number(currentStore.commissionRate) || 10,
             latitude: Number(currentStore.latitude),
-            longitude: Number(currentStore.longitude),
-            menuSections: sections
+            longitude: Number(currentStore.longitude)
         };
         
-        delete (storeToSave as any).sectionsText;
-
         if (isEditing && currentStore.id) {
             await updateRestaurant(storeToSave as any);
         } else {
@@ -129,7 +160,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
       <header className="flex justify-between items-center">
         <div>
             <h1 className="text-3xl font-black text-primary">إدارة المتاجر</h1>
-            <p className="text-muted-foreground font-bold">تخصيص الفئات والأقسام الداخلية لكل متجر.</p>
+            <p className="text-muted-foreground font-bold">تخصيص الفئات، الأقسام، والموقع الجغرافي للمتجر.</p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="rounded-xl h-12 px-6 font-bold shadow-lg">
             إضافة متجر جديد
@@ -160,15 +191,50 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                     </div>
                 </div>
 
-                <div className="space-y-1 bg-muted/20 p-4 rounded-2xl border-2 border-dashed">
+                <div className="space-y-4 bg-muted/20 p-5 rounded-[2rem] border-2 border-dashed">
                     <Label className="font-black flex items-center gap-2"><Tags className="h-4 w-4 text-primary"/> أقسام المنيو الداخلية</Label>
-                    <Textarea 
-                        value={currentStore.sectionsText} 
-                        onChange={(e) => setCurrentStore({...currentStore, sectionsText: e.target.value})}
-                        placeholder="مثال: بيتزا، برجر، مقبلات، مشروبات (افصل بينهم بفاصلة)"
-                        className="rounded-xl mt-2 font-bold"
-                    />
-                    <p className="text-[10px] text-muted-foreground font-bold italic mt-1">هذه الأقسام ستظهر للمستخدم داخل المتجر لتصفية المنتجات.</p>
+                    
+                    <div className="flex gap-2">
+                        <Input 
+                            value={newSection} 
+                            onChange={(e) => setNewSection(e.target.value)}
+                            placeholder="اكتب اسم القسم (مثل: بيتزا)..."
+                            className="rounded-xl h-11 font-bold bg-white"
+                            onKeyDown={(e) => e.key === 'Enter' && addSection()}
+                        />
+                        <Button type="button" onClick={addSection} className="rounded-xl h-11 font-black">إضافة</Button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                        {currentStore.menuSections?.map((s, idx) => (
+                            <div key={idx} className="bg-white border-2 border-primary/20 px-3 py-1.5 rounded-xl flex items-center gap-2 animate-in zoom-in duration-200">
+                                <span className="text-xs font-black">{s}</span>
+                                <button onClick={() => removeSection(idx)} className="text-destructive hover:scale-125 transition-transform"><X className="h-3.5 w-3.5"/></button>
+                            </div>
+                        ))}
+                        {(!currentStore.menuSections || currentStore.menuSections.length === 0) && (
+                            <p className="text-[10px] text-muted-foreground font-bold italic">لم يتم إضافة أقسام مخصصة لهذا المتجر بعد.</p>
+                        )}
+                    </div>
+                </div>
+
+                <div className="bg-primary/5 p-5 rounded-[2rem] border-2 border-primary/10 space-y-4">
+                    <Label className="font-black flex items-center gap-2 text-primary"><MapPin className="h-4 w-4"/> الموقع الجغرافي (للتوصيل)</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <Label className="text-[10px] font-bold">خط العرض (Lat)</Label>
+                            <Input value={currentStore.latitude ?? ''} onChange={(e)=>setCurrentStore({...currentStore, latitude: parseFloat(e.target.value) || 0})} className="h-10 rounded-xl bg-white text-center font-mono text-xs" dir="ltr" />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-[10px] font-bold">خط الطول (Lng)</Label>
+                            <Input value={currentStore.longitude ?? ''} onChange={(e)=>setCurrentStore({...currentStore, longitude: parseFloat(e.target.value) || 0})} className="h-10 rounded-xl bg-white text-center font-mono text-xs" dir="ltr" />
+                        </div>
+                    </div>
+                    <Button type="button" variant="outline" className="w-full h-11 rounded-xl font-black gap-2 border-primary/40 text-primary" onClick={handleFetchLocation} disabled={isLocating}>
+                        {isLocating ? <Loader2 className="animate-spin h-4 w-4"/> : <MapPin className="h-4 w-4"/>}
+                        تحديد الموقع الحالي (GPS)
+                    </Button>
+                    <p className="text-[9px] text-muted-foreground font-bold text-center">ملاحظة: هذا الموقع مخفي عن الزبون ويستخدم فقط لحساب سعر التوصيل والمسافة.</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -181,8 +247,6 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                         <Input value={currentStore.restaurantNumber ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, restaurantNumber: e.target.value })} className="rounded-xl h-12 text-center" dir="ltr" />
                     </div>
                 </div>
-
-                <Separator />
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
@@ -249,7 +313,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                             </div>
                         </TableCell>
                         <TableCell>
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap gap-1 max-w-[200px]">
                                 {store.menuSections?.map(s => <Badge key={s} variant="outline" className="text-[8px] px-1.5 py-0">{s}</Badge>) || '-'}
                             </div>
                         </TableCell>
