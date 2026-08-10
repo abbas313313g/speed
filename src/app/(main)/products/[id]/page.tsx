@@ -175,7 +175,7 @@ export default function ProductDetailPage() {
                     </div>
                 </div>
 
-                <p className="text-muted-foreground text-sm font-medium leading-relaxed bg-muted/20 p-4 rounded-2xl border-r-4 border-primary">
+                <p className="text-muted-foreground text-sm font-medium leading-relaxed bg-muted/20 p-4 rounded-2xl border-r-4 border-primary whitespace-pre-wrap">
                     {product.description || "استمتع بمذاق لا يقاوم مع هذا المنتج المميز المحضر بعناية فائقة."}
                 </p>
 

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useRef, useMemo } from 'react';
@@ -48,6 +47,7 @@ import type { Product, ProductSize } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import React from 'react';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
@@ -376,8 +376,8 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                         </div>
                         
                         <div className="space-y-2">
-                            <Label className="font-bold pr-1">الوصف</Label>
-                            <Input value={currentProduct.description ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, description: e.target.value})} className="rounded-xl h-11" placeholder="اكتب وصفاً قصيراً..." />
+                            <Label className="font-bold pr-1">الوصف والوصل</Label>
+                            <Textarea value={currentProduct.description ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, description: e.target.value})} className="rounded-xl min-h-[120px] p-4 font-bold" placeholder="اكتب وصف المنتج هنا، يمكنك استخدام الأسطر والفواصل..." />
                         </div>
                     </div>
                 </div>

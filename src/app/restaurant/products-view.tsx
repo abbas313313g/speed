@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useContext, useMemo, useState, useRef, useEffect } from 'react';
@@ -16,6 +15,7 @@ import { formatCurrency, cn } from '@/lib/utils';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import type { ProductSize } from '@/lib/types';
 
 export default function RestaurantProductsPage({ onBack }: { onBack: () => void }) {
@@ -307,8 +307,8 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                             <Separator className="opacity-50" />
 
                             <div className="space-y-1">
-                                <Label className="font-bold pr-1">وصف المنتج</Label>
-                                <Input value={currentP.description} onChange={(e)=>setCurrentP({...currentP, description: e.target.value})} className="h-11 rounded-xl" placeholder="وصف سريع..." />
+                                <Label className="font-bold pr-1">الوصف والوصل</Label>
+                                <Textarea value={currentP.description} onChange={(e)=>setCurrentP({...currentP, description: e.target.value})} className="h-24 rounded-xl p-4 font-bold" placeholder="اكتب تفاصيل الوجبة والوصل هنا..." />
                             </div>
 
                             <div className="space-y-2">
