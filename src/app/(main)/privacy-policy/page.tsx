@@ -53,6 +53,13 @@ export default function PrivacyPolicyPage() {
                          </p>
                      </div>
                  </div>
+
+                 <div className="pt-10 pb-20 text-center">
+                    <p className="text-xs text-muted-foreground font-bold mb-1">حقوق الملكية الفكرية والبرمجية محفوظة</p>
+                    <h3 className="text-xl font-black text-primary border-t-2 border-primary/10 pt-4 inline-block px-10">
+                        انشاء : عباس المهدوي
+                    </h3>
+                 </div>
             </div>
         </div>
     );

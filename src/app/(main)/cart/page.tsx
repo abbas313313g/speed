@@ -5,7 +5,7 @@ import { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Minus, Plus, Trash2, Home, Loader2, MapPin, AlertCircle, ReceiptText } from "lucide-react";
+import { ShoppingBag, Minus, Plus, Trash2, Home, Loader2, MapPin, AlertCircle, ReceiptText, Ticket } from "lucide-react";
 import { formatCurrency, calculateDistance, calculateDeliveryFee, cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -124,32 +124,39 @@ export default function CartPage() {
   if (cart.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] text-center p-4">
-        <ShoppingBag className="h-24 w-24 text-muted-foreground/50 mb-4" />
-        <h2 className="text-2xl font-bold">سلّتك فارغة!</h2>
-        <p className="text-muted-foreground mt-2">
-          أضف بعض المنتجات لتبدأ التسوق.
+        <div className="p-10 bg-primary/5 rounded-full mb-6">
+            <ShoppingBag className="h-24 w-24 text-primary/40" />
+        </div>
+        <h2 className="text-3xl font-black text-slate-800">سلّتك تنتظرك!</h2>
+        <p className="text-muted-foreground font-bold mt-2 px-10">
+          ابدأ بإضافة وجباتك المفضلة وسنقوم بتوصيلها لك في أسرع وقت.
         </p>
-        <Button asChild className="mt-6">
-          <Link href="/home">تصفح المنتجات</Link>
+        <Button asChild className="mt-8 h-14 px-10 rounded-2xl text-lg font-black shadow-xl">
+          <Link href="/home">اكتشف القائمة الآن</Link>
         </Button>
       </div>
     );
   }
 
   return (
-    <div className="p-4 space-y-6 pb-32">
-      <header>
+    <div className="p-4 space-y-6 pb-40">
+      <header className="flex flex-col gap-1">
         <h1 className="text-3xl font-black text-primary">سلة التسوق</h1>
-        {cartRestaurant && <p className="text-muted-foreground font-bold">الطلب من متجر: {cartRestaurant.name}</p>}
+        {cartRestaurant && (
+            <div className="flex items-center gap-2 text-slate-600">
+                <Store className="h-4 w-4" />
+                <span className="font-bold">الطلب من: {cartRestaurant.name}</span>
+            </div>
+        )}
       </header>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {cart.map(({ product, quantity, selectedSize }) => {
           const itemPrice = selectedSize?.price || product.discountPrice || product.price || 0;
           const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/80x80.png';
           return (
-            <div key={product.id + (selectedSize?.name || '')} className="flex items-center gap-4 bg-white p-3 rounded-2xl border shadow-sm">
-              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border">
+            <div key={product.id + (selectedSize?.name || '')} className="flex items-center gap-4 bg-white p-3 rounded-[1.8rem] border shadow-sm transition-all hover:shadow-md">
+              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border bg-muted/20">
                 <Image
                   src={imageUrl}
                   alt={product.name}
@@ -158,21 +165,21 @@ export default function CartPage() {
                   unoptimized={true}
                 />
               </div>
-              <div className="flex-grow min-w-0">
-                <h3 className="font-black text-sm truncate">{product.name}</h3>
-                {selectedSize && <Badge variant="secondary" className="text-[9px] font-black">{selectedSize.name}</Badge>}
-                <p className="text-primary font-black text-lg mt-1">
+              <div className="flex-grow min-w-0 py-1">
+                <h3 className="font-black text-sm text-slate-800 line-clamp-1">{product.name}</h3>
+                {selectedSize && <Badge variant="secondary" className="text-[9px] font-black h-5 px-2 mt-1">{selectedSize.name}</Badge>}
+                <p className="text-primary font-black text-lg mt-1 tracking-tighter">
                   {formatCurrency(itemPrice)}
                 </p>
                 <div className="flex items-center gap-3 mt-2">
-                  <div className="flex items-center gap-4 bg-muted/50 p-1 rounded-xl">
+                  <div className="flex items-center gap-4 bg-slate-100 p-1 rounded-xl">
                     <button
-                        className="h-8 w-8 rounded-lg bg-white flex items-center justify-center shadow-sm active:scale-75 transition-all"
+                        className="h-8 w-8 rounded-lg bg-white flex items-center justify-center shadow-sm active:scale-75 transition-all text-slate-600"
                         onClick={() => updateCartQuantity(product.id, quantity - 1, selectedSize?.name)}
                     >
                         <Minus className="h-4 w-4" />
                     </button>
-                    <span className="font-black text-lg w-4 text-center">{quantity}</span>
+                    <span className="font-black text-lg w-4 text-center text-slate-800">{quantity}</span>
                     <button
                         className="h-8 w-8 rounded-lg bg-primary text-white flex items-center justify-center shadow-sm active:scale-75 transition-all"
                         onClick={() => updateCartQuantity(product.id, quantity + 1, selectedSize?.name)}
@@ -185,7 +192,7 @@ export default function CartPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-destructive rounded-xl hover:bg-destructive/5"
+                className="text-destructive/40 hover:text-destructive rounded-xl hover:bg-destructive/5 shrink-0"
                 onClick={() => removeFromCart(product.id, selectedSize?.name)}
               >
                 <Trash2 className="h-5 w-5" />
@@ -196,17 +203,19 @@ export default function CartPage() {
       </div>
       
        <div className="space-y-4">
-          <h2 className="text-lg font-black flex items-center gap-2 px-1"><MapPin className="h-5 w-5 text-primary"/> اختر عنوان التوصيل</h2>
+          <h2 className="text-lg font-black flex items-center gap-2 px-1 text-slate-800"><MapPin className="h-5 w-5 text-primary"/> اختر عنوان التوصيل</h2>
           {addresses.length > 0 ? (
              <Select value={selectedAddressId} onValueChange={setSelectedAddressId}>
-                <SelectTrigger className="w-full h-14 rounded-2xl border-2 font-bold bg-white">
-                    <SelectValue placeholder="اختر عنوانًا..." />
+                <SelectTrigger className="w-full h-14 rounded-2xl border-2 font-bold bg-white shadow-sm ring-offset-background">
+                    <SelectValue placeholder="اختر من عناوينك المحفوظة..." />
                 </SelectTrigger>
-                <SelectContent className="rounded-2xl">
+                <SelectContent className="rounded-2xl shadow-2xl border-none">
                     {addresses.map(address => (
-                        <SelectItem key={address.id} value={address.id} className="font-bold">
+                        <SelectItem key={address.id} value={address.id} className="font-bold py-3">
                             <div className="flex items-center gap-2">
-                                <Home className="h-4 w-4 text-primary"/>
+                                <div className="p-2 bg-primary/10 rounded-lg">
+                                    <Home className="h-4 w-4 text-primary"/>
+                                </div>
                                 <span>{address.name}</span>
                             </div>
                         </SelectItem>
@@ -214,93 +223,99 @@ export default function CartPage() {
                 </SelectContent>
             </Select>
           ) : (
-              <div className="text-center p-6 border-2 border-dashed rounded-[2rem] space-y-4 bg-muted/20">
-                <p className="font-bold text-muted-foreground">يجب إضافة عنوان لتتمكن من الطلب.</p>
-                 <Button asChild className="rounded-xl h-12">
-                    <Link href="/account/add-address">إضافة عنوان جديد</Link>
+              <div className="text-center p-8 border-4 border-dashed rounded-[2.5rem] space-y-4 bg-muted/20">
+                <p className="font-bold text-muted-foreground">عذراً، يجب إضافة عنوان أولاً لتتمكن من إتمام الطلب.</p>
+                 <Button asChild className="rounded-xl h-12 px-6">
+                    <Link href="/account/add-address">إضافة عنوان جديد الآن</Link>
                 </Button>
               </div>
           )}
        </div>
 
-      <div className="space-y-4 bg-white p-6 rounded-[2.5rem] shadow-xl border border-primary/5">
-        <h2 className="text-lg font-black flex items-center gap-2"><ReceiptText className="h-5 w-5 text-primary"/> ملخص الحساب</h2>
+      <div className="space-y-6 bg-white p-6 rounded-[2.5rem] shadow-2xl border border-slate-100 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl" />
+        <h2 className="text-xl font-black flex items-center gap-2 text-slate-800 relative z-10"><ReceiptText className="h-6 w-6 text-primary"/> ملخص الحساب</h2>
         
-        <div className="space-y-3 font-bold text-sm">
-            <div className="flex justify-between items-center text-muted-foreground">
-                <span>مجموع المنتجات:</span>
-                <span className="text-foreground">{formatCurrency(cartTotal)}</span>
+        <div className="space-y-4 font-bold text-sm relative z-10">
+            <div className="flex justify-between items-center text-slate-500">
+                <span className="font-bold">مجموع المنتجات:</span>
+                <span className="text-slate-800 font-black">{formatCurrency(cartTotal)}</span>
             </div>
-            <div className="flex justify-between items-center text-muted-foreground">
+            <div className="flex justify-between items-center text-slate-500">
                 <div className="flex flex-col text-right">
-                    <span>أجور التوصيل:</span>
-                    {displayDistance && <span className="text-[10px] flex items-center gap-1 justify-end"><MapPin className="h-3 w-3"/>{displayDistance}</span>}
+                    <span className="font-bold">أجور التوصيل:</span>
+                    {displayDistance && <span className="text-[10px] flex items-center gap-1 justify-end font-black text-primary"><MapPin className="h-3 w-3"/>يبعد عنك {displayDistance}</span>}
                 </div>
-                <span className={cn("text-foreground", isDistanceTooFar && "text-destructive")}>{formatCurrency(deliveryFee)}</span>
+                <span className={cn("text-slate-800 font-black", isDistanceTooFar && "text-destructive")}>{formatCurrency(deliveryFee)}</span>
             </div>
             
             <Separator className="my-2 border-dashed" />
             
-            <div className="flex justify-between items-center pt-2">
-                <span className="text-lg font-black">المجموع الكلي:</span>
+            <div className="flex justify-between items-end pt-2">
+                <div className="flex flex-col">
+                    <span className="text-lg font-black text-slate-800">المجموع الكلي:</span>
+                    <p className="text-[10px] text-muted-foreground font-bold italic">شامل الضريبة والتوصيل</p>
+                </div>
                 <div className="text-right">
-                    <span className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(finalTotalAmount)}</span>
-                    <p className="text-[9px] text-muted-foreground">تشمل المنتجات + التوصيل</p>
+                    <span className="text-4xl font-black text-primary tracking-tighter drop-shadow-sm">{formatCurrency(finalTotalAmount)}</span>
                 </div>
             </div>
         </div>
 
-        <div className="pt-4">
-             <Label className="text-[10px] font-black pr-1 mb-1 block">كود الخصم (اختياري)</Label>
-             <Input 
-                placeholder="أدخل الكود هنا..." 
-                value={couponCode} 
-                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                className="h-12 rounded-xl text-center font-black bg-muted/20 border-none shadow-inner"
-            />
+        <div className="pt-2 relative z-10">
+             <Label className="text-[10px] font-black pr-1 mb-1.5 block text-slate-500 uppercase tracking-widest">هل لديك كود خصم؟</Label>
+             <div className="relative">
+                <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    placeholder="اكتب الكود هنا..." 
+                    value={couponCode} 
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    className="h-14 rounded-2xl text-center font-black bg-slate-50 border-2 border-slate-100 shadow-inner pl-10"
+                />
+             </div>
         </div>
       </div>
 
        {isDistanceTooFar && (
-        <Alert variant="destructive" className="rounded-2xl border-2">
+        <Alert variant="destructive" className="rounded-[2rem] border-2 bg-destructive/5 animate-in shake-1 duration-500">
           <AlertCircle className="h-5 w-5" />
-          <AlertTitle className="font-black">مسافة التوصيل بعيدة جداً</AlertTitle>
-          <AlertDescription className="font-bold">
-            عذراً، هذا المتجر يبعد أكثر من {MAX_DELIVERY_DISTANCE} كم عن موقعك. لا يمكننا توصيل الطلب حالياً.
+          <AlertTitle className="font-black">عذراً، المسافة بعيدة جداً!</AlertTitle>
+          <AlertDescription className="font-bold opacity-90">
+            هذا المتجر يبعد أكثر من {MAX_DELIVERY_DISTANCE} كم عن موقعك الحالي. يرجى اختيار متجر أقرب لضمان جودة وسرعة التوصيل.
           </AlertDescription>
         </Alert>
       )}
 
-      <div className="flex gap-3 pt-4">
+      <div className="flex flex-col gap-3">
+        <Button 
+            className="w-full h-16 rounded-[1.8rem] text-2xl font-black shadow-2xl shadow-primary/30 transition-all active:scale-95 bg-primary hover:bg-primary/95" 
+            onClick={handlePlaceOrder} 
+            disabled={isSubmitting || addresses.length === 0 || !selectedAddressId || isDistanceTooFar}>
+            {isSubmitting ? <><Loader2 className="ml-2 h-6 w-6 animate-spin"/> جارِ تأكيد الطلب...</> : "تأكيد الطلب كاش"}
+        </Button>
+
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="outline" className="flex-1 h-14 rounded-2xl font-bold border-2 text-muted-foreground">
+            <Button variant="ghost" className="w-full h-12 rounded-xl font-bold text-destructive/60 hover:text-destructive hover:bg-destructive/5 transition-all">
               <Trash2 className="ml-2 h-4 w-4" />
-              إفراغ السلة
+              إفراغ كافة محتويات السلة
             </Button>
           </AlertDialogTrigger>
-          <AlertDialogContent className="rounded-[2.5rem]">
+          <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl">
             <AlertDialogHeader className="text-right">
-              <AlertDialogTitle className="text-xl font-black">هل أنت متأكد؟</AlertDialogTitle>
-              <AlertDialogDescription className="font-bold">
-                سيتم حذف جميع المنتجات والبدء من جديد.
+              <AlertDialogTitle className="text-2xl font-black text-slate-800">هل أنت متأكد فعلاً؟</AlertDialogTitle>
+              <AlertDialogDescription className="font-bold text-slate-500">
+                سيتم حذف كافة المنتجات التي قمت باختيارها وستعود السلة فارغة تماماً.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter className="flex-row gap-3">
-              <AlertDialogCancel className="flex-1 rounded-xl font-bold">إلغاء</AlertDialogCancel>
-              <AlertDialogAction onClick={() => { clearCart(); setCouponCode(""); }} className="flex-1 rounded-xl bg-destructive hover:bg-destructive/90 font-bold">نعم، إفراغ</AlertDialogAction>
+            <AlertDialogFooter className="flex-row gap-3 mt-4">
+              <AlertDialogCancel className="flex-1 h-12 rounded-xl font-bold border-2">تراجع</AlertDialogCancel>
+              <AlertDialogAction onClick={() => { clearCart(); setCouponCode(""); }} className="flex-1 h-12 rounded-xl bg-destructive hover:bg-destructive/90 font-bold shadow-lg shadow-destructive/20">نعم، إفراغ الآن</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-
-        <Button 
-            className="flex-[2] h-14 rounded-2xl text-lg font-black shadow-xl shadow-primary/20 transition-all active:scale-95" 
-            onClick={handlePlaceOrder} 
-            disabled={isSubmitting || addresses.length === 0 || !selectedAddressId || isDistanceTooFar}>
-            {isSubmitting ? <><Loader2 className="ml-2 h-5 w-5 animate-spin"/> جارِ الإرسال...</> : "تأكيد الطلب كاش"}
-        </Button>
       </div>
-      <p className="text-center text-[10px] font-bold text-muted-foreground italic px-4">بالضغط على تأكيد الطلب، فإنك توافق على سياسة التوصيل المتبعة في سبيد شوب.</p>
+      <p className="text-center text-[10px] font-bold text-muted-foreground italic px-6 leading-relaxed">من خلال الضغط على تأكيد الطلب، فأنت تقر بموافقتك الكاملة على سياسة التوصيل المتبعة في منصة سبيد شوب.</p>
     </div>
   );
 }

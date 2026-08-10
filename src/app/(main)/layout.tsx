@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useContext, useCallback, useMemo } from 'react';
@@ -9,10 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { isLocationInAllowedZones } from '@/lib/utils';
+import { isLocationInAllowedZones, safeStorage } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { AppContext } from '@/contexts/AppContext';
 import { Separator } from '@/components/ui/separator';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { v4 as uuidv4 } from 'uuid';
 
 import HomePage from './home/page';
 import RestaurantsPage from './restaurants/page';
@@ -101,6 +105,30 @@ export default function MainAppLayout() {
 
     setIsSaving(true);
     try {
+        // فحص أمني: هل هذا الرقم مسجل على جهاز آخر؟
+        let currentDeviceId = safeStorage.get('speedShopDeviceId');
+        if (!currentDeviceId) {
+            currentDeviceId = uuidv4();
+            safeStorage.set('speedShopDeviceId', currentDeviceId);
+        }
+
+        const phoneQuery = query(collection(db, "addresses"), where("phone", "==", newAddr.phone), limit(1));
+        const phoneSnap = await getDocs(phoneQuery);
+        
+        if (!phoneSnap.empty) {
+            const existingData = phoneSnap.docs[0].data();
+            // إذا وجدنا الرقم مسجلاً بـ deviceId مختلف عن الحالي، نمنع الدخول
+            if (existingData.deviceId && existingData.deviceId !== currentDeviceId) {
+                toast({ 
+                    title: "عذراً، هذا الرقم مسجل مسبقاً", 
+                    description: "لا يمكنك استخدام نفس الرقم على أكثر من جهاز واحد.", 
+                    variant: "destructive" 
+                });
+                setIsSaving(false);
+                return;
+            }
+        }
+
         const existingUserId = await syncUserByPhone(newAddr.phone);
         
         await addAddress({
@@ -110,8 +138,9 @@ export default function MainAppLayout() {
             details: newAddr.details,
             latitude: newAddr.lat,
             longitude: newAddr.lng,
-            branchId: "main"
-        });
+            branchId: "main",
+            deviceId: currentDeviceId // حفظ هوية الجهاز مع العنوان
+        } as any);
 
         setShowAddressPrompt(false);
         if (existingUserId) {

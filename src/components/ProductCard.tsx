@@ -112,7 +112,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
             )}
           </div>
           <div className="p-3 text-right">
-            <h3 className="truncate font-black text-sm text-slate-800">{product.name}</h3>
+            <h3 className="line-clamp-2 h-10 font-black text-sm text-slate-800 leading-tight mb-1">{product.name}</h3>
             {restaurant && (
                 <div className="flex items-center gap-1 mt-0.5 text-primary">
                     <Store className="h-3 w-3" />
