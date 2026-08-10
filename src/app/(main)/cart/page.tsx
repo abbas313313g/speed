@@ -5,7 +5,7 @@ import { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Minus, Plus, Trash2, Home, Loader2, MapPin, AlertCircle, ReceiptText, Ticket } from "lucide-react";
+import { ShoppingBag, Minus, Plus, Trash2, Home, Loader2, MapPin, AlertCircle, ReceiptText, Ticket, Store } from "lucide-react";
 import { formatCurrency, calculateDistance, calculateDeliveryFee, cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -155,7 +155,7 @@ export default function CartPage() {
           const itemPrice = selectedSize?.price || product.discountPrice || product.price || 0;
           const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/80x80.png';
           return (
-            <div key={product.id + (selectedSize?.name || '')} className="flex items-center gap-4 bg-white p-3 rounded-[1.8rem] border shadow-sm transition-all hover:shadow-md">
+            <div key={product.id + (selectedSize?.name || '')} className="flex items-center gap-4 bg-white p-3 rounded-2xl border shadow-sm transition-all hover:shadow-md">
               <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border bg-muted/20">
                 <Image
                   src={imageUrl}
