@@ -32,7 +32,6 @@ export const useProducts = (branchId?: string) => {
                 (error) => {
                     console.error("Firestore products error:", error);
                     setIsLoading(false);
-                    setProducts([]);
                 }
             );
             return () => unsub();
@@ -44,11 +43,12 @@ export const useProducts = (branchId?: string) => {
     const uploadImage = useCallback(async (base64: string, path: string): Promise<string> => {
         if (!base64 || !base64.startsWith('data:')) return base64;
         try {
-            const storageRef = ref(storage, path);
+            // نستخدم ختم زمني لضمان عدم تكرار الروابط وسرعة التحميل
+            const storageRef = ref(storage, `${path}-${Date.now()}`);
             const snapshot = await uploadString(storageRef, base64, 'data_url');
             return await getDownloadURL(snapshot.ref);
         } catch (e) {
-            console.warn("Storage upload failed, using base64:", e);
+            console.error("Storage upload failed:", e);
             return base64;
         }
     }, []);
@@ -84,12 +84,10 @@ export const useProducts = (branchId?: string) => {
         try {
             const { id, ...productData } = updatedProduct;
             
-            // تنظيف البيانات من القيم غير المعرفة
             const finalData: any = Object.fromEntries(
                 Object.entries(productData).filter(([_, v]) => v !== undefined)
             );
 
-            // تحويل القيم الرقمية فقط إذا كانت موجودة (وليست خالية)
             if (productData.price !== undefined && productData.price !== "") finalData.price = Number(productData.price);
             if (productData.stock !== undefined && productData.stock !== "") finalData.stock = Number(productData.stock);
             if (productData.wholesalePrice !== undefined && productData.wholesalePrice !== "") finalData.wholesalePrice = Number(productData.wholesalePrice);

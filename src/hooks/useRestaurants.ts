@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -43,7 +44,6 @@ export const useRestaurants = (branchId?: string) => {
                 (error) => {
                     console.error("Firestore error:", error);
                     setIsLoading(false);
-                    setRestaurantsData([]);
                 }
             );
             return () => unsub();
@@ -62,10 +62,11 @@ export const useRestaurants = (branchId?: string) => {
     const uploadImage = useCallback(async (base64: string, path: string): Promise<string> => {
         if (!base64 || !base64.startsWith('data:')) return base64;
         try {
-            const storageRef = ref(storage, path);
+            const storageRef = ref(storage, `${path}-${Date.now()}`);
             const snapshot = await uploadString(storageRef, base64, 'data_url');
             return await getDownloadURL(snapshot.ref);
         } catch (e) {
+            console.error("Restaurant storage upload failed:", e);
             return base64;
         }
     }, []);
@@ -112,14 +113,13 @@ export const useRestaurants = (branchId?: string) => {
                 longitude: restaurantData.longitude !== undefined ? Number(restaurantData.longitude) : undefined
             };
 
-            const sanitizedUpdate: any = Object.fromEntries(Object.entries(finalData).filter(([_, v]) => v !== undefined));
-
             if (image && image.startsWith('data:')) {
-                sanitizedUpdate.image = await uploadImage(image, `restaurants/${id}`);
+                finalData.image = await uploadImage(image, `restaurants/${id}`);
             } else if (image) {
-                sanitizedUpdate.image = image;
+                finalData.image = image;
             }
 
+            const sanitizedUpdate: any = Object.fromEntries(Object.entries(finalData).filter(([_, v]) => v !== undefined));
             await updateDoc(doc(db, "restaurants", id), sanitizedUpdate);
             toast({ title: "تم تحديث المتجر بنجاح" });
         } catch (error: any) { 

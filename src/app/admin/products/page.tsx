@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, useMemo } from 'react';
@@ -119,6 +120,17 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
     }
     setStoreSearch('');
     setOpen(true);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCurrentProduct({ ...currentProduct, image: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const addSize = () => {
@@ -371,14 +383,26 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="font-bold pr-1">رابط الصورة</Label>
-                            <Input value={currentProduct.image ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, image: e.target.value})} className="rounded-xl h-11" placeholder="أدخل رابط الصورة المباشر..." />
+                            <Label className="font-bold pr-1">صورة المنتج</Label>
+                            <div className="flex gap-2">
+                                <Input value={currentProduct.image && !currentProduct.image.startsWith('data:') ? currentProduct.image : ''} onChange={(e) => setCurrentProduct({...currentProduct, image: e.target.value})} className="rounded-xl h-11" placeholder="رابط الصورة أو ارفع ملف..." />
+                                <Button type="button" variant="outline" size="icon" className="rounded-xl h-11 w-12 shrink-0" onClick={() => fileInputRef.current?.click()}>
+                                    <Upload className="h-5 w-5" />
+                                </Button>
+                            </div>
+                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                         </div>
                         
                         <div className="space-y-2">
                             <Label className="font-bold pr-1">الوصف والوصل</Label>
                             <Textarea value={currentProduct.description ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, description: e.target.value})} className="rounded-xl min-h-[120px] p-4 font-bold" placeholder="اكتب وصف المنتج هنا، يمكنك استخدام الأسطر والفواصل..." />
                         </div>
+
+                        {currentProduct.image && (
+                            <div className="relative w-full aspect-video rounded-3xl overflow-hidden border-2 border-muted bg-muted/10">
+                                <Image src={currentProduct.image} fill className="object-contain" alt="preview" unoptimized={true}/>
+                            </div>
+                        )}
                     </div>
                 </div>
 
