@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useMemo, useContext, useState } from "react";
+import React, { useMemo, useContext, useState, useEffect } from "react";
 import Image from "next/image";
 import { PlusCircle, ListChecks, Store } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,8 +23,9 @@ function ProductCardComponent({ product }: ProductCardProps) {
   const { addToCart } = useCart();
   const { restaurants } = useRestaurants();
   const context = useContext(AppContext);
-  const [isImgLoading, setIsImgLoading] = useState(true);
-  const [imgError, setImgError] = useState(false);
+  
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [retryKey, setRetryCount] = useState(0);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === product.restaurantId), [product, restaurants]);
 
@@ -87,29 +88,33 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const hasDiscount = !!product.discountPrice && !hasSizes;
 
-  if (imgError) return null;
-  if (!product.image) return null;
+  // إذا لم يتم التحميل بعد، لا نحجز مساحة أبداً (نمنع الفراغات)
+  if (!isLoaded && retryKey > 10) return null; // بعد 10 محاولات فاشلة نختفي تماماً
 
   return (
     <div 
         onClick={handleOpenProduct}
         className={cn(
-            "group cursor-pointer transition-all active:scale-95 duration-500", 
-            (isOutOfStock || !restaurant?.isStoreOpen) && "opacity-60",
-            isImgLoading ? "opacity-0 scale-95" : "opacity-100 scale-100"
+            "group cursor-pointer transition-all duration-500", 
+            !isLoaded ? "fixed opacity-0 pointer-events-none -z-50 h-0 w-0 overflow-hidden" : "relative opacity-100 scale-100 h-auto",
+            (isOutOfStock || !restaurant?.isStoreOpen) && "opacity-60"
         )}
     >
       <Card className="overflow-hidden border-none shadow-md rounded-[1.5rem] bg-card">
         <CardContent className="p-0">
           <div className="relative w-full aspect-square overflow-hidden bg-muted/20">
             <Image
+              key={`${product.id}-${retryKey}`}
               src={product.image}
               alt={product.name}
               fill
               className="object-cover"
               unoptimized={true}
-              onLoadingComplete={() => setIsImgLoading(false)}
-              onError={() => setImgError(true)}
+              onLoadingComplete={() => setIsLoaded(true)}
+              onError={() => {
+                  setIsLoaded(false);
+                  setTimeout(() => setRetryCount(prev => prev + 1), 2000); // إعادة المحاولة بعد ثانيتين
+              }}
             />
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2">نفد</Badge>}
             {!restaurant?.isStoreOpen && <Badge variant="destructive" className="absolute top-2 left-2 text-[10px]">مغلق</Badge>}
