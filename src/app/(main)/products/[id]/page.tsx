@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect, useContext } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
-import { Minus, Plus, ShoppingCart, ArrowRight, Tag, Store } from 'lucide-react';
+import { Minus, Plus, ShoppingCart, ArrowRight, Tag, Store, Maximize2, X } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
@@ -26,6 +26,8 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(undefined);
   const [isImgLoading, setIsImgLoading] = useState(true);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   if (!context) return null;
   const { selectedProductId, setActiveTab, activeTab, previousTab, setSelectedRestaurantId } = context;
@@ -46,6 +48,8 @@ export default function ProductDetailPage() {
         setSelectedSize(undefined);
         setQuantity(1);
         setIsImgLoading(true);
+        setImgError(false);
+        setIsZoomed(false);
     }
   }, [product, isCurrentlyVisible]);
 
@@ -125,7 +129,9 @@ export default function ProductDetailPage() {
   };
 
   const hasDiscount = !!product.discountPrice && !selectedSize;
-  const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://picsum.photos/seed/speeddetail/600/600';
+  const imageUrl = imgError 
+    ? 'https://placehold.co/600x600/00b358/white?text=Speed+Shop' 
+    : (product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/600x600/00b358/white?text=Speed+Shop');
 
   const hasSizes = activeSizes.length > 0;
 
@@ -153,7 +159,10 @@ export default function ProductDetailPage() {
        </div>
 
       <div className="flex-1 overflow-y-auto">
-          <div className={cn("relative w-full aspect-square overflow-hidden sm:rounded-b-[3.5rem] shadow-2xl", isImgLoading && "animate-pulse bg-muted")}>
+          <div 
+            className={cn("relative w-full aspect-square overflow-hidden sm:rounded-b-[3.5rem] shadow-2xl cursor-zoom-in", isImgLoading && "animate-pulse bg-muted")}
+            onClick={() => setIsZoomed(true)}
+          >
             <Image 
                 src={imageUrl} 
                 alt={product.name} 
@@ -162,8 +171,12 @@ export default function ProductDetailPage() {
                 unoptimized={true} 
                 priority 
                 onLoadingComplete={() => setIsImgLoading(false)}
+                onError={() => setImgError(true)}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            <div className="absolute bottom-16 right-6 p-2 bg-black/30 backdrop-blur-md rounded-full">
+                <Maximize2 className="h-5 w-5 text-white" />
+            </div>
             {hasDiscount && (
                 <div className="absolute bottom-12 right-6 bg-red-600 text-white font-black px-4 py-2 rounded-2xl shadow-2xl animate-bounce flex items-center gap-2">
                     <Tag className="h-4 w-4" />
@@ -259,6 +272,29 @@ export default function ProductDetailPage() {
               {restaurant && !restaurant.isStoreOpen ? "المتجر مغلق" : "إضافة إلى السلة"}
           </Button>
       </div>
+
+      {/* نافذة تكبير الصورة */}
+      {isZoomed && (
+        <div 
+            className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-4 animate-in fade-in duration-300"
+            onClick={() => setIsZoomed(false)}
+        >
+            <button className="absolute top-10 right-6 p-4 bg-white/10 rounded-full text-white">
+                <X className="h-8 w-8" />
+            </button>
+            <div className="relative w-full aspect-square max-w-[500px]">
+                <Image 
+                    src={imageUrl} 
+                    alt={product.name} 
+                    fill 
+                    className="object-contain" 
+                    unoptimized={true} 
+                />
+            </div>
+            <p className="mt-8 text-white font-black text-xl">{product.name}</p>
+            <p className="text-white/60 text-sm font-bold mt-2">المس للرجوع</p>
+        </div>
+      )}
     </div>
   );
 }

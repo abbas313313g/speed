@@ -39,13 +39,12 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
+        <meta http-equiv="Cache-Control" content="max-age=31536000, public" />
         {/* سكربت حماية WebView: تجاهل الأخطاء ومنع انهيار التطبيق */}
         <script dangerouslySetInnerHTML={{ __html: `
-          // كتم كافة الأخطاء ومنع النوافذ المنبثقة للأعطال
           window.onerror = function() { return true; };
           window.onunhandledrejection = function() { return true; };
           
-          // تعطيل السيرفس ووركر لمنع مشاكل الـ Cache في App Inventor
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(registrations) {
               for(let registration of registrations) {
@@ -54,13 +53,11 @@ export default function RootLayout({
             });
           }
           
-          // حماية إضافية من فقدان LocalStorage
           try {
             var test = 'test';
             localStorage.setItem(test, test);
             localStorage.removeItem(test);
           } catch(e) {
-            console.log('LocalStorage disabled, using memory-only mode');
             Object.defineProperty(window, 'localStorage', {
               value: (function() {
                 var store = {};

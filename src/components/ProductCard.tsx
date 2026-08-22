@@ -24,6 +24,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
   const { restaurants } = useRestaurants();
   const context = useContext(AppContext);
   const [isImgLoading, setIsImgLoading] = useState(true);
+  const [imgError, setImgError] = useState(false);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === product.restaurantId), [product, restaurants]);
 
@@ -86,7 +87,9 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const hasDiscount = !!product.discountPrice && !hasSizes;
 
-  const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://picsum.photos/seed/speedp/600/400';
+  const imageUrl = imgError 
+    ? 'https://placehold.co/400x400/00b358/white?text=Speed+Shop'
+    : (product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/400x400/00b358/white?text=Speed+Shop');
 
   return (
     <div 
@@ -103,6 +106,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
               className={cn("object-cover transition-all duration-700", isImgLoading ? "blur-xl scale-110" : "blur-0 scale-100")}
               unoptimized={true}
               onLoadingComplete={() => setIsImgLoading(false)}
+              onError={() => setImgError(true)}
             />
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2">نفد</Badge>}
             {!restaurant?.isStoreOpen && <Badge variant="destructive" className="absolute top-2 left-2 text-[10px]">مغلق</Badge>}
