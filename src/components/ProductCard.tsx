@@ -78,12 +78,15 @@ function ProductCardComponent({ product }: ProductCardProps) {
     }
   };
 
-  const displayPrice = useMemo(() => {
-      if (hasSizes) {
-          const prices = activeSizes.map(s => s.price);
-          return Math.min(...prices);
-      }
-      return product.discountPrice || product.price;
+  const priceDisplay = useMemo(() => {
+    if (hasSizes) {
+      const prices = activeSizes.map(s => s.price);
+      const min = Math.min(...prices);
+      const max = Math.max(...prices);
+      if (min === max) return formatCurrency(min);
+      return `${formatCurrency(min)} - ${formatCurrency(max)}`;
+    }
+    return formatCurrency(product.discountPrice || product.price);
   }, [product, hasSizes, activeSizes]);
 
   const hasDiscount = !!product.discountPrice && !hasSizes;
@@ -132,15 +135,14 @@ function ProductCardComponent({ product }: ProductCardProps) {
             )}
             <div className="mt-2 flex items-center justify-between">
               <div className="flex flex-col text-right">
-                  {hasSizes ? (
-                      <p className="text-[8px] text-muted-foreground font-black">يبدأ من:</p>
-                  ) : hasDiscount ? (
+                  {hasSizes && <p className="text-[8px] text-muted-foreground font-black">الأسعار المتوفرة:</p>}
+                  {!hasSizes && hasDiscount && (
                      <p className="text-[9px] text-muted-foreground line-through decoration-destructive/50 font-bold">
                         {formatCurrency(product.price)}
                      </p>
-                  ) : null}
-                  <p className="text-sm font-black text-primary leading-none">
-                    {formatCurrency(displayPrice)}
+                  )}
+                  <p className={cn("font-black text-primary leading-none", hasSizes ? "text-[10px]" : "text-sm")}>
+                    {priceDisplay}
                   </p>
               </div>
               <Button 

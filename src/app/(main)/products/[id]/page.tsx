@@ -41,6 +41,20 @@ export default function ProductDetailPage() {
       return product?.sizes?.filter(s => s.isActive !== false) || [];
   }, [product]);
 
+  const hasSizes = activeSizes.length > 0;
+
+  const priceDisplay = useMemo(() => {
+    if (selectedSize) return formatCurrency(selectedSize.price);
+    if (hasSizes) {
+      const prices = activeSizes.map(s => s.price);
+      const min = Math.min(...prices);
+      const max = Math.max(...prices);
+      if (min === max) return formatCurrency(min);
+      return `${formatCurrency(min)} - ${formatCurrency(max)}`;
+    }
+    return formatCurrency(product?.discountPrice || product?.price || 0);
+  }, [selectedSize, product, hasSizes, activeSizes]);
+
   const cartCount = useMemo(() => cart.reduce((acc, item) => acc + item.quantity, 0), [cart]);
 
   useEffect(() => {
@@ -52,11 +66,6 @@ export default function ProductDetailPage() {
         setIsZoomed(false);
     }
   }, [product, isCurrentlyVisible]);
-
-  const displayPrice = useMemo(() => {
-    if (selectedSize?.price) return selectedSize.price;
-    return product?.discountPrice || product?.price || 0;
-  }, [selectedSize, product]);
 
   const availableStock = useMemo(() => {
     if (selectedSize) return selectedSize.stock;
@@ -128,12 +137,10 @@ export default function ProductDetailPage() {
       setActiveTab(previousTab);
   };
 
-  const hasDiscount = !!product.discountPrice && !selectedSize;
+  const hasDiscount = !!product.discountPrice && !selectedSize && !hasSizes;
   const imageUrl = imgError 
     ? 'https://placehold.co/600x600/00b358/white?text=Speed+Shop' 
     : (product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/600x600/00b358/white?text=Speed+Shop');
-
-  const hasSizes = activeSizes.length > 0;
 
   return (
     <div className="flex flex-col h-full bg-background relative overflow-hidden text-right">
@@ -209,10 +216,12 @@ export default function ProductDetailPage() {
 
                 <div className="flex items-end justify-between">
                     <div className="space-y-1">
-                        <span className="text-[10px] font-black text-muted-foreground uppercase">السعر الحالي</span>
+                        <span className="text-[10px] font-black text-muted-foreground uppercase">السعر</span>
                         <div className="flex items-center gap-3">
                              {hasDiscount && <p className="text-base font-bold text-muted-foreground line-through decoration-destructive/40">{formatCurrency(product.price)}</p>}
-                             <p className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(displayPrice)}</p>
+                             <p className={cn("font-black text-primary tracking-tighter", hasSizes && !selectedSize ? "text-xl" : "text-3xl")}>
+                                {priceDisplay}
+                             </p>
                         </div>
                     </div>
                     <Badge variant={isOutOfStock ? "destructive" : "secondary"} className="rounded-xl px-4 py-1 font-black">
