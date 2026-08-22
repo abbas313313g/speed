@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useRef, useMemo, useContext } from "react";
+import { useRef, useMemo, useContext, useState } from "react";
 import Image from "next/image";
 import Autoplay from "embla-carousel-autoplay"
 
@@ -22,7 +22,40 @@ import { useProducts } from "@/hooks/useProducts";
 import { useRestaurants } from "@/hooks/useRestaurants";
 import { useOrders } from "@/hooks/useOrders";
 import { AppContext } from "@/contexts/AppContext";
+import { cn } from "@/lib/utils";
 
+const BannerItem = ({ banner }: { banner: any }) => {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
+
+  return (
+    <CarouselItem 
+      key={banner.id} 
+      className={cn(
+        "transition-all duration-500",
+        !isLoaded ? "absolute opacity-0 pointer-events-none w-0 h-0" : "relative basis-full opacity-100"
+      )}
+    >
+      <Card className="border-none shadow-none overflow-hidden rounded-[2rem]">
+        <CardContent className="relative flex aspect-video items-center justify-center p-0 bg-muted/10">
+            <Image 
+                key={`${banner.id}-${retryKey}`}
+                src={banner.image} 
+                fill 
+                alt="Promotion" 
+                className="object-cover" 
+                unoptimized={true}
+                onLoadingComplete={() => setIsLoaded(true)}
+                onError={() => {
+                    setIsLoaded(false);
+                    setTimeout(() => setRetryKey(prev => prev + 1), 2000);
+                }}
+            />
+        </CardContent>
+      </Card>
+    </CarouselItem>
+  );
+};
 
 export default function HomePage() {
   const context = useContext(AppContext);
@@ -99,14 +132,8 @@ export default function HomePage() {
             plugins={[plugin.current]}
         >
           <CarouselContent>
-            {(banners.length > 0 ? banners : [{id: 'placeholder', image: 'https://placehold.co/600x300.png', link: '#'}]).map((banner, index) => (
-              <CarouselItem key={banner.id}>
-                <Card className="border-none shadow-none overflow-hidden rounded-[2rem]">
-                <CardContent className="relative flex aspect-video items-center justify-center p-0 bg-muted/10">
-                    <Image src={banner.image} fill alt="Promotion" className="object-cover" unoptimized={true}/>
-                </CardContent>
-                </Card>
-              </CarouselItem>
+            {(banners.length > 0 ? banners : [{id: 'placeholder', image: 'https://placehold.co/600x300.png'}]).map((banner) => (
+              <BannerItem key={banner.id} banner={banner} />
             ))}
           </CarouselContent>
         </Carousel>
@@ -155,9 +182,7 @@ export default function HomePage() {
             <ScrollArea className="w-full whitespace-nowrap">
                 <div className="flex w-max space-x-4 space-x-reverse pb-4">
                     {categoryProducts.map((product) => (
-                        <div key={product.id} className="w-44 flex-shrink-0">
-                          <ProductCard product={product} />
-                        </div>
+                        <ProductCard key={product.id} product={product} />
                     ))}
                 </div>
                 <ScrollBar orientation="horizontal" />
@@ -177,9 +202,7 @@ export default function HomePage() {
         <ScrollArea className="w-full whitespace-nowrap">
             <div className="flex w-max space-x-5 space-x-reverse pb-6 px-1">
               {restaurants.map((restaurant) => (
-                <div key={restaurant.id} className="w-[300px] flex-shrink-0">
-                  <RestaurantCard restaurant={restaurant} large={true} />
-                </div>
+                <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} />
               ))}
             </div>
             <ScrollBar orientation="horizontal" />

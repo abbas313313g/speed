@@ -88,19 +88,18 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const hasDiscount = !!product.discountPrice && !hasSizes;
 
-  // إذا لم يتم التحميل بعد، لا نحجز مساحة أبداً (نمنع الفراغات)
-  if (!isLoaded && retryKey > 10) return null; // بعد 10 محاولات فاشلة نختفي تماماً
+  if (!isLoaded && retryKey > 20) return null; 
 
   return (
     <div 
         onClick={handleOpenProduct}
         className={cn(
             "group cursor-pointer transition-all duration-500", 
-            !isLoaded ? "fixed opacity-0 pointer-events-none -z-50 h-0 w-0 overflow-hidden" : "relative opacity-100 scale-100 h-auto",
+            !isLoaded ? "absolute opacity-0 pointer-events-none -z-50 h-0 w-0 overflow-hidden" : "relative opacity-100 scale-100 h-auto",
             (isOutOfStock || !restaurant?.isStoreOpen) && "opacity-60"
         )}
     >
-      <Card className="overflow-hidden border-none shadow-md rounded-[1.5rem] bg-card">
+      <Card className="overflow-hidden border-none shadow-md rounded-[1.5rem] bg-card w-full">
         <CardContent className="p-0">
           <div className="relative w-full aspect-square overflow-hidden bg-muted/20">
             <Image
@@ -113,7 +112,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
               onLoadingComplete={() => setIsLoaded(true)}
               onError={() => {
                   setIsLoaded(false);
-                  setTimeout(() => setRetryCount(prev => prev + 1), 2000); // إعادة المحاولة بعد ثانيتين
+                  setTimeout(() => setRetryCount(prev => prev + 1), 2000);
               }}
             />
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2">نفد</Badge>}
