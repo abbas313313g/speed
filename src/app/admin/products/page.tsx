@@ -83,7 +83,6 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStoreId, setFilterStoreId] = useState('all');
-  const [storeSearch, setStoreSearch] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredProducts = useMemo(() => {
@@ -93,10 +92,6 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
         return matchesSearch && matchesStore;
     });
   }, [products, searchTerm, filterStoreId]);
-
-  const filteredStoresInDialog = useMemo(() => {
-    return restaurants.filter(r => (r.name || '').toLowerCase().includes(storeSearch.toLowerCase()));
-  }, [restaurants, storeSearch]);
 
   const handleOpenDialog = (product?: Product) => {
     if (product) {
@@ -114,16 +109,14 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
             sizes: []
         });
     }
-    setStoreSearch('');
     setOpen(true);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // فحص الحجم: Firestore لديه حد 1 ميجابايت للوثيقة الواحدة
       if (file.size > 800000) {
-          toast({ title: "الصورة كبيرة جداً", description: "يرجى اختيار صورة بحجم أقل من 800 كيلوبايت لضمان سرعة التحميل.", variant: "destructive" });
+          toast({ title: "الصورة كبيرة جداً", description: "يرجى اختيار صورة بحجم أقل من 800 كيلوبايت.", variant: "destructive" });
           return;
       }
       const reader = new FileReader();
@@ -132,6 +125,23 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleSizeChange = (index: number, field: keyof ProductSize, value: any) => {
+    const newSizes = [...(currentProduct.sizes || [])];
+    newSizes[index] = { ...newSizes[index], [field]: value };
+    setCurrentProduct({ ...currentProduct, sizes: newSizes });
+  };
+
+  const addSize = () => {
+    const newSizes = [...(currentProduct.sizes || []), { name: '', price: 0, stock: 0, isUnlimited: false, isActive: true }];
+    setCurrentProduct({ ...currentProduct, sizes: newSizes });
+  };
+
+  const removeSize = (index: number) => {
+    const newSizes = [...(currentProduct.sizes || [])];
+    newSizes.splice(index, 1);
+    setCurrentProduct({ ...currentProduct, sizes: newSizes });
   };
 
   const handleSaveProduct = async () => {
@@ -177,7 +187,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
       <header className="flex justify-between items-start">
         <div>
             <h1 className="text-3xl font-black text-primary">إدارة المنتجات</h1>
-            <p className="text-muted-foreground font-bold">رفع الصور مباشرة وتخزينها في قاعدة البيانات.</p>
+            <p className="text-muted-foreground font-bold">رفع الصور مباشرة وتدبير الأحجام والأسعار.</p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="rounded-xl h-12 px-6 font-bold shadow-lg gap-2">
             <PlusCircle className="h-5 w-5" /> إضافة منتج
@@ -237,10 +247,10 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                                 </Select>
                             </div>
                              <div className="space-y-1">
-                                <Label className="font-bold pr-1">فئة المتجر</Label>
+                                <Label className="font-bold pr-1">الفئة</Label>
                                 <Select value={currentProduct.categoryId} onValueChange={(val) => setCurrentProduct({...currentProduct, categoryId: val})}>
                                     <SelectTrigger className="rounded-xl h-11">
-                                        <SelectValue placeholder="الفئة العامة" />
+                                        <SelectValue placeholder="اختر فئة" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -272,18 +282,63 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
 
                         <Separator className="opacity-50" />
 
+                        <div className="grid grid-cols-2 gap-4">
+                             <div className="space-y-1">
+                                <Label className="font-bold pr-1 text-xs text-muted-foreground">سعر الجملة</Label>
+                                <Input type="number" value={currentProduct.wholesalePrice || ''} onChange={(e) => setCurrentProduct({...currentProduct, wholesalePrice: parseFloat(e.target.value)})} className="rounded-xl" />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="font-bold pr-1 text-xs text-muted-foreground">السعر بعد الخصم (اختياري)</Label>
+                                <Input type="number" value={currentProduct.discountPrice || ''} onChange={(e) => setCurrentProduct({...currentProduct, discountPrice: parseFloat(e.target.value)})} className="rounded-xl" />
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-3 gap-4 bg-muted/20 p-5 rounded-[2rem] border-2 border-dashed">
                             <div className="space-y-1">
-                                <Label className="text-[10px] font-bold">سعر البيع</Label>
+                                <Label className="text-[10px] font-bold">سعر البيع الأساسي</Label>
                                 <Input type="number" value={currentProduct.price || ''} onChange={(e) => setCurrentProduct({...currentProduct, price: parseFloat(e.target.value)})} className="rounded-xl font-black" />
                             </div>
                             <div className="space-y-1">
-                                <Label className="text-[10px] font-bold">المخزن</Label>
+                                <Label className="text-[10px] font-bold">المخزن الأساسي</Label>
                                 <Input type="number" disabled={currentProduct.isUnlimitedStock} value={currentProduct.isUnlimitedStock ? '' : (currentProduct.stock || '')} onChange={(e) => setCurrentProduct({...currentProduct, stock: parseInt(e.target.value)})} className="rounded-xl" />
                             </div>
                             <div className="flex flex-col justify-end items-center space-y-1">
                                 <Label className="text-[10px] font-bold">كمية مفتوحة</Label>
                                 <Switch checked={currentProduct.isUnlimitedStock} onCheckedChange={(v) => setCurrentProduct({...currentProduct, isUnlimitedStock: v})} />
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <Label className="font-black text-lg">الأحجام والأنواع (اختياري)</Label>
+                                <Button type="button" variant="outline" size="sm" onClick={addSize} className="rounded-xl gap-1">
+                                    <Plus className="h-4 w-4" /> إضافة حجم
+                                </Button>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                {currentProduct.sizes?.map((size, idx) => (
+                                    <div key={idx} className="p-4 bg-slate-50 rounded-2xl border space-y-3">
+                                        <div className="flex items-center gap-2">
+                                            <Input placeholder="اسم الحجم (مثال: كبير)" value={size.name} onChange={(e)=>handleSizeChange(idx, 'name', e.target.value)} className="rounded-lg h-9 font-bold" />
+                                            <Button variant="ghost" size="icon" onClick={()=>removeSize(idx)} className="text-destructive"><X className="h-4 w-4"/></Button>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] font-bold">السعر</Label>
+                                                <Input type="number" value={size.price || ''} onChange={(e)=>handleSizeChange(idx, 'price', parseFloat(e.target.value))} className="h-8 rounded-lg text-xs" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] font-bold">المخزن</Label>
+                                                <Input type="number" disabled={size.isUnlimited} value={size.isUnlimited ? '' : (size.stock || '')} onChange={(e)=>handleSizeChange(idx, 'stock', parseInt(e.target.value))} className="h-8 rounded-lg text-xs" />
+                                            </div>
+                                            <div className="flex flex-col items-center justify-center">
+                                                <Label className="text-[10px] font-bold mb-1">مفتوح</Label>
+                                                <Switch checked={size.isUnlimited} onCheckedChange={(v)=>handleSizeChange(idx, 'isUnlimited', v)} className="scale-75" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -304,6 +359,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                 <TableHead className="font-black">صورة</TableHead>
                 <TableHead className="font-black">المنتج</TableHead>
                 <TableHead className="font-black">السعر</TableHead>
+                <TableHead className="font-black">الأنواع</TableHead>
                 <TableHead className="font-black text-center">إجراء</TableHead>
               </TableRow>
             </TableHeader>
@@ -315,6 +371,11 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                   </TableCell>
                   <TableCell className="font-bold">{p.name}</TableCell>
                   <TableCell className="font-black text-primary text-xs">{formatCurrency(p.discountPrice || p.price)}</TableCell>
+                  <TableCell>
+                      {p.sizes && p.sizes.length > 0 ? (
+                          <Badge variant="secondary" className="font-black">{p.sizes.length} أنواع</Badge>
+                      ) : '-'}
+                  </TableCell>
                   <TableCell className="text-center">
                       <div className="flex justify-center gap-1">
                           <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" onClick={() => handleOpenDialog(p)}><Edit className="h-4 w-4"/></Button>

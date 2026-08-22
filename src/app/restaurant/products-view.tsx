@@ -61,6 +61,22 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
         }
     };
 
+    const handleSizeChange = (idx: number, field: keyof ProductSize, val: any) => {
+        const newSizes = [...currentP.sizes];
+        newSizes[idx] = { ...newSizes[idx], [field]: val };
+        setCurrentP({ ...currentP, sizes: newSizes });
+    };
+
+    const addSize = () => {
+        setCurrentP({ ...currentP, sizes: [...currentP.sizes, { name: '', price: 0, stock: 10, isUnlimited: false, isActive: true }] });
+    };
+
+    const removeSize = (idx: number) => {
+        const newSizes = [...currentP.sizes];
+        newSizes.splice(idx, 1);
+        setCurrentP({ ...currentP, sizes: newSizes });
+    };
+
     const handleOpenEdit = (product: any) => {
         setIsEditing(true);
         setCurrentP({
@@ -110,7 +126,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                 <Button variant="outline" size="icon" onClick={onBack} className="rounded-xl h-10 w-10"><ArrowRight className="h-5 w-5"/></Button>
                 <div className="text-right">
                     <h1 className="text-xl font-black text-primary leading-none">منيو المتجر</h1>
-                    <p className="text-[10px] font-bold text-muted-foreground mt-1">رفع الصور مباشرة للجهاز</p>
+                    <p className="text-[10px] font-bold text-muted-foreground mt-1">رفع الصور مباشرة وتدبير المنيو</p>
                 </div>
                 <Button onClick={() => { setIsEditing(false); setCurrentP({...currentP, sizes: []}); setIsAdding(true); }} className="mr-auto rounded-xl h-10 px-4 font-black">إضافة وجبة</Button>
             </header>
@@ -121,7 +137,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                     <Input placeholder="بحث سريع..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} className="pr-10 h-11 rounded-xl bg-white border-2 border-muted" />
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                     {filteredMyProducts.map(p => (
                         <Card key={p.id} className={cn("rounded-2xl border-none shadow-md overflow-hidden bg-white transition-all hover:shadow-lg", !(p.isActive ?? true) && "grayscale opacity-70")}>
                             <div className="relative aspect-video">
@@ -135,6 +151,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                                         <button className="p-2 text-primary bg-primary/5 rounded-lg" onClick={() => handleOpenEdit(p)}><Edit3 className="h-4 w-4"/></button>
                                         <button className="p-2 text-destructive bg-destructive/5 rounded-lg" onClick={() => deleteProduct(p.id)}><Trash2 className="h-4 w-4"/></button>
                                     </div>
+                                    <Switch checked={p.isActive ?? true} onCheckedChange={(v) => updateProduct({ id: p.id, isActive: v } as any, false)} className="scale-75" />
                                 </div>
                             </div>
                         </Card>
@@ -170,6 +187,48 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                         <div className="space-y-1">
                             <Label className="font-bold">السعر (IQD)</Label>
                             <Input type="number" value={currentP.price || ''} onChange={(e)=>setCurrentP({...currentP, price: parseFloat(e.target.value) || 0})} className="h-11 rounded-xl font-black text-primary" />
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 bg-muted/20 p-4 rounded-2xl">
+                            <div className="space-y-1">
+                                <Label className="text-[10px] font-bold">المخزن</Label>
+                                <Input type="number" disabled={currentP.isUnlimitedStock} value={currentP.isUnlimitedStock ? '' : (currentP.stock || '')} onChange={(e)=>setCurrentP({...currentP, stock: parseInt(e.target.value)})} className="h-10 rounded-xl" />
+                            </div>
+                            <div className="flex flex-col items-center justify-center">
+                                <Label className="text-[10px] font-bold mb-1">كمية مفتوحة</Label>
+                                <Switch checked={currentP.isUnlimitedStock} onCheckedChange={(v)=>setCurrentP({...currentP, isUnlimitedStock: v})} />
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <Label className="font-black text-lg">الأحجام والأنواع</Label>
+                                <Button type="button" variant="outline" size="sm" onClick={addSize} className="rounded-xl"><Plus className="h-4 w-4 ml-1"/> إضافة</Button>
+                            </div>
+                            <div className="space-y-3">
+                                {currentP.sizes.map((size, idx) => (
+                                    <div key={idx} className="p-4 bg-slate-50 rounded-2xl border space-y-3">
+                                        <div className="flex items-center gap-2">
+                                            <Input placeholder="اسم الحجم" value={size.name} onChange={(e)=>handleSizeChange(idx, 'name', e.target.value)} className="h-9 font-bold" />
+                                            <Button variant="ghost" size="icon" onClick={()=>removeSize(idx)} className="text-destructive"><X className="h-4 w-4"/></Button>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px]">السعر</Label>
+                                                <Input type="number" value={size.price || ''} onChange={(e)=>handleSizeChange(idx, 'price', parseFloat(e.target.value))} className="h-8 text-xs" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px]">المخزن</Label>
+                                                <Input type="number" disabled={size.isUnlimited} value={size.isUnlimited ? '' : (size.stock || '')} onChange={(e)=>handleSizeChange(idx, 'stock', parseInt(e.target.value))} className="h-8 text-xs" />
+                                            </div>
+                                            <div className="flex flex-col items-center justify-center">
+                                                <Label className="text-[10px]">مفتوح</Label>
+                                                <Switch checked={size.isUnlimited} onCheckedChange={(v)=>handleSizeChange(idx, 'isUnlimited', v)} className="scale-75" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                          
                         <div className="space-y-1">
