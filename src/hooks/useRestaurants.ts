@@ -3,9 +3,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { v4 as uuidv4 } from 'uuid';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -59,29 +57,14 @@ export const useRestaurants = (branchId?: string) => {
         }));
     }, [restaurantsData]);
 
-    const uploadImage = useCallback(async (base64: string, path: string): Promise<string> => {
-        if (!base64 || !base64.startsWith('data:')) return base64;
-        try {
-            const storageRef = ref(storage, `${path}-${Date.now()}`);
-            const snapshot = await uploadString(storageRef, base64, 'data_url');
-            return await getDownloadURL(snapshot.ref);
-        } catch (e) {
-            console.error("Restaurant storage upload failed:", e);
-            return base64;
-        }
-    }, []);
-    
     const addRestaurant = useCallback(async (restaurantData: Omit<Restaurant, 'id'> & { image: string }) => {
         try {
-            const imageUrl = await uploadImage(restaurantData.image, `restaurants/${uuidv4()}`);
-            
             const cleanData = Object.fromEntries(
                 Object.entries(restaurantData).filter(([_, v]) => v !== undefined)
             );
 
             const finalData = { 
                 ...cleanData, 
-                image: imageUrl,
                 branchId: branchId && branchId !== 'all' ? branchId : (restaurantData.branchId || 'main'),
                 rating: Number(restaurantData.rating) || 5,
                 commissionRate: Number(restaurantData.commissionRate) || 10,
@@ -92,14 +75,14 @@ export const useRestaurants = (branchId?: string) => {
             toast({ title: "تمت إضافة المتجر بنجاح" });
             return docRef.id;
         } catch (error: any) { 
-            toast({ title: "فشل إضافة المتجر", description: error.message, variant: "destructive" }); 
+            toast({ title: "فشل إضافة المتجر", description: "حاول تقليل حجم الصورة المرفوعة.", variant: "destructive" }); 
             throw error;
         }
-    }, [toast, uploadImage, branchId]);
+    }, [toast, branchId]);
 
     const updateRestaurant = useCallback(async (updatedRestaurant: Partial<Restaurant> & { id: string }) => {
         try {
-            const { id, image, ...restaurantData } = updatedRestaurant;
+            const { id, ...restaurantData } = updatedRestaurant;
             
             const cleanData = Object.fromEntries(
                 Object.entries(restaurantData).filter(([_, v]) => v !== undefined)
@@ -113,12 +96,6 @@ export const useRestaurants = (branchId?: string) => {
                 longitude: restaurantData.longitude !== undefined ? Number(restaurantData.longitude) : undefined
             };
 
-            if (image && image.startsWith('data:')) {
-                finalData.image = await uploadImage(image, `restaurants/${id}`);
-            } else if (image) {
-                finalData.image = image;
-            }
-
             const sanitizedUpdate: any = Object.fromEntries(Object.entries(finalData).filter(([_, v]) => v !== undefined));
             await updateDoc(doc(db, "restaurants", id), sanitizedUpdate);
             toast({ title: "تم تحديث المتجر بنجاح" });
@@ -126,7 +103,7 @@ export const useRestaurants = (branchId?: string) => {
             toast({ title: "فشل تحديث المتجر", variant: "destructive" }); 
             throw error;
         }
-    }, [toast, uploadImage]);
+    }, [toast]);
 
     const deleteRestaurant = useCallback(async (restaurantId: string) => {
         try {

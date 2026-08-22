@@ -65,10 +65,6 @@ export default function AdminBannersPage() {
   const [currentBanner, setCurrentBanner] = useState<Partial<Banner> & { image?: string }>({ ...EMPTY_BANNER });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const isLoading = bannersLoading || productsLoading || restaurantsLoading;
-
-  if (isLoading) return <div>جار التحميل...</div>;
-
   const handleOpenDialog = (banner?: Banner) => {
     if (banner) {
       setIsEditing(true);
@@ -83,6 +79,10 @@ export default function AdminBannersPage() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 800000) {
+        toast({ title: "الصورة كبيرة جداً", variant: "destructive" });
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setCurrentBanner({ ...currentBanner, image: reader.result as string });
@@ -93,12 +93,8 @@ export default function AdminBannersPage() {
 
   const handleSave = async () => {
     if (!currentBanner.image) {
-      toast({ title: "صورة البنر مطلوبة", description: "الرجاء رفع صورة للبنر.", variant: "destructive" });
+      toast({ title: "صورة البنر مطلوبة", variant: "destructive" });
       return;
-    }
-    if (currentBanner.linkType !== 'none' && (!currentBanner.link || currentBanner.link === '#')) {
-        toast({ title: "الرابط مطلوب", description: "الرجاء اختيار منتج أو متجر للربط.", variant: "destructive" });
-        return;
     }
 
     setIsSaving(true);
@@ -110,50 +106,44 @@ export default function AdminBannersPage() {
       }
       setOpen(false);
     } catch (error) {
-      console.error("Failed to save banner:", error);
-      toast({ title: "فشل حفظ البنر", description: "حدث خطأ أثناء محاولة حفظ البنر.", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
   };
+
+  if (bannersLoading) return <div className="p-8 text-center animate-pulse">جارِ تحميل البنرات...</div>;
 
   return (
     <div className="space-y-8">
       <header className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">إدارة البنرات</h1>
-          <p className="text-muted-foreground">عرض وإضافة بنرات إعلانية جديدة.</p>
+          <p className="text-muted-foreground">تحميل صور العروض مباشرة في قاعدة البيانات.</p>
         </div>
-        <Button onClick={() => handleOpenDialog()}>إضافة بنر جديد</Button>
+        <Button onClick={() => handleOpenDialog()}>إضافة بنر</Button>
       </header>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px] rounded-[2rem]">
           <DialogHeader>
             <DialogTitle>{isEditing ? 'تعديل البنر' : 'إضافة بنر جديد'}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 text-right">
              <div className="space-y-2">
-              <Label htmlFor="image">صورة البنر</Label>
-              <div className="flex gap-2">
-                <Input 
-                    id="image" 
-                    placeholder="أدخل رابط صورة أو ارفع ملفًا" 
-                    value={currentBanner.image} 
-                    onChange={(e) => setCurrentBanner({ ...currentBanner, image: e.target.value })} 
-                />
-                <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4"/></Button>
-                <Input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
-              </div>
+              <Label>صورة الإعلان (رفع مباشر)</Label>
+              <Button type="button" variant="outline" className="w-full h-14 rounded-xl border-dashed" onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="ml-2 h-4 w-4"/> اختر من الملفات
+              </Button>
+              <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
             </div>
 
-            {currentBanner.image && <Image src={currentBanner.image} alt="preview" width={200} height={100} className="col-span-4 justify-self-center object-contain rounded-md border" unoptimized={true}/>}
+            {currentBanner.image && <div className="relative aspect-video rounded-2xl overflow-hidden border-2 border-primary/10"><Image src={currentBanner.image} alt="preview" fill className="object-cover" unoptimized={true}/></div>}
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="linkType" className="text-right">نوع الرابط</Label>
+            <div className="space-y-2">
+              <Label>نوع الربط</Label>
               <Select value={currentBanner.linkType} onValueChange={(value: 'none' | 'product' | 'restaurant') => setCurrentBanner({ ...currentBanner, linkType: value, link: '#' })}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="اختر نوع الرابط" />
+                <SelectTrigger className="h-12 rounded-xl">
+                  <SelectValue placeholder="اختر النوع" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">بدون رابط</SelectItem>
@@ -162,47 +152,18 @@ export default function AdminBannersPage() {
                 </SelectContent>
               </Select>
             </div>
-
-            {currentBanner.linkType === 'product' && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="productLink" className="text-right">المنتج</Label>
-                <Select value={currentBanner.link?.split('/')[2]} onValueChange={(value) => setCurrentBanner({ ...currentBanner, link: `/products/${value}` })}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="اختر منتجًا..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {currentBanner.linkType === 'restaurant' && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="restaurantLink" className="text-right">المتجر</Label>
-                <Select value={currentBanner.link?.split('/')[2]} onValueChange={(value) => setCurrentBanner({ ...currentBanner, link: `/restaurants/${value}` })}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="اختر متجرًا..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {restaurants.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
           </div>
           <DialogFooter>
-            <Button type="submit" onClick={handleSave} disabled={isSaving}>
-              {isSaving && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-              {isEditing ? 'حفظ التعديلات' : 'حفظ البنر'}
+            <Button onClick={handleSave} disabled={isSaving} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl">
+              {isSaving ? <Loader2 className="animate-spin h-5 w-5" /> : 'حفظ البنر'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-        {banners.length > 0 ? (
-          <Table>
-            <TableHeader>
+
+      <div className="bg-white rounded-[1.5rem] border shadow-xl overflow-hidden">
+        <Table>
+            <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>صورة</TableHead>
                 <TableHead>الرابط</TableHead>
@@ -213,44 +174,20 @@ export default function AdminBannersPage() {
               {banners.map((banner) => (
                 <TableRow key={banner.id}>
                   <TableCell>
-                    <Image src={banner.image} alt="Banner" width={120} height={60} className="rounded-md object-cover" unoptimized={true}/>
+                    <div className="relative h-14 w-28"><Image src={banner.image} alt="" fill className="rounded-lg object-cover" unoptimized={true}/></div>
                   </TableCell>
-                  <TableCell>{banner.link}</TableCell>
+                  <TableCell className="text-xs font-bold">{banner.link}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                        <Button variant="outline" size="icon" onClick={() => handleOpenDialog(banner)}>
-                            <Edit className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="icon">
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        هذا الإجراء سيقوم بحذف البنر بشكل نهائي.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => deleteBanner(banner.id)}>حذف</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="icon" onClick={() => handleOpenDialog(banner)} className="rounded-lg h-9 w-9"><Edit className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => deleteBanner(banner.id)} className="text-destructive h-9 w-9"><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-      ) : (
-        <p className="text-center text-muted-foreground py-8">لا توجد بنرات لعرضها.</p>
-      )}
+      </div>
     </div>
   );
 }
-
-    

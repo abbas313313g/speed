@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useContext, useMemo, useState, useRef, useEffect } from 'react';
@@ -48,11 +49,15 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
     const filteredMyProducts = myProducts.filter(p => (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
 
     const handleImg = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const f = e.target.files?.[0];
-        if (f) {
-            const r = new FileReader();
-            r.onloadend = () => setCurrentP({ ...currentP, image: r.result as string });
-            r.readAsDataURL(f);
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 800000) {
+                toast({ title: "الصورة كبيرة", description: "يرجى اختيار صورة أصغر من 800 كيلوبايت.", variant: "destructive" });
+                return;
+            }
+            const reader = new FileReader();
+            reader.onloadend = () => setCurrentP({ ...currentP, image: reader.result as string });
+            reader.readAsDataURL(file);
         }
     };
 
@@ -68,41 +73,9 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
             stock: product.stock || 0,
             isActive: product.isActive ?? true,
             isUnlimitedStock: product.isUnlimitedStock ?? false,
-            sizes: (product.sizes || []).map((s: any) => ({ 
-                ...s, 
-                isActive: s.isActive ?? true,
-                isUnlimited: s.isUnlimited ?? false 
-            }))
+            sizes: (product.sizes || []).map((s: any) => ({ ...s, isActive: s.isActive ?? true, isUnlimited: s.isUnlimited ?? false }))
         });
         setIsAdding(true);
-    };
-
-    const handleAddSize = () => {
-        const sizes = [...currentP.sizes];
-        sizes.push({ name: '', price: 0, stock: 0, isUnlimited: false, isActive: true });
-        setCurrentP({ ...currentP, sizes });
-    }
-
-    const handleRemoveSize = (idx: number) => {
-        const sizes = [...currentP.sizes];
-        sizes.splice(idx, 1);
-        setCurrentP({ ...currentP, sizes });
-    }
-
-    const handleSizeChange = (idx: number, field: keyof ProductSize, val: any) => {
-        const sizes = [...currentP.sizes];
-        sizes[idx] = { ...sizes[idx], [field]: val };
-        setCurrentP({ ...currentP, sizes });
-    }
-
-    const handleToggleVisibility = async (product: any) => {
-        try {
-            const currentStatus = product.isActive ?? true;
-            await updateProduct({ id: product.id, isActive: !currentStatus }, false);
-            toast({ title: currentStatus ? "تم إخفاء المنتج" : "تم تفعيل عرض المنتج" });
-        } catch (e) {
-            console.error("Toggle visibility error:", e);
-        }
     };
 
     const handleSave = async () => {
@@ -111,23 +84,11 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
             return;
         }
 
-        const hasSizes = currentP.sizes.length > 0;
-        if (!hasSizes && !currentP.price) {
-             toast({ title: "السعر مطلوب", variant: "destructive" });
-             return;
-        }
-
         const dataToSave = {
             ...currentP,
             price: Number(currentP.price),
             stock: currentP.isUnlimitedStock ? 999999 : Number(currentP.stock),
-            sizes: currentP.sizes.map(s => ({ 
-                ...s, 
-                price: Number(s.price), 
-                stock: s.isUnlimited ? 999999 : Number(s.stock),
-                isUnlimited: !!s.isUnlimited,
-                isActive: s.isActive ?? true
-            }))
+            sizes: currentP.sizes.map(s => ({ ...s, price: Number(s.price), stock: s.isUnlimited ? 999999 : Number(s.stock) }))
         };
 
         if (isEditing) {
@@ -146,192 +107,80 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
     return (
         <div className="flex flex-col min-h-full bg-background pb-40 text-right">
             <header className="p-4 bg-white border-b shadow-sm flex items-center gap-4 sticky top-0 z-50">
-                <Button variant="outline" size="icon" onClick={onBack} className="rounded-xl h-10 w-10">
-                    <ArrowRight className="h-5 w-5"/>
-                </Button>
+                <Button variant="outline" size="icon" onClick={onBack} className="rounded-xl h-10 w-10"><ArrowRight className="h-5 w-5"/></Button>
                 <div className="text-right">
                     <h1 className="text-xl font-black text-primary leading-none">منيو المتجر</h1>
-                    <p className="text-[10px] font-bold text-muted-foreground mt-1">إدارة العناصر والتوفر</p>
+                    <p className="text-[10px] font-bold text-muted-foreground mt-1">رفع الصور مباشرة للجهاز</p>
                 </div>
-                <Button onClick={() => { setIsEditing(false); setCurrentP({...currentP, sizes: []}); setIsAdding(true); }} className="mr-auto rounded-xl h-10 px-4 font-black">
-                    <Plus className="ml-1 h-4 w-4"/> إضافة
-                </Button>
+                <Button onClick={() => { setIsEditing(false); setCurrentP({...currentP, sizes: []}); setIsAdding(true); }} className="mr-auto rounded-xl h-10 px-4 font-black">إضافة وجبة</Button>
             </header>
 
             <main className="p-4 space-y-6 container mx-auto max-w-6xl">
-                <div className="bg-primary/5 p-4 rounded-2xl flex items-start gap-3 border border-primary/10">
-                    <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <div className="text-[10px] font-bold text-primary leading-relaxed">
-                        <p>يمكنك الآن إيقاف أي حجم أو نوع من داخل تعديل المنتج وسيتوقف ظهوره للزبائن فوراً.</p>
-                        <p className="mt-1 text-orange-600">ملاحظة: تعديلات التوفر تعمل فوراً بدون انتظار موافقة الإدارة.</p>
-                    </div>
-                </div>
-
                 <div className="relative">
                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="بحث سريع في المنتجات..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} className="pr-10 h-11 rounded-xl bg-white border-2 border-muted" />
+                    <Input placeholder="بحث سريع..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} className="pr-10 h-11 rounded-xl bg-white border-2 border-muted" />
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {filteredMyProducts.map(p => {
-                         const hasSizes = p.sizes && p.sizes.length > 0;
-                         const activeSizes = p.sizes?.filter(s => s.isActive !== false) || [];
-                         const startingPrice = hasSizes ? Math.min(...activeSizes.map((s:any)=>s.price)) : p.price;
-
-                         return (
-                            <Card key={p.id} className={cn("rounded-2xl border-none shadow-md overflow-hidden bg-white transition-all hover:shadow-lg", !(p.isActive ?? true) && "grayscale opacity-70")}>
-                                <div className="relative aspect-video">
-                                    <Image src={p.image || 'https://placehold.co/100x60.png'} fill className="object-cover" alt={p.name} unoptimized={true} />
-                                    <div className="absolute top-1 left-1 flex flex-col gap-1">
-                                        <Badge className={cn("rounded-lg text-[8px] px-1.5 py-0", p.status === 'approved' ? "bg-green-500" : "bg-orange-500")}>
-                                            {p.status === 'approved' ? 'نشط' : 'معلق'}
-                                        </Badge>
-                                        {!(p.isActive ?? true) && <Badge className="bg-destructive rounded-lg text-[8px] px-1.5 py-0">مخفي</Badge>}
+                    {filteredMyProducts.map(p => (
+                        <Card key={p.id} className={cn("rounded-2xl border-none shadow-md overflow-hidden bg-white transition-all hover:shadow-lg", !(p.isActive ?? true) && "grayscale opacity-70")}>
+                            <div className="relative aspect-video">
+                                <Image src={p.image} fill className="object-cover" alt="" unoptimized={true} />
+                            </div>
+                            <div className="p-3 text-right space-y-2">
+                                <h3 className="font-black text-sm truncate">{p.name}</h3>
+                                <div className="font-black text-primary text-xs">{formatCurrency(p.price)}</div>
+                                <div className="flex justify-between items-center pt-2 border-t border-muted">
+                                    <div className="flex gap-1">
+                                        <button className="p-2 text-primary bg-primary/5 rounded-lg" onClick={() => handleOpenEdit(p)}><Edit3 className="h-4 w-4"/></button>
+                                        <button className="p-2 text-destructive bg-destructive/5 rounded-lg" onClick={() => deleteProduct(p.id)}><Trash2 className="h-4 w-4"/></button>
                                     </div>
                                 </div>
-                                <div className="p-3 text-right space-y-2">
-                                    <h3 className="font-black text-sm truncate leading-none">{p.name}</h3>
-                                    <div className="font-black text-primary text-xs">
-                                         {hasSizes ? (
-                                             <span>تبدأ من {formatCurrency(startingPrice || p.price)}</span>
-                                         ) : formatCurrency(p.price)}
-                                    </div>
-                                    <div className="flex justify-between items-center pt-2 border-t border-muted">
-                                        <div className="flex gap-1">
-                                            <button className="p-2 text-primary bg-primary/5 rounded-lg" onClick={() => handleOpenEdit(p)}>
-                                                <Edit3 className="h-4 w-4"/>
-                                            </button>
-                                            <button className={cn("p-2 rounded-lg", (p.isActive ?? true) ? "text-orange-500 bg-orange-50" : "text-green-500 bg-green-50")} onClick={() => handleToggleVisibility(p)}>
-                                                {(p.isActive ?? true) ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
-                                            </button>
-                                            <button className="p-2 text-destructive bg-destructive/5 rounded-lg" onClick={() => deleteProduct(p.id)}>
-                                                <Trash2 className="h-4 w-4"/>
-                                            </button>
-                                        </div>
-                                        <span className="text-[8px] font-black text-muted-foreground">
-                                            {hasSizes ? `${activeSizes.length} نشط` : (p.isUnlimitedStock ? 'كمية مفتوحة' : `المخزن: ${p.stock}`)}
-                                        </span>
-                                    </div>
-                                </div>
-                            </Card>
-                         );
-                    })}
+                            </div>
+                        </Card>
+                    ))}
                 </div>
             </main>
 
             <Dialog open={isDialogOpen} onOpenChange={setIsAdding}>
                 <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col rounded-[2.5rem] p-0 border-none shadow-2xl overflow-hidden">
-                    <DialogHeader className="p-6 pb-2 border-b bg-card shrink-0">
-                        <DialogTitle className="text-2xl font-black text-right text-primary">{isEditing ? 'تعديل المنتج' : 'إضافة منتج جديد'}</DialogTitle>
+                    <DialogHeader className="p-6 border-b bg-card shrink-0">
+                        <DialogTitle className="text-2xl font-black text-right text-primary">{isEditing ? 'تعديل الوجبة' : 'إضافة وجبة جديدة'}</DialogTitle>
                     </DialogHeader>
                     
-                    <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
-                        <div className="space-y-6 py-2 text-right pb-10">
-                            <div className="space-y-1">
-                                <Label className="font-bold pr-1">اسم المنتج</Label>
-                                <Input value={currentP.name} onChange={(e)=>setCurrentP({...currentP, name: e.target.value})} className="h-11 rounded-xl" placeholder="الوجبة..." />
-                            </div>
+                    <div className="flex-1 overflow-y-auto p-6 text-right space-y-6 pb-20">
+                        <div className="space-y-1">
+                            <Label className="font-bold">اسم الوجبة</Label>
+                            <Input value={currentP.name} onChange={(e)=>setCurrentP({...currentP, name: e.target.value})} className="h-11 rounded-xl" />
+                        </div>
 
-                            <Separator className="opacity-50" />
-
-                            <div className="space-y-4 bg-muted/20 p-4 rounded-[2rem] border-2 border-dashed border-primary/20">
-                                <div className="flex justify-between items-center">
-                                    <Label className="font-black text-primary flex items-center gap-2"><Tag className="h-4 w-4"/> الأنواع والأحجام</Label>
-                                    <Button variant="outline" size="sm" onClick={handleAddSize} className="rounded-lg h-9 text-xs font-bold gap-1 border-primary/40 text-primary">
-                                        <Plus className="h-3 w-3"/> إضافة نوع
-                                    </Button>
+                        <div className="space-y-2">
+                            <Label className="font-bold">صورة الوجبة (رفع من الجهاز)</Label>
+                            <Button type="button" variant="outline" className="w-full h-14 rounded-xl font-black gap-2 border-primary/40 text-primary" onClick={()=>fileRef.current?.click()}>
+                                <Upload className="h-5 w-5" /> اختر الصورة
+                            </Button>
+                            <input type="file" ref={fileRef} className="hidden" onChange={handleImg} accept="image/*" />
+                            {currentP.image && (
+                                <div className="relative w-full aspect-video rounded-3xl overflow-hidden border-2 border-muted bg-muted/10 mt-4">
+                                    <Image src={currentP.image} fill className="object-contain" alt="preview" unoptimized={true}/>
                                 </div>
-                                
-                                {currentP.sizes.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {currentP.sizes.map((s, i) => (
-                                            <div key={i} className={cn("flex flex-col gap-2 bg-white p-2 rounded-2xl border shadow-sm", !(s.isActive ?? true) && "opacity-60 bg-slate-50")}>
-                                                <div className="flex gap-2 items-center">
-                                                    <Input placeholder="الاسم (مثلاً: صغير)" value={s.name} onChange={(e)=>handleSizeChange(i, 'name', e.target.value)} className="h-9 text-[10px] rounded-xl flex-1" />
-                                                    <Input type="number" placeholder="السعر" value={s.price || ''} onChange={(e)=>handleSizeChange(i, 'price', e.target.value)} className="h-9 text-[10px] rounded-xl w-16 font-black text-primary" />
-                                                    <Button variant="ghost" size="icon" onClick={()=>handleRemoveSize(i)} className="text-destructive h-8 w-8 hover:bg-destructive/10 rounded-lg"><X className="h-4 w-4"/></Button>
-                                                </div>
-                                                <div className="flex items-center justify-between px-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <Label className="text-[9px] font-bold">المخزن:</Label>
-                                                        <Input 
-                                                            type="number" 
-                                                            disabled={s.isUnlimited} 
-                                                            placeholder="0" 
-                                                            value={s.isUnlimited ? '' : (s.stock || '')} 
-                                                            onChange={(e)=>handleSizeChange(i, 'stock', e.target.value)} 
-                                                            className="h-7 text-[10px] rounded-lg w-12 text-center" 
-                                                        />
-                                                    </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="flex items-center gap-1">
-                                                            <Switch checked={s.isUnlimited} onCheckedChange={(v)=>handleSizeChange(i, 'isUnlimited', v)} className="scale-75" />
-                                                            <span className="text-[8px] font-black text-primary">مفتوح</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <Switch checked={s.isActive ?? true} onCheckedChange={(v)=>handleSizeChange(i, 'isActive', v)} className="scale-75" />
-                                                            <span className={cn("text-[8px] font-black", (s.isActive ?? true) ? "text-green-600" : "text-destructive")}>نشط</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-2 gap-3 bg-white p-4 rounded-2xl border">
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] font-bold pr-1">السعر (IQD)</Label>
-                                            <Input type="number" value={currentP.price || ''} onChange={(e)=>setCurrentP({...currentP, price: parseFloat(e.target.value) || 0})} className="h-11 rounded-xl font-black text-primary" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] font-bold pr-1">المخزن</Label>
-                                            <div className="flex items-center gap-2">
-                                                <Input 
-                                                    type="number" 
-                                                    disabled={currentP.isUnlimitedStock} 
-                                                    value={currentP.isUnlimitedStock ? '' : (currentP.stock || '')} 
-                                                    onChange={(e)=>setCurrentP({...currentP, stock: parseInt(e.target.value) || 0})} 
-                                                    className="h-11 rounded-xl flex-1" 
-                                                    placeholder="0"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="col-span-2 flex items-center justify-between p-2 bg-muted/20 rounded-xl">
-                                            <span className="text-[10px] font-black">تفعيل الكمية المفتوحة (لا تنفد)</span>
-                                            <Switch checked={currentP.isUnlimitedStock} onCheckedChange={(v)=>setCurrentP({...currentP, isUnlimitedStock: v})} />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                            )}
+                        </div>
 
-                            <Separator className="opacity-50" />
-
-                            <div className="space-y-1">
-                                <Label className="font-bold pr-1">الوصف والوصل</Label>
-                                <Textarea value={currentP.description} onChange={(e)=>setCurrentP({...currentP, description: e.target.value})} className="h-24 rounded-xl p-4 font-bold" placeholder="اكتب تفاصيل الوجبة والوصل هنا..." />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label className="font-bold pr-1">صورة المنتج</Label>
-                                <div className="flex gap-2">
-                                    <Input value={currentP.image} onChange={(e)=>setCurrentP({...currentP, image: e.target.value})} className="h-11 rounded-xl" placeholder="رابط الصورة..." />
-                                    <Button variant="outline" size="icon" className="rounded-xl h-11 w-12 shrink-0 border-primary text-primary" onClick={()=>fileRef.current?.click()}>
-                                        <Upload className="h-5 w-5" />
-                                    </Button>
-                                </div>
-                                <input type="file" ref={fileRef} className="hidden" onChange={handleImg} accept="image/*" />
-                                {currentP.image && (
-                                    <div className="relative w-full aspect-video rounded-3xl overflow-hidden border-2 border-muted bg-muted/10">
-                                        <Image src={currentP.image} fill className="object-contain" alt="preview" unoptimized={true}/>
-                                    </div>
-                                )}
-                            </div>
+                        <div className="space-y-1">
+                            <Label className="font-bold">السعر (IQD)</Label>
+                            <Input type="number" value={currentP.price || ''} onChange={(e)=>setCurrentP({...currentP, price: parseFloat(e.target.value) || 0})} className="h-11 rounded-xl font-black text-primary" />
+                        </div>
+                         
+                        <div className="space-y-1">
+                            <Label className="font-bold">الوصف</Label>
+                            <Textarea value={currentP.description} onChange={(e)=>setCurrentP({...currentP, description: e.target.value})} className="h-24 rounded-xl" />
                         </div>
                     </div>
 
                     <DialogFooter className="p-6 bg-card border-t shrink-0">
-                        <Button onClick={handleSave} className="w-full h-16 rounded-[1.8rem] text-xl font-black shadow-xl shadow-primary/20">
-                            {isEditing ? 'حفظ التغييرات فوراً' : 'إرسال للموافقة والنشر'}
+                        <Button onClick={handleSave} className="w-full h-16 rounded-[1.8rem] text-xl font-black shadow-xl">
+                            {isEditing ? 'حفظ التعديلات' : 'إرسال للمراجعة'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

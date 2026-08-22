@@ -3,9 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { v4 as uuidv4 } from 'uuid';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import type { Product } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -40,30 +38,14 @@ export const useProducts = (branchId?: string) => {
         }
     }, [branchId]);
 
-    const uploadImage = useCallback(async (base64: string, path: string): Promise<string> => {
-        if (!base64 || !base64.startsWith('data:')) return base64;
-        try {
-            // نستخدم ختم زمني لضمان عدم تكرار الروابط وسرعة التحميل
-            const storageRef = ref(storage, `${path}-${Date.now()}`);
-            const snapshot = await uploadString(storageRef, base64, 'data_url');
-            return await getDownloadURL(snapshot.ref);
-        } catch (e) {
-            console.error("Storage upload failed:", e);
-            return base64;
-        }
-    }, []);
-
     const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
         try {
-            const imageUrl = await uploadImage(productData.image, `products/${uuidv4()}`);
-            
             const cleanData = Object.fromEntries(
                 Object.entries(productData).filter(([_, v]) => v !== undefined)
             );
 
             const finalData = { 
                 ...cleanData, 
-                image: imageUrl, 
                 status: isFromStore ? 'pending' : 'approved',
                 branchId: branchId && branchId !== 'all' ? branchId : (productData.branchId || 'main'),
                 wholesalePrice: Number(productData.wholesalePrice) || 0,
@@ -75,10 +57,10 @@ export const useProducts = (branchId?: string) => {
             toast({ title: isFromStore ? "تم الإرسال للأدمن للموافقة" : "تمت إضافة المنتج بنجاح" });
         } catch (error: any) { 
             console.error("Add product error:", error);
-            toast({ title: "فشل إضافة المنتج", description: error.message, variant: "destructive" }); 
+            toast({ title: "فشل إضافة المنتج", description: "تأكد من حجم الصورة، حاول استخدام صورة أصغر.", variant: "destructive" }); 
             throw error;
         }
-    }, [toast, uploadImage, branchId]);
+    }, [toast, branchId]);
 
     const updateProduct = useCallback(async (updatedProduct: Partial<Product> & { id: string }, shouldMarkPending = false) => {
         try {
@@ -91,10 +73,6 @@ export const useProducts = (branchId?: string) => {
             if (productData.price !== undefined && productData.price !== "") finalData.price = Number(productData.price);
             if (productData.stock !== undefined && productData.stock !== "") finalData.stock = Number(productData.stock);
             if (productData.wholesalePrice !== undefined && productData.wholesalePrice !== "") finalData.wholesalePrice = Number(productData.wholesalePrice);
-
-            if (productData.image && productData.image.startsWith('data:')) {
-                finalData.image = await uploadImage(productData.image, `products/${id}`);
-            }
             
             if (shouldMarkPending) {
                 finalData.status = 'pending';
@@ -104,17 +82,17 @@ export const useProducts = (branchId?: string) => {
             toast({ title: shouldMarkPending ? "تم إرسال التعديلات للموافقة" : "تم تحديث البيانات بنجاح" });
         } catch (error: any) { 
             console.error("Update product error:", error);
-            toast({ title: "فشل تحديث المنتج", description: error.message, variant: "destructive" }); 
+            toast({ title: "فشل تحديث المنتج", description: "تأكد من حجم الصورة.", variant: "destructive" }); 
             throw error;
         }
-    }, [toast, uploadImage]);
+    }, [toast]);
 
     const approveProduct = useCallback(async (productId: string) => {
         try {
             await updateDoc(doc(db, "products", productId), { status: 'approved' });
             toast({ title: "تمت الموافقة على المنتج" });
         } catch (error: any) {
-            toast({ title: "فشل الإجراء", description: error.message, variant: "destructive" });
+            toast({ title: "فشل الإجراء", variant: "destructive" });
         }
     }, [toast]);
 
@@ -123,7 +101,7 @@ export const useProducts = (branchId?: string) => {
             await deleteDoc(doc(db, "products", productId));
             toast({ title: "تم حذف المنتج" });
         } catch (error: any) { 
-            toast({ title: "فشل الحذف", description: error.message, variant: "destructive" }); 
+            toast({ title: "فشل الحذف", variant: "destructive" }); 
         }
     }, [toast]);
 

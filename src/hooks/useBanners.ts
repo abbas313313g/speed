@@ -3,9 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { v4 as uuidv4 } from 'uuid';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import type { Banner } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -23,47 +21,32 @@ export const useBanners = () => {
             },
             (error) => {
                 console.error("Error fetching banners:", error);
-                toast({ title: "فشل جلب البنرات", description: "حدث خطأ أثناء تحميل البيانات.", variant: "destructive" });
                 setIsLoading(false);
             }
         );
         return () => unsub();
-    }, [toast]);
-
-    const uploadImage = useCallback(async (base64: string, path: string): Promise<string> => {
-        if (!base64 || !base64.startsWith('data:')) {
-            return base64;
-        }
-        const storageRef = ref(storage, path);
-        const snapshot = await uploadString(storageRef, base64, 'data_url');
-        return getDownloadURL(snapshot.ref);
     }, []);
 
     const addBanner = useCallback(async (bannerData: Omit<Banner, 'id'> & { image: string }) => {
         try {
-            const imageUrl = await uploadImage(bannerData.image, `banners/${uuidv4()}`);
-            await addDoc(collection(db, "banners"), { ...bannerData, image: imageUrl });
+            await addDoc(collection(db, "banners"), bannerData);
             toast({ title: "تمت إضافة البنر بنجاح" });
         } catch (error) { 
             console.error("Error adding banner:", error);
-            toast({ title: "فشل إضافة البنر", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
+            toast({ title: "فشل إضافة البنر", variant: "destructive" }); 
         }
-    }, [toast, uploadImage]);
+    }, [toast]);
 
     const updateBanner = useCallback(async (banner: Banner) => {
         try {
-            const { id, image, ...bannerData } = banner;
-            let finalImageUrl = image;
-            if (image && image.startsWith('data:')) {
-                finalImageUrl = await uploadImage(image, `banners/${id}`);
-            }
-            await updateDoc(doc(db, "banners", id), { ...bannerData, image: finalImageUrl });
+            const { id, ...bannerData } = banner;
+            await updateDoc(doc(db, "banners", id), bannerData);
             toast({ title: "تم تحديث البنر بنجاح" });
         } catch (error) { 
             console.error("Error updating banner:", error);
-            toast({ title: "فشل تحديث البنر", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
+            toast({ title: "فشل تحديث البنر", variant: "destructive" }); 
         }
-    }, [toast, uploadImage]);
+    }, [toast]);
 
     const deleteBanner = useCallback(async (bannerId: string) => {
         try {
@@ -71,7 +54,7 @@ export const useBanners = () => {
             toast({ title: "تم حذف البنر بنجاح" });
         } catch (error) { 
             console.error("Error deleting banner:", error);
-            toast({ title: "فشل حذف البنر", description: "حدث خطأ ما، يرجى المحاولة مرة أخرى.", variant: "destructive" }); 
+            toast({ title: "فشل الحذف", variant: "destructive" }); 
         }
     }, [toast]);
 
