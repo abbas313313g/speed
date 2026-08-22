@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { ProductCard } from "@/components/ProductCard";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -55,17 +55,17 @@ function ProductsPageContent() {
   }
   
   return (
-    <div className="p-4">
+    <div className="p-4 pb-40">
       <header className="mb-6 space-y-4">
         <div>
-          <h1 className="text-3xl font-bold">كل المنتجات</h1>
-          <p className="text-muted-foreground">تصفح جميع المنتجات حسب القسم</p>
+          <h1 className="text-3xl font-black text-primary">كل المنتجات</h1>
+          <p className="text-muted-foreground font-bold">تصفح جميع المنتجات حسب القسم</p>
         </div>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input 
             placeholder="ابحث عن منتج..."
-            className="pl-4 pr-10"
+            className="pr-10 h-12 rounded-2xl border-2 font-bold"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -73,14 +73,25 @@ function ProductsPageContent() {
       </header>
 
       <Tabs value={activeTab} className="w-full" onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-4 lg:grid-cols-6 h-auto flex-wrap">
-          <TabsTrigger value="all">الكل</TabsTrigger>
-          {categories.map((category) => (
-            <TabsTrigger key={category.id} value={category.id}>
-              {category.name}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="overflow-x-auto scrollbar-hide pb-2">
+            <TabsList className="flex w-max h-auto bg-transparent gap-2 p-0">
+                <TabsTrigger 
+                    value="all" 
+                    className="h-11 px-6 rounded-2xl font-black data-[state=active]:bg-primary data-[state=active]:text-white border-2 border-muted"
+                >
+                    الكل
+                </TabsTrigger>
+                {categories.map((category) => (
+                    <TabsTrigger 
+                        key={category.id} 
+                        value={category.id}
+                        className="h-11 px-6 rounded-2xl font-black data-[state=active]:bg-primary data-[state=active]:text-white border-2 border-muted"
+                    >
+                        {category.name}
+                    </TabsTrigger>
+                ))}
+            </TabsList>
+        </div>
         
         <div className="mt-6">
            {filteredProducts.length > 0 ? (
@@ -90,12 +101,19 @@ function ProductsPageContent() {
                     ))}
                 </div>
             ) : (
-                <p className="text-center text-muted-foreground py-10">
-                    لا توجد منتجات تطابق بحثك.
+                <p className="text-center text-muted-foreground py-20 font-bold italic">
+                    لا توجد منتجات تطابق بحثك حالياً.
                 </p>
             )}
         </div>
         
+        <div className="mt-10 py-10 flex flex-col items-center gap-2 opacity-40">
+             <div className="flex items-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <span className="text-sm font-black">جارِ تحميل المنتجات...</span>
+             </div>
+             <p className="text-[10px] font-bold">يتم جلب أحدث الصور والوجبات من السيرفر</p>
+        </div>
       </Tabs>
     </div>
   );

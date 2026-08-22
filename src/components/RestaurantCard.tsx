@@ -20,12 +20,8 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false }:
   const [isImgLoading, setIsImgLoading] = useState(true);
   const [imgError, setImgError] = useState(false);
   
-  // إذا فشل تحميل الصورة، يختفي المتجر تماماً
   if (imgError) return null;
-
-  if (!restaurant.image || (!restaurant.image.startsWith('http') && !restaurant.image.startsWith('data:'))) {
-    return null;
-  }
+  if (!restaurant.image) return null;
 
   const handleOpenRestaurant = () => {
     if (context) {
@@ -36,17 +32,20 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false }:
 
   if (compact) {
       return (
-        <div onClick={handleOpenRestaurant} className="group cursor-pointer w-[240px] shrink-0">
+        <div 
+            onClick={handleOpenRestaurant} 
+            className={cn(
+                "group cursor-pointer w-[240px] shrink-0 transition-all duration-500",
+                isImgLoading ? "opacity-0 scale-95" : "opacity-100 scale-100"
+            )}
+        >
             <Card className="overflow-hidden border-none shadow-md bg-card transition-all active:scale-95 p-3 rounded-[2rem]">
-                <div className={cn(
-                    "relative w-full aspect-[4/3] overflow-hidden rounded-2xl mb-3",
-                    isImgLoading && "animate-pulse bg-muted"
-                )}>
+                <div className="relative w-full aspect-[4/3] overflow-hidden rounded-2xl mb-3 bg-muted/20">
                     <Image
                         src={restaurant.image}
                         alt={restaurant.name}
                         fill
-                        className={cn("object-cover transition-all duration-700", isImgLoading ? "blur-xl scale-110" : "blur-0 scale-100")}
+                        className="object-cover"
                         unoptimized={true}
                         onLoadingComplete={() => setIsImgLoading(false)}
                         onError={() => setImgError(true)}
@@ -67,21 +66,26 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false }:
   }
 
   return (
-    <div onClick={handleOpenRestaurant} className="group cursor-pointer w-full">
+    <div 
+        onClick={handleOpenRestaurant} 
+        className={cn(
+            "group cursor-pointer w-full transition-all duration-500",
+            isImgLoading ? "opacity-0 scale-95" : "opacity-100 scale-100"
+        )}
+    >
       <Card className={cn(
           "overflow-hidden border-none shadow-md bg-card transition-all active:scale-95",
           large ? "p-4 rounded-[2.5rem]" : "p-3 rounded-[1.5rem] flex items-center gap-4"
       )}>
         <div className={cn(
-            "relative flex-shrink-0 overflow-hidden rounded-2xl",
-            large ? "w-full aspect-[16/9] mb-4" : "h-20 w-20",
-            isImgLoading && "animate-pulse bg-muted"
+            "relative flex-shrink-0 overflow-hidden rounded-2xl bg-muted/20",
+            large ? "w-full aspect-[16/9] mb-4" : "h-20 w-20"
         )}>
           <Image
             src={restaurant.image}
             alt={restaurant.name}
             fill
-            className={cn("object-cover transition-all duration-700", isImgLoading ? "blur-xl scale-110" : "blur-0 scale-100")}
+            className="object-cover"
             unoptimized={true}
             onLoadingComplete={() => setIsImgLoading(false)}
             onError={() => setImgError(true)}

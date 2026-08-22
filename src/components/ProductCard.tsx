@@ -87,27 +87,26 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const hasDiscount = !!product.discountPrice && !hasSizes;
 
-  // إذا فشل تحميل الصورة، لا يظهر الكارت نهائياً
   if (imgError) return null;
-  
-  // التحقق الأولي من وجود رابط صورة صالح
-  if (!product.image || (!product.image.startsWith('http') && !product.image.startsWith('data:'))) {
-    return null;
-  }
+  if (!product.image) return null;
 
   return (
     <div 
         onClick={handleOpenProduct}
-        className={cn("group cursor-pointer transition-all active:scale-95", (isOutOfStock || !restaurant?.isStoreOpen) && "opacity-60")}
+        className={cn(
+            "group cursor-pointer transition-all active:scale-95 duration-500", 
+            (isOutOfStock || !restaurant?.isStoreOpen) && "opacity-60",
+            isImgLoading ? "opacity-0 scale-95" : "opacity-100 scale-100"
+        )}
     >
       <Card className="overflow-hidden border-none shadow-md rounded-[1.5rem] bg-card">
         <CardContent className="p-0">
-          <div className={cn("relative w-full aspect-square overflow-hidden", isImgLoading && "animate-pulse bg-muted")}>
+          <div className="relative w-full aspect-square overflow-hidden bg-muted/20">
             <Image
               src={product.image}
               alt={product.name}
               fill
-              className={cn("object-cover transition-all duration-700", isImgLoading ? "blur-xl scale-110" : "blur-0 scale-100")}
+              className="object-cover"
               unoptimized={true}
               onLoadingComplete={() => setIsImgLoading(false)}
               onError={() => setImgError(true)}

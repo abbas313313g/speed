@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/carousel";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Layers, Sparkles } from "lucide-react";
+import { Layers, Sparkles, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCategories } from "@/hooks/useCategories";
 import { useBanners } from "@/hooks/useBanners";
@@ -86,10 +86,10 @@ export default function HomePage() {
   }
   
   return (
-    <div className="space-y-8 p-4">
+    <div className="space-y-8 p-4 pb-20">
       <header>
         <h1 className="text-3xl font-black text-primary">سبيد شوب</h1>
-        <p className="text-muted-foreground text-lg">أسرع توصيل في منطقتك!</p>
+        <p className="text-muted-foreground text-lg font-bold">أسرع توصيل في منطقتك!</p>
       </header>
 
       <section>
@@ -102,7 +102,7 @@ export default function HomePage() {
             {(banners.length > 0 ? banners : [{id: 'placeholder', image: 'https://placehold.co/600x300.png', link: '#'}]).map((banner, index) => (
               <CarouselItem key={banner.id}>
                 <Card className="border-none shadow-none overflow-hidden rounded-[2rem]">
-                <CardContent className="relative flex aspect-video items-center justify-center p-0">
+                <CardContent className="relative flex aspect-video items-center justify-center p-0 bg-muted/10">
                     <Image src={banner.image} fill alt="Promotion" className="object-cover" unoptimized={true}/>
                 </CardContent>
                 </Card>
@@ -115,7 +115,7 @@ export default function HomePage() {
       <section>
         <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-black">الأقسام</h2>
-            <button onClick={() => setActiveTab(2)} className="text-primary font-bold">عرض الكل</button>
+            <button onClick={() => setActiveTab(2)} className="text-primary font-black">عرض الكل</button>
         </div>
         <ScrollArea className="w-full whitespace-nowrap">
             <div className="flex w-max space-x-4 space-x-reverse pb-4">
@@ -124,7 +124,7 @@ export default function HomePage() {
                         <div className="p-4 bg-secondary rounded-[1.5rem] flex items-center justify-center aspect-square transition-all group-active:scale-90">
                             <Layers className="h-10 w-10 text-primary" />
                         </div>
-                        <p className="mt-2 text-sm font-bold truncate">الكل</p>
+                        <p className="mt-2 text-sm font-black truncate">الكل</p>
                     </div>
                 </button>
                 {categories.map((category) => (
@@ -133,7 +133,7 @@ export default function HomePage() {
                             <div className="p-4 bg-secondary rounded-[1.5rem] flex items-center justify-center aspect-square transition-all group-active:scale-90">
                                 <category.icon className="h-10 w-10 text-primary" />
                             </div>
-                            <p className="mt-2 text-sm font-bold truncate">{category.name}</p>
+                            <p className="mt-2 text-sm font-black truncate">{category.name}</p>
                         </div>
                     </button>
                 ))}
@@ -149,7 +149,7 @@ export default function HomePage() {
         {bestSellersByCategory.map(({ category, products: categoryProducts }) => (
           <div key={category.id} className="space-y-3">
             <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-muted-foreground">{category.name}</h3>
+                <h3 className="text-lg font-black text-muted-foreground">{category.name}</h3>
                 <button onClick={() => setActiveTab(2)} className="text-sm font-bold text-primary">مشاهدة الكل</button>
             </div>
             <ScrollArea className="w-full whitespace-nowrap">
@@ -166,13 +166,13 @@ export default function HomePage() {
         ))}
       </section>
 
-      <section className="pb-8">
+      <section>
          <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-black flex items-center gap-2">
                 <Sparkles className="h-6 w-6 text-primary animate-pulse" />
                 أشهر المتاجر
             </h2>
-             <button onClick={() => setActiveTab(1)} className="text-primary font-bold">تصفح الكل</button>
+             <button onClick={() => setActiveTab(1)} className="text-primary font-black">تصفح الكل</button>
         </div>
         <ScrollArea className="w-full whitespace-nowrap">
             <div className="flex w-max space-x-5 space-x-reverse pb-6 px-1">
@@ -185,6 +185,14 @@ export default function HomePage() {
             <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </section>
+
+      <div className="py-10 flex flex-col items-center gap-2 opacity-30">
+            <div className="flex items-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <span className="text-sm font-black">جارِ تحميل المزيد...</span>
+            </div>
+            <p className="text-[10px] font-bold italic">نحن نحدث المحتوى باستمرار</p>
+      </div>
     </div>
   );
 }

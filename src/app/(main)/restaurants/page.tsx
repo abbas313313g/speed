@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -6,7 +7,7 @@ import { useRestaurants } from '@/hooks/useRestaurants';
 import { useCategories } from '@/hooks/useCategories';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
-import { Search, Store } from 'lucide-react';
+import { Search, Store, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
@@ -47,7 +48,7 @@ export default function RestaurantsPage() {
   }
   
   return (
-    <div className="p-4 space-y-6 pb-32">
+    <div className="p-4 space-y-6 pb-40">
       <header className="space-y-4">
         <div>
           <h1 className="text-3xl font-black text-primary">المتاجر</h1>
@@ -55,10 +56,10 @@ export default function RestaurantsPage() {
         </div>
         
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input 
             placeholder="ابحث عن متجر..."
-            className="pl-10 h-12 rounded-2xl border-2 font-bold bg-white"
+            className="pr-10 h-12 rounded-2xl border-2 font-bold bg-white"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -89,7 +90,6 @@ export default function RestaurantsPage() {
         
         <div className="mt-6">
            {searchTerm.trim() !== '' ? (
-                /* عرض نتائج البحث في قائمة واحدة */
                 <div className="space-y-5">
                     {filteredRestaurants.length > 0 ? (
                         filteredRestaurants.map((restaurant) => (
@@ -103,7 +103,6 @@ export default function RestaurantsPage() {
                     )}
                 </div>
            ) : activeTab === 'all' ? (
-                /* العرض الأفقي المقسم حسب الفئات */
                 <div className="space-y-10">
                     {categories.map((category) => {
                         const catStores = restaurants.filter(r => r.categoryId === category.id);
@@ -131,7 +130,6 @@ export default function RestaurantsPage() {
                     })}
                 </div>
            ) : (
-                /* عرض الفئة الواحدة في قائمة عمودية */
                 <div className="space-y-5">
                     {filteredRestaurants.length > 0 ? (
                         filteredRestaurants.map((restaurant) => (
@@ -145,6 +143,14 @@ export default function RestaurantsPage() {
                     )}
                 </div>
            )}
+        </div>
+        
+        <div className="mt-12 py-10 flex flex-col items-center gap-2 opacity-30">
+            <div className="flex items-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <span className="text-sm font-black">جارِ تحميل المتاجر والمنيو...</span>
+            </div>
+            <p className="text-[10px] font-bold">نحن نجلب لك أفضل العروض الحية</p>
         </div>
       </Tabs>
     </div>
