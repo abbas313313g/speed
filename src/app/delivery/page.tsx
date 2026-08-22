@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatCurrency, calculateDistance, cn } from '@/lib/utils';
-import { LogOut, CircleDot, Loader2, AlertTriangle, Shield, Check, Map, Inbox, Clock, ChevronLeft } from 'lucide-react';
+import { LogOut, CircleDot, Loader2, AlertTriangle, Shield, Check, Map, Inbox, Clock, ChevronLeft, ShieldAlert } from 'lucide-react';
 import type { Order, OrderStatus } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useOrders } from '@/hooks/useOrders';
@@ -123,33 +123,32 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     const { allOrders, isLoading: ordersLoading, updateOrderStatus } = useOrders();
     const { deliveryWorkers, isLoading: workersLoading, updateWorkerStatus } = useDeliveryWorkers();
 
-    // الكشف الفوري عن المعرف بمجرد الدخول للصفحة
     useEffect(() => {
-        const checkId = () => {
-            const id = localStorage.getItem('deliveryWorkerId');
-            if (id && id !== workerId) {
-                setWorkerId(id);
-            }
-        };
-        
-        checkId();
-        const interval = setInterval(checkId, 1000); // مراقبة مستمرة لضمان التحديث بعد Login
-        return () => clearInterval(interval);
-    }, [workerId]);
+        const id = localStorage.getItem('deliveryWorkerId');
+        if (id) setWorkerId(id);
+    }, []);
     
     const worker = useMemo(() => {
         if (!workerId || !deliveryWorkers) return null;
         return deliveryWorkers.find(w => w.id === workerId) || null;
     }, [workerId, deliveryWorkers]);
 
+    // فحص التجميد المالي (إذا كانت ذمته للمكتب > 100 ألف)
+    const isFrozen = useMemo(() => {
+        if (!workerId || !allOrders) return false;
+        const myDelivered = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered' && !o.isOrderPaidToOffice);
+        const debt = myDelivered.reduce((acc, o) => acc + (o.total - o.deliveryFee), 0);
+        return debt >= 100000;
+    }, [workerId, allOrders]);
+
     const myAssignedOrders = useMemo(() => {
-        if (!workerId || !allOrders) return [];
+        if (!workerId || !allOrders || isFrozen) return [];
         return allOrders.filter(o => 
             o.deliveryWorkerId === workerId && 
             o.status === 'confirmed' && 
             !ignoredOrders.has(o.id)
         );
-    }, [workerId, allOrders, ignoredOrders]);
+    }, [workerId, allOrders, ignoredOrders, isFrozen]);
     
     const myActiveOrders = useMemo(() => {
         if (!workerId || !allOrders) return [];
@@ -160,7 +159,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     }, [workerId, allOrders]);
 
     const handleAcceptOrder = async (orderId: string) => {
-        if (!workerId) return;
+        if (!workerId || isFrozen) return;
         setIsProcessing(true);
         try {
             await updateOrderStatus(orderId, 'preparing', workerId);
@@ -184,24 +183,18 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     };
     
     const handleToggleOnlineStatus = () => {
+        if (isFrozen) {
+            toast({ title: "لا يمكنك العمل حالياً", description: "حسابك مجمد بسبب الذمة المالية.", variant: "destructive" });
+            return;
+        }
         if (workerId && worker) {
             const newStatus = !worker.isOnline;
             updateWorkerStatus(workerId, newStatus);
             toast({ title: newStatus ? "أنت متصل وجاهز للطلبات" : "أنت خارج الخدمة الآن" });
         }
     };
-    
-    // الانتظار فقط عند جلب البيانات الأساسية
-    const isFetching = ordersLoading || workersLoading;
-    
-    if (isFetching || !workerId) {
-        return (
-            <div className="flex h-screen w-full flex-col items-center justify-center bg-background p-6">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="mt-4 font-black text-muted-foreground animate-pulse text-lg">جارِ جلب مهامك...</p>
-            </div>
-        );
-    }
+
+    if (ordersLoading || workersLoading || !workerId) return <div className="p-8 text-center animate-pulse">جار جلب مهامك...</div>;
 
     return (
         <div className="block bg-background pb-60">
@@ -224,7 +217,17 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
             </header>
 
             <div className="p-4 space-y-6">
-                {!worker?.isOnline ? (
+                {isFrozen ? (
+                    <div className="text-center space-y-6 p-8 animate-in zoom-in duration-300 py-20 bg-destructive/5 rounded-[2.5rem] border-2 border-dashed border-destructive/20">
+                         <div className="p-8 bg-white rounded-full w-fit mx-auto shadow-xl">
+                            <ShieldAlert className="h-20 w-20 text-destructive animate-pulse"/>
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-black text-destructive">حسابك مجمد مالياً</h2>
+                            <p className="text-muted-foreground font-bold mt-2 px-6">ذمة المكتب تجاوزت 100 ألف. يرجى مراجعة الإدارة لتصفية المبالغ.</p>
+                        </div>
+                    </div>
+                ) : !worker?.isOnline ? (
                     <div className="text-center space-y-6 p-8 animate-in zoom-in duration-300 py-20 bg-white rounded-[2.5rem] shadow-sm border-2 border-dashed border-muted">
                         <div className="p-8 bg-yellow-50 rounded-full w-fit mx-auto border-4 border-white shadow-xl">
                             <AlertTriangle className="h-20 w-20 text-yellow-500"/>

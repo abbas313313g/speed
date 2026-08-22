@@ -39,8 +39,17 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
     const totalEarnings = myD.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
     const unpaidEarnings = myD.filter(o => !o.isFeePaid).reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
     const moneyOwedToOffice = myD.filter(o => !o.isOrderPaidToOffice).reduce((acc, o) => acc + (o.total - o.deliveryFee), 0);
+    
+    // منطق التجميد المالي (إذا كانت الذمة > 100 ألف)
+    const isActuallyFrozen = moneyOwedToOffice >= 100000;
+    
     const levelD = getWorkerLevel(w, myD.length, new Date());
-    return { stats: { totalEarnings, deliveredOrders: myD.length, unpaidEarnings, moneyOwedToOffice }, worker: w, level: levelD.level, isFrozen: levelD.isFrozen };
+    return { 
+        stats: { totalEarnings, deliveredOrders: myD.length, unpaidEarnings, moneyOwedToOffice }, 
+        worker: w, 
+        level: levelD.level, 
+        isFrozen: isActuallyFrozen 
+    };
   }, [workerId, deliveryWorkers, allOrders]);
 
   useEffect(() => { if(worker) setName(worker.name || ''); }, [worker]);
@@ -61,13 +70,22 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
          </div>
       </header>
 
+       {isFrozen && (
+          <div className="p-5 bg-destructive text-white rounded-[2rem] shadow-xl flex items-start gap-4 animate-in zoom-in">
+              <ShieldAlert className="h-10 w-10 shrink-0" />
+              <div className="space-y-1">
+                  <p className="font-black text-lg leading-none">الحساب مجمد مالياً!</p>
+                  <p className="text-xs font-bold text-white/80">ذمتك النقدية للمكتب تجاوزت الحد المسموح. يرجى تسوية الحساب مع الإدارة لتفعيل استقبال الطلبات مجدداً.</p>
+              </div>
+          </div>
+       )}
+
        {level && LevelIcon && (
         <Card className="rounded-[2.5rem] border-none shadow-xl bg-gradient-to-br from-primary to-primary/80 text-white overflow-hidden relative">
             <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
             <CardHeader className="pb-0 text-right">
                 <div className="flex justify-between items-center flex-row-reverse">
                     <CardTitle className="text-white/80 text-xs font-black">تصنيفك الحالي</CardTitle>
-                    {isFrozen && <div className="flex items-center gap-1 text-[8px] text-white font-black bg-destructive px-3 py-1 rounded-full animate-pulse"><ShieldAlert className="h-3 w-3"/><span>مجمد</span></div>}
                 </div>
             </CardHeader>
             <CardContent className="flex flex-col items-center justify-center text-center space-y-4 pt-4">

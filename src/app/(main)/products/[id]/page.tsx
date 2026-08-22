@@ -1,10 +1,11 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, useContext } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
-import { Minus, Plus, ShoppingCart, ArrowRight, Tag } from 'lucide-react';
+import { Minus, Plus, ShoppingCart, ArrowRight, Tag, Store } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
@@ -27,7 +28,7 @@ export default function ProductDetailPage() {
   const [isImgLoading, setIsImgLoading] = useState(true);
 
   if (!context) return null;
-  const { selectedProductId, setActiveTab, activeTab, previousTab } = context;
+  const { selectedProductId, setActiveTab, activeTab, previousTab, setSelectedRestaurantId } = context;
 
   const isCurrentlyVisible = activeTab === 9;
 
@@ -101,6 +102,13 @@ export default function ProductDetailPage() {
       }
   };
 
+  const handleVisitStore = () => {
+      if (restaurant) {
+          setSelectedRestaurantId(restaurant.id);
+          setActiveTab(10);
+      }
+  };
+
   const handleQuantityChange = (newQuantity: number) => {
     const isUnlimited = selectedSize?.isUnlimited || product.isUnlimitedStock;
     if (!isUnlimited && newQuantity > availableStock) {
@@ -122,7 +130,7 @@ export default function ProductDetailPage() {
   const hasSizes = activeSizes.length > 0;
 
   return (
-    <div className="flex flex-col h-full bg-background relative overflow-hidden">
+    <div className="flex flex-col h-full bg-background relative overflow-hidden text-right">
        <div className="absolute top-4 left-4 right-4 z-20 flex justify-between items-center">
           <button 
             onClick={handleBack} 
@@ -167,10 +175,17 @@ export default function ProductDetailPage() {
           <div className="px-6 -mt-10 relative z-10 pb-10">
             <div className="bg-white rounded-[2.5rem] p-6 shadow-2xl space-y-6">
                 <div className="space-y-2">
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-start">
                         <div className="space-y-1">
                             <h1 className="text-2xl font-black text-slate-800 leading-tight">{product.name}</h1>
-                            {restaurant && <p className="text-xs font-bold text-primary">متجر: {restaurant.name}</p>}
+                            {restaurant && (
+                                <button onClick={handleVisitStore} className="flex items-center gap-2 text-primary group active:scale-95 transition-all mt-1">
+                                    <div className="p-1.5 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                                        <Store className="h-3.5 w-3.5" />
+                                    </div>
+                                    <span className="text-xs font-black border-b border-primary/20">زيارة المتجر: {restaurant.name}</span>
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>

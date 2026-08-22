@@ -13,12 +13,14 @@ export const useOrders = (branchId?: string) => {
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
     
+    // خوارزمية التوزيع الذكي بالتساوي
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         const preparingOrders = orders.filter(o => o.status === 'preparing' && !o.deliveryWorkerId);
         if (preparingOrders.length === 0) return;
 
         try {
             const workersRef = collection(db, "deliveryWorkers");
+            // جلب المناديب الأونلاين للفرع
             const wQuery = branchId && branchId !== 'all'
                 ? query(workersRef, where("isOnline", "==", true), where("branchId", "==", branchId))
                 : query(workersRef, where("isOnline", "==", true));
@@ -28,6 +30,7 @@ export const useOrders = (branchId?: string) => {
 
             if (onlineWorkers.length === 0) return;
 
+            // جلب كل الطلبات النشطة حالياً لمعرفة حمل كل مندوب
             const activeOrdersSnap = await getDocs(query(collection(db, "orders"), where("status", "in", ["confirmed", "preparing", "ready_for_pickup", "on_the_way"])));
             
             const workerLoad = new Map<string, { restaurantId: string | null, count: number }>();
@@ -44,19 +47,24 @@ export const useOrders = (branchId?: string) => {
                 }
             });
 
+            // بدء عملية التعيين
             for (const order of preparingOrders) {
                 const targetRestaurantId = order.restaurant?.id;
                 if (!targetRestaurantId) continue;
                 
+                // تصفية المناديب المؤهلين (حمل أقل من 2)
                 const eligibleWorkers = onlineWorkers.filter(w => {
                     const load = workerLoad.get(w.id)!;
+                    // إذا المندوب فارغ تماماً فهو مؤهل
                     if (load.count === 0) return true;
+                    // إذا عنده طلب واحد، لازم يكون من نفس المتجر ليكون مؤهل
                     if (load.count < 2 && load.restaurantId === targetRestaurantId) return true;
                     return false;
                 });
 
                 if (eligibleWorkers.length === 0) continue;
 
+                // اختيار المندوب الأقل توصيلاً تاريخياً (لضمان التساوي في الدخل)
                 const sortedWorkers = eligibleWorkers.sort((a, b) => {
                     const loadA = workerLoad.get(a.id)!.count;
                     const loadB = workerLoad.get(b.id)!.count;
@@ -87,6 +95,7 @@ export const useOrders = (branchId?: string) => {
                 data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 setAllOrders(data);
                 setIsLoading(false);
+                // تشغيل التوزيع الآلي عند أي تحديث في الطلبات
                 if (branchId && branchId !== 'all') autoAssignOrders(data);
             },
             (error) => {
@@ -108,7 +117,7 @@ export const useOrders = (branchId?: string) => {
                 const currentOrder = orderDoc.data() as Order;
 
                 if (status === 'confirmed' && workerId) {
-                    if (currentOrder.deliveryWorkerId) return;
+                    if (currentOrder.deliveryWorkerId) return; // تم تعيينه مسبقاً
                     const workerDocRef = doc(db, "deliveryWorkers", workerId);
                     const workerDoc = await transaction.get(workerDocRef);
                     if (!workerDoc.exists()) throw new Error("USER_ERROR: السائق غير موجود.");
@@ -118,6 +127,7 @@ export const useOrders = (branchId?: string) => {
                 }
                 
                 if (status === 'delivered') {
+                    // تحديث عدد التوصيلات للمندوب
                     const currentWorkerId = currentOrder.deliveryWorkerId;
                     if (currentWorkerId) {
                         const workerDocRef = doc(db, "deliveryWorkers", currentWorkerId);
