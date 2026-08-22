@@ -87,9 +87,13 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const hasDiscount = !!product.discountPrice && !hasSizes;
 
-  const imageUrl = imgError 
-    ? 'https://placehold.co/400x400/00b358/white?text=Speed+Shop'
-    : (product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/400x400/00b358/white?text=Speed+Shop');
+  // إذا فشل تحميل الصورة، لا يظهر الكارت نهائياً
+  if (imgError) return null;
+  
+  // التحقق الأولي من وجود رابط صورة صالح
+  if (!product.image || (!product.image.startsWith('http') && !product.image.startsWith('data:'))) {
+    return null;
+  }
 
   return (
     <div 
@@ -100,7 +104,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
         <CardContent className="p-0">
           <div className={cn("relative w-full aspect-square overflow-hidden", isImgLoading && "animate-pulse bg-muted")}>
             <Image
-              src={imageUrl}
+              src={product.image}
               alt={product.name}
               fill
               className={cn("object-cover transition-all duration-700", isImgLoading ? "blur-xl scale-110" : "blur-0 scale-100")}

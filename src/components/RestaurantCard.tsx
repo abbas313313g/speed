@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useContext, useState } from "react";
@@ -11,14 +12,20 @@ import { cn } from "@/lib/utils";
 interface RestaurantCardProps {
   restaurant: Restaurant;
   large?: boolean;
-  compact?: boolean; // وضعية الحجم المتوسط للصفوف الأفقية
+  compact?: boolean; 
 }
 
 function RestaurantCardComponent({ restaurant, large = false, compact = false }: RestaurantCardProps) {
   const context = useContext(AppContext);
   const [isImgLoading, setIsImgLoading] = useState(true);
+  const [imgError, setImgError] = useState(false);
   
-  const imageUrl = restaurant.image && (restaurant.image.startsWith('http') || restaurant.image.startsWith('data:')) ? restaurant.image : 'https://picsum.photos/seed/speedr/400/400';
+  // إذا فشل تحميل الصورة، يختفي المتجر تماماً
+  if (imgError) return null;
+
+  if (!restaurant.image || (!restaurant.image.startsWith('http') && !restaurant.image.startsWith('data:'))) {
+    return null;
+  }
 
   const handleOpenRestaurant = () => {
     if (context) {
@@ -27,7 +34,6 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false }:
     }
   };
 
-  // الوضع المدمج (Compact) المستخدم في الصفوف الأفقية
   if (compact) {
       return (
         <div onClick={handleOpenRestaurant} className="group cursor-pointer w-[240px] shrink-0">
@@ -37,12 +43,13 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false }:
                     isImgLoading && "animate-pulse bg-muted"
                 )}>
                     <Image
-                        src={imageUrl}
+                        src={restaurant.image}
                         alt={restaurant.name}
                         fill
                         className={cn("object-cover transition-all duration-700", isImgLoading ? "blur-xl scale-110" : "blur-0 scale-100")}
                         unoptimized={true}
                         onLoadingComplete={() => setIsImgLoading(false)}
+                        onError={() => setImgError(true)}
                     />
                     {!restaurant.isStoreOpen && (
                         <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
@@ -71,12 +78,13 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false }:
             isImgLoading && "animate-pulse bg-muted"
         )}>
           <Image
-            src={imageUrl}
+            src={restaurant.image}
             alt={restaurant.name}
             fill
             className={cn("object-cover transition-all duration-700", isImgLoading ? "blur-xl scale-110" : "blur-0 scale-100")}
             unoptimized={true}
             onLoadingComplete={() => setIsImgLoading(false)}
+            onError={() => setImgError(true)}
           />
           {large && !restaurant.isStoreOpen && (
               <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center">
