@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useContext, useState } from "react";
+import React, { useContext } from "react";
 import Image from "next/image";
 import { Card, CardTitle } from "@/components/ui/card";
 import type { Restaurant } from "@/lib/types";
@@ -17,7 +17,6 @@ interface RestaurantCardProps {
 
 function RestaurantCardComponent({ restaurant, large = false, compact = false }: RestaurantCardProps) {
   const context = useContext(AppContext);
-  const [isImgLoading, setIsImgLoading] = useState(true);
   
   const handleOpenRestaurant = () => {
     if (context) {
@@ -47,9 +46,10 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false }:
                       src={restaurant.image}
                       alt={restaurant.name}
                       fill
-                      className={cn("object-cover transition-all duration-500", isImgLoading ? "blur-md scale-110" : "blur-0 scale-100")}
+                      className="object-cover"
                       unoptimized={true}
-                      onLoadingComplete={() => setIsImgLoading(false)}
+                      priority={true}
+                      loading="eager"
                   />
               )}
               {!restaurant.isStoreOpen && (

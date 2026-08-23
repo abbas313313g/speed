@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useRef, useMemo, useContext, useState } from "react";
+import { useRef, useMemo, useContext } from "react";
 import Image from "next/image";
 import Autoplay from "embla-carousel-autoplay"
 
@@ -25,31 +25,21 @@ import { AppContext } from "@/contexts/AppContext";
 import { cn } from "@/lib/utils";
 
 const BannerItem = ({ banner }: { banner: any }) => {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [retryKey, setRetryKey] = useState(0);
-
   return (
     <CarouselItem 
       key={banner.id} 
-      className={cn(
-        "transition-all duration-500",
-        !isLoaded ? "absolute opacity-0 pointer-events-none w-0 h-0" : "relative basis-full opacity-100"
-      )}
+      className="relative basis-full opacity-100"
     >
       <Card className="border-none shadow-none overflow-hidden rounded-[2rem]">
         <CardContent className="relative flex aspect-video items-center justify-center p-0 bg-muted/10">
             <Image 
-                key={`${banner.id}-${retryKey}`}
                 src={banner.image} 
                 fill 
                 alt="Promotion" 
                 className="object-cover" 
                 unoptimized={true}
-                onLoadingComplete={() => setIsLoaded(true)}
-                onError={() => {
-                    setIsLoaded(false);
-                    setTimeout(() => setRetryKey(prev => prev + 1), 2000);
-                }}
+                priority={true}
+                loading="eager"
             />
         </CardContent>
       </Card>

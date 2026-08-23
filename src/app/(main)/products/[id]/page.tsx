@@ -25,7 +25,6 @@ export default function ProductDetailPage() {
   
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(undefined);
-  const [isImgLoading, setIsImgLoading] = useState(true);
   const [isZoomed, setIsZoomed] = useState(false);
   const [imgError, setImgError] = useState(false);
 
@@ -61,7 +60,6 @@ export default function ProductDetailPage() {
     if (isCurrentlyVisible) {
         setSelectedSize(undefined);
         setQuantity(1);
-        setIsImgLoading(true);
         setImgError(false);
         setIsZoomed(false);
     }
@@ -167,17 +165,17 @@ export default function ProductDetailPage() {
 
       <div className="flex-1 overflow-y-auto">
           <div 
-            className={cn("relative w-full aspect-square overflow-hidden sm:rounded-b-[3.5rem] shadow-2xl cursor-zoom-in", isImgLoading && "animate-pulse bg-muted")}
+            className="relative w-full aspect-square overflow-hidden sm:rounded-b-[3.5rem] shadow-2xl cursor-zoom-in"
             onClick={() => setIsZoomed(true)}
           >
             <Image 
                 src={imageUrl} 
                 alt={product.name} 
                 fill 
-                className={cn("object-cover transition-all duration-700", isImgLoading ? "blur-2xl scale-110" : "blur-0 scale-100")} 
+                className="object-cover" 
                 unoptimized={true} 
-                priority 
-                onLoadingComplete={() => setIsImgLoading(false)}
+                priority={true}
+                loading="eager"
                 onError={() => setImgError(true)}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
@@ -298,6 +296,8 @@ export default function ProductDetailPage() {
                     fill 
                     className="object-contain" 
                     unoptimized={true} 
+                    priority={true}
+                    loading="eager"
                 />
             </div>
             <p className="mt-8 text-white font-black text-xl">{product.name}</p>

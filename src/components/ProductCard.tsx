@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useMemo, useContext, useState } from "react";
+import React, { useMemo, useContext } from "react";
 import Image from "next/image";
 import { PlusCircle, ListChecks, Store } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import { useRestaurants } from "@/hooks/useRestaurants";
 import { AppContext } from "@/contexts/AppContext";
 
 interface ProductCardProps {
-  product: Product;
+  product: product;
 }
 
 function ProductCardComponent({ product }: ProductCardProps) {
@@ -24,8 +24,6 @@ function ProductCardComponent({ product }: ProductCardProps) {
   const { restaurants } = useRestaurants();
   const context = useContext(AppContext);
   
-  const [isImgLoading, setIsImgLoading] = useState(true);
-
   const restaurant = useMemo(() => restaurants.find(r => r.id === product.restaurantId), [product, restaurants]);
 
   const activeSizes = useMemo(() => {
@@ -107,9 +105,10 @@ function ProductCardComponent({ product }: ProductCardProps) {
                   src={product.image}
                   alt={product.name}
                   fill
-                  className={cn("object-cover transition-all duration-500", isImgLoading ? "blur-md scale-110" : "blur-0 scale-100")}
+                  className="object-cover"
                   unoptimized={true}
-                  onLoadingComplete={() => setIsImgLoading(false)}
+                  priority={true}
+                  loading="eager"
                 />
             )}
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 z-10">نفد</Badge>}
