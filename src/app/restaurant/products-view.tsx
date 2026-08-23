@@ -12,6 +12,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { formatCurrency, cn } from '@/lib/utils';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
@@ -34,6 +41,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
         price: 0, 
         image: '', 
         categoryId: 'cat1', 
+        storeSectionId: '',
         stock: 10, 
         isActive: true, 
         isUnlimitedStock: false,
@@ -86,6 +94,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
             price: product.price || 0,
             image: product.image,
             categoryId: product.categoryId,
+            storeSectionId: product.storeSectionId || '',
             stock: product.stock || 0,
             isActive: product.isActive ?? true,
             isUnlimitedStock: product.isUnlimitedStock ?? false,
@@ -115,7 +124,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
 
         setIsAdding(false);
         setIsEditing(false);
-        setCurrentP({ id: '', name: '', description: '', price: 0, image: '', categoryId: 'cat1', stock: 10, isActive: true, isUnlimitedStock: false, sizes: [] });
+        setCurrentP({ id: '', name: '', description: '', price: 0, image: '', categoryId: 'cat1', storeSectionId: '', stock: 10, isActive: true, isUnlimitedStock: false, sizes: [] });
     };
 
     if (!context?.restaurant || pLoading) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
@@ -128,7 +137,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                     <h1 className="text-xl font-black text-primary leading-none">منيو المتجر</h1>
                     <p className="text-[10px] font-bold text-muted-foreground mt-1">رفع الصور مباشرة وتدبير المنيو</p>
                 </div>
-                <Button onClick={() => { setIsEditing(false); setCurrentP({...currentP, sizes: []}); setIsAdding(true); }} className="mr-auto rounded-xl h-10 px-4 font-black">إضافة وجبة</Button>
+                <Button onClick={() => { setIsEditing(false); setCurrentP({...currentP, sizes: [], storeSectionId: ''}); setIsAdding(true); }} className="mr-auto rounded-xl h-10 px-4 font-black">إضافة وجبة</Button>
             </header>
 
             <main className="p-4 space-y-6 container mx-auto max-w-6xl">
@@ -141,7 +150,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                     {filteredMyProducts.map(p => (
                         <Card key={p.id} className={cn("rounded-2xl border-none shadow-md overflow-hidden bg-white transition-all hover:shadow-lg", !(p.isActive ?? true) && "grayscale opacity-70")}>
                             <div className="relative aspect-video">
-                                <Image src={p.image} fill className="object-cover" alt="" unoptimized={true} />
+                                <Image src={p.image} fill className="object-cover" alt="" unoptimized={true} priority={true}/>
                             </div>
                             <div className="p-3 text-right space-y-2">
                                 <h3 className="font-black text-sm truncate">{p.name}</h3>
@@ -171,6 +180,26 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                             <Input value={currentP.name} onChange={(e)=>setCurrentP({...currentP, name: e.target.value})} className="h-11 rounded-xl" />
                         </div>
 
+                        {/* الحقل المضاف: اختيار قسم المنيو الداخلي للمطعم */}
+                        <div className="space-y-1">
+                            <Label className="font-bold">قسم المنيو الداخلي</Label>
+                            <Select 
+                                value={currentP.storeSectionId || 'none'} 
+                                onValueChange={(val) => setCurrentP({...currentP, storeSectionId: val === 'none' ? '' : val})}
+                            >
+                                <SelectTrigger className="rounded-xl h-11">
+                                    <SelectValue placeholder="اختر قسم من المنيو الخاص بك..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">بدون قسم</SelectItem>
+                                    {context?.restaurant?.menuSections?.map(section => (
+                                        <SelectItem key={section} value={section}>{section}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-[10px] text-muted-foreground font-bold pr-1">يمكنك إضافة أقسام جديدة من صفحة "المتاجر" في لوحة الإدارة.</p>
+                        </div>
+
                         <div className="space-y-2">
                             <Label className="font-bold">صورة الوجبة (رفع من الجهاز)</Label>
                             <Button type="button" variant="outline" className="w-full h-14 rounded-xl font-black gap-2 border-primary/40 text-primary" onClick={()=>fileRef.current?.click()}>
@@ -179,7 +208,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                             <input type="file" ref={fileRef} className="hidden" onChange={handleImg} accept="image/*" />
                             {currentP.image && (
                                 <div className="relative w-full aspect-video rounded-3xl overflow-hidden border-2 border-muted bg-muted/10 mt-4">
-                                    <Image src={currentP.image} fill className="object-contain" alt="preview" unoptimized={true}/>
+                                    <Image src={currentP.image} fill className="object-contain" alt="preview" unoptimized={true} priority={true}/>
                                 </div>
                             )}
                         </div>

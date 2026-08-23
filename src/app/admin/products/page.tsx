@@ -64,6 +64,7 @@ const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
   description: '',
   image: '',
   categoryId: '',
+  storeSectionId: '',
   restaurantId: '',
   status: 'approved',
   branchId: 'main',
@@ -93,6 +94,10 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
     });
   }, [products, searchTerm, filterStoreId]);
 
+  const selectedStoreData = useMemo(() => {
+    return restaurants.find(r => r.id === currentProduct.restaurantId);
+  }, [currentProduct.restaurantId, restaurants]);
+
   const handleOpenDialog = (product?: Product) => {
     if (product) {
         setIsEditing(true);
@@ -106,6 +111,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
             branchId: branchId || 'main',
             restaurantId: defaultStoreId,
             categoryId: storeObj?.categoryId || '',
+            storeSectionId: '',
             sizes: []
         });
     }
@@ -236,7 +242,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                                 <Label className="font-bold pr-1">المتجر</Label>
                                 <Select value={currentProduct.restaurantId} onValueChange={(val) => {
                                     const r = restaurants.find(x => x.id === val);
-                                    setCurrentProduct({...currentProduct, restaurantId: val, categoryId: r?.categoryId || currentProduct.categoryId});
+                                    setCurrentProduct({...currentProduct, restaurantId: val, categoryId: r?.categoryId || currentProduct.categoryId, storeSectionId: ''});
                                 }}>
                                     <SelectTrigger className="rounded-xl h-11">
                                         <SelectValue placeholder="اختر المتجر..." />
@@ -257,6 +263,26 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            {/* الحقل المطلوب: قسم المنيو الداخلي للمتجر */}
+                            <div className="space-y-1 col-span-2">
+                                <Label className="font-bold pr-1">قسم المنيو (داخل المتجر)</Label>
+                                <Select 
+                                    value={currentProduct.storeSectionId || 'none'} 
+                                    onValueChange={(val) => setCurrentProduct({...currentProduct, storeSectionId: val === 'none' ? '' : val})}
+                                    disabled={!selectedStoreData || !selectedStoreData.menuSections?.length}
+                                >
+                                    <SelectTrigger className="rounded-xl h-11">
+                                        <SelectValue placeholder={selectedStoreData?.menuSections?.length ? "اختر قسم من منيو المتجر..." : "لا يوجد أقسام لهذا المتجر"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">بدون قسم</SelectItem>
+                                        {selectedStoreData?.menuSections?.map(section => (
+                                            <SelectItem key={section} value={section}>{section}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
 
                         <div className="space-y-2">
@@ -270,7 +296,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                             </div>
                             {currentProduct.image && (
                                 <div className="relative w-full aspect-video rounded-3xl overflow-hidden border-2 border-primary/20 bg-muted/10 mt-4">
-                                    <Image src={currentProduct.image} fill className="object-contain" alt="preview" unoptimized={true}/>
+                                    <Image src={currentProduct.image} fill className="object-contain" alt="preview" unoptimized={true} priority={true}/>
                                 </div>
                             )}
                         </div>
@@ -367,7 +393,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
               {filteredProducts.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell>
-                    <div className="relative h-12 w-12"><Image src={p.image} fill className="rounded-xl object-cover border" alt="" unoptimized/></div>
+                    <div className="relative h-12 w-12"><Image src={p.image} fill className="rounded-xl object-cover border" alt="" unoptimized={true} priority={true}/></div>
                   </TableCell>
                   <TableCell className="font-bold">{p.name}</TableCell>
                   <TableCell className="font-black text-primary text-xs">{formatCurrency(p.discountPrice || p.price)}</TableCell>
