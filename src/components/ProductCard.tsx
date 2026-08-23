@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useMemo, useContext, useState, useEffect } from "react";
+import React, { useMemo, useContext, useState } from "react";
 import Image from "next/image";
 import { PlusCircle, ListChecks, Store } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,8 +24,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
   const { restaurants } = useRestaurants();
   const context = useContext(AppContext);
   
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [retryKey, setRetryCount] = useState(0);
+  const [isImgLoading, setIsImgLoading] = useState(true);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === product.restaurantId), [product, restaurants]);
 
@@ -40,7 +39,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
     if (hasSizes) {
       return activeSizes.every(size => !size.isUnlimited && size.stock <= 0);
     }
-    return product.stock <= 0;
+    return (product.stock ?? 0) <= 0;
   }, [product, hasSizes, activeSizes]);
 
   const handleOpenProduct = () => {
@@ -81,6 +80,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
   const priceDisplay = useMemo(() => {
     if (hasSizes) {
       const prices = activeSizes.map(s => s.price);
+      if (prices.length === 0) return formatCurrency(product.price);
       const min = Math.min(...prices);
       const max = Math.max(...prices);
       if (min === max) return formatCurrency(min);
@@ -91,38 +91,32 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const hasDiscount = !!product.discountPrice && !hasSizes;
 
-  if (!isLoaded && retryKey > 20) return null; 
-
   return (
     <div 
         onClick={handleOpenProduct}
         className={cn(
-            "group cursor-pointer transition-all duration-500", 
-            !isLoaded ? "absolute opacity-0 pointer-events-none -z-50 h-0 w-0 overflow-hidden" : "relative opacity-100 scale-100 h-auto",
+            "group cursor-pointer transition-all duration-300 relative", 
             (isOutOfStock || !restaurant?.isStoreOpen) && "opacity-60"
         )}
     >
       <Card className="overflow-hidden border-none shadow-md rounded-[1.5rem] bg-card w-full">
         <CardContent className="p-0">
           <div className="relative w-full aspect-square overflow-hidden bg-muted/20">
-            <Image
-              key={`${product.id}-${retryKey}`}
-              src={product.image}
-              alt={product.name}
-              fill
-              className="object-cover"
-              unoptimized={true}
-              onLoadingComplete={() => setIsLoaded(true)}
-              onError={() => {
-                  setIsLoaded(false);
-                  setTimeout(() => setRetryCount(prev => prev + 1), 2000);
-              }}
-            />
-            {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2">نفد</Badge>}
-            {!restaurant?.isStoreOpen && <Badge variant="destructive" className="absolute top-2 left-2 text-[10px]">مغلق</Badge>}
-            {hasSizes && <Badge className="absolute top-2 right-2 bg-primary/80 backdrop-blur-md text-[10px] font-black">أنواع</Badge>}
+            {product.image && (
+                <Image
+                  src={product.image}
+                  alt={product.name}
+                  fill
+                  className={cn("object-cover transition-all duration-500", isImgLoading ? "blur-md scale-110" : "blur-0 scale-100")}
+                  unoptimized={true}
+                  onLoadingComplete={() => setIsImgLoading(false)}
+                />
+            )}
+            {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 z-10">نفد</Badge>}
+            {!restaurant?.isStoreOpen && <Badge variant="destructive" className="absolute top-2 left-2 text-[10px] z-10">مغلق</Badge>}
+            {hasSizes && <Badge className="absolute top-2 right-2 bg-primary/80 backdrop-blur-md text-[10px] font-black z-10">أنواع</Badge>}
             {hasDiscount && (
-                <div className="absolute top-2 right-2 bg-red-600 text-white text-[9px] font-black px-2 py-1 rounded-lg shadow-lg">خصم %</div>
+                <div className="absolute top-2 right-2 bg-red-600 text-white text-[9px] font-black px-2 py-1 rounded-lg shadow-lg z-10">خصم %</div>
             )}
           </div>
           <div className="p-3 text-right">

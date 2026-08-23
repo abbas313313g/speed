@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect, useContext, useCallback, useMemo } from 'react';
+import { useState, useEffect, useContext, useCallback } from 'react';
 import { BottomNav } from '@/components/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useAddresses } from '@/hooks/useAddresses';
-import { HardHat, Loader2, MapPin, AlertCircle, CheckCircle2, Navigation, Ghost, User, Phone, Map, Info } from 'lucide-react';
+import { HardHat, Loader2, MapPin, AlertCircle, CheckCircle2, Navigation, Ghost, User, Phone, Map } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -63,6 +63,13 @@ export default function MainAppLayout() {
     setIslocLoading(true);
     
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        // إعدادات محسنة للأمان والدقة خاصة لأجهزة iPhone/Safari
+        const options = {
+            enableHighAccuracy: true, 
+            timeout: 10000, 
+            maximumAge: 0 
+        };
+
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 try {
@@ -79,13 +86,13 @@ export default function MainAppLayout() {
             },
             (error) => {
                 toast({ 
-                    title: "يرجى تفعيل الموقع", 
-                    description: "تأكد من تفعيل الـ GPS في إعدادات هاتفك لضمان دقة التوصيل.", 
+                    title: "يرجى السماح بالوصول للموقع", 
+                    description: "تأكد من تفعيل الموقع في إعدادات الخصوصية بجهازك لضمان دقة التوصيل.", 
                     variant: "destructive" 
                 });
                 setIslocLoading(false);
             },
-            { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+            options
         );
     } else {
         toast({ title: "المتصفح لا يدعم تحديد الموقع", variant: "destructive" });
@@ -105,7 +112,6 @@ export default function MainAppLayout() {
 
     setIsSaving(true);
     try {
-        // فحص أمني: هل هذا الرقم مسجل على جهاز آخر؟
         let currentDeviceId = safeStorage.get('speedShopDeviceId');
         if (!currentDeviceId) {
             currentDeviceId = uuidv4();
@@ -117,7 +123,6 @@ export default function MainAppLayout() {
         
         if (!phoneSnap.empty) {
             const existingData = phoneSnap.docs[0].data();
-            // إذا وجدنا الرقم مسجلاً بـ deviceId مختلف عن الحالي، نمنع الدخول
             if (existingData.deviceId && existingData.deviceId !== currentDeviceId) {
                 toast({ 
                     title: "عذراً، هذا الرقم مسجل مسبقاً", 
@@ -139,7 +144,7 @@ export default function MainAppLayout() {
             latitude: newAddr.lat,
             longitude: newAddr.lng,
             branchId: "main",
-            deviceId: currentDeviceId // حفظ هوية الجهاز مع العنوان
+            deviceId: currentDeviceId
         } as any);
 
         setShowAddressPrompt(false);
