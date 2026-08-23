@@ -43,7 +43,7 @@ export default function AdminApprovalsPage({ branchId }: { branchId: string }) {
                 return (
                     <Card key={p.id} className="rounded-[2rem] overflow-hidden border-none shadow-xl bg-white hover:shadow-2xl transition-all">
                         <div className="relative aspect-video">
-                             <Image src={p.image || 'https://placehold.co/600x400.png'} fill className="object-cover" alt={p.name} unoptimized={true} />
+                             <Image src={p.image || 'https://placehold.co/600x400.png'} fill className="object-cover" alt={p.name} unoptimized={true} priority={true} loading="eager" />
                              <Badge className="absolute top-4 right-4 bg-orange-500 text-white font-black">بانتظار المراجعة</Badge>
                         </div>
                         <CardContent className="p-6 space-y-4">
@@ -53,7 +53,7 @@ export default function AdminApprovalsPage({ branchId }: { branchId: string }) {
                             </div>
                             <div>
                                 <h3 className="text-xl font-black truncate">{p.name}</h3>
-                                <p className="text-xs text-muted-foreground font-bold mt-1 line-clamp-2 min-h-[2.5rem]">{p.description || 'لا يوجد وصف متاح.'}</p>
+                                <p className="text-xs text-muted-foreground font-bold mt-1 line-clamp-2 min-h-[2.5rem]">{p.description || 'متاجر SPEED SHOP'}</p>
                             </div>
                             <div className="flex justify-between items-center py-3 border-y border-dashed border-muted">
                                 <div className="flex flex-col">
