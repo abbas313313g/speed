@@ -49,7 +49,7 @@ export default function MainAppLayout() {
   useEffect(() => {
     const timer = setTimeout(() => {
         setForceHideLoading(true);
-    }, 2500);
+    }, 1500); // تقليل وقت السبلاش لجعل الفتح أسرع
     return () => clearTimeout(timer);
   }, []);
 
@@ -63,7 +63,6 @@ export default function MainAppLayout() {
     setIslocLoading(true);
     
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
-        // إعدادات محسنة للأمان والدقة خاصة لأجهزة iPhone/Safari
         const options = {
             enableHighAccuracy: true, 
             timeout: 10000, 
@@ -164,7 +163,7 @@ export default function MainAppLayout() {
 
   if (isActuallyLoading) {
     return (
-        <div className="flex h-screen w-full flex-col items-center justify-center bg-[#00b358] animate-in fade-in duration-300">
+        <div className="flex h-screen w-full flex-col items-center justify-center bg-[#00b358] animate-in fade-out duration-300">
             <h1 className="text-6xl font-black text-white italic tracking-tighter drop-shadow-[0_4px_4px_rgba(0,0,0,0.25)] select-none">
               Speed Shop
             </h1>
