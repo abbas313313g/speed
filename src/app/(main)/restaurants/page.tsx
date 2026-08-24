@@ -144,14 +144,6 @@ export default function RestaurantsPage() {
                 </div>
            )}
         </div>
-        
-        <div className="mt-12 py-10 flex flex-col items-center gap-2 opacity-30">
-            <div className="flex items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <span className="text-sm font-black">جارِ تحميل المتاجر والمنيو...</span>
-            </div>
-            <p className="text-[10px] font-bold">نحن نجلب لك أفضل العروض الحية</p>
-        </div>
       </Tabs>
     </div>
   );

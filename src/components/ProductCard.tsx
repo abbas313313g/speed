@@ -15,7 +15,7 @@ import { useRestaurants } from "@/hooks/useRestaurants";
 import { AppContext } from "@/contexts/AppContext";
 
 interface ProductCardProps {
-  product: product;
+  product: Product;
 }
 
 function ProductCardComponent({ product }: ProductCardProps) {
@@ -57,7 +57,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
     }
 
     if (isOutOfStock) {
-        toast({ title: "نفدت الكمية", variant: "destructive" });
+        toast({ title: "نقدت الكمية", variant: "destructive" });
         return;
     }
 
@@ -107,8 +107,8 @@ function ProductCardComponent({ product }: ProductCardProps) {
                   fill
                   className="object-cover"
                   unoptimized={true}
-                  priority={true}
-                  loading="eager"
+                  priority={false}
+                  loading="lazy"
                 />
             )}
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 z-10">نفد</Badge>}

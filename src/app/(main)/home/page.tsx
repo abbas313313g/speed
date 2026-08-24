@@ -198,14 +198,6 @@ export default function HomePage() {
             <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </section>
-
-      <div className="py-10 flex flex-col items-center gap-2 opacity-30">
-            <div className="flex items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <span className="text-sm font-black">جارِ تحميل المزيد...</span>
-            </div>
-            <p className="text-[10px] font-bold italic">نحن نحدث المحتوى باستمرار</p>
-      </div>
     </div>
   );
 }

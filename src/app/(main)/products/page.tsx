@@ -106,14 +106,6 @@ function ProductsPageContent() {
                 </p>
             )}
         </div>
-        
-        <div className="mt-10 py-10 flex flex-col items-center gap-2 opacity-40">
-             <div className="flex items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <span className="text-sm font-black">جارِ تحميل المنتجات...</span>
-             </div>
-             <p className="text-[10px] font-bold">يتم جلب أحدث الصور والوجبات من السيرفر</p>
-        </div>
       </Tabs>
     </div>
   );
