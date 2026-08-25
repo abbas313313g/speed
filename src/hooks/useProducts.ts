@@ -2,12 +2,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Product } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
-export const useProducts = (branchId?: string) => {
+export const useProducts = (branchId?: string, loadLimit?: number) => {
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
@@ -19,6 +19,10 @@ export const useProducts = (branchId?: string) => {
             
             if (branchId && branchId !== 'all') {
                 q = query(productsRef, where('branchId', '==', branchId));
+            }
+            
+            if (loadLimit) {
+                q = query(q, limit(loadLimit));
             }
 
             const unsub = onSnapshot(q,
@@ -36,7 +40,7 @@ export const useProducts = (branchId?: string) => {
         } catch (e) {
             setIsLoading(false);
         }
-    }, [branchId]);
+    }, [branchId, loadLimit]);
 
     const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
         try {
