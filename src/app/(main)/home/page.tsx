@@ -41,6 +41,8 @@ export default function HomePage() {
   };
 
   const topStores = useMemo(() => restaurants.slice(0, 8), [restaurants]);
+  
+  // تصفية المنتجات الأكثر مبيعاً
   const topSellers = useMemo(() => filteredProducts.slice(0, 8), [filteredProducts]);
 
   const isLoading = bannersLoading && restaurantsLoading && categoriesLoading;
@@ -173,29 +175,45 @@ export default function HomePage() {
                   <button onClick={() => setActiveTab(2)} className="text-primary font-black text-xs">عرض المنيو</button>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                  {topSellers.map((product) => (
-                      <div 
-                        key={product.id} 
-                        onClick={() => { context?.setSelectedProductId(product.id); setActiveTab(9); }}
-                        className="bg-white rounded-[2rem] p-2 shadow-sm border border-slate-50 flex flex-col gap-2 active:scale-95 transition-all"
-                      >
-                          <div className="relative aspect-square rounded-[1.5rem] overflow-hidden bg-muted/5">
-                              <Image 
-                                src={product.image} 
-                                fill 
-                                alt={product.name} 
-                                className="object-cover" 
-                                unoptimized={true} 
-                                loading="lazy"
-                                decoding="async"
-                              />
-                          </div>
-                          <div className="px-1 py-1">
-                              <h3 className="font-black text-xs text-slate-800 truncate">{product.name}</h3>
-                              <p className="text-primary font-black text-[10px] mt-1">{formatCurrency(product.price)}</p>
-                          </div>
-                      </div>
-                  ))}
+                  {topSellers.map((product) => {
+                      // إصلاح مشكلة السعر 0: البحث عن أقل سعر في الأنواع إذا كان السعر الرئيسي 0
+                      const activeSizes = product.sizes?.filter(s => s.isActive !== false) || [];
+                      const hasSizes = activeSizes.length > 0;
+                      let finalPrice = product.discountPrice || product.price || 0;
+                      
+                      if (hasSizes && finalPrice === 0) {
+                          const prices = activeSizes.map(s => s.price).filter(p => p > 0);
+                          if (prices.length > 0) {
+                              finalPrice = Math.min(...prices);
+                          }
+                      }
+
+                      return (
+                        <div 
+                            key={product.id} 
+                            onClick={() => { context?.setSelectedProductId(product.id); setActiveTab(9); }}
+                            className="bg-white rounded-[2rem] p-2 shadow-sm border border-slate-50 flex flex-col gap-2 active:scale-95 transition-all"
+                        >
+                            <div className="relative aspect-square rounded-[1.5rem] overflow-hidden bg-muted/5">
+                                <Image 
+                                    src={product.image} 
+                                    fill 
+                                    alt={product.name} 
+                                    className="object-cover" 
+                                    unoptimized={true} 
+                                    loading="lazy"
+                                    decoding="async"
+                                />
+                            </div>
+                            <div className="px-1 py-1">
+                                <h3 className="font-black text-xs text-slate-800 truncate">{product.name}</h3>
+                                <p className="text-primary font-black text-[10px] mt-1">
+                                    {hasSizes && (product.price === 0) ? `من ${formatCurrency(finalPrice)}` : formatCurrency(finalPrice)}
+                                </p>
+                            </div>
+                        </div>
+                      );
+                  })}
               </div>
           </section>
       )}
