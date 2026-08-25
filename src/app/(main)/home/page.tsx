@@ -43,7 +43,7 @@ export default function HomePage() {
   const topStores = useMemo(() => restaurants.slice(0, 8), [restaurants]);
   const topSellers = useMemo(() => filteredProducts.slice(0, 8), [filteredProducts]);
 
-  const isLoading = bannersLoading || restaurantsLoading || categoriesLoading;
+  const isLoading = bannersLoading && restaurantsLoading && categoriesLoading;
 
   if (isLoading) {
       return (
@@ -69,7 +69,7 @@ export default function HomePage() {
       <section className="relative">
         <Carousel className="w-full" opts={{ loop: true, direction: 'rtl' }} plugins={[plugin.current]}>
             <CarouselContent>
-                {banners.map((banner) => (
+                {banners.map((banner, index) => (
                     <CarouselItem key={banner.id} className="basis-full">
                         <div className="relative aspect-[21/9] w-full overflow-hidden rounded-[2rem] shadow-lg border-4 border-white">
                             <Image 
@@ -78,7 +78,7 @@ export default function HomePage() {
                                 alt="Promotion" 
                                 className="object-cover" 
                                 unoptimized={true}
-                                priority={true}
+                                priority={index === 0}
                                 decoding="async"
                             />
                         </div>
@@ -126,7 +126,7 @@ export default function HomePage() {
         </div>
         <ScrollArea className="w-full whitespace-nowrap">
             <div className="flex w-max space-x-4 space-x-reverse pb-6 px-1">
-                {topStores.map((store) => (
+                {topStores.map((store, index) => (
                     <div 
                         key={store.id} 
                         onClick={() => handleStoreClick(store.id)}
@@ -140,6 +140,7 @@ export default function HomePage() {
                                 className="object-cover" 
                                 unoptimized={true}
                                 decoding="async"
+                                priority={index < 2}
                             />
                             <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm">
                                 <Star className="h-3 w-3 fill-amber-400 text-amber-400" />

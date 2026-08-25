@@ -44,10 +44,10 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, syncUserByPhone, isMainDataReady } = context;
 
-  // السبلاش يختفي فقط عندما تكون بيانات الرئيسية جاهزة
+  // إخفاء السبلاش بسرعة فائقة بمجرد جاهزية البيانات الأساسية
   useEffect(() => {
     if (isMainDataReady) {
-        const timer = setTimeout(() => setShowSplash(false), 500); 
+        const timer = setTimeout(() => setShowSplash(false), 150); 
         return () => clearTimeout(timer);
     }
   }, [isMainDataReady]);
@@ -135,7 +135,7 @@ export default function MainAppLayout() {
                     <h1 className="text-4xl font-black text-white italic tracking-tighter">SPEED</h1>
                     <h1 className="text-4xl font-black text-white italic tracking-tighter leading-none">SHOP</h1>
                 </div>
-                <div className="mt-8 flex flex-col items-center gap-2 animate-pulse">
+                <div className="mt-8 flex flex-col items-center gap-2">
                     <p className="text-primary font-black text-[10px] tracking-widest uppercase">أسرع توصيل في منطقتك</p>
                     <Loader2 className="h-4 w-4 animate-spin text-primary/40 mt-2" />
                 </div>

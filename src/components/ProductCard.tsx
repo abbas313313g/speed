@@ -65,13 +65,14 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const priceDisplay = useMemo(() => {
     if (hasSizes) {
-      const prices = activeSizes.map(s => s.price);
-      if (prices.length === 0) return formatCurrency(product.price);
+      const prices = activeSizes.map(s => s.price).filter(p => p > 0);
+      if (prices.length === 0) return formatCurrency(product.price || 0);
       const min = Math.min(...prices);
       const max = Math.max(...prices);
-      return min === max ? formatCurrency(min) : `${formatCurrency(min)} - ${formatCurrency(max)}`;
+      if (min === max) return formatCurrency(min);
+      return `${formatCurrency(min)} - ${formatCurrency(max)}`;
     }
-    return formatCurrency(product.discountPrice || product.price);
+    return formatCurrency(product.discountPrice || product.price || 0);
   }, [product, hasSizes, activeSizes]);
 
   const hasDiscount = !!product.discountPrice && !hasSizes;
