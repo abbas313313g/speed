@@ -93,7 +93,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
     <div 
         onClick={handleOpenProduct}
         className={cn(
-            "group cursor-pointer transition-all duration-300 relative", 
+            "group cursor-pointer transition-all duration-300 relative min-w-[160px]", 
             (isOutOfStock || !restaurant?.isStoreOpen) && "opacity-60"
         )}
     >

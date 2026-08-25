@@ -22,23 +22,27 @@ import { useRestaurants } from "@/hooks/useRestaurants";
 import { useOrders } from "@/hooks/useOrders";
 import { AppContext } from "@/contexts/AppContext";
 
-const BannerItem = ({ banner }: { banner: any }) => {
+const BannerItem = ({ banner, index }: { banner: any, index: number }) => {
   return (
     <CarouselItem 
-      key={banner.id} 
+      key={banner.id || index} 
       className="relative basis-full opacity-100"
     >
       <Card className="border-none shadow-none overflow-hidden rounded-[2rem]">
-        <CardContent className="relative flex aspect-video items-center justify-center p-0 bg-muted/5">
-            <Image 
-                src={banner.image} 
-                fill 
-                alt="Promotion" 
-                className="object-cover" 
-                unoptimized={true}
-                priority={true}
-                loading="eager"
-            />
+        <CardContent className="relative flex aspect-video items-center justify-center p-0 bg-muted/10">
+            {banner.image ? (
+                <Image 
+                    src={banner.image} 
+                    fill 
+                    alt="Promotion" 
+                    className="object-cover" 
+                    unoptimized={true}
+                    priority={index === 0}
+                    loading={index === 0 ? "eager" : "lazy"}
+                />
+            ) : (
+                <div className="w-full h-full bg-muted/20 animate-pulse" />
+            )}
         </CardContent>
       </Card>
     </CarouselItem>
@@ -61,6 +65,7 @@ export default function HomePage() {
   const { setActiveTab } = context;
 
   const bestSellersByCategory = useMemo(() => {
+    if (!products.length || !allOrders.length) return [];
     const salesCount: { [productId: string]: number } = {};
     allOrders.forEach(order => {
         order.items.forEach(item => {
@@ -94,16 +99,20 @@ export default function HomePage() {
         <p className="text-muted-foreground text-lg font-bold">أسرع توصيل في منطقتك!</p>
       </header>
 
-      <section>
+      <section className="min-h-[150px]">
         <Carousel 
             className="w-full" 
             opts={{ loop: true, direction: 'rtl' }}
             plugins={[plugin.current]}
         >
         <CarouselContent>
-            {(banners.length > 0 ? banners : [{id: 'placeholder', image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='}]).map((banner) => (
-            <BannerItem key={banner.id} banner={banner} />
-            ))}
+            {banners.length > 0 ? banners.map((banner, idx) => (
+                <BannerItem key={banner.id} banner={banner} index={idx} />
+            )) : (
+                <CarouselItem className="basis-full">
+                    <div className="aspect-video bg-muted/10 rounded-[2rem] animate-pulse" />
+                </CarouselItem>
+            )}
         </CarouselContent>
         </Carousel>
       </section>
@@ -142,7 +151,7 @@ export default function HomePage() {
         <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black">الأكثر مبيعاً</h2>
         </div>
-        {bestSellersByCategory.map(({ category, products: categoryProducts }) => (
+        {bestSellersByCategory.length > 0 ? bestSellersByCategory.map(({ category, products: categoryProducts }) => (
             <div key={category.id} className="space-y-3">
                 <div className="flex items-center justify-between">
                     <h3 className="text-lg font-black text-muted-foreground">{category.name}</h3>
@@ -157,7 +166,11 @@ export default function HomePage() {
                     <ScrollBar orientation="horizontal" />
                 </ScrollArea>
             </div>
-        ))}
+        )) : (
+            <div className="flex gap-4 overflow-hidden py-2">
+                {[1,2,3].map(i => <div key={i} className="min-w-[160px] aspect-[3/4] bg-muted/10 rounded-[1.5rem] animate-pulse" />)}
+            </div>
+        )}
       </section>
 
       <section>
@@ -170,9 +183,13 @@ export default function HomePage() {
         </div>
         <ScrollArea className="w-full whitespace-nowrap">
             <div className="flex w-max space-x-5 space-x-reverse pb-6 px-1">
-              {restaurants.map((restaurant) => (
+              {restaurants.length > 0 ? restaurants.map((restaurant) => (
                   <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} />
-              ))}
+              )) : (
+                  <div className="flex gap-5">
+                      {[1,2].map(i => <div key={i} className="w-[300px] aspect-[16/9] bg-muted/10 rounded-[2.5rem] animate-pulse" />)}
+                  </div>
+              )}
             </div>
             <ScrollBar orientation="horizontal" />
         </ScrollArea>

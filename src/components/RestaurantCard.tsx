@@ -38,7 +38,7 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false }:
           compact ? "p-3 rounded-[2rem]" : (large ? "p-4 rounded-[2.5rem]" : "p-3 rounded-[1.5rem] flex items-center gap-4")
       )}>
           <div className={cn(
-              "relative flex-shrink-0 overflow-hidden rounded-2xl bg-muted/20",
+              "relative flex-shrink-0 overflow-hidden rounded-2xl bg-muted/10",
               compact ? "w-full aspect-[4/3] mb-3" : (large ? "w-full aspect-[16/9] mb-4" : "h-20 w-20")
           )}>
               {restaurant.image && (
@@ -48,8 +48,8 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false }:
                       fill
                       className="object-cover"
                       unoptimized={true}
-                      priority={true}
-                      loading="eager"
+                      priority={large}
+                      loading={large ? "eager" : "lazy"}
                   />
               )}
               {!restaurant.isStoreOpen && (
