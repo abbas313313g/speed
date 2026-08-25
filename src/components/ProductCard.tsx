@@ -64,15 +64,19 @@ function ProductCardComponent({ product }: ProductCardProps) {
   };
 
   const priceDisplay = useMemo(() => {
+    // إصلاح السعر 0: إذا كان هناك أحجام، ابحث عن أقل سعر
     if (hasSizes) {
       const prices = activeSizes.map(s => s.price).filter(p => p > 0);
-      if (prices.length === 0) return formatCurrency(product.price || 0);
-      const min = Math.min(...prices);
-      const max = Math.max(...prices);
-      if (min === max) return formatCurrency(min);
-      return `${formatCurrency(min)} - ${formatCurrency(max)}`;
+      if (prices.length > 0) {
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        if (min === max) return formatCurrency(min);
+        return `تبدأ من ${formatCurrency(min)}`;
+      }
     }
-    return formatCurrency(product.discountPrice || product.price || 0);
+    // السعر العادي أو المخصوم
+    const finalPrice = product.discountPrice || product.price || 0;
+    return formatCurrency(finalPrice);
   }, [product, hasSizes, activeSizes]);
 
   const hasDiscount = !!product.discountPrice && !hasSizes;

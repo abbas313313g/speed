@@ -44,10 +44,10 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, syncUserByPhone, isMainDataReady } = context;
 
-  // إخفاء السبلاش بسرعة فائقة بمجرد جاهزية البيانات الأساسية
+  // تسريع خيالي لإخفاء السبلاش فوراً
   useEffect(() => {
     if (isMainDataReady) {
-        const timer = setTimeout(() => setShowSplash(false), 150); 
+        const timer = setTimeout(() => setShowSplash(false), 50); 
         return () => clearTimeout(timer);
     }
   }, [isMainDataReady]);

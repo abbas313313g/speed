@@ -68,11 +68,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
 
-    // تسريع جاهزية البيانات للسبلاش
+    // تسريع خيالي: نعتبر التطبيق جاهزاً بمجرد وصول أي جزء من البيانات الأساسية
     const isMainDataReady = useMemo(() => {
-        // نعتبر التطبيق جاهزاً بمجرد بدء وصول البنرات والمتاجر والأقسام
-        return !bannersLoading || !restaurantsLoading || !categoriesLoading;
-    }, [bannersLoading, restaurantsLoading, categoriesLoading]);
+        return (!bannersLoading && banners.length > 0) || (!restaurantsLoading && restaurants.length > 0);
+    }, [bannersLoading, banners.length, restaurantsLoading, restaurants.length]);
 
     useEffect(() => {
         try {
