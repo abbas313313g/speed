@@ -26,10 +26,10 @@ const BannerItem = ({ banner, index }: { banner: any, index: number }) => {
   return (
     <CarouselItem 
       key={banner.id || index} 
-      className="relative basis-full opacity-100"
+      className="relative basis-full"
     >
       <Card className="border-none shadow-none overflow-hidden rounded-[2rem]">
-        <CardContent className="relative flex aspect-video items-center justify-center p-0 bg-muted/10">
+        <CardContent className="relative flex aspect-video items-center justify-center p-0 bg-muted/5">
             {banner.image ? (
                 <Image 
                     src={banner.image} 
@@ -38,10 +38,9 @@ const BannerItem = ({ banner, index }: { banner: any, index: number }) => {
                     className="object-cover" 
                     unoptimized={true}
                     priority={index === 0}
-                    loading={index === 0 ? "eager" : "lazy"}
                 />
             ) : (
-                <div className="w-full h-full bg-muted/20 animate-pulse" />
+                <div className="w-full h-full bg-muted/10" />
             )}
         </CardContent>
       </Card>
@@ -64,20 +63,22 @@ export default function HomePage() {
   if (!context) return null;
   const { setActiveTab } = context;
 
+  // منطق الأكثر مبيعاً الحقيقي بناءً على الطلبات
   const bestSellersByCategory = useMemo(() => {
-    // إزالة شرط الانتظار للسماح بالتحميل التدريجي
     const salesCount: { [productId: string]: number } = {};
     allOrders.forEach(order => {
-        order.items.forEach(item => {
-            salesCount[item.product.id] = (salesCount[item.product.id] || 0) + item.quantity;
-        });
+        if (order.status === 'delivered') {
+            order.items.forEach(item => {
+                salesCount[item.product.id] = (salesCount[item.product.id] || 0) + item.quantity;
+            });
+        }
     });
 
     const categoryGroups: { category: typeof categories[0]; products: typeof products }[] = [];
 
     categories.forEach(category => {
       const categoryProducts = products
-        .filter(p => p.categoryId === category.id && (salesCount[p.id] > 0 || p.status === 'approved'))
+        .filter(p => p.categoryId === category.id && (salesCount[p.id] || 0) > 0)
         .sort((a, b) => (salesCount[b.id] || 0) - (salesCount[a.id] || 0))
         .slice(0, 10);
 
@@ -93,7 +94,7 @@ export default function HomePage() {
   }, [allOrders, products, categories]);
   
   return (
-    <div className="space-y-8 p-4 pb-20 animate-in fade-in duration-300">
+    <div className="space-y-8 p-4 pb-20">
       <header>
         <h1 className="text-3xl font-black text-primary">سبيد شوب</h1>
         <p className="text-muted-foreground text-lg font-bold">أسرع توصيل في منطقتك!</p>
@@ -110,7 +111,7 @@ export default function HomePage() {
                 <BannerItem key={banner.id} banner={banner} index={idx} />
             )) : (
                 <CarouselItem className="basis-full">
-                    <div className="aspect-video bg-muted/10 rounded-[2rem] animate-pulse" />
+                    <div className="aspect-video bg-muted/5 rounded-[2rem]" />
                 </CarouselItem>
             )}
         </CarouselContent>
@@ -147,31 +148,29 @@ export default function HomePage() {
         </ScrollArea>
       </section>
       
-      <section className="space-y-6">
-        <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-black">الأكثر مبيعاً</h2>
-        </div>
-        {bestSellersByCategory.length > 0 ? bestSellersByCategory.map(({ category, products: categoryProducts }) => (
-            <div key={category.id} className="space-y-3">
-                <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-black text-muted-foreground">{category.name}</h3>
-                    <button onClick={() => setActiveTab(2)} className="text-sm font-bold text-primary">مشاهدة الكل</button>
-                </div>
-                <ScrollArea className="w-full whitespace-nowrap">
-                    <div className="flex w-max space-x-4 space-x-reverse pb-4">
-                        {categoryProducts.map((product) => (
-                            <ProductCard key={product.id} product={product} />
-                        ))}
+      {bestSellersByCategory.length > 0 && (
+          <section className="space-y-6">
+            <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-black">الأكثر مبيعاً</h2>
+            </div>
+            {bestSellersByCategory.map(({ category, products: categoryProducts }) => (
+                <div key={category.id} className="space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-black text-muted-foreground">{category.name}</h3>
+                        <button onClick={() => setActiveTab(2)} className="text-sm font-bold text-primary">مشاهدة الكل</button>
                     </div>
-                    <ScrollBar orientation="horizontal" />
-                </ScrollArea>
-            </div>
-        )) : (
-            <div className="flex gap-4 overflow-hidden py-2">
-                {[1,2,3].map(i => <div key={i} className="min-w-[160px] aspect-[3/4] bg-muted/5 rounded-[1.5rem]" />)}
-            </div>
-        )}
-      </section>
+                    <ScrollArea className="w-full whitespace-nowrap">
+                        <div className="flex w-max space-x-4 space-x-reverse pb-4">
+                            {categoryProducts.map((product) => (
+                                <ProductCard key={product.id} product={product} />
+                            ))}
+                        </div>
+                        <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
+                </div>
+            ))}
+          </section>
+      )}
 
       <section>
          <div className="flex items-center justify-between mb-4">

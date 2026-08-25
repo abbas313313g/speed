@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { ProductCard } from "@/components/ProductCard";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { Search, PackageOpen } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 
@@ -45,7 +45,7 @@ function ProductsPageContent() {
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input 
             placeholder="ابحث عن منتج..."
-            className="pr-10 h-12 rounded-2xl border-2 font-bold"
+            className="pr-10 h-12 rounded-2xl border-2 font-bold bg-white"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -81,10 +81,9 @@ function ProductsPageContent() {
                     ))}
                 </div>
             ) : (
-                <div className="flex flex-col gap-4">
-                    <div className="grid grid-cols-2 gap-4 opacity-10">
-                        {[1,2,3,4].map(i => <div key={i} className="aspect-[3/4] bg-muted rounded-[1.5rem]" />)}
-                    </div>
+                <div className="text-center py-20 bg-muted/5 rounded-[2.5rem] border-2 border-dashed">
+                    <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
+                    <p className="text-muted-foreground font-black">لا توجد منتجات حالياً.</p>
                 </div>
             )}
         </div>

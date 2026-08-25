@@ -93,7 +93,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
     <div 
         onClick={handleOpenProduct}
         className={cn(
-            "group cursor-pointer transition-all duration-300 relative min-w-[160px]", 
+            "group cursor-pointer transition-all duration-300 relative min-w-[160px] max-w-[160px] flex-shrink-0", 
             (isOutOfStock || !restaurant?.isStoreOpen) && "opacity-60"
         )}
     >
@@ -107,8 +107,8 @@ function ProductCardComponent({ product }: ProductCardProps) {
                   fill
                   className="object-cover"
                   unoptimized={true}
-                  priority={false}
                   loading="lazy"
+                  decoding="async"
                 />
             )}
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 z-10">نفد</Badge>}
