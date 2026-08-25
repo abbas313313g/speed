@@ -32,7 +32,7 @@ import RestaurantProductsPage from './restaurants/[id]/page';
 
 export default function MainAppLayout() {
   const context = useContext(AppContext);
-  const { settings, isLoading: settingsLoading } = useAppSettings();
+  const { settings } = useAppSettings();
   const { addresses, addAddress } = useAddresses();
   const { toast } = useToast();
   
@@ -44,55 +44,39 @@ export default function MainAppLayout() {
   const [forceHideLoading, setForceHideLoading] = useState(false);
 
   if (!context) return null;
-  const { activeTab, setActiveTab, syncUserByPhone } = context;
+  const { activeTab, syncUserByPhone } = context;
 
   useEffect(() => {
-    // شاشة السبلاش لنصف ثانية فقط للسرعة المطلقة
-    const timer = setTimeout(() => {
-        setForceHideLoading(true);
-    }, 500); 
+    const timer = setTimeout(() => setForceHideLoading(true), 300); 
     return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
-    if (!settingsLoading && !settings?.isMaintenanceMode && addresses.length === 0) {
+    if (forceHideLoading && !settings?.isMaintenanceMode && addresses.length === 0) {
       setShowAddressPrompt(true);
     }
-  }, [settingsLoading, settings?.isMaintenanceMode, addresses]);
+  }, [forceHideLoading, settings?.isMaintenanceMode, addresses]);
 
   const handleGetLocation = useCallback(() => {
     setIslocLoading(true);
-    
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
-        const options = {
-            enableHighAccuracy: true, 
-            timeout: 10000, 
-            maximumAge: 0 
-        };
-
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                try {
-                    const { latitude, longitude } = position.coords;
-                    if (!isLocationInAllowedZones(latitude, longitude)) {
-                        setIsBlocked(true);
-                        setShowAddressPrompt(false);
-                    } else {
-                        setNewAddr(prev => ({ ...prev, lat: latitude, lng: longitude }));
-                        toast({ title: "تم تحديد موقعك بدقة بنجاح 🛰️" });
-                    }
-                } catch(e) {}
+                const { latitude, longitude } = position.coords;
+                if (!isLocationInAllowedZones(latitude, longitude)) {
+                    setIsBlocked(true);
+                    setShowAddressPrompt(false);
+                } else {
+                    setNewAddr(prev => ({ ...prev, lat: latitude, lng: longitude }));
+                    toast({ title: "تم تحديد موقعك بدقة بنجاح 🛰️" });
+                }
                 setIslocLoading(false);
             },
-            (error) => {
-                toast({ 
-                    title: "يرجى السماح بالوصول للموقع", 
-                    description: "تأكد من تفعيل الموقع في إعدادات الخصوصية بجهازك.", 
-                    variant: "destructive" 
-                });
+            () => {
+                toast({ title: "يرجى تفعيل الموقع في الإعدادات.", variant: "destructive" });
                 setIslocLoading(false);
             },
-            options
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     } else {
         toast({ title: "المتصفح لا يدعم تحديد الموقع", variant: "destructive" });
@@ -101,68 +85,33 @@ export default function MainAppLayout() {
   }, [toast]);
 
   const handleSaveAddress = async () => {
-    if (!newAddr.name || !newAddr.phone) {
-      toast({ title: "يرجى إكمال البيانات", variant: "destructive" });
+    if (!newAddr.name || !newAddr.phone || newAddr.lat === 0) {
+      toast({ title: "يرجى إكمال البيانات والموقع", variant: "destructive" });
       return;
     }
-    if (newAddr.lat === 0) {
-        toast({ title: "تحديد الموقع مطلوب", variant: "destructive" });
-        return;
-    }
-
     setIsSaving(true);
     try {
-        let currentDeviceId = safeStorage.get('speedShopDeviceId');
-        if (!currentDeviceId) {
-            currentDeviceId = uuidv4();
-            safeStorage.set('speedShopDeviceId', currentDeviceId);
-        }
-
+        let currentDeviceId = safeStorage.get('speedShopDeviceId') || uuidv4();
+        safeStorage.set('speedShopDeviceId', currentDeviceId);
+        
         const phoneQuery = query(collection(db, "addresses"), where("phone", "==", newAddr.phone), limit(1));
         const phoneSnap = await getDocs(phoneQuery);
-        
-        if (!phoneSnap.empty) {
-            const existingData = phoneSnap.docs[0].data();
-            if (existingData.deviceId && existingData.deviceId !== currentDeviceId) {
-                toast({ 
-                    title: "عذراً، هذا الرقم مسجل مسبقاً", 
-                    description: "لا يمكنك استخدام نفس الرقم على أكثر من جهاز واحد.", 
-                    variant: "destructive" 
-                });
-                setIsSaving(false);
-                return;
-            }
+        if (!phoneSnap.empty && phoneSnap.docs[0].data().deviceId !== currentDeviceId) {
+            toast({ title: "الرقم مسجل على جهاز آخر", variant: "destructive" });
+            setIsSaving(false); return;
         }
 
         await syncUserByPhone(newAddr.phone);
-        
-        await addAddress({
-            name: newAddr.name,
-            phone: newAddr.phone,
-            deliveryZone: "عام",
-            details: newAddr.details,
-            latitude: newAddr.lat,
-            longitude: newAddr.lng,
-            branchId: "main",
-            deviceId: currentDeviceId
-        } as any);
-
+        await addAddress({ ...newAddr, latitude: newAddr.lat, longitude: newAddr.lng, deliveryZone: "عام", branchId: "main", deviceId: currentDeviceId } as any);
         setShowAddressPrompt(false);
-        toast({ title: "أهلاً بك في سبيد شوب!" });
-    } catch (e) {
-        toast({ title: "حدث خطأ أثناء الحفظ", variant: "destructive" });
-    } finally {
-        setIsSaving(false);
-    }
+    } catch (e) { toast({ title: "خطأ في الحفظ", variant: "destructive" }); }
+    finally { setIsSaving(false); }
   };
 
   const content = (
     <div className="overflow-guard flex flex-col h-full w-full">
       <main className="flex-1 relative z-0">
-        <div 
-          className="spa-stack-container" 
-          style={{ transform: `translateX(${activeTab * 100}%)` }} 
-        >
+        <div className="spa-stack-container" style={{ transform: `translateX(${activeTab * 100}%)` }}>
           <div className="spa-page-view"><HomePage /></div>
           <div className="spa-page-view"><RestaurantsPage /></div>
           <div className="spa-page-view"><ProductsPage /></div>
@@ -181,121 +130,47 @@ export default function MainAppLayout() {
   );
 
   return (
-    <div className="min-h-screen w-full bg-slate-100 flex justify-center items-center p-0 sm:p-4 overflow-hidden">
-      <div className="w-full max-w-[480px] h-[100dvh] sm:h-[850px] sm:max-h-[95vh] flex flex-col bg-card shadow-2xl relative overflow-hidden sm:rounded-[3rem] sm:border-[8px] sm:border-white">
+    <div className="min-h-screen w-full bg-slate-100 flex justify-center items-center overflow-hidden">
+      <div className="w-full max-w-[480px] h-[100dvh] sm:h-[850px] flex flex-col bg-card shadow-2xl relative overflow-hidden sm:rounded-[3rem]">
         {!forceHideLoading ? (
             <div className="flex h-full w-full flex-col items-center justify-center bg-[#00b358] z-[100]">
-                <h1 className="text-6xl font-black text-white italic tracking-tighter drop-shadow-[0_4px_4px_rgba(0,0,0,0.25)] select-none animate-in fade-in zoom-in duration-300">
-                Speed Shop
-                </h1>
-                <div className="mt-16 flex gap-3">
-                    <div className="h-2.5 w-2.5 bg-white/90 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                    <div className="h-2.5 w-2.5 bg-white/90 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                    <div className="h-2.5 w-2.5 bg-white/90 rounded-full animate-bounce" />
-                </div>
+                <h1 className="text-6xl font-black text-white italic animate-in zoom-in duration-200">Speed Shop</h1>
             </div>
         ) : isBlocked ? (
-            <div className="flex h-full w-full flex-col items-center justify-center bg-background p-8 text-center">
-              <AlertCircle className="h-24 w-24 text-destructive mb-6" />
-              <h1 className="text-3xl font-black mb-4 text-primary">نعتذر منك جداً</h1>
-              <p className="text-muted-foreground text-xl leading-relaxed">
-                تطبيق سبيد شوب مخصص حالياً لخدمة مناطق <br/><span className="text-foreground font-black underline">(المدحتية، الهاشمية، القاسم)</span> فقط.
-              </p>
-              <button onClick={() => setIsBlocked(false)} className="mt-8 px-6 py-3 border-2 border-primary text-primary font-black rounded-xl active:scale-95 transition-all">رجوع للمحاولة ثانية</button>
+            <div className="flex h-full w-full flex-col items-center justify-center p-8 text-center bg-background">
+              <AlertCircle className="h-20 w-20 text-destructive mb-6" />
+              <h1 className="text-2xl font-black mb-4">نعتذر منك جداً</h1>
+              <p className="text-muted-foreground font-bold">خدمتنا متوفرة في (المدحتية، الهاشمية، القاسم) فقط.</p>
+              <button onClick={() => setIsBlocked(false)} className="mt-8 px-6 py-2 border-2 border-primary text-primary font-black rounded-xl">رجوع</button>
             </div>
         ) : settings?.isMaintenanceMode ? (
-            <div className="flex h-full w-full flex-col items-center justify-center bg-background p-10 text-center animate-in zoom-in duration-500">
-                <div className="p-8 bg-primary/5 rounded-full mb-8 relative">
-                   <HardHat className="h-24 w-24 text-primary animate-bounce"/>
-                   <Ghost className="h-8 w-8 text-primary/40 absolute top-4 right-4 animate-pulse" />
-                </div>
-                <h1 className="text-3xl font-black mb-4 text-primary leading-tight">عذراً، المتجر في استراحة قصيرة</h1>
-                <div className="p-6 bg-muted/30 rounded-[2rem] border-2 border-dashed border-primary/20 w-full">
-                    <p className="text-foreground font-bold text-lg leading-relaxed">
-                        {settings.maintenanceMessage || "نعمل حالياً على تحسين بعض الخدمات."}
-                    </p>
-                </div>
+            <div className="flex h-full w-full flex-col items-center justify-center p-10 text-center bg-background">
+                <HardHat className="h-20 w-20 text-primary mb-6 animate-bounce"/>
+                <h1 className="text-2xl font-black mb-4">المتجر في صيانة قصيرة</h1>
+                <p className="font-bold">{settings.maintenanceMessage || "سنعود قريباً."}</p>
             </div>
         ) : content}
 
         <Sheet open={showAddressPrompt} onOpenChange={() => {}}>
-            <SheetContent side="bottom" className="h-[75vh] w-full p-0 border-none shadow-none flex flex-col bg-background rounded-t-[3.5rem] overflow-hidden">
-                <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-muted rounded-full" />
-                
-                <div className="flex-1 overflow-y-auto px-6 pt-10 pb-4 space-y-8 scrollbar-hide">
-                    <SheetHeader className="text-right pb-2">
-                        <div className="flex items-center gap-4">
-                            <div className="p-4 bg-primary/10 rounded-[1.5rem]">
-                                <Navigation className="h-8 w-8 text-primary animate-pulse" />
-                            </div>
-                            <div>
-                                <SheetTitle className="text-3xl font-black text-slate-800 leading-tight">مرحباً بك!</SheetTitle>
-                                <p className="text-muted-foreground text-sm font-bold mt-1">لنبدأ بتجهيز معلومات التوصيل.</p>
-                            </div>
-                        </div>
-                    </SheetHeader>
-                    
-                    <div className="space-y-6">
-                        <div className="space-y-4">
-                            <h3 className="text-xs font-black text-primary flex items-center gap-2">
-                                <User className="h-4 w-4" /> 1. معلوماتك الشخصية
-                            </h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black pr-1">الاسم الكامل</Label>
-                                    <Input 
-                                        value={newAddr.name} 
-                                        onChange={(e) => setNewAddr({...newAddr, name: e.target.value})} 
-                                        placeholder="اسمك..." 
-                                        className="h-14 rounded-2xl font-bold bg-muted/30 border-none" 
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black pr-1">رقم الهاتف</Label>
-                                    <Input 
-                                        value={newAddr.phone} 
-                                        onChange={(e) => setNewAddr({...newAddr, phone: e.target.value})} 
-                                        placeholder="07XXXXXXXX" 
-                                        type="tel" 
-                                        dir="ltr" 
-                                        className="h-14 rounded-2xl font-bold bg-muted/30 border-none" 
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <Separator className="opacity-40" />
-
-                        <div className="pt-2">
-                            <h3 className="text-xs font-black text-primary flex items-center gap-2 mb-4">
-                                <Map className="h-4 w-4" /> 2. الموقع الجغرافي
-                            </h3>
-                            <button 
-                                onClick={handleGetLocation} 
-                                type="button"
-                                className={`w-full py-8 flex flex-col items-center justify-center gap-2 border-4 border-dashed rounded-[3rem] transition-all active:scale-95 ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50' : 'border-primary/20 bg-card'}`}
-                                disabled={islocLoading}
-                            >
-                                {islocLoading ? (
-                                    <><Loader2 className="animate-spin h-10 w-10 text-primary" /> <span className="font-black text-primary">جارِ تحديد الإحداثيات...</span></>
-                                ) : newAddr.lat !== 0 ? (
-                                    <><CheckCircle2 className="h-10 w-10 text-green-500 animate-in zoom-in" /> <span className="font-black text-green-600">تم استلام الموقع بدقة ✅</span></>
-                                ) : (
-                                    <><MapPin className="h-10 w-10 text-primary" /> <span className="font-black text-slate-700">اضغط لتحديد موقعك المباشر (GPS)</span></>
-                                )}
-                            </button>
-                        </div>
+            <SheetContent side="bottom" className="h-[75vh] p-0 bg-background rounded-t-[3rem] overflow-hidden">
+                <div className="p-6 space-y-6">
+                    <div className="flex items-center gap-4 py-4">
+                        <div className="p-3 bg-primary/10 rounded-2xl"><Navigation className="h-8 w-8 text-primary" /></div>
+                        <div><SheetTitle className="text-2xl font-black">مرحباً بك!</SheetTitle><p className="text-xs font-bold text-muted-foreground">لنجهز معلومات التوصيل.</p></div>
                     </div>
-                </div>
-
-                <div className="p-6 bg-background border-t shadow-2xl rounded-t-[2.5rem]">
-                    <button 
-                        onClick={handleSaveAddress} 
-                        className="w-full py-6 bg-primary text-white text-2xl font-black rounded-[2rem] shadow-xl active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100" 
-                        disabled={islocLoading || isSaving || newAddr.lat === 0}
-                    >
-                        {isSaving ? "جارِ الحفظ..." : "حفظ وبدء التسوق"}
-                    </button>
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            <Input value={newAddr.name} onChange={(e)=>setNewAddr({...newAddr, name: e.target.value})} placeholder="الاسم الكامل" className="h-12 rounded-xl bg-muted/30 border-none" />
+                            <Input value={newAddr.phone} onChange={(e)=>setNewAddr({...newAddr, phone: e.target.value})} placeholder="07XXXXXXXX" type="tel" className="h-12 rounded-xl bg-muted/30 border-none text-center font-bold" />
+                        </div>
+                        <button onClick={handleGetLocation} className={`w-full py-8 flex flex-col items-center gap-2 border-4 border-dashed rounded-[2.5rem] transition-all active:scale-95 ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50' : 'border-primary/20 bg-card'}`}>
+                            {islocLoading ? <Loader2 className="animate-spin h-8 w-8 text-primary" /> : newAddr.lat !== 0 ? <CheckCircle2 className="h-8 w-8 text-green-500" /> : <MapPin className="h-8 w-8 text-primary" />}
+                            <span className="font-black text-sm">{newAddr.lat !== 0 ? "تم استلام الموقع ✅" : "اضغط لتحديد موقعك (GPS)"}</span>
+                        </button>
+                        <Button onClick={handleSaveAddress} className="w-full h-16 rounded-[1.8rem] text-xl font-black shadow-xl" disabled={isSaving || newAddr.lat === 0}>
+                            {isSaving ? "جارِ الحفظ..." : "حفظ وبدء التسوق"}
+                        </Button>
+                    </div>
                 </div>
             </SheetContent>
         </Sheet>

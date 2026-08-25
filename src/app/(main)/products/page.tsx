@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { ProductCard } from "@/components/ProductCard";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
-import { Search, PackageOpen, Loader2 } from 'lucide-react';
+import { Search, PackageOpen } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 
@@ -17,25 +17,18 @@ function ProductsPageContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState(initialCategory);
 
-  const { products, isLoading } = useProducts();
+  const { products } = useProducts();
   const { categories } = useCategories();
 
   const filteredProducts = useMemo(() => {
       let prods = products.filter(p => p.status === 'approved' && p.isActive !== false);
-
-      if(activeTab !== 'all') {
-          prods = prods.filter(p => p.categoryId === activeTab);
-      }
-
-      if(searchTerm.trim() !== '') {
-          prods = prods.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-      }
-      
+      if(activeTab !== 'all') prods = prods.filter(p => p.categoryId === activeTab);
+      if(searchTerm.trim() !== '') prods = prods.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
       return prods;
   }, [products, activeTab, searchTerm]);
   
   return (
-    <div className="p-4 pb-40 animate-in fade-in duration-500">
+    <div className="p-4 pb-40 animate-in fade-in duration-300">
       <header className="mb-6 space-y-4">
         <div>
           <h1 className="text-3xl font-black text-primary">كل المنتجات</h1>
@@ -55,20 +48,9 @@ function ProductsPageContent() {
       <Tabs value={activeTab} className="w-full" onValueChange={setActiveTab}>
         <div className="overflow-x-auto scrollbar-hide pb-2">
             <TabsList className="flex w-max h-auto bg-transparent gap-2 p-0">
-                <TabsTrigger 
-                    value="all" 
-                    className="h-11 px-6 rounded-2xl font-black data-[state=active]:bg-primary data-[state=active]:text-white border-2 border-muted"
-                >
-                    الكل
-                </TabsTrigger>
+                <TabsTrigger value="all" className="h-11 px-6 rounded-2xl font-black data-[state=active]:bg-primary data-[state=active]:text-white border-2 border-muted">الكل</TabsTrigger>
                 {categories.map((category) => (
-                    <TabsTrigger 
-                        key={category.id} 
-                        value={category.id}
-                        className="h-11 px-6 rounded-2xl font-black data-[state=active]:bg-primary data-[state=active]:text-white border-2 border-muted"
-                    >
-                        {category.name}
-                    </TabsTrigger>
+                    <TabsTrigger key={category.id} value={category.id} className="h-11 px-6 rounded-2xl font-black data-[state=active]:bg-primary data-[state=active]:text-white border-2 border-muted">{category.name}</TabsTrigger>
                 ))}
             </TabsList>
         </div>
@@ -77,18 +59,15 @@ function ProductsPageContent() {
            {filteredProducts.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4">
                     {filteredProducts.map((product) => (
-                        <ProductCard key={product.id} product={product} />
+                        <div key={product.id} className="w-full">
+                            <ProductCard product={product} />
+                        </div>
                     ))}
-                </div>
-            ) : isLoading ? (
-                <div className="text-center py-20 bg-muted/5 rounded-[2.5rem] border-2 border-dashed flex flex-col items-center justify-center">
-                    <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
-                    <p className="text-primary font-black animate-pulse text-lg">جارِ البحث عن الوجبات...</p>
                 </div>
             ) : (
                 <div className="text-center py-20 bg-muted/5 rounded-[2.5rem] border-2 border-dashed">
                     <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
-                    <p className="text-muted-foreground font-black">لا توجد منتجات حالياً في هذا القسم.</p>
+                    <p className="text-muted-foreground font-black">لا توجد منتجات مطابقة للبحث.</p>
                 </div>
             )}
         </div>

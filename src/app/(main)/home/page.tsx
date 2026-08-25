@@ -24,13 +24,10 @@ import { AppContext } from "@/contexts/AppContext";
 
 const BannerItem = ({ banner, index }: { banner: any, index: number }) => {
   return (
-    <CarouselItem 
-      key={banner.id || index} 
-      className="relative basis-full"
-    >
+    <CarouselItem key={banner.id || index} className="relative basis-full">
       <Card className="border-none shadow-none overflow-hidden rounded-[2rem]">
         <CardContent className="relative flex aspect-video items-center justify-center p-0 bg-muted/5">
-            {banner.image ? (
+            {banner.image && (
                 <Image 
                     src={banner.image} 
                     fill 
@@ -39,10 +36,7 @@ const BannerItem = ({ banner, index }: { banner: any, index: number }) => {
                     unoptimized={true}
                     priority={index === 0}
                     loading="eager"
-                    decoding="sync"
                 />
-            ) : (
-                <div className="w-full h-full bg-muted/10 animate-pulse" />
             )}
         </CardContent>
       </Card>
@@ -58,9 +52,7 @@ export default function HomePage() {
   const { restaurants } = useRestaurants();
   const { allOrders } = useOrders();
   
-  const plugin = useRef(
-    Autoplay({ delay: 3000, stopOnInteraction: true })
-  )
+  const plugin = useRef(Autoplay({ delay: 3000, stopOnInteraction: true }));
   
   if (!context) return null;
   const { setActiveTab } = context;
@@ -82,40 +74,26 @@ export default function HomePage() {
   }, [allOrders, products]);
   
   return (
-    <div className="space-y-8 p-4 pb-20 animate-in fade-in duration-500">
-      <header className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-black text-primary">سبيد شوب</h1>
-          <p className="text-muted-foreground text-lg font-bold">أسرع توصيل في منطقتك!</p>
-        </div>
+    <div className="space-y-8 p-4 pb-20 animate-in fade-in duration-300">
+      <header>
+        <h1 className="text-3xl font-black text-primary leading-tight">سبيد شوب</h1>
+        <p className="text-muted-foreground text-lg font-bold">أسرع توصيل في منطقتك!</p>
       </header>
 
-      {/* البنرات - تظهر فوراً بمجرد توفرها */}
-      <section className="min-h-[150px] relative">
-        <Carousel 
-            className="w-full" 
-            opts={{ loop: true, direction: 'rtl' }}
-            plugins={[plugin.current]}
-        >
-        <CarouselContent>
-            {banners.length > 0 ? banners.map((banner, idx) => (
-                <BannerItem key={banner.id} banner={banner} index={idx} />
-            )) : (
-                <CarouselItem className="basis-full">
-                    <div className="aspect-video bg-muted/10 rounded-[2rem] flex items-center justify-center">
-                        <Loader2 className="h-6 w-6 text-primary animate-spin" />
-                    </div>
-                </CarouselItem>
-            )}
-        </CarouselContent>
+      <section className="min-h-[150px]">
+        <Carousel className="w-full" opts={{ loop: true, direction: 'rtl' }} plugins={[plugin.current]}>
+            <CarouselContent>
+                {banners.length > 0 ? banners.map((banner, idx) => (
+                    <BannerItem key={banner.id} banner={banner} index={idx} />
+                )) : <CarouselItem><div className="aspect-video bg-muted/5 rounded-[2rem]" /></CarouselItem>}
+            </CarouselContent>
         </Carousel>
       </section>
 
-      {/* الأقسام - تظهر دائماً */}
       <section>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-2xl font-black">الأقسام</h2>
-            <button onClick={() => setActiveTab(2)} className="text-primary font-black">عرض الكل</button>
+            <button onClick={() => setActiveTab(2)} className="text-primary font-black text-sm">عرض الكل</button>
         </div>
         <ScrollArea className="w-full whitespace-nowrap">
             <div className="flex w-max space-x-4 space-x-reverse pb-4">
@@ -142,15 +120,13 @@ export default function HomePage() {
         </ScrollArea>
       </section>
       
-      {/* الأكثر مبيعاً - حقيقي 100% */}
       {bestSellers.length > 0 && (
           <section className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between px-1">
                 <h2 className="text-2xl font-black flex items-center gap-2">
-                    <Sparkles className="h-6 w-6 text-amber-500" />
-                    الأكثر مبيعاً
+                    <Sparkles className="h-6 w-6 text-amber-500" /> الأكثر مبيعاً
                 </h2>
-                <button onClick={() => setActiveTab(2)} className="text-sm font-bold text-primary">مشاهدة الكل</button>
+                <button onClick={() => setActiveTab(2)} className="text-xs font-bold text-primary">مشاهدة الكل</button>
             </div>
             <ScrollArea className="w-full whitespace-nowrap">
                 <div className="flex w-max space-x-4 space-x-reverse pb-4 px-1">
@@ -163,21 +139,16 @@ export default function HomePage() {
           </section>
       )}
 
-      {/* أشهر المتاجر */}
       <section>
-         <div className="flex items-center justify-between mb-4">
+         <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-2xl font-black">أشهر المتاجر</h2>
-             <button onClick={() => setActiveTab(1)} className="text-primary font-black">تصفح الكل</button>
+             <button onClick={() => setActiveTab(1)} className="text-primary font-black text-sm">تصفح الكل</button>
         </div>
         <ScrollArea className="w-full whitespace-nowrap">
             <div className="flex w-max space-x-5 space-x-reverse pb-6 px-1">
               {restaurants.length > 0 ? restaurants.map((restaurant) => (
                   <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} />
-              )) : (
-                  <div className="flex gap-5">
-                      {[1,2].map(i => <div key={i} className="w-[300px] aspect-[16/9] bg-muted/5 rounded-[2.5rem] animate-pulse" />)}
-                  </div>
-              )}
+              )) : [1,2].map(i => <div key={i} className="w-[300px] aspect-[16/9] bg-muted/5 rounded-[2.5rem]" />)}
             </div>
             <ScrollBar orientation="horizontal" />
         </ScrollArea>

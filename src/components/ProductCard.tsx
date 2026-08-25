@@ -34,9 +34,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const isOutOfStock = useMemo(() => {
     if (product.isUnlimitedStock) return false;
-    if (hasSizes) {
-      return activeSizes.every(size => !size.isUnlimited && size.stock <= 0);
-    }
+    if (hasSizes) return activeSizes.every(size => !size.isUnlimited && size.stock <= 0);
     return (product.stock ?? 0) <= 0;
   }, [product, hasSizes, activeSizes]);
 
@@ -50,28 +48,18 @@ function ProductCardComponent({ product }: ProductCardProps) {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-
     if (restaurant && !restaurant.isStoreOpen) {
         toast({ title: "المتجر مغلق حاليًا", variant: "destructive" });
         return;
     }
-
     if (isOutOfStock) {
-        toast({ title: "نقدت الكمية", variant: "destructive" });
+        toast({ title: "نفدت الكمية", variant: "destructive" });
         return;
     }
-
-    if (hasSizes) {
-        handleOpenProduct();
-        return;
-    }
-
+    if (hasSizes) { handleOpenProduct(); return; }
     const wasAdded = addToCart(product, 1);
     if (wasAdded) {
-        toast({
-            title: "تمت الإضافة",
-            description: `تمت إضافة ${product.name} إلى سلتك.`,
-        });
+        toast({ title: "تمت الإضافة", description: `تمت إضافة ${product.name} إلى سلتك.` });
     }
   };
 
@@ -81,8 +69,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
       if (prices.length === 0) return formatCurrency(product.price);
       const min = Math.min(...prices);
       const max = Math.max(...prices);
-      if (min === max) return formatCurrency(min);
-      return `${formatCurrency(min)} - ${formatCurrency(max)}`;
+      return min === max ? formatCurrency(min) : `${formatCurrency(min)} - ${formatCurrency(max)}`;
     }
     return formatCurrency(product.discountPrice || product.price);
   }, [product, hasSizes, activeSizes]);
@@ -93,14 +80,15 @@ function ProductCardComponent({ product }: ProductCardProps) {
     <div 
         onClick={handleOpenProduct}
         className={cn(
-            "group cursor-pointer transition-all duration-300 relative min-w-[160px] max-w-[160px] flex-shrink-0", 
+            "group cursor-pointer transition-all duration-300 relative shrink-0", 
+            "w-full sm:max-w-none min-w-[160px] max-w-[200px]",
             (isOutOfStock || !restaurant?.isStoreOpen) && "opacity-60"
         )}
     >
       <Card className="overflow-hidden border-none shadow-md rounded-[1.5rem] bg-card w-full">
         <CardContent className="p-0">
           <div className="relative w-full aspect-square overflow-hidden bg-muted/5">
-            {product.image ? (
+            {product.image && (
                 <Image
                   src={product.image}
                   alt={product.name}
@@ -108,17 +96,12 @@ function ProductCardComponent({ product }: ProductCardProps) {
                   className="object-cover"
                   unoptimized={true}
                   loading="lazy"
-                  decoding="async"
                 />
-            ) : (
-                <div className="w-full h-full bg-muted/10 animate-pulse" />
             )}
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 z-10">نفد</Badge>}
             {!restaurant?.isStoreOpen && <Badge variant="destructive" className="absolute top-2 left-2 text-[10px] z-10">مغلق</Badge>}
             {hasSizes && <Badge className="absolute top-2 right-2 bg-primary/80 backdrop-blur-md text-[10px] font-black z-10">أنواع</Badge>}
-            {hasDiscount && (
-                <div className="absolute top-2 right-2 bg-red-600 text-white text-[9px] font-black px-2 py-1 rounded-lg shadow-lg z-10">خصم %</div>
-            )}
+            {hasDiscount && <div className="absolute top-2 right-2 bg-red-600 text-white text-[9px] font-black px-2 py-1 rounded-lg shadow-lg z-10">خصم %</div>}
           </div>
           <div className="p-3 text-right">
             <h3 className="line-clamp-2 h-10 font-black text-sm text-slate-800 leading-tight mb-1">{product.name}</h3>
@@ -130,23 +113,10 @@ function ProductCardComponent({ product }: ProductCardProps) {
             )}
             <div className="mt-2 flex items-center justify-between">
               <div className="flex flex-col text-right">
-                  {hasSizes && <p className="text-[8px] text-muted-foreground font-black">الأسعار المتوفرة:</p>}
-                  {!hasSizes && hasDiscount && (
-                     <p className="text-[9px] text-muted-foreground line-through decoration-destructive/50 font-bold">
-                        {formatCurrency(product.price)}
-                     </p>
-                  )}
-                  <p className={cn("font-black text-primary leading-none", hasSizes ? "text-[10px]" : "text-sm")}>
-                    {priceDisplay}
-                  </p>
+                  {!hasSizes && hasDiscount && <p className="text-[9px] text-muted-foreground line-through decoration-destructive/50 font-bold">{formatCurrency(product.price)}</p>}
+                  <p className={cn("font-black text-primary leading-none", hasSizes ? "text-[10px]" : "text-sm")}>{priceDisplay}</p>
               </div>
-              <Button 
-                size="icon" 
-                variant="ghost" 
-                className={cn("h-9 w-9 rounded-xl shadow-sm active:scale-75 transition-all", hasSizes ? "bg-secondary text-primary" : "bg-primary text-white hover:bg-primary/90")} 
-                onClick={handleAddToCart} 
-                disabled={isOutOfStock || !restaurant?.isStoreOpen}
-              >
+              <Button size="icon" variant="ghost" className={cn("h-9 w-9 rounded-xl shadow-sm active:scale-75", hasSizes ? "bg-secondary text-primary" : "bg-primary text-white")} onClick={handleAddToCart} disabled={isOutOfStock || !restaurant?.isStoreOpen}>
                 {hasSizes ? <ListChecks className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
               </Button>
             </div>
