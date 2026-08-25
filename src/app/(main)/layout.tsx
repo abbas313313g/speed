@@ -45,8 +45,10 @@ export default function MainAppLayout() {
   const { activeTab, syncUserByPhone, isMainDataReady } = context;
 
   useEffect(() => {
+    // تسريع اختفاء السبلاش: بمجرد جاهزية البيانات الأساسية للرئيسية
     if (isMainDataReady) {
-        setShowSplash(false);
+        const timer = setTimeout(() => setShowSplash(false), 50);
+        return () => clearTimeout(timer);
     }
   }, [isMainDataReady]);
 
@@ -87,7 +89,6 @@ export default function MainAppLayout() {
         let currentDeviceId = safeStorage.get('speedShopDeviceId') || uuidv4();
         safeStorage.set('speedShopDeviceId', currentDeviceId);
         
-        // تحسين: استخدام limit(1) لتقليل القراءات
         const phoneQuery = query(collection(db, "addresses"), where("phone", "==", newAddr.phone), limit(1));
         const phoneSnap = await getDocs(phoneQuery);
         
@@ -129,7 +130,7 @@ export default function MainAppLayout() {
   return (
     <div className="h-[100dvh] w-full bg-background flex flex-col relative overflow-hidden">
         {showSplash && (
-            <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-[100]">
+            <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-[100] animate-out fade-out duration-300">
                 <div className="p-8 rounded-[2.5rem] stamp-effect flex flex-col items-center justify-center">
                     <h1 className="text-4xl font-black text-white italic tracking-tighter">SPEED</h1>
                     <h1 className="text-4xl font-black text-white italic tracking-tighter leading-none">SHOP</h1>

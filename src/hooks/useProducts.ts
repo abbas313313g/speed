@@ -7,7 +7,7 @@ import { db } from '@/lib/firebase';
 import type { Product } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
-export const useProducts = (branchId?: string, restaurantId?: string, loadLimit: number = 50) => {
+export const useProducts = (branchId?: string, restaurantId?: string, loadLimit: number = 100) => {
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
@@ -15,8 +15,9 @@ export const useProducts = (branchId?: string, restaurantId?: string, loadLimit:
     useEffect(() => {
         try {
             const productsRef = collection(db, 'products');
-            let q = query(productsRef, orderBy('name', 'asc'), limit(loadLimit));
+            let q = query(productsRef, limit(loadLimit));
             
+            // تحسين جلب المنتجات: إذا كان هناك مطعم محدد، نجلب منتجاته فقط وبسرعة
             if (restaurantId) {
                 q = query(productsRef, where('restaurantId', '==', restaurantId), limit(loadLimit));
             } else if (branchId && branchId !== 'all') {
@@ -42,23 +43,19 @@ export const useProducts = (branchId?: string, restaurantId?: string, loadLimit:
 
     const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
         try {
-            const cleanData = Object.fromEntries(
-                Object.entries(productData).filter(([_, v]) => v !== undefined)
-            );
-
             const finalData = { 
-                ...cleanData, 
+                ...productData, 
                 status: isFromStore ? 'pending' : 'approved',
-                branchId: branchId && branchId !== 'all' ? branchId : (productData.branchId || 'main'),
+                branchId: branchId || productData.branchId || 'main',
                 wholesalePrice: Number(productData.wholesalePrice) || 0,
                 stock: Number(productData.stock) || 0,
-                price: Number(productData.price) || 0
+                price: Number(productData.price) || 0,
+                createdAt: new Date().toISOString()
             };
 
             await addDoc(collection(db, "products"), finalData);
-            toast({ title: isFromStore ? "تم الإرسال للأدمن للموافقة" : "تمت إضافة المنتج بنجاح" });
+            toast({ title: isFromStore ? "تم إرسال الوجبة للمراجعة" : "تمت إضافة المنتج بنجاح" });
         } catch (error: any) { 
-            console.error("Add product error:", error);
             toast({ title: "فشل إضافة المنتج", variant: "destructive" }); 
             throw error;
         }
@@ -67,32 +64,24 @@ export const useProducts = (branchId?: string, restaurantId?: string, loadLimit:
     const updateProduct = useCallback(async (updatedProduct: Partial<Product> & { id: string }, shouldMarkPending = false) => {
         try {
             const { id, ...productData } = updatedProduct;
-            
-            const finalData: any = Object.fromEntries(
-                Object.entries(productData).filter(([_, v]) => v !== undefined)
-            );
+            const finalData: any = { ...productData };
 
-            if (productData.price !== undefined && productData.price !== "") finalData.price = Number(productData.price);
-            if (productData.stock !== undefined && productData.stock !== "") finalData.stock = Number(productData.stock);
-            if (productData.wholesalePrice !== undefined && productData.wholesalePrice !== "") finalData.wholesalePrice = Number(productData.wholesalePrice);
+            if (productData.price !== undefined) finalData.price = Number(productData.price);
+            if (productData.stock !== undefined) finalData.stock = Number(productData.stock);
             
-            if (shouldMarkPending) {
-                finalData.status = 'pending';
-            }
+            if (shouldMarkPending) finalData.status = 'pending';
 
             await updateDoc(doc(db, "products", id), finalData);
-            toast({ title: shouldMarkPending ? "تم إرسال التعديلات للموافقة" : "تم تحديث البيانات بنجاح" });
+            toast({ title: "تم التحديث بنجاح" });
         } catch (error: any) { 
-            console.error("Update product error:", error);
-            toast({ title: "فشل تحديث المنتج", variant: "destructive" }); 
-            throw error;
+            toast({ title: "فشل التحديث", variant: "destructive" }); 
         }
     }, [toast]);
 
     const approveProduct = useCallback(async (productId: string) => {
         try {
             await updateDoc(doc(db, "products", productId), { status: 'approved' });
-            toast({ title: "تمت الموافقة على المنتج" });
+            toast({ title: "تم النشر بنجاح" });
         } catch (error: any) {
             toast({ title: "فشل الإجراء", variant: "destructive" });
         }
@@ -101,7 +90,7 @@ export const useProducts = (branchId?: string, restaurantId?: string, loadLimit:
     const deleteProduct = useCallback(async (productId: string) => {
         try {
             await deleteDoc(doc(db, "products", productId));
-            toast({ title: "تم حذف المنتج" });
+            toast({ title: "تم الحذف" });
         } catch (error: any) { 
             toast({ title: "فشل الحذف", variant: "destructive" }); 
         }
