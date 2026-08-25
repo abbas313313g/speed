@@ -5,7 +5,6 @@ import { useRef, useMemo, useContext } from "react";
 import Image from "next/image";
 import Autoplay from "embla-carousel-autoplay"
 
-import { ProductCard } from "@/components/ProductCard";
 import { RestaurantCard } from "@/components/RestaurantCard";
 import {
   Carousel,
@@ -18,9 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Layers } from "lucide-react";
 import { useCategories } from "@/hooks/useCategories";
 import { useBanners } from "@/hooks/useBanners";
-import { useProducts } from "@/hooks/useProducts";
 import { useRestaurants } from "@/hooks/useRestaurants";
-import { useOrders } from "@/hooks/useOrders";
 import { AppContext } from "@/contexts/AppContext";
 
 const BannerItem = ({ banner, index }: { banner: any, index: number }) => {
@@ -48,37 +45,15 @@ const BannerItem = ({ banner, index }: { banner: any, index: number }) => {
 export default function HomePage() {
   const context = useContext(AppContext);
   
-  // كل خطاف (Hook) يعمل الآن بشكل مستقل تماماً ولا يحظر الآخرين
+  // استدعاء البيانات الأساسية للرئيسية فقط (معزولة عن المنتجات)
   const { categories, isLoading: catLoading } = useCategories();
   const { banners, isLoading: bannerLoading } = useBanners();
   const { restaurants, isLoading: restLoading } = useRestaurants();
-  const { products } = useProducts();
-  const { allOrders } = useOrders();
   
   const plugin = useRef(Autoplay({ delay: 3500, stopOnInteraction: true }));
   const setActiveTab = context?.setActiveTab || (() => {});
 
-  // حساب الأكثر مبيعاً بشكل منفصل لكي لا يعطل الرندر الأساسي
-  const latestBestSellers = useMemo(() => {
-    if (!allOrders.length || !products.length) return [];
-    
-    const deliveredOrders = allOrders
-        .filter(o => o.status === 'delivered')
-        .slice(0, 50);
-
-    const soldProductIds = new Set<string>();
-    deliveredOrders.forEach(order => {
-        order.items.forEach(item => {
-            if (soldProductIds.size < 8) soldProductIds.add(item.product.id);
-        });
-    });
-
-    return Array.from(soldProductIds)
-        .map(id => products.find(p => p.id === id))
-        .filter((p): p is any => !!p && p.status === 'approved' && p.isActive !== false);
-  }, [allOrders, products]);
-
-  // عرض أول 8 متاجر فقط في الرئيسية لتسريع التحميل
+  // عرض أول 8 متاجر فقط لتسريع الرندر اللحظي
   const homeRestaurants = useMemo(() => restaurants.slice(0, 8), [restaurants]);
   
   return (
@@ -88,10 +63,9 @@ export default function HomePage() {
             <h1 className="text-3xl font-black text-primary leading-tight">سبيد شوب</h1>
             <p className="text-muted-foreground text-lg font-bold">أسرع توصيل في منطقتك!</p>
         </div>
-        {/* تم حذف مربع النجوم من هنا لتبسيط الواجهة */}
       </header>
 
-      {/* قسم البانر الإعلاني - يعمل بشكل مستقل */}
+      {/* قسم البانر الإعلاني - مستقل */}
       <section className="min-h-[160px] relative">
         {bannerLoading ? (
             <Skeleton className="w-full aspect-video rounded-[2rem]" />
@@ -106,7 +80,7 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* قسم الأقسام - يعمل بشكل مستقل */}
+      {/* قسم الأقسام - مستقل */}
       <section>
         <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-2xl font-black">الأقسام</h2>
@@ -142,27 +116,8 @@ export default function HomePage() {
             <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </section>
-      
-      {/* قسم الأكثر مبيعاً - يظهر فقط عند توفر البيانات دون حظر الصفحة */}
-      {latestBestSellers.length > 0 && (
-          <section className="space-y-4">
-            <div className="flex items-center justify-between px-1">
-                <h2 className="text-2xl font-black flex items-center gap-2">
-                    🔥 الأكثر مبيعاً
-                </h2>
-            </div>
-            <ScrollArea className="w-full whitespace-nowrap">
-                <div className="flex w-max space-x-4 space-x-reverse pb-4 px-1">
-                    {latestBestSellers.map((product) => (
-                        <ProductCard key={product.id} product={product} />
-                    ))}
-                </div>
-                <ScrollBar orientation="horizontal" />
-            </ScrollArea>
-          </section>
-      )}
 
-      {/* قسم أشهر المتاجر - يعمل بشكل مستقل */}
+      {/* قسم أشهر المتاجر - مستقل */}
       <section>
          <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-2xl font-black">أشهر المتاجر</h2>
