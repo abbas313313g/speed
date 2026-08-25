@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, Suspense, useEffect } from 'react';
+import { useState, useMemo, Suspense, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ProductCard } from "@/components/ProductCard";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input';
 import { Search, PackageOpen, Loader2 } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
-import { Button } from '@/components/ui/button';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -20,9 +19,11 @@ function ProductsPageContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState(initialCategory);
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  const [isAutoLoading, setIsAutoLoading] = useState(false);
 
   const { products } = useProducts();
   const { categories } = useCategories();
+  const loaderRef = useRef<HTMLDivElement>(null);
 
   const filteredProducts = useMemo(() => {
       let prods = products.filter(p => p.status === 'approved' && p.isActive !== false);
@@ -31,7 +32,6 @@ function ProductsPageContent() {
       return prods;
   }, [products, activeTab, searchTerm]);
 
-  // تصفير العد عند تغيير الفلتر لضمان السرعة
   useEffect(() => {
     setVisibleCount(ITEMS_PER_PAGE);
   }, [activeTab, searchTerm]);
@@ -42,21 +42,40 @@ function ProductsPageContent() {
 
   const hasMore = visibleCount < filteredProducts.length;
 
-  const loadMore = () => {
-    setVisibleCount(prev => prev + ITEMS_PER_PAGE);
-  };
+  // نظام التحميل التلقائي 10x10 عند الوصول لنهاية الصفحة
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isAutoLoading) {
+          setIsAutoLoading(true);
+          // محاكاة تأخير بسيط للتحميل لإعطاء شعور بالاحترافية
+          setTimeout(() => {
+            setVisibleCount(prev => prev + ITEMS_PER_PAGE);
+            setIsAutoLoading(false);
+          }, 400);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loaderRef.current) {
+      observer.observe(loaderRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, isAutoLoading]);
   
   return (
     <div className="p-4 pb-40 animate-in fade-in duration-300">
       <header className="mb-6 space-y-4">
         <div>
-          <h1 className="text-3xl font-black text-primary">كل المنتجات</h1>
-          <p className="text-muted-foreground font-bold">تصفح الوجبات (تحميل تدريجي 10x10)</p>
+          <h1 className="text-3xl font-black text-primary">كل الوجبات</h1>
+          <p className="text-muted-foreground font-bold">تصفح المنيو (تحميل تلقائي 10 بـ 10)</p>
         </div>
         <div className="relative">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input 
-            placeholder="ابحث عن منتج..."
+            placeholder="ابحث عن وجبتك المفضلة..."
             className="pr-10 h-12 rounded-2xl border-2 font-bold bg-white"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -83,16 +102,11 @@ function ProductsPageContent() {
                 ))}
             </div>
 
+            {/* نقطة المراقبة للتحميل التلقائي */}
             {hasMore && (
-                <div className="py-10 flex justify-center">
-                    <Button 
-                        variant="outline" 
-                        onClick={loadMore}
-                        className="rounded-2xl h-14 px-10 font-black border-primary text-primary hover:bg-primary/5 gap-2"
-                    >
-                        تحميل المزيد من الوجبات
-                        <Loader2 className="h-4 w-4 animate-spin opacity-50" />
-                    </Button>
+                <div ref={loaderRef} className="py-20 flex flex-col items-center justify-center gap-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-tighter">جارِ عرض المزيد من الوجبات...</p>
                 </div>
             )}
 

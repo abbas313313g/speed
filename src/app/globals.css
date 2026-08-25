@@ -45,26 +45,31 @@
   }
 }
 
-/* انيميشن الختم الاحترافي */
+/* انيميشن الختم الاحترافي المطور */
 @keyframes stamp-hit {
   0% {
     opacity: 0;
-    transform: scale(3) rotate(-15deg);
-    filter: blur(10px);
+    transform: scale(4) rotate(-20deg);
+    filter: blur(15px);
   }
-  70% {
+  60% {
     opacity: 1;
-    transform: scale(0.9) rotate(0deg);
+    transform: scale(0.95) rotate(0deg);
     filter: blur(0px);
   }
+  80% {
+    transform: scale(1.1);
+  }
   100% {
-    transform: scale(1) rotate(0deg);
-    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+    transform: scale(1);
+    box-shadow: 0 25px 60px rgba(0,0,0,0.3);
   }
 }
 
 .stamp-effect {
-  animation: stamp-hit 0.6s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
+  animation: stamp-hit 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  border: 12px solid white;
+  background: #00b358;
 }
 
 button, a, [role="button"] {
@@ -94,8 +99,6 @@ button, a, [role="button"] {
   -webkit-overflow-scrolling: touch;
   background: hsl(var(--background));
   scrollbar-width: none;
-  margin: 0;
-  padding: 0;
 }
 
 .spa-page-view::-webkit-scrollbar {

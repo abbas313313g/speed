@@ -45,8 +45,8 @@ export default function MainAppLayout() {
   const { activeTab, syncUserByPhone } = context;
 
   useEffect(() => {
-    // مدة السبلاش (أداة الختم) لضمان رؤية الأنيميشن
-    const timer = setTimeout(() => setShowSplash(false), 1200); 
+    // تقليل وقت شاشة السبلاش (أداة الختم) لسرعة الدخول
+    const timer = setTimeout(() => setShowSplash(false), 800); 
     return () => clearTimeout(timer);
   }, []);
 
@@ -137,10 +137,11 @@ export default function MainAppLayout() {
     <div className="h-[100dvh] w-full bg-background flex flex-col relative overflow-hidden">
         {showSplash && (
             <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-[100]">
-                <div className="bg-[#00b358] p-8 rounded-[3rem] shadow-2xl stamp-effect">
-                    <h1 className="text-6xl font-black text-white italic">Speed Shop</h1>
+                <div className="p-10 rounded-[3rem] shadow-2xl stamp-effect flex flex-col items-center justify-center">
+                    <h1 className="text-5xl font-black text-white italic tracking-tighter">SPEED</h1>
+                    <h1 className="text-5xl font-black text-white italic tracking-tighter">SHOP</h1>
                 </div>
-                <p className="mt-8 text-primary font-black text-sm animate-pulse">أسرع توصيل في منطقتك...</p>
+                <p className="mt-8 text-primary font-black text-xs animate-pulse tracking-widest uppercase">أسرع توصيل في منطقتك</p>
             </div>
         )}
         {isBlocked ? (
