@@ -1,10 +1,11 @@
-
 "use client";
 
 import { useState, useEffect, useContext, useCallback } from 'react';
 import { BottomNav } from '@/components/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useAddresses } from '@/hooks/useAddresses';
+import { useBanners } from '@/hooks/useBanners';
+import { useCategories } from '@/hooks/useCategories';
 import { HardHat, Loader2, MapPin, AlertCircle, CheckCircle2, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,8 @@ export default function MainAppLayout() {
   const context = useContext(AppContext);
   const { settings } = useAppSettings();
   const { addresses, addAddress } = useAddresses();
+  const { banners } = useBanners();
+  const { categories } = useCategories();
   const { toast } = useToast();
   
   const [showAddressPrompt, setShowAddressPrompt] = useState(false);
@@ -44,11 +47,14 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, syncUserByPhone } = context;
 
+  // نظام إخفاء السبلاش الذكي: فقط عندما تتوفر البيانات الأساسية للرئيسية
   useEffect(() => {
-    // تقليل وقت السبلاش لأدنى حد ممكن
-    const timer = setTimeout(() => setShowSplash(false), 600); 
-    return () => clearTimeout(timer);
-  }, []);
+    const isDataReady = banners.length > 0 || categories.length > 0;
+    if (isDataReady) {
+        const timer = setTimeout(() => setShowSplash(false), 800); 
+        return () => clearTimeout(timer);
+    }
+  }, [banners.length, categories.length]);
 
   useEffect(() => {
     if (!showSplash && !settings?.isMaintenanceMode) {
@@ -137,11 +143,18 @@ export default function MainAppLayout() {
     <div className="h-[100dvh] w-full bg-background flex flex-col relative overflow-hidden">
         {showSplash && (
             <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-[100]">
-                <div className="p-10 rounded-[3rem] shadow-2xl stamp-effect flex flex-col items-center justify-center">
-                    <h1 className="text-5xl font-black text-white italic tracking-tighter">SPEED</h1>
-                    <h1 className="text-5xl font-black text-white italic tracking-tighter">SHOP</h1>
+                <div className="p-8 rounded-[2.5rem] stamp-effect flex flex-col items-center justify-center">
+                    <h1 className="text-4xl font-black text-white italic tracking-tighter">SPEED</h1>
+                    <h1 className="text-4xl font-black text-white italic tracking-tighter leading-none">SHOP</h1>
                 </div>
-                <p className="mt-8 text-primary font-black text-xs animate-pulse tracking-widest uppercase">أسرع توصيل في منطقتك</p>
+                <div className="mt-8 flex flex-col items-center gap-2">
+                    <p className="text-primary font-black text-[10px] tracking-widest uppercase">أسرع توصيل في منطقتك</p>
+                    <div className="flex gap-1">
+                        <div className="h-1.5 w-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
+                        <div className="h-1.5 w-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
+                        <div className="h-1.5 w-1.5 bg-primary rounded-full animate-bounce" />
+                    </div>
+                </div>
             </div>
         )}
         {isBlocked ? (

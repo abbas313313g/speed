@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useRef, useMemo, useContext } from "react";
@@ -55,39 +54,41 @@ export default function HomePage() {
   
   const setActiveTab = context?.setActiveTab || (() => {});
 
-  // عرض آخر 8 منتجات تم بيعها فعلياً بناءً على الطلبات المسلمة
+  // تحسين: استخراج آخر 8 مبيعات حقيقية فقط للرئيسية لتقليل الجهد
   const latestBestSellers = useMemo(() => {
     if (!allOrders.length || !products.length) return [];
     
-    // استخراج معرفات المنتجات من الطلبات المسلمة وترتيبها من الأحدث للأقدم
-    const soldProductIds: string[] = [];
     const deliveredOrders = [...allOrders]
         .filter(o => o.status === 'delivered')
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+    const soldProductIds = new Set<string>();
     deliveredOrders.forEach(order => {
         order.items.forEach(item => {
-            if (!soldProductIds.includes(item.product.id)) {
-                soldProductIds.push(item.product.id);
+            if (soldProductIds.size < 8) {
+                soldProductIds.add(item.product.id);
             }
         });
     });
 
-    // جلب بيانات المنتجات المطابقة (بحد أقصى 8)
-    return soldProductIds
+    return Array.from(soldProductIds)
         .map(id => products.find(p => p.id === id))
-        .filter((p): p is any => !!p && p.status === 'approved' && p.isActive !== false)
-        .slice(0, 8);
+        .filter((p): p is any => !!p && p.status === 'approved' && p.isActive !== false);
   }, [allOrders, products]);
+
+  // تحسين: عرض أول 8 متاجر فقط في الرئيسية لتسريع التحميل
+  const homeRestaurants = useMemo(() => {
+    return restaurants.slice(0, 8);
+  }, [restaurants]);
   
   return (
-    <div className="space-y-8 p-4 pb-24 animate-in fade-in duration-300">
+    <div className="space-y-8 p-4 pb-24 animate-in fade-in duration-500">
       <header>
         <h1 className="text-3xl font-black text-primary leading-tight">سبيد شوب</h1>
         <p className="text-muted-foreground text-lg font-bold">أسرع توصيل في منطقتك!</p>
       </header>
 
-      {/* قسم البنرات - يظهر فوراً */}
+      {/* قسم البنرات */}
       <section className="min-h-[160px] relative">
         <Carousel className="w-full" opts={{ loop: true, direction: 'rtl' }} plugins={[plugin.current]}>
             <CarouselContent>
@@ -98,7 +99,7 @@ export default function HomePage() {
         </Carousel>
       </section>
 
-      {/* قسم الأقسام - يظهر فوراً */}
+      {/* قسم الأقسام */}
       <section>
         <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-2xl font-black">الأقسام</h2>
@@ -129,7 +130,7 @@ export default function HomePage() {
         </ScrollArea>
       </section>
       
-      {/* الأكثر مبيعاً - يظهر فقط إذا وجدت مبيعات حقيقية */}
+      {/* الأكثر مبيعاً - 8 منتجات فقط */}
       {latestBestSellers.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center justify-between px-1">
@@ -148,7 +149,7 @@ export default function HomePage() {
           </section>
       )}
 
-      {/* أشهر المتاجر - ظهور مباشر */}
+      {/* أشهر المتاجر - 8 متاجر فقط */}
       <section>
          <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-2xl font-black">أشهر المتاجر</h2>
@@ -156,7 +157,7 @@ export default function HomePage() {
         </div>
         <ScrollArea className="w-full whitespace-nowrap">
             <div className="flex w-max space-x-5 space-x-reverse pb-6 px-1">
-              {restaurants.length > 0 ? restaurants.map((restaurant, idx) => (
+              {homeRestaurants.length > 0 ? homeRestaurants.map((restaurant, idx) => (
                   <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} priority={idx < 4} />
               )) : [1,2].map(i => <div key={i} className="w-[280px] aspect-[16/9] bg-muted/5 rounded-[2.5rem] border-2 border-dashed animate-pulse" />)}
             </div>
