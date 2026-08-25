@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -27,10 +27,10 @@ export const useRestaurants = (branchId?: string) => {
     useEffect(() => {
         try {
             const restaurantsRef = collection(db, 'restaurants');
-            let q = query(restaurantsRef);
+            let q = query(restaurantsRef, limit(100)); // حصر جلب المتاجر بـ 100 لتسريع الأدمن
             
             if (branchId && branchId !== 'all') {
-                q = query(restaurantsRef, where('branchId', '==', branchId));
+                q = query(restaurantsRef, where('branchId', '==', branchId), limit(100));
             }
 
             const unsub = onSnapshot(q,

@@ -2,12 +2,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where, limit } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where, limit, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Product } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
-export const useProducts = (branchId?: string, loadLimit?: number) => {
+export const useProducts = (branchId?: string, loadLimit: number = 50) => {
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
@@ -15,14 +15,11 @@ export const useProducts = (branchId?: string, loadLimit?: number) => {
     useEffect(() => {
         try {
             const productsRef = collection(db, 'products');
-            let q = query(productsRef);
+            // تحسين: استخدام حدود (limit) لمنع تحميل آلاف الصور دفعة واحدة في الأدمن
+            let q = query(productsRef, orderBy('name', 'asc'), limit(loadLimit));
             
             if (branchId && branchId !== 'all') {
-                q = query(productsRef, where('branchId', '==', branchId));
-            }
-            
-            if (loadLimit) {
-                q = query(q, limit(loadLimit));
+                q = query(productsRef, where('branchId', '==', branchId), limit(loadLimit));
             }
 
             const unsub = onSnapshot(q,

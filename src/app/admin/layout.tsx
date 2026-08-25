@@ -53,11 +53,18 @@ function AdminLayoutContent() {
       return branches.find(b => b.id === branchParam) || { name: 'فرع غير معروف', id: branchParam };
   }, [branchParam, branches]);
 
+  // تسريع لحظي: التحقق من التخزين المحلي قبل انتظار Firestore
   useEffect(() => {
     const deviceId = getDeviceId();
+    const storedAuth = localStorage.getItem(`admin_auth_${branchParam}`);
+    if (storedAuth === 'true') {
+        setIsAuthenticated(true);
+        return;
+    }
     const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === branchParam);
     if (myAccess && myAccess.status === 'approved') {
         setIsAuthenticated(true);
+        localStorage.setItem(`admin_auth_${branchParam}`, 'true');
     }
   }, [accessList, branchParam, getDeviceId]);
 
@@ -67,12 +74,14 @@ function AdminLayoutContent() {
         const wasFirst = await autoApproveFirst(branchParam, deviceName);
         if (wasFirst) {
             setIsAuthenticated(true);
+            localStorage.setItem(`admin_auth_${branchParam}`, 'true');
             toast({ title: "مرحباً بك!", description: `تم اعتماد جهازك كأدمن لـ ${currentBranch.name}` });
         } else {
             const deviceId = getDeviceId();
             const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === branchParam);
             if (myAccess?.status === 'approved') {
                 setIsAuthenticated(true);
+                localStorage.setItem(`admin_auth_${branchParam}`, 'true');
             } else {
                 setRequestStatus('sent');
                 await requestAccess(branchParam, deviceName);
@@ -117,7 +126,7 @@ function AdminLayoutContent() {
                                 <Input type="password" placeholder="••••••••" value={pin} onChange={(e)=>setPin(e.target.value)} className="pr-10 h-14 rounded-2xl text-center text-2xl font-black" dir="ltr" onKeyDown={(e)=>e.key === 'Enter' && handleLogin()} />
                             </div>
                         </div>
-                        <Button onClick={handleLogin} className="w-full h-14 rounded-2xl text-xl font-bold shadow-lg">طلب الدخول والترخيص</Button>
+                        <Button onClick={handleLogin} className="w-full h-14 rounded-2xl text-xl font-bold shadow-lg">دخول فوري</Button>
                     </>
                 )}
             </CardContent>
@@ -146,7 +155,7 @@ function AdminLayoutContent() {
           </div>
         </header>
         <main className="flex-1 relative overflow-hidden bg-muted/5">
-          <div className="spa-stack-container" style={{ transform: `translateX(${activeTab * 100}%)`, transition: 'transform 0.1s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+          <div className="spa-stack-container" style={{ transform: `translateX(${activeTab * 100}%)`, transition: 'none' }}>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDashboard branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminOrdersPage branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminProductsPage branchId={branchParam} /></ScrollArea></div>

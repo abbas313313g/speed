@@ -52,10 +52,10 @@ export const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
-    const { products, isLoading: productsLoading } = useProducts();
+    const { products } = useProducts();
     const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
     const { banners, isLoading: bannersLoading } = useBanners();
-    const { categories, isLoading: categoriesLoading } = useCategories();
+    const { categories } = useCategories();
     const { supportTickets, createSupportTicket: createTicketHook } = useSupportTickets();
     const { coupons } = useCoupons();
 
@@ -68,10 +68,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
 
-    // تسريع خيالي: نعتبر التطبيق جاهزاً بمجرد وصول أي جزء من البيانات الأساسية
+    // تسريع خيالي: التطبيق جاهز بمجرد وصول البنرات. لا ننتظر المئات من المنتجات.
     const isMainDataReady = useMemo(() => {
-        return (!bannersLoading && banners.length > 0) || (!restaurantsLoading && restaurants.length > 0);
-    }, [bannersLoading, banners.length, restaurantsLoading, restaurants.length]);
+        return !bannersLoading || banners.length > 0;
+    }, [bannersLoading, banners.length]);
 
     useEffect(() => {
         try {
