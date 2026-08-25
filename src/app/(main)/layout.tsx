@@ -1,8 +1,7 @@
-
 "use client";
 
 import { useState, useEffect, useContext, useCallback } from 'react';
-import { BottomNav } from '@/components/ui/BottomNav';
+import { BottomNav } from '@/components/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useAddresses } from '@/hooks/useAddresses';
 import { HardHat, Loader2, MapPin, AlertCircle, CheckCircle2, Navigation, Ghost, User, Phone, Map } from 'lucide-react';
@@ -47,7 +46,7 @@ export default function MainAppLayout() {
   const { activeTab, setActiveTab, syncUserByPhone } = context;
 
   useEffect(() => {
-    // تقليل وقت السبلاش لأدنى حد ممكن لجعل الفتح لحظي
+    // تقليل وقت شاشة السبلاش الخضراء إلى نصف ثانية فقط للسرعة الجنونية
     const timer = setTimeout(() => {
         setForceHideLoading(true);
     }, 500); 
@@ -64,7 +63,7 @@ export default function MainAppLayout() {
     setIslocLoading(true);
     
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
-        // إعدادات خاصة للآيفون وسفاري لضمان عدم الحظر
+        // إعدادات خاصة لمتصفح سفاري وآيفون لضمان عدم الحظر
         const options = {
             enableHighAccuracy: true, 
             timeout: 10000, 
