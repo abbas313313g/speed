@@ -7,7 +7,7 @@ import { db } from '@/lib/firebase';
 import type { Product } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
-export const useProducts = (branchId?: string, loadLimit: number = 50) => {
+export const useProducts = (branchId?: string, restaurantId?: string, loadLimit: number = 50) => {
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
@@ -15,10 +15,11 @@ export const useProducts = (branchId?: string, loadLimit: number = 50) => {
     useEffect(() => {
         try {
             const productsRef = collection(db, 'products');
-            // تحسين: استخدام حدود (limit) لمنع تحميل آلاف الصور دفعة واحدة في الأدمن
             let q = query(productsRef, orderBy('name', 'asc'), limit(loadLimit));
             
-            if (branchId && branchId !== 'all') {
+            if (restaurantId) {
+                q = query(productsRef, where('restaurantId', '==', restaurantId), limit(loadLimit));
+            } else if (branchId && branchId !== 'all') {
                 q = query(productsRef, where('branchId', '==', branchId), limit(loadLimit));
             }
 
@@ -37,7 +38,7 @@ export const useProducts = (branchId?: string, loadLimit: number = 50) => {
         } catch (e) {
             setIsLoading(false);
         }
-    }, [branchId, loadLimit]);
+    }, [branchId, restaurantId, loadLimit]);
 
     const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
         try {
@@ -58,7 +59,7 @@ export const useProducts = (branchId?: string, loadLimit: number = 50) => {
             toast({ title: isFromStore ? "تم الإرسال للأدمن للموافقة" : "تمت إضافة المنتج بنجاح" });
         } catch (error: any) { 
             console.error("Add product error:", error);
-            toast({ title: "فشل إضافة المنتج", description: "تأكد من حجم الصورة، حاول استخدام صورة أصغر.", variant: "destructive" }); 
+            toast({ title: "فشل إضافة المنتج", variant: "destructive" }); 
             throw error;
         }
     }, [toast, branchId]);
@@ -83,7 +84,7 @@ export const useProducts = (branchId?: string, loadLimit: number = 50) => {
             toast({ title: shouldMarkPending ? "تم إرسال التعديلات للموافقة" : "تم تحديث البيانات بنجاح" });
         } catch (error: any) { 
             console.error("Update product error:", error);
-            toast({ title: "فشل تحديث المنتج", description: "تأكد من حجم الصورة.", variant: "destructive" }); 
+            toast({ title: "فشل تحديث المنتج", variant: "destructive" }); 
             throw error;
         }
     }, [toast]);

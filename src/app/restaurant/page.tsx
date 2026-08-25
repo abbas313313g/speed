@@ -24,6 +24,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     const [audioUnlocked, setAudioUnlocked] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [incomingOrder, setIncomingOrder] = useState<Order | null>(null);
+    const [processingOrderId, setProcessingOrderId] = useState<string | null>(null);
     
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const prevNewOrdersCount = useRef(0);
@@ -33,8 +34,8 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         return allOrders.filter(o => o.restaurant?.id === context.restaurant?.id);
     }, [context?.restaurant, allOrders]);
 
-    // إصلاح الفلترة: حالة confirmed تعني أن النظام عين سائقاً ويجب أن تظهر للمطعم لقبولها
-    const newOrders = myOrders.filter(o => o.status === 'unassigned' || o.status === 'pending_assignment' || o.status === 'confirmed');
+    // الطلبات الجديدة تشمل الحالات التي تحتاج موافقة المطعم
+    const newOrders = myOrders.filter(o => ['unassigned', 'pending_assignment', 'confirmed'].includes(o.status));
     const preparingOrders = myOrders.filter(o => o.status === 'preparing');
     const readyOrders = myOrders.filter(o => o.status === 'ready_for_pickup');
     const outForDeliveryOrders = myOrders.filter(o => o.status === 'on_the_way');
@@ -57,7 +58,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                 toast({ title: "تم تفعيل نظام التنبيه الصوتي بنجاح ✅" });
             }).catch(e => {
                 console.error("Audio unlock failed:", e);
-                toast({ title: "يرجى لمس الشاشة لتفعيل الصوت", variant: "destructive" });
             });
         }
     };
@@ -82,20 +82,32 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     }, [newOrders, audioUnlocked, isMuted]);
 
     const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
-        await updateOrderStatus(orderId, status);
-        if (status === 'preparing') {
-            toast({ title: "تم قبول الطلب، ابدأ التحضير!" });
-            setIncomingOrder(null);
-            if (audioRef.current) audioRef.current.pause();
+        setProcessingOrderId(orderId);
+        try {
+            await updateOrderStatus(orderId, status);
+            if (status === 'preparing') {
+                toast({ title: "تم قبول الطلب، ابدأ التحضير!" });
+                setIncomingOrder(null);
+                if (audioRef.current) audioRef.current.pause();
+            }
+            setSelectedOrder(null);
+        } catch (e) {
+            toast({ title: "حدث خطأ في تحديث الحالة", variant: "destructive" });
+        } finally {
+            setProcessingOrderId(null);
         }
-        setSelectedOrder(null);
     };
 
     const handleReject = async (orderId: string) => {
-        await updateOrderStatus(orderId, 'cancelled');
-        toast({ title: "تم رفض وإلغاء الطلب", variant: "destructive" });
-        setIncomingOrder(null);
-        if (audioRef.current) audioRef.current.pause();
+        setProcessingOrderId(orderId);
+        try {
+            await updateOrderStatus(orderId, 'cancelled');
+            toast({ title: "تم رفض وإلغاء الطلب", variant: "destructive" });
+            setIncomingOrder(null);
+            if (audioRef.current) audioRef.current.pause();
+        } finally {
+            setProcessingOrderId(null);
+        }
     };
 
     if (!context?.restaurant || oLoading) return (
@@ -194,10 +206,20 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                             {preparingOrders.map(order => (
                                 <Card key={order.id} className="rounded-2xl border-none shadow-sm flex items-center justify-between p-4 bg-white">
                                     <div onClick={() => setSelectedOrder(order)} className="cursor-pointer flex-1">
-                                        <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
+                                            {!order.deliveryWorkerId && <Badge variant="outline" className="text-[8px] animate-pulse border-orange-200 text-orange-600">بانتظار سائق</Badge>}
+                                        </div>
                                         <p className="text-[10px] text-muted-foreground font-bold">{order.items.length} قطع - {formatCurrency(order.total - order.deliveryFee)}</p>
                                     </div>
-                                    <Button size="sm" className="rounded-xl h-10 font-black px-6 shadow-md" onClick={() => handleUpdateStatus(order.id, 'ready_for_pickup')}>تجهيز</Button>
+                                    <Button 
+                                        size="sm" 
+                                        className="rounded-xl h-10 font-black px-6 shadow-md" 
+                                        disabled={processingOrderId === order.id}
+                                        onClick={() => handleUpdateStatus(order.id, 'ready_for_pickup')}
+                                    >
+                                        {processingOrderId === order.id ? <Loader2 className="h-4 w-4 animate-spin"/> : "تجهيز"}
+                                    </Button>
                                 </Card>
                             ))}
                         </div>
@@ -257,13 +279,15 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                     <DialogFooter className="p-6 bg-white border-t flex flex-col gap-3">
                         <Button 
                             className="w-full h-16 rounded-[1.8rem] text-xl font-black shadow-xl bg-green-600 hover:bg-green-700" 
+                            disabled={!!processingOrderId}
                             onClick={() => incomingOrder && handleUpdateStatus(incomingOrder.id, 'preparing')}
                         >
-                            قبول وبدء التحضير
+                            {processingOrderId === incomingOrder?.id ? <Loader2 className="h-6 w-6 animate-spin"/> : "قبول وبدء التحضير"}
                         </Button>
                         <Button 
                             variant="ghost" 
                             className="w-full h-12 text-destructive font-bold rounded-xl" 
+                            disabled={!!processingOrderId}
                             onClick={() => incomingOrder && handleReject(incomingOrder.id)}
                         >
                             رفض الطلب

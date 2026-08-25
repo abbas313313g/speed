@@ -5,7 +5,7 @@ import { useMemo, useContext, useState } from 'react';
 import { ProductCard } from '@/components/ProductCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
-import { ArrowRight, Clock, Search, LayoutGrid, PackageOpen } from 'lucide-react';
+import { ArrowRight, Clock, Search, LayoutGrid, PackageOpen, Loader2 } from 'lucide-react';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useProducts } from '@/hooks/useProducts';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default function RestaurantProductsPage() {
   const context = useContext(AppContext);
   const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
-  const { products, isLoading: productsLoading } = useProducts();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [activeSection, setActiveSection] = useState('all');
@@ -24,10 +23,13 @@ export default function RestaurantProductsPage() {
   if (!context) return null;
   const { selectedRestaurantId, setActiveTab } = context;
 
+  // جلب منتجات هذا المطعم فقط (عزل تام وسرعة خرافية)
+  const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 100);
+
   const restaurant = useMemo(() => restaurants.find(r => r.id === selectedRestaurantId), [selectedRestaurantId, restaurants]);
   
   const restaurantProducts = useMemo(() => {
-      let list = products.filter(p => p.restaurantId === selectedRestaurantId && p.status === 'approved' && p.isActive !== false);
+      let list = products.filter(p => p.status === 'approved' && p.isActive !== false);
       
       if (activeSection !== 'all') {
           list = list.filter(p => p.storeSectionId === activeSection);
@@ -38,9 +40,9 @@ export default function RestaurantProductsPage() {
       }
       
       return list;
-  }, [selectedRestaurantId, products, activeSection, searchTerm]);
+  }, [products, activeSection, searchTerm]);
   
-  const isLoading = restaurantsLoading || productsLoading;
+  const isLoading = restaurantsLoading;
 
   if (isLoading) {
     return (
@@ -53,10 +55,6 @@ export default function RestaurantProductsPage() {
                 </div>
             </div>
             <Skeleton className="h-12 w-full rounded-2xl" />
-            <div className="grid grid-cols-2 gap-4">
-                <Skeleton className="h-64 w-full rounded-3xl" />
-                <Skeleton className="h-64 w-full rounded-3xl" />
-            </div>
         </div>
     );
   }
@@ -145,10 +143,18 @@ export default function RestaurantProductsPage() {
             <LayoutGrid className="h-5 w-5 text-primary"/>
             قائمة المنتجات
         </h2>
-        {restaurantProducts && restaurantProducts.length > 0 ? (
+        
+        {productsLoading ? (
+            <div className="py-20 flex flex-col items-center justify-center gap-2">
+                <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
+                <p className="text-[10px] font-black text-muted-foreground">جاري فتح المنيو...</p>
+            </div>
+        ) : restaurantProducts && restaurantProducts.length > 0 ? (
              <div className="grid grid-cols-2 gap-4">
-                {restaurantProducts.map((product) => (
-                    <ProductCard key={product.id} product={product} />
+                {restaurantProducts.map((product, idx) => (
+                    <div key={product.id} className="animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${idx * 40}ms` }}>
+                        <ProductCard product={product} />
+                    </div>
                 ))}
              </div>
         ): (

@@ -21,8 +21,8 @@ function ProductsPageContent() {
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [isAutoLoading, setIsAutoLoading] = useState(false);
 
-  // جلب المنتجات بشكل تدريجي (10 في 10)
-  const { products } = useProducts();
+  // جلب المنتجات محلياً لهذه الصفحة فقط (عزل تام)
+  const { products, isLoading } = useProducts(undefined, undefined, 200);
   const { categories } = useCategories();
   const loaderRef = useRef<HTMLDivElement>(null);
 
@@ -91,21 +91,21 @@ function ProductsPageContent() {
         
         <div className="mt-6">
            <div className="grid grid-cols-2 gap-4">
-                {pagedProducts.map((product) => (
-                    <div key={product.id} className="w-full animate-in fade-in zoom-in-95 duration-200">
+                {pagedProducts.map((product, idx) => (
+                    <div key={product.id} className="w-full animate-in fade-in zoom-in-95" style={{ animationDelay: `${idx * 50}ms` }}>
                         <ProductCard product={product} />
                     </div>
                 ))}
             </div>
 
-            {hasMore && (
+            {(hasMore || isLoading) && (
                 <div ref={loaderRef} className="py-10 flex flex-col items-center justify-center gap-2">
                     <Loader2 className="h-7 w-7 animate-spin text-primary opacity-50" />
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">جارِ جلب المزيد...</p>
                 </div>
             )}
 
-            {filteredProducts.length === 0 && products.length > 0 && (
+            {!isLoading && filteredProducts.length === 0 && (
                 <div className="text-center py-20 bg-muted/5 rounded-[2.5rem] border-2 border-dashed">
                     <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
                     <p className="text-muted-foreground font-black">لا توجد نتائج مطابقة لبحثك.</p>

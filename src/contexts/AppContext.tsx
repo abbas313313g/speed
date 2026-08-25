@@ -11,7 +11,6 @@ import { ToastAction } from '@/components/ui/toast';
 import type { 
     Product, Order, SupportTicket, Coupon, Address, CartItem, Message, ProductSize, Restaurant
 } from '@/lib/types';
-import { useProducts } from '@/hooks/useProducts';
 import { useSupportTickets } from '@/hooks/useSupportTickets';
 import { useCoupons } from '@/hooks/useCoupons';
 import { useRestaurants } from '@/hooks/useRestaurants';
@@ -44,7 +43,6 @@ interface AppContextType {
     selectedRestaurantId: string | null;
     setSelectedRestaurantId: (id: string | null) => void;
     filteredRestaurants: Restaurant[];
-    filteredProducts: Product[];
     syncUserByPhone: (phone: string) => Promise<string | null>;
 }
 
@@ -52,7 +50,6 @@ export const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
-    const { products } = useProducts();
     const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
     const { banners, isLoading: bannersLoading } = useBanners();
     const { categories } = useCategories();
@@ -68,7 +65,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
 
-    // تسريع خيالي: التطبيق جاهز بمجرد وصول البنرات. لا ننتظر المئات من المنتجات.
+    // جاهزية لحظية: لا ننتظر أي منتجات، فقط أساسيات الواجهة
     const isMainDataReady = useMemo(() => {
         return !bannersLoading || banners.length > 0;
     }, [bannersLoading, banners.length]);
@@ -129,10 +126,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
         return list.sort((a, b) => (a.isStoreOpen === b.isStoreOpen ? 0 : a.isStoreOpen ? -1 : 1));
     }, [restaurants, addresses]);
-
-    const filteredProducts = useMemo(() => {
-        return products.filter(p => p.status === 'approved' && p.isActive !== false);
-    }, [products]);
 
     const addToCart = useCallback((product: Product, quantity: number, selectedSize?: ProductSize): boolean => {
         if (product.sizes?.length && !selectedSize) return false;
@@ -222,8 +215,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const value = useMemo(() => ({
         isLoading: !isMainDataReady, isMainDataReady, placeOrder, createSupportTicket, addMessageToTicket, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress, mySupportTicket, startNewTicketClient, activeTab, previousTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId,
-        filteredRestaurants, filteredProducts, syncUserByPhone
-    }), [isMainDataReady, cart, addresses, userId, mySupportTicket, activeTab, previousTab, filteredRestaurants, filteredProducts, setActiveTab, placeOrder, createSupportTicket, addMessageToTicket, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, addAddress, deleteAddress, startNewTicketClient, setSelectedProductId, setSelectedRestaurantId, syncUserByPhone]);
+        filteredRestaurants, syncUserByPhone
+    }), [isMainDataReady, cart, addresses, userId, mySupportTicket, activeTab, previousTab, filteredRestaurants, setActiveTab, placeOrder, createSupportTicket, addMessageToTicket, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, addAddress, deleteAddress, startNewTicketClient, setSelectedProductId, setSelectedRestaurantId, syncUserByPhone]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
