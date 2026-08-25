@@ -60,6 +60,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
 
+    // السرعة: التطبيق جاهز بمجرد وصول البنرات (الواجهة الرئيسية)
     const isMainDataReady = useMemo(() => !bannersLoading, [bannersLoading]);
 
     useEffect(() => {
