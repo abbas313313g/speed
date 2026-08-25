@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { collection, onSnapshot, doc, runTransaction, getDoc, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { collection, onSnapshot, doc, runTransaction, getDoc, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
@@ -12,26 +12,38 @@ export const useOrders = (branchId?: string) => {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
+    // مرجع لمنع العمليات المتداخلة التي تستهلك الكوتا
+    const isAssigning = useRef(false);
     
-    // خوارزمية التوزيع الذكي بالتساوي
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
+        // حماية: إذا كانت هناك عملية تعيين جارية، لا تبدأ واحدة جديدة
+        if (isAssigning.current) return;
+        
         const preparingOrders = orders.filter(o => o.status === 'preparing' && !o.deliveryWorkerId);
         if (preparingOrders.length === 0) return;
 
+        isAssigning.current = true;
         try {
             const workersRef = collection(db, "deliveryWorkers");
-            // جلب المناديب الأونلاين للفرع
+            // تقنين البحث عن المناديب
             const wQuery = branchId && branchId !== 'all'
-                ? query(workersRef, where("isOnline", "==", true), where("branchId", "==", branchId))
-                : query(workersRef, where("isOnline", "==", true));
+                ? query(workersRef, where("isOnline", "==", true), where("branchId", "==", branchId), limit(20))
+                : query(workersRef, where("isOnline", "==", true), limit(20));
             
             const workersSnap = await getDocs(wQuery);
             const onlineWorkers = workersSnap.docs.map(d => ({ id: d.id, ...d.data() })) as DeliveryWorker[];
 
-            if (onlineWorkers.length === 0) return;
+            if (onlineWorkers.length === 0) {
+                isAssigning.current = false;
+                return;
+            }
 
-            // جلب كل الطلبات النشطة حالياً لمعرفة حمل كل مندوب
-            const activeOrdersSnap = await getDocs(query(collection(db, "orders"), where("status", "in", ["confirmed", "preparing", "ready_for_pickup", "on_the_way"])));
+            // جلب عينة فقط من الطلبات النشطة لحساب الحمل، وليس الكل
+            const activeOrdersSnap = await getDocs(query(
+                collection(db, "orders"), 
+                where("status", "in", ["confirmed", "preparing", "ready_for_pickup", "on_the_way"]),
+                limit(50)
+            ));
             
             const workerLoad = new Map<string, { restaurantId: string | null, count: number }>();
             onlineWorkers.forEach(w => workerLoad.set(w.id, { restaurantId: null, count: 0 }));
@@ -47,24 +59,19 @@ export const useOrders = (branchId?: string) => {
                 }
             });
 
-            // بدء عملية التعيين
             for (const order of preparingOrders) {
                 const targetRestaurantId = order.restaurant?.id;
                 if (!targetRestaurantId) continue;
                 
-                // تصفية المناديب المؤهلين (حمل أقل من 2)
                 const eligibleWorkers = onlineWorkers.filter(w => {
                     const load = workerLoad.get(w.id)!;
-                    // إذا المندوب فارغ تماماً فهو مؤهل
                     if (load.count === 0) return true;
-                    // إذا عنده طلب واحد، لازم يكون من نفس المتجر ليكون مؤهل
                     if (load.count < 2 && load.restaurantId === targetRestaurantId) return true;
                     return false;
                 });
 
                 if (eligibleWorkers.length === 0) continue;
 
-                // اختيار المندوب الأقل توصيلاً تاريخياً (لضمان التساوي في الدخل)
                 const sortedWorkers = eligibleWorkers.sort((a, b) => {
                     const loadA = workerLoad.get(a.id)!.count;
                     const loadB = workerLoad.get(b.id)!.count;
@@ -74,19 +81,26 @@ export const useOrders = (branchId?: string) => {
 
                 const bestWorker = sortedWorkers[0];
                 if (bestWorker) {
+                    // تحديث الحمل محلياً لمنع تكرار التعيين لنفس المندوب في نفس الحلقة
+                    const load = workerLoad.get(bestWorker.id)!;
+                    workerLoad.set(bestWorker.id, { ...load, count: load.count + 1, restaurantId: targetRestaurantId });
+                    
                     await updateOrderStatus(order.id, 'confirmed', bestWorker.id);
                 }
             }
         } catch (e) {
-            console.error("Auto-assign failed:", e);
+            console.error("Auto-assign process stopped to save quota.");
+        } finally {
+            isAssigning.current = false;
         }
     }, [branchId]);
 
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
-        let q = ordersRef;
+        // تحديد كمية البيانات المستلمة لتقليل القراءات
+        let q = query(ordersRef, limit(100)) as any;
         if (branchId && branchId !== 'all') {
-            q = query(ordersRef, where('branchId', '==', branchId)) as any;
+            q = query(ordersRef, where('branchId', '==', branchId), limit(100)) as any;
         }
 
         const unsub = onSnapshot(q,
@@ -95,11 +109,14 @@ export const useOrders = (branchId?: string) => {
                 data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 setAllOrders(data);
                 setIsLoading(false);
-                // تشغيل التوزيع الآلي عند أي تحديث في الطلبات
-                if (branchId && branchId !== 'all') autoAssignOrders(data);
+                
+                // تشغيل التوزيع الآلي فقط في سياق الفرع وبحذر شديد
+                if (branchId && branchId !== 'all') {
+                    autoAssignOrders(data);
+                }
             },
             (error) => {
-                console.error("Error fetching orders:", error);
+                console.error("Firestore quota or rules error:", error);
                 setIsLoading(false);
             }
         );
@@ -111,23 +128,22 @@ export const useOrders = (branchId?: string) => {
             await runTransaction(db, async (transaction) => {
                 const orderRef = doc(db, "orders", orderId);
                 const orderDoc = await transaction.get(orderRef);
-                if (!orderDoc.exists()) throw new Error("USER_ERROR: الطلب غير موجود.");
+                if (!orderDoc.exists()) return;
                 
                 const updateData: Partial<Order> = { status };
                 const currentOrder = orderDoc.data() as Order;
 
                 if (status === 'confirmed' && workerId) {
-                    if (currentOrder.deliveryWorkerId) return; // تم تعيينه مسبقاً
+                    if (currentOrder.deliveryWorkerId) return;
                     const workerDocRef = doc(db, "deliveryWorkers", workerId);
                     const workerDoc = await transaction.get(workerDocRef);
-                    if (!workerDoc.exists()) throw new Error("USER_ERROR: السائق غير موجود.");
+                    if (!workerDoc.exists()) return;
                     const workerData = workerDoc.data() as DeliveryWorker;
                     updateData.deliveryWorkerId = workerId;
                     updateData.deliveryWorker = { id: workerId, name: workerData.name || workerId };
                 }
                 
                 if (status === 'delivered') {
-                    // تحديث عدد التوصيلات للمندوب
                     const currentWorkerId = currentOrder.deliveryWorkerId;
                     if (currentWorkerId) {
                         const workerDocRef = doc(db, "deliveryWorkers", currentWorkerId);
@@ -144,12 +160,11 @@ export const useOrders = (branchId?: string) => {
                 transaction.update(orderRef, updateData);
             });
 
-            // إرسال إشعار للمندوب فور تأكيد الطلب وتعيينه له
             if (status === 'confirmed' && workerId) {
                 sendOrderNotification(workerId);
             }
         } catch (error: any) {
-            console.error("Update status failed:", error);
+            console.error("Transaction failed:", error);
         }
     }, []);
 

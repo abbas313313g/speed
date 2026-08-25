@@ -44,7 +44,6 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, syncUserByPhone, isMainDataReady } = context;
 
-  // إخفاء السبلاش فوراً وبسرعة البرق بمجرد جهوزية البيانات الأساسية
   useEffect(() => {
     if (isMainDataReady) {
         setShowSplash(false);
@@ -88,6 +87,7 @@ export default function MainAppLayout() {
         let currentDeviceId = safeStorage.get('speedShopDeviceId') || uuidv4();
         safeStorage.set('speedShopDeviceId', currentDeviceId);
         
+        // تحسين: استخدام limit(1) لتقليل القراءات
         const phoneQuery = query(collection(db, "addresses"), where("phone", "==", newAddr.phone), limit(1));
         const phoneSnap = await getDocs(phoneQuery);
         
