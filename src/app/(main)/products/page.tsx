@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, Suspense, useEffect, useRef } from 'react';
@@ -20,7 +21,7 @@ function ProductsPageContent() {
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [isAutoLoading, setIsAutoLoading] = useState(false);
 
-  // تحسين: المنتجات لا يتم طلبها عالمياً، بل يتم استهلاك المتوفر في الـ Cache وسحب المزيد تدريجياً
+  // المنتجات لا يتم طلبها عالمياً، بل يتم استهلاك المتوفر في الـ Cache وسحب المزيد تدريجياً
   const { products } = useProducts();
   const { categories } = useCategories();
   const loaderRef = useRef<HTMLDivElement>(null);

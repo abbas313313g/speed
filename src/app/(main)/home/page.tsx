@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useRef, useMemo, useContext } from "react";
@@ -54,7 +55,7 @@ export default function HomePage() {
   
   const setActiveTab = context?.setActiveTab || (() => {});
 
-  // تحسين: استخراج آخر 8 مبيعات حقيقية فقط للرئيسية لتقليل الجهد ومنع استدعاء الكل
+  // الأكثر مبيعاً: آخر 8 وجبات حقيقية فقط بناءً على الطلبات المسلمة
   const latestBestSellers = useMemo(() => {
     if (!allOrders.length || !products.length) return [];
     
@@ -76,19 +77,19 @@ export default function HomePage() {
         .filter((p): p is any => !!p && p.status === 'approved' && p.isActive !== false);
   }, [allOrders, products]);
 
-  // تحسين: عرض أول 8 متاجر فقط في الرئيسية لتسريع التحميل
+  // الرئيسية تعرض 8 متاجر فقط لتقليل حمل البيانات
   const homeRestaurants = useMemo(() => {
     return restaurants.slice(0, 8);
   }, [restaurants]);
   
   return (
-    <div className="space-y-8 p-4 pb-24 animate-in fade-in duration-500">
+    <div className="space-y-8 p-4 pb-24 animate-in fade-in duration-300">
       <header>
         <h1 className="text-3xl font-black text-primary leading-tight">سبيد شوب</h1>
         <p className="text-muted-foreground text-lg font-bold">أسرع توصيل في منطقتك!</p>
       </header>
 
-      {/* قسم البنرات */}
+      {/* البنرات */}
       <section className="min-h-[160px] relative">
         <Carousel className="w-full" opts={{ loop: true, direction: 'rtl' }} plugins={[plugin.current]}>
             <CarouselContent>
@@ -99,7 +100,7 @@ export default function HomePage() {
         </Carousel>
       </section>
 
-      {/* قسم الأقسام */}
+      {/* الأقسام */}
       <section>
         <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-2xl font-black">الأقسام</h2>
@@ -130,12 +131,12 @@ export default function HomePage() {
         </ScrollArea>
       </section>
       
-      {/* الأكثر مبيعاً - 8 منتجات حقيقية فقط بناءً على المبيعات */}
+      {/* الأكثر مبيعاً */}
       {latestBestSellers.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center justify-between px-1">
                 <h2 className="text-2xl font-black flex items-center gap-2">
-                    <Sparkles className="h-6 w-6 text-amber-500" /> الأكثر مبيعاً الآن
+                    <Sparkles className="h-6 w-6 text-amber-500" /> الأكثر مبيعاً
                 </h2>
             </div>
             <ScrollArea className="w-full whitespace-nowrap">
@@ -149,7 +150,7 @@ export default function HomePage() {
           </section>
       )}
 
-      {/* أشهر المتاجر - 8 متاجر فقط لتقليل حمل التحميل */}
+      {/* أشهر المتاجر */}
       <section>
          <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-2xl font-black">أشهر المتاجر</h2>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useContext, useCallback } from 'react';
@@ -33,8 +34,8 @@ export default function MainAppLayout() {
   const context = useContext(AppContext);
   const { settings } = useAppSettings();
   const { addresses, addAddress } = useAddresses();
-  const { banners, isLoading: bannersLoading } = useBanners();
-  const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
+  const { banners } = useBanners();
+  const { restaurants } = useRestaurants();
   const { toast } = useToast();
   
   const [showAddressPrompt, setShowAddressPrompt] = useState(false);
@@ -47,13 +48,14 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, syncUserByPhone } = context;
 
-  // نظام إخفاء السبلاش الاحترافي: ينتظر بيانات الرئيسية فقط ولا يهتم بالمنتجات
+  // نظام إخفاء السبلاش الاحترافي: ينتظر بيانات الرئيسية فقط (البنرات والمتاجر)
   useEffect(() => {
-    const isDataReady = banners.length > 0 || restaurants.length > 0;
-    const fallbackTimer = setTimeout(() => setShowSplash(false), 2000); // حد أقصى ثانيتين في حال فشل النت
+    const isMainDataReady = banners.length > 0 || restaurants.length > 0;
+    const fallbackTimer = setTimeout(() => setShowSplash(false), 2000); 
 
-    if (isDataReady) {
-        const timer = setTimeout(() => setShowSplash(false), 800); 
+    if (isMainDataReady) {
+        // بمجرد توفر البيانات، ننتظر قليلاً لانتهاء حركة الختم
+        const timer = setTimeout(() => setShowSplash(false), 600); 
         return () => clearTimeout(timer);
     }
     
@@ -151,13 +153,8 @@ export default function MainAppLayout() {
                     <h1 className="text-4xl font-black text-white italic tracking-tighter">SPEED</h1>
                     <h1 className="text-4xl font-black text-white italic tracking-tighter leading-none">SHOP</h1>
                 </div>
-                <div className="mt-8 flex flex-col items-center gap-2">
+                <div className="mt-8 flex flex-col items-center gap-2 animate-pulse">
                     <p className="text-primary font-black text-[10px] tracking-widest uppercase">أسرع توصيل في منطقتك</p>
-                    <div className="flex gap-1">
-                        <div className="h-1.5 w-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
-                        <div className="h-1.5 w-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
-                        <div className="h-1.5 w-1.5 bg-primary rounded-full animate-bounce" />
-                    </div>
                 </div>
             </div>
         )}
