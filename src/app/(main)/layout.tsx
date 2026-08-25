@@ -45,7 +45,6 @@ export default function MainAppLayout() {
   const { activeTab, syncUserByPhone } = context;
 
   useEffect(() => {
-    // تقليل وقت شاشة السبلاش (أداة الختم) لسرعة الدخول
     const timer = setTimeout(() => setShowSplash(false), 800); 
     return () => clearTimeout(timer);
   }, []);

@@ -55,7 +55,6 @@ export default function HomePage() {
   
   const setActiveTab = context?.setActiveTab || (() => {});
 
-  // حساب الأكثر مبيعاً بشكل مباشر وسريع جداً
   const bestSellers = useMemo(() => {
     if (!allOrders.length || !products.length) return [];
     const salesCount: { [key: string]: number } = {};
@@ -69,7 +68,7 @@ export default function HomePage() {
     return products
         .filter(p => (salesCount[p.id] || 0) > 0 && p.status === 'approved')
         .sort((a, b) => (salesCount[b.id] || 0) - (salesCount[a.id] || 0))
-        .slice(0, 12);
+        .slice(0, 10);
   }, [allOrders, products]);
   
   return (
@@ -79,12 +78,12 @@ export default function HomePage() {
         <p className="text-muted-foreground text-lg font-bold">أسرع توصيل في منطقتك!</p>
       </header>
 
-      <section className="min-h-[150px] relative">
+      <section className="min-h-[120px] relative">
         <Carousel className="w-full" opts={{ loop: true, direction: 'rtl' }} plugins={[plugin.current]}>
             <CarouselContent>
                 {banners.length > 0 ? banners.map((banner, idx) => (
                     <BannerItem key={banner.id} banner={banner} index={idx} />
-                )) : <CarouselItem><div className="aspect-video bg-muted/5 rounded-[2rem]" /></CarouselItem>}
+                )) : <CarouselItem><div className="aspect-video bg-muted/5 rounded-[2rem] border-2 border-dashed" /></CarouselItem>}
             </CarouselContent>
         </Carousel>
       </section>
@@ -98,7 +97,7 @@ export default function HomePage() {
             <div className="flex w-max space-x-4 space-x-reverse pb-4">
                 <button onClick={() => setActiveTab(2)} className="flex-shrink-0 group">
                     <div className="w-24 text-center">
-                        <div className="p-4 bg-secondary rounded-[1.5rem] flex items-center justify-center aspect-square transition-all group-active:scale-90">
+                        <div className="p-4 bg-secondary rounded-[1.5rem] flex items-center justify-center aspect-square transition-all group-active:scale-90 shadow-sm">
                             <Layers className="h-10 w-10 text-primary" />
                         </div>
                         <p className="mt-2 text-sm font-black truncate">الكل</p>
@@ -107,7 +106,7 @@ export default function HomePage() {
                 {categories.map((category) => (
                     <button key={category.id} onClick={() => setActiveTab(2)} className="flex-shrink-0 group">
                         <div className="w-24 text-center">
-                            <div className="p-4 bg-secondary rounded-[1.5rem] flex items-center justify-center aspect-square transition-all group-active:scale-90">
+                            <div className="p-4 bg-secondary rounded-[1.5rem] flex items-center justify-center aspect-square transition-all group-active:scale-90 shadow-sm">
                                 <category.icon className="h-10 w-10 text-primary" />
                             </div>
                             <p className="mt-2 text-sm font-black truncate">{category.name}</p>
@@ -147,7 +146,7 @@ export default function HomePage() {
             <div className="flex w-max space-x-5 space-x-reverse pb-6 px-1">
               {restaurants.length > 0 ? restaurants.map((restaurant, idx) => (
                   <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} priority={idx < 4} />
-              )) : [1,2].map(i => <div key={i} className="w-[300px] aspect-[16/9] bg-muted/10 rounded-[2.5rem]" />)}
+              )) : [1,2].map(i => <div key={i} className="w-[280px] aspect-[16/9] bg-muted/10 rounded-[2.5rem] border-2 border-dashed" />)}
             </div>
             <ScrollBar orientation="horizontal" />
         </ScrollArea>

@@ -42,17 +42,16 @@ function ProductsPageContent() {
 
   const hasMore = visibleCount < filteredProducts.length;
 
-  // نظام التحميل التلقائي 10x10 عند الوصول لنهاية الصفحة
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !isAutoLoading) {
           setIsAutoLoading(true);
-          // محاكاة تأخير بسيط للتحميل لإعطاء شعور بالاحترافية
+          // تحميل الـ 10 التالية فقط عند الوصول للقاع
           setTimeout(() => {
             setVisibleCount(prev => prev + ITEMS_PER_PAGE);
             setIsAutoLoading(false);
-          }, 400);
+          }, 300);
         }
       },
       { threshold: 0.1 }
@@ -70,7 +69,7 @@ function ProductsPageContent() {
       <header className="mb-6 space-y-4">
         <div>
           <h1 className="text-3xl font-black text-primary">كل الوجبات</h1>
-          <p className="text-muted-foreground font-bold">تصفح المنيو (تحميل تلقائي 10 بـ 10)</p>
+          <p className="text-muted-foreground font-bold">تصفح المنيو واستمتع بأشهى الأطباق</p>
         </div>
         <div className="relative">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -102,15 +101,14 @@ function ProductsPageContent() {
                 ))}
             </div>
 
-            {/* نقطة المراقبة للتحميل التلقائي */}
             {hasMore && (
-                <div ref={loaderRef} className="py-20 flex flex-col items-center justify-center gap-2">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
-                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-tighter">جارِ عرض المزيد من الوجبات...</p>
+                <div ref={loaderRef} className="py-10 flex flex-col items-center justify-center gap-2">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary opacity-50" />
+                    <p className="text-[10px] font-black text-muted-foreground uppercase">جارِ عرض المزيد...</p>
                 </div>
             )}
 
-            {filteredProducts.length === 0 && (
+            {filteredProducts.length === 0 && products.length > 0 && (
                 <div className="text-center py-20 bg-muted/5 rounded-[2.5rem] border-2 border-dashed">
                     <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
                     <p className="text-muted-foreground font-black">لا توجد منتجات مطابقة للبحث.</p>
