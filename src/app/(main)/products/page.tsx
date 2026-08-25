@@ -47,14 +47,14 @@ function ProductsPageContent() {
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !isAutoLoading) {
           setIsAutoLoading(true);
-          // تحميل الـ 10 التالية فقط عند الوصول للقاع
+          // تأخير بسيط لإعطاء إحساس بالتحميل التدريجي الفعلي
           setTimeout(() => {
             setVisibleCount(prev => prev + ITEMS_PER_PAGE);
             setIsAutoLoading(false);
-          }, 300);
+          }, 400);
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1, rootMargin: '100px' }
     );
 
     if (loaderRef.current) {
@@ -75,7 +75,7 @@ function ProductsPageContent() {
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input 
             placeholder="ابحث عن وجبتك المفضلة..."
-            className="pr-10 h-12 rounded-2xl border-2 font-bold bg-white"
+            className="pr-10 h-12 rounded-2xl border-2 font-bold bg-white shadow-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -95,23 +95,23 @@ function ProductsPageContent() {
         <div className="mt-6">
            <div className="grid grid-cols-2 gap-4">
                 {pagedProducts.map((product) => (
-                    <div key={product.id} className="w-full">
+                    <div key={product.id} className="w-full animate-in fade-in zoom-in-95 duration-300">
                         <ProductCard product={product} />
                     </div>
                 ))}
             </div>
 
             {hasMore && (
-                <div ref={loaderRef} className="py-10 flex flex-col items-center justify-center gap-2">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary opacity-50" />
-                    <p className="text-[10px] font-black text-muted-foreground uppercase">جارِ عرض المزيد...</p>
+                <div ref={loaderRef} className="py-12 flex flex-col items-center justify-center gap-2">
+                    <Loader2 className="h-7 w-7 animate-spin text-primary opacity-50" />
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">جارِ تحميل المزيد...</p>
                 </div>
             )}
 
             {filteredProducts.length === 0 && products.length > 0 && (
                 <div className="text-center py-20 bg-muted/5 rounded-[2.5rem] border-2 border-dashed">
                     <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
-                    <p className="text-muted-foreground font-black">لا توجد منتجات مطابقة للبحث.</p>
+                    <p className="text-muted-foreground font-black">لا توجد منتجات مطابقة حالياً.</p>
                 </div>
             )}
         </div>

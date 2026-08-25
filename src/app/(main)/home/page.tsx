@@ -27,7 +27,7 @@ const BannerItem = ({ banner, index }: { banner: any, index: number }) => {
     <CarouselItem key={banner.id || index} className="relative basis-full">
       <Card className="border-none shadow-none overflow-hidden rounded-[2rem]">
         <CardContent className="relative flex aspect-video items-center justify-center p-0 bg-muted/5">
-            {banner.image && (
+            {banner.image ? (
                 <Image 
                     src={banner.image} 
                     fill 
@@ -36,7 +36,7 @@ const BannerItem = ({ banner, index }: { banner: any, index: number }) => {
                     unoptimized={true}
                     priority={index < 2}
                 />
-            )}
+            ) : <div className="w-full h-full bg-muted/20 animate-pulse" />}
         </CardContent>
       </Card>
     </CarouselItem>
@@ -56,6 +56,7 @@ export default function HomePage() {
   const setActiveTab = context?.setActiveTab || (() => {});
 
   const bestSellers = useMemo(() => {
+    // حساب فوري بدون انتظار
     if (!allOrders.length || !products.length) return [];
     const salesCount: { [key: string]: number } = {};
     allOrders.forEach(order => {
@@ -78,12 +79,12 @@ export default function HomePage() {
         <p className="text-muted-foreground text-lg font-bold">أسرع توصيل في منطقتك!</p>
       </header>
 
-      <section className="min-h-[120px] relative">
+      <section className="min-h-[160px] relative">
         <Carousel className="w-full" opts={{ loop: true, direction: 'rtl' }} plugins={[plugin.current]}>
             <CarouselContent>
                 {banners.length > 0 ? banners.map((banner, idx) => (
                     <BannerItem key={banner.id} banner={banner} index={idx} />
-                )) : <CarouselItem><div className="aspect-video bg-muted/5 rounded-[2rem] border-2 border-dashed" /></CarouselItem>}
+                )) : <CarouselItem><div className="aspect-video bg-muted/10 rounded-[2rem] border-2 border-dashed animate-pulse" /></CarouselItem>}
             </CarouselContent>
         </Carousel>
       </section>
@@ -146,7 +147,7 @@ export default function HomePage() {
             <div className="flex w-max space-x-5 space-x-reverse pb-6 px-1">
               {restaurants.length > 0 ? restaurants.map((restaurant, idx) => (
                   <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} priority={idx < 4} />
-              )) : [1,2].map(i => <div key={i} className="w-[280px] aspect-[16/9] bg-muted/10 rounded-[2.5rem] border-2 border-dashed" />)}
+              )) : [1,2].map(i => <div key={i} className="w-[280px] aspect-[16/9] bg-muted/10 rounded-[2.5rem] border-2 border-dashed animate-pulse" />)}
             </div>
             <ScrollBar orientation="horizontal" />
         </ScrollArea>

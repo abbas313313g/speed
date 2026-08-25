@@ -82,14 +82,14 @@ function ProductCardComponent({ product, priority = false }: ProductCardProps) {
         onClick={handleOpenProduct}
         className={cn(
             "group cursor-pointer transition-all duration-300 relative shrink-0", 
-            "w-full sm:max-w-none min-w-[150px] max-w-[200px]",
+            "w-full sm:max-w-none min-w-[160px]",
             (isOutOfStock || !restaurant?.isStoreOpen) && "opacity-60"
         )}
     >
       <Card className="overflow-hidden border-none shadow-md rounded-[1.5rem] bg-card w-full h-full">
         <CardContent className="p-0 flex flex-col h-full">
-          <div className="relative w-full aspect-square overflow-hidden bg-muted/5">
-            {product.image && (
+          <div className="relative w-full aspect-square overflow-hidden bg-muted/10">
+            {product.image ? (
                 <Image
                   src={product.image}
                   alt={product.name}
@@ -99,12 +99,12 @@ function ProductCardComponent({ product, priority = false }: ProductCardProps) {
                   priority={priority}
                   loading={priority ? "eager" : "lazy"}
                 />
-            )}
-            {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 z-10">نفد</Badge>}
-            {hasSizes && <Badge className="absolute top-2 right-2 bg-primary/80 backdrop-blur-md text-[10px] font-black z-10">أنواع</Badge>}
-            {hasDiscount && <div className="absolute top-2 right-2 bg-red-600 text-white text-[9px] font-black px-2 py-1 rounded-lg shadow-lg z-10">خصم %</div>}
+            ) : <div className="w-full h-full animate-pulse bg-muted/20" />}
+            {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 z-10 text-[10px] font-black">نفد</Badge>}
+            {hasSizes && <Badge className="absolute top-2 right-2 bg-primary/80 backdrop-blur-md text-[9px] font-black z-10">خيارات</Badge>}
+            {hasDiscount && <div className="absolute top-2 right-2 bg-red-600 text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg z-10">خصم %</div>}
           </div>
-          <div className="p-3 text-right flex-1 flex flex-col justify-between">
+          <div className="p-3 text-right flex-1 flex flex-col justify-between bg-white">
             <div>
                 <h3 className="line-clamp-2 h-10 font-black text-sm text-slate-800 leading-tight mb-1">{product.name}</h3>
                 {restaurant && (

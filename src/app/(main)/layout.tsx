@@ -45,7 +45,8 @@ export default function MainAppLayout() {
   const { activeTab, syncUserByPhone } = context;
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 800); 
+    // تقليل وقت السبلاش لأدنى حد ممكن
+    const timer = setTimeout(() => setShowSplash(false), 600); 
     return () => clearTimeout(timer);
   }, []);
 
