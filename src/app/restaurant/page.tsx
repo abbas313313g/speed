@@ -5,7 +5,7 @@ import { useContext, useMemo, useState, useEffect, useRef } from 'react';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, PackageSearch, History, Clock, Volume2, VolumeX, PackageCheck, Truck, AlertCircle, PlayCircle, Info } from 'lucide-react';
+import { LogOut, Loader2, PackageSearch, History, Clock, Volume2, VolumeX, PackageCheck, Truck, AlertCircle, PlayCircle, Info, ChevronLeft } from 'lucide-react';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -33,11 +33,12 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         return allOrders.filter(o => o.restaurant?.id === context.restaurant?.id);
     }, [context?.restaurant, allOrders]);
 
-    const newOrders = myOrders.filter(o => o.status === 'unassigned' || o.status === 'pending_assignment');
+    // إصلاح الفلترة: حالة confirmed تعني أن النظام عين سائقاً ويجب أن تظهر للمطعم لقبولها
+    const newOrders = myOrders.filter(o => o.status === 'unassigned' || o.status === 'pending_assignment' || o.status === 'confirmed');
     const preparingOrders = myOrders.filter(o => o.status === 'preparing');
     const readyOrders = myOrders.filter(o => o.status === 'ready_for_pickup');
+    const outForDeliveryOrders = myOrders.filter(o => o.status === 'on_the_way');
 
-    // تهيئة الصوت كملف مدمج لضمان العمل
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
@@ -47,7 +48,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         }
     }, []);
 
-    // تفعيل قناة الصوت - ضروري جداً لمتصفحات الجوال
     const unlockAudio = () => {
         if (audioRef.current) {
             audioRef.current.play().then(() => {
@@ -57,12 +57,11 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                 toast({ title: "تم تفعيل نظام التنبيه الصوتي بنجاح ✅" });
             }).catch(e => {
                 console.error("Audio unlock failed:", e);
-                toast({ title: "فشل تفعيل الصوت، يرجى المحاولة مرة أخرى", variant: "destructive" });
+                toast({ title: "يرجى لمس الشاشة لتفعيل الصوت", variant: "destructive" });
             });
         }
     };
 
-    // مراقبة الطلبات الجديدة
     useEffect(() => {
         if (newOrders.length > prevNewOrdersCount.current) {
             const latestOrder = newOrders[0];
@@ -164,7 +163,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
             {!audioUnlocked && (
                 <div className="p-4 bg-primary text-white text-center font-bold text-sm flex items-center justify-center gap-3 animate-in slide-in-from-top duration-500 cursor-pointer shadow-lg z-40" onClick={unlockAudio}>
                     <PlayCircle className="h-5 w-5 animate-pulse" />
-                    <span>اضغط هنا لتفعيل جرس التنبيه (ضروري جداً)</span>
+                    <span>اضغط هنا لتفعيل جرس التنبيه (ضروري)</span>
                 </div>
             )}
 
@@ -188,13 +187,13 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                     {preparingOrders.length === 0 ? (
                         <div className="text-center py-12 bg-white rounded-[2.5rem] border-2 border-dashed border-muted opacity-60">
                             <Info className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
-                            <p className="text-muted-foreground text-xs font-bold">لا توجد طلبات للتحضير حالياً.</p>
+                            <p className="text-muted-foreground text-xs font-bold">لا توجد طلبات للتحضير.</p>
                         </div>
                     ) : (
                         <div className="space-y-3">
                             {preparingOrders.map(order => (
                                 <Card key={order.id} className="rounded-2xl border-none shadow-sm flex items-center justify-between p-4 bg-white">
-                                    <div onClick={() => setSelectedOrder(order)} className="cursor-pointer">
+                                    <div onClick={() => setSelectedOrder(order)} className="cursor-pointer flex-1">
                                         <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
                                         <p className="text-[10px] text-muted-foreground font-bold">{order.items.length} قطع - {formatCurrency(order.total - order.deliveryFee)}</p>
                                     </div>
@@ -211,19 +210,37 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                     </h2>
                     <div className="space-y-3">
                         {readyOrders.map(order => (
-                            <div key={order.id} className="bg-white p-4 rounded-2xl shadow-sm border-r-4 border-r-green-500 flex items-center justify-between animate-pulse">
+                            <div key={order.id} onClick={() => setSelectedOrder(order)} className="bg-white p-4 rounded-2xl shadow-sm border-r-4 border-r-green-500 flex items-center justify-between cursor-pointer">
                                 <div>
                                     <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
-                                    <p className="text-[10px] text-green-600 font-bold">المندوب في طريقه إليكم...</p>
+                                    <p className="text-[10px] text-green-600 font-bold">المندوب: {order.deliveryWorker?.name || 'جارِ البحث...'}</p>
                                 </div>
-                                <Truck className="h-5 w-5 text-green-600"/>
+                                <Truck className="h-5 w-5 text-green-600 animate-bounce"/>
                             </div>
                         ))}
                     </div>
                 </section>
+
+                {outForDeliveryOrders.length > 0 && (
+                    <section className="space-y-4">
+                        <h2 className="text-sm font-black flex items-center gap-2 px-1 text-blue-600">
+                            <Truck className="h-5 w-5"/> طلبات في الطريق للزبائن ({outForDeliveryOrders.length})
+                        </h2>
+                        <div className="space-y-3">
+                            {outForDeliveryOrders.map(order => (
+                                <div key={order.id} onClick={() => setSelectedOrder(order)} className="bg-white p-4 rounded-2xl shadow-sm border-r-4 border-r-blue-500 flex items-center justify-between cursor-pointer opacity-80">
+                                    <div>
+                                        <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
+                                        <p className="text-[10px] text-blue-600 font-bold">خرجت مع المندوب</p>
+                                    </div>
+                                    <ChevronLeft className="h-5 w-5 text-blue-300"/>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
             </main>
 
-            {/* نافذة التنبيه الفوري - نصف شاشة احترافي */}
             <Dialog open={!!incomingOrder} onOpenChange={() => {}}>
                 <DialogContent className="max-w-[100vw] sm:max-w-md rounded-t-[3rem] p-0 overflow-hidden border-none shadow-2xl animate-in slide-in-from-bottom duration-500 bottom-0 top-auto translate-y-0 translate-x-[-50%] fixed left-[50%]">
                     <DialogHeader className="p-6 bg-red-600 text-white flex flex-col items-center gap-2">
@@ -231,7 +248,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                             <AlertCircle className="h-8 w-8 text-white" />
                         </div>
                         <DialogTitle className="text-2xl font-black text-center">طلب جديد وصل! 🍔</DialogTitle>
-                        <p className="text-white/80 text-xs font-bold text-center">لن يتوقف جرس التنبيه حتى يتم القبول</p>
                     </DialogHeader>
                     
                     <div className="p-6 bg-background max-h-[50vh] overflow-y-auto scrollbar-hide">
@@ -240,7 +256,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
 
                     <DialogFooter className="p-6 bg-white border-t flex flex-col gap-3">
                         <Button 
-                            className="w-full h-16 rounded-[1.8rem] text-xl font-black shadow-xl shadow-primary/20 bg-green-600 hover:bg-green-700" 
+                            className="w-full h-16 rounded-[1.8rem] text-xl font-black shadow-xl bg-green-600 hover:bg-green-700" 
                             onClick={() => incomingOrder && handleUpdateStatus(incomingOrder.id, 'preparing')}
                         >
                             قبول وبدء التحضير

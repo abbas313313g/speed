@@ -44,7 +44,7 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, syncUserByPhone, isMainDataReady } = context;
 
-  // إخفاء السبلاش فوراً وبدون أي تأخير بمجرد جهوزية البيانات الأساسية
+  // إخفاء السبلاش فوراً وبسرعة البرق بمجرد جهوزية البيانات الأساسية
   useEffect(() => {
     if (isMainDataReady) {
         setShowSplash(false);
