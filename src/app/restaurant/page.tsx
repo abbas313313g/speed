@@ -32,10 +32,11 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         return allOrders.filter(o => o.restaurant?.id === context.restaurant?.id);
     }, [context?.restaurant, allOrders]);
 
-    // تحسين المنطق: الطلبات الجديدة تظل موجودة حتى لو تم تعيين سائق
+    // الطلبات الجديدة والجار تحضيرها
     const newOrders = myOrders.filter(o => ['unassigned', 'pending_assignment', 'confirmed'].includes(o.status));
     const preparingOrders = myOrders.filter(o => o.status === 'preparing');
     const readyOrders = myOrders.filter(o => o.status === 'ready_for_pickup');
+    const onTheWayOrders = myOrders.filter(o => o.status === 'on_the_way');
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -156,21 +157,24 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                 {!order.deliveryWorkerId && <Badge variant="outline" className="text-[8px] animate-pulse text-orange-600">جارِ البحث عن سائق...</Badge>}
                             </div>
                             <Button className="rounded-xl h-10 font-black px-6 shadow-md" disabled={processingOrderId === order.id} onClick={() => handleUpdateStatus(order.id, 'ready_for_pickup')}>
-                                {processingOrderId === order.id ? <Loader2 className="animate-spin h-4 w-4"/> : "تجهيز"}
+                                {processingOrderId === order.id ? <Loader2 className="animate-spin h-4 w-4"/> : "تم التجهيز"}
                             </Button>
                         </Card>
                     ))}
                 </section>
 
-                {readyOrders.length > 0 && (
+                {(readyOrders.length > 0 || onTheWayOrders.length > 0) && (
                     <section className="space-y-4">
                         <h2 className="text-sm font-black flex items-center gap-2 px-1 text-green-600">
-                            <PackageCheck className="h-5 w-5"/> جاهز للاستلام ({readyOrders.length})
+                            <PackageCheck className="h-5 w-5"/> متابعة الاستلام ({readyOrders.length + onTheWayOrders.length})
                         </h2>
-                        {readyOrders.map(order => (
+                        {[...readyOrders, ...onTheWayOrders].map(order => (
                             <div key={order.id} onClick={() => setSelectedOrder(order)} className="bg-white p-4 rounded-2xl shadow-sm border-r-4 border-r-green-500 flex items-center justify-between cursor-pointer">
-                                <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
-                                <Truck className="h-5 w-5 text-green-600 animate-bounce"/>
+                                <div>
+                                    <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
+                                    <p className="text-[9px] font-bold text-muted-foreground">{order.status === 'ready_for_pickup' ? 'بانتظار وصول المندوب' : 'في الطريق للزبون'}</p>
+                                </div>
+                                <Truck className={cn("h-5 w-5 text-green-600", order.status === 'on_the_way' && "animate-bounce")}/>
                             </div>
                         ))}
                     </section>

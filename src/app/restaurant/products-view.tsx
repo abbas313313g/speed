@@ -12,30 +12,31 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatCurrency, cn } from '@/lib/utils';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
-import { Textarea } from '@/components/ui/textarea';
 import type { ProductSize } from '@/lib/types';
 
 export default function RestaurantProductsPage({ onBack }: { onBack: () => void }) {
     const context = useContext(RestaurantContext);
     const { toast } = useToast();
     
-    // جلب منتجات المطعم الحالي فقط لضمان السرعة والظهور
+    // جلب منتجات المطعم الحالي فقط لضمان السرعة والظهور المستقل
     const { products, addProduct, updateProduct, deleteProduct, isLoading: pLoading } = useProducts(undefined, context?.restaurant?.id);
 
     const [isDialogOpen, setIsAdding] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false);
     const [currentP, setCurrentP] = useState({ 
-        id: '', name: '', description: '', price: 0, image: '', categoryId: 'cat1', 
+        id: '', name: '', description: '', price: 0, image: '', categoryId: '', 
         storeSectionId: '', stock: 10, isActive: true, isUnlimitedStock: false, sizes: [] as ProductSize[]
     });
     const fileRef = useRef<HTMLInputElement>(null);
 
-    const filteredMyProducts = products.filter(p => (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
+    const filteredMyProducts = useMemo(() => {
+        return products.filter(p => (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
+    }, [products, searchTerm]);
 
     const handleImg = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -48,20 +49,33 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
 
     const handleSave = async () => {
         if (!currentP.name || !currentP.image) {
-            toast({ title: "بيانات ناقصة", variant: "destructive" });
+            toast({ title: "بيانات ناقصة", description: "الرجاء إكمال الاسم والصورة", variant: "destructive" });
             return;
         }
+        
+        setIsProcessing(true);
         try {
             if (isEditing) {
                 await updateProduct(currentP as any);
             } else {
-                await addProduct({ ...currentP, restaurantId: context!.restaurant!.id } as any, true);
+                await addProduct({ 
+                    ...currentP, 
+                    restaurantId: context!.restaurant!.id,
+                    categoryId: context!.restaurant!.categoryId,
+                    branchId: context!.restaurant!.branchId
+                } as any, true);
             }
             setIsAdding(false);
-        } catch (e) {}
+        } catch (e) {} finally {
+            setIsProcessing(false);
+        }
     };
 
-    if (!context?.restaurant || pLoading) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
+    if (!context?.restaurant || pLoading) return (
+        <div className="flex h-screen w-full items-center justify-center">
+            <Loader2 className="animate-spin h-10 w-10 text-primary" />
+        </div>
+    );
 
     return (
         <div className="flex flex-col min-h-full bg-background pb-40 text-right">
@@ -81,24 +95,26 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                    {filteredMyProducts.map(p => (
+                    {filteredMyProducts.length > 0 ? filteredMyProducts.map(p => (
                         <Card key={p.id} className={cn("rounded-2xl border-none shadow-md overflow-hidden bg-white", !(p.isActive ?? true) && "opacity-50 grayscale")}>
-                            <div className="relative aspect-video">
-                                <Image src={p.image} fill className="object-cover" alt="" unoptimized={true}/>
+                            <div className="relative aspect-video bg-muted/10">
+                                <Image src={p.image} fill className="object-cover" alt="" unoptimized={true} decoding="async" />
                             </div>
                             <div className="p-3 text-right space-y-2">
-                                <h3 className="font-black text-sm truncate">{p.name}</h3>
-                                <div className="font-black text-primary text-xs">{formatCurrency(p.price)}</div>
+                                <h3 className="font-black text-xs truncate">{p.name}</h3>
+                                <div className="font-black text-primary text-[10px]">{formatCurrency(p.price)}</div>
                                 <div className="flex justify-between items-center pt-2 border-t">
                                     <div className="flex gap-1">
-                                        <button className="p-2 text-primary bg-primary/5 rounded-lg" onClick={() => { setIsEditing(true); setCurrentP(p as any); setIsAdding(true); }}><Edit3 className="h-4 w-4"/></button>
-                                        <button className="p-2 text-destructive bg-destructive/5 rounded-lg" onClick={() => deleteProduct(p.id)}><Trash2 className="h-4 w-4"/></button>
+                                        <button className="p-2 text-primary bg-primary/5 rounded-lg" onClick={() => { setIsEditing(true); setCurrentP(p as any); setIsAdding(true); }}><Edit3 className="h-3.5 w-3.5"/></button>
+                                        <button className="p-2 text-destructive bg-destructive/5 rounded-lg" onClick={() => deleteProduct(p.id)}><Trash2 className="h-3.5 w-3.5"/></button>
                                     </div>
                                     <Switch checked={p.isActive ?? true} onCheckedChange={(v) => updateProduct({ id: p.id, isActive: v } as any)} className="scale-75" />
                                 </div>
                             </div>
                         </Card>
-                    ))}
+                    )) : (
+                        <div className="col-span-2 py-20 text-center text-muted-foreground font-bold italic">لا توجد منتجات مضافة حالياً.</div>
+                    )}
                 </div>
             </main>
 
@@ -111,10 +127,15 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                             <Label>صورة الوجبة</Label>
                             <Button type="button" variant="outline" className="w-full h-12 rounded-xl" onClick={()=>fileRef.current?.click()}><Upload className="h-4 w-4 ml-2"/> ارفع صورة</Button>
                             <input type="file" ref={fileRef} className="hidden" onChange={handleImg} accept="image/*" />
+                            {currentP.image && <div className="relative aspect-video rounded-xl overflow-hidden mt-2 border"><Image src={currentP.image} fill className="object-cover" alt="preview" unoptimized={true}/></div>}
                         </div>
                         <div className="space-y-1"><Label>السعر</Label><Input type="number" value={currentP.price || ''} onChange={(e)=>setCurrentP({...currentP, price: parseFloat(e.target.value)})} className="h-11 rounded-xl" /></div>
                     </div>
-                    <DialogFooter className="p-4"><Button onClick={handleSave} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl">{isEditing ? 'حفظ' : 'نشر الوجبة'}</Button></DialogFooter>
+                    <DialogFooter className="p-4">
+                        <Button onClick={handleSave} disabled={isProcessing} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl">
+                            {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : (isEditing ? 'حفظ التعديلات' : 'نشر الوجبة')}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

@@ -21,6 +21,7 @@ import { formatCurrency } from "@/lib/utils";
 import { useBanners } from "@/hooks/useBanners";
 import { useRestaurants } from "@/hooks/useRestaurants";
 import { useCategories } from "@/hooks/useCategories";
+import { useProducts } from "@/hooks/useProducts";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function HomePage() {
@@ -29,11 +30,13 @@ export default function HomePage() {
   const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
   const { categories, isLoading: categoriesLoading } = useCategories();
   
+  // جلب عدد محدود جداً من المنتجات للأكثر مبيعاً لضمان السرعة
+  const { products: topProducts, isLoading: productsLoading } = useProducts(undefined, undefined, 8);
+  
   const plugin = useRef(Autoplay({ delay: 3000, stopOnInteraction: false }));
   
   const setActiveTab = context?.setActiveTab || (() => {});
   const setSelectedRestaurantId = context?.setSelectedRestaurantId || (() => {});
-  const { filteredProducts } = context || { filteredProducts: [] };
 
   const handleStoreClick = (id: string) => {
     setSelectedRestaurantId(id);
@@ -42,8 +45,8 @@ export default function HomePage() {
 
   const topStores = useMemo(() => restaurants.slice(0, 8), [restaurants]);
   
-  // تصفية المنتجات الأكثر مبيعاً
-  const topSellers = useMemo(() => filteredProducts.slice(0, 8), [filteredProducts]);
+  // تصفية المنتجات الأكثر مبيعاً من البيانات المحملة محلياً
+  const topSellers = topProducts;
 
   const isLoading = bannersLoading && restaurantsLoading && categoriesLoading;
 
@@ -140,7 +143,7 @@ export default function HomePage() {
                                 alt={store.name} 
                                 fill 
                                 className="object-cover" 
-                                unoptimized={true}
+                                unoptimized={true} 
                                 decoding="async"
                                 priority={index < 2}
                             />
@@ -176,7 +179,6 @@ export default function HomePage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                   {topSellers.map((product) => {
-                      // إصلاح مشكلة السعر 0: البحث عن أقل سعر في الأنواع إذا كان السعر الرئيسي 0
                       const activeSizes = product.sizes?.filter(s => s.isActive !== false) || [];
                       const hasSizes = activeSizes.length > 0;
                       let finalPrice = product.discountPrice || product.price || 0;
