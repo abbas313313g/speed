@@ -45,6 +45,28 @@
   }
 }
 
+/* انيميشن الختم الاحترافي */
+@keyframes stamp-hit {
+  0% {
+    opacity: 0;
+    transform: scale(3) rotate(-15deg);
+    filter: blur(10px);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(0.9) rotate(0deg);
+    filter: blur(0px);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+  }
+}
+
+.stamp-effect {
+  animation: stamp-hit 0.6s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
+}
+
 button, a, [role="button"] {
   @apply transition-transform duration-75 active:scale-95 cursor-pointer;
 }

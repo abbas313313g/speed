@@ -45,8 +45,8 @@ export default function MainAppLayout() {
   const { activeTab, syncUserByPhone } = context;
 
   useEffect(() => {
-    // إخفاء السبلاش فوراً وبشكل لحظي
-    const timer = setTimeout(() => setShowSplash(false), 50); 
+    // مدة السبلاش (أداة الختم) لضمان رؤية الأنيميشن
+    const timer = setTimeout(() => setShowSplash(false), 1200); 
     return () => clearTimeout(timer);
   }, []);
 
@@ -136,8 +136,11 @@ export default function MainAppLayout() {
   return (
     <div className="h-[100dvh] w-full bg-background flex flex-col relative overflow-hidden">
         {showSplash && (
-            <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#00b358] z-[100] transition-opacity duration-200">
-                <h1 className="text-6xl font-black text-white italic animate-in zoom-in duration-150">Speed Shop</h1>
+            <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-[100]">
+                <div className="bg-[#00b358] p-8 rounded-[3rem] shadow-2xl stamp-effect">
+                    <h1 className="text-6xl font-black text-white italic">Speed Shop</h1>
+                </div>
+                <p className="mt-8 text-primary font-black text-sm animate-pulse">أسرع توصيل في منطقتك...</p>
             </div>
         )}
         {isBlocked ? (
