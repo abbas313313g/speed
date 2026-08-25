@@ -35,6 +35,7 @@ const BannerItem = ({ banner, index }: { banner: any, index: number }) => {
                     className="object-cover" 
                     unoptimized={true}
                     priority={index < 2}
+                    loading="eager"
                 />
             ) : <div className="w-full h-full bg-muted/20 animate-pulse" />}
         </CardContent>
@@ -47,16 +48,14 @@ export default function HomePage() {
   const context = useContext(AppContext);
   const { categories } = useCategories();
   const { banners } = useBanners();
-  const { products } = useProducts();
   const { restaurants } = useRestaurants();
+  // تحميل المنتجات لا يمنع الصفحة من الظهور
+  const { products } = useProducts();
   const { allOrders } = useOrders();
   
   const plugin = useRef(Autoplay({ delay: 3000, stopOnInteraction: true }));
-  
   const setActiveTab = context?.setActiveTab || (() => {});
 
-  // الأكثر مبيعاً: آخر 8 وجبات حقيقية فقط بناءً على الطلبات المسلمة
-  // لا يمنع الصفحة من الظهور إذا لم يتوفر بعد
   const latestBestSellers = useMemo(() => {
     if (!allOrders.length || !products.length) return [];
     
@@ -67,9 +66,7 @@ export default function HomePage() {
     const soldProductIds = new Set<string>();
     deliveredOrders.forEach(order => {
         order.items.forEach(item => {
-            if (soldProductIds.size < 8) {
-                soldProductIds.add(item.product.id);
-            }
+            if (soldProductIds.size < 8) soldProductIds.add(item.product.id);
         });
     });
 
@@ -78,10 +75,7 @@ export default function HomePage() {
         .filter((p): p is any => !!p && p.status === 'approved' && p.isActive !== false);
   }, [allOrders, products]);
 
-  // الرئيسية تعرض 8 متاجر فقط لتقليل حمل البيانات
-  const homeRestaurants = useMemo(() => {
-    return restaurants.slice(0, 8);
-  }, [restaurants]);
+  const homeRestaurants = useMemo(() => restaurants.slice(0, 8), [restaurants]);
   
   return (
     <div className="space-y-8 p-4 pb-24 animate-in fade-in duration-300">
@@ -90,7 +84,6 @@ export default function HomePage() {
         <p className="text-muted-foreground text-lg font-bold">أسرع توصيل في منطقتك!</p>
       </header>
 
-      {/* البنرات - تظهر فوراً */}
       <section className="min-h-[160px] relative">
         <Carousel className="w-full" opts={{ loop: true, direction: 'rtl' }} plugins={[plugin.current]}>
             <CarouselContent>
@@ -101,7 +94,6 @@ export default function HomePage() {
         </Carousel>
       </section>
 
-      {/* الأقسام - تظهر فوراً */}
       <section>
         <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-2xl font-black">الأقسام</h2>
@@ -117,7 +109,7 @@ export default function HomePage() {
                         <p className="mt-2 text-sm font-black truncate">الكل</p>
                     </div>
                 </button>
-                {categories.length > 0 ? categories.map((category) => (
+                {categories.map((category) => (
                     <button key={category.id} onClick={() => setActiveTab(2)} className="flex-shrink-0 group">
                         <div className="w-24 text-center">
                             <div className="p-4 bg-secondary rounded-[1.5rem] flex items-center justify-center aspect-square transition-all group-active:scale-90 shadow-sm">
@@ -126,13 +118,12 @@ export default function HomePage() {
                             <p className="mt-2 text-sm font-black truncate">{category.name}</p>
                         </div>
                     </button>
-                )) : [1,2,3].map(i => <div key={i} className="w-24 h-24 bg-muted/10 rounded-[1.5rem] animate-pulse" />)}
+                ))}
             </div>
             <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </section>
       
-      {/* الأكثر مبيعاً - يظهر فقط عند توفر البيانات */}
       {latestBestSellers.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center justify-between px-1">
@@ -151,7 +142,6 @@ export default function HomePage() {
           </section>
       )}
 
-      {/* أشهر المتاجر - تظهر فوراً */}
       <section>
          <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-2xl font-black">أشهر المتاجر</h2>

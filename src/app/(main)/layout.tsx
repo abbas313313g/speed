@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useContext, useCallback } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { BottomNav } from '@/components/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useAddresses } from '@/hooks/useAddresses';
@@ -46,31 +46,29 @@ export default function MainAppLayout() {
   const [showSplash, setShowSplash] = useState(true);
 
   if (!context) return null;
-  const { activeTab, syncUserByPhone } = context;
+  const { activeTab, syncUserByPhone, isMainDataReady } = context;
 
-  // نظام إخفاء السبلاش الاحترافي: ينتظر بيانات الرئيسية فقط (البنرات والمتاجر)
+  // السبلاش يختفي فور توفر بيانات المتاجر والبنرات فقط
   useEffect(() => {
-    const isMainDataReady = banners.length > 0 || restaurants.length > 0;
-    const fallbackTimer = setTimeout(() => setShowSplash(false), 1500); 
-
-    if (isMainDataReady) {
-        // بمجرد توفر البيانات الأساسية للواجهة، نغلق السبلاش
-        const timer = setTimeout(() => setShowSplash(false), 500); 
+    if (isMainDataReady && (banners.length > 0 || restaurants.length > 0)) {
+        const timer = setTimeout(() => setShowSplash(false), 300); 
         return () => clearTimeout(timer);
     }
-    
-    return () => clearTimeout(fallbackTimer);
-  }, [banners, restaurants]);
+    // احتياطاً إذا تأخر النت جداً
+    const fallback = setTimeout(() => setShowSplash(false), 2000);
+    return () => clearTimeout(fallback);
+  }, [isMainDataReady, banners.length, restaurants.length]);
 
   useEffect(() => {
     if (!showSplash && !settings?.isMaintenanceMode) {
       const storedUserId = safeStorage.get('speedShopUserId');
-      const isNewUser = !storedUserId && addresses.length === 0 && !safeStorage.get('speedShopSetupDone');
-      if (isNewUser) setShowAddressPrompt(true);
+      if (!storedUserId && addresses.length === 0 && !safeStorage.get('speedShopSetupDone')) {
+          setShowAddressPrompt(true);
+      }
     }
   }, [showSplash, settings?.isMaintenanceMode, addresses.length]);
 
-  const handleGetLocation = useCallback(() => {
+  const handleGetLocation = () => {
     setIslocLoading(true);
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -85,23 +83,14 @@ export default function MainAppLayout() {
                 }
                 setIslocLoading(false);
             },
-            () => {
-                toast({ title: "يرجى تفعيل الموقع في الإعدادات.", variant: "destructive" });
-                setIslocLoading(false);
-            },
+            () => { toast({ title: "يرجى تفعيل الموقع", variant: "destructive" }); setIslocLoading(false); },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
-    } else {
-        toast({ title: "المتصفح لا يدعم تحديد الموقع", variant: "destructive" });
-        setIslocLoading(false);
     }
-  }, [toast]);
+  };
 
   const handleSaveAddress = async () => {
-    if (!newAddr.name || !newAddr.phone || newAddr.lat === 0) {
-      toast({ title: "يرجى إكمال البيانات والموقع", variant: "destructive" });
-      return;
-    }
+    if (!newAddr.name || !newAddr.phone || newAddr.lat === 0) return;
     setIsSaving(true);
     try {
         let currentDeviceId = safeStorage.get('speedShopDeviceId') || uuidv4();
@@ -113,7 +102,7 @@ export default function MainAppLayout() {
         if (!phoneSnap.empty) {
             const existingData = phoneSnap.docs[0].data();
             if (existingData.deviceId && existingData.deviceId !== currentDeviceId) {
-                toast({ title: "عذراً، هذا الرقم موجود فعلاً", description: "هذا الرقم مسجل مسبقاً على جهاز آخر.", variant: "destructive" });
+                toast({ title: "هذا الرقم مسجل فعلاً", variant: "destructive" });
                 setIsSaving(false); return;
             }
         }
@@ -162,14 +151,12 @@ export default function MainAppLayout() {
             <div className="flex h-full w-full flex-col items-center justify-center p-8 text-center bg-background">
               <AlertCircle className="h-20 w-20 text-destructive mb-6" />
               <h1 className="text-2xl font-black mb-4">نعتذر منك جداً</h1>
-              <p className="text-muted-foreground font-bold">خدمتنا متوفرة في (المدحتية، الهاشمية، القاسم) فقط.</p>
-              <button onClick={() => setIsBlocked(false)} className="mt-8 px-6 py-2 border-2 border-primary text-primary font-black rounded-xl">رجوع</button>
+              <p className="text-muted-foreground font-bold">خدمتنا متوفرة في بابل فقط حالياً.</p>
             </div>
         ) : settings?.isMaintenanceMode ? (
             <div className="flex h-full w-full flex-col items-center justify-center p-10 text-center bg-background">
                 <HardHat className="h-20 w-20 text-primary mb-6 animate-bounce"/>
                 <h1 className="text-2xl font-black mb-4">المتجر في صيانة</h1>
-                <p className="font-bold">{settings.maintenanceMessage || "سنعود قريباً."}</p>
             </div>
         ) : content}
 
@@ -178,14 +165,14 @@ export default function MainAppLayout() {
                 <div className="p-6 space-y-6">
                     <div className="flex items-center gap-4 py-4">
                         <div className="p-3 bg-primary/10 rounded-2xl"><Navigation className="h-8 w-8 text-primary" /></div>
-                        <div><SheetTitle className="text-2xl font-black">مرحباً بك!</SheetTitle><p className="text-xs font-bold text-muted-foreground">لنجهز معلومات التوصيل.</p></div>
+                        <div><SheetTitle className="text-2xl font-black">مرحباً بك!</SheetTitle></div>
                     </div>
                     <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-3">
                             <Input value={newAddr.name} onChange={(e)=>setNewAddr({...newAddr, name: e.target.value})} placeholder="الاسم الكامل" className="h-12 rounded-xl bg-muted/30 border-none" />
                             <Input value={newAddr.phone} onChange={(e)=>setNewAddr({...newAddr, phone: e.target.value})} placeholder="07XXXXXXXX" type="tel" className="h-12 rounded-xl bg-muted/30 border-none text-center font-bold" />
                         </div>
-                        <button onClick={handleGetLocation} className={`w-full py-8 flex flex-col items-center gap-2 border-4 border-dashed rounded-[2.5rem] transition-all active:scale-95 ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50' : 'border-primary/20 bg-card'}`}>
+                        <button onClick={handleGetLocation} className={`w-full py-8 flex flex-col items-center gap-2 border-4 border-dashed rounded-[2.5rem] transition-all ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50' : 'border-primary/20 bg-card'}`}>
                             {islocLoading ? <Loader2 className="animate-spin h-8 w-8 text-primary" /> : newAddr.lat !== 0 ? <CheckCircle2 className="h-8 w-8 text-green-500" /> : <MapPin className="h-8 w-8 text-primary" />}
                             <span className="font-black text-sm">{newAddr.lat !== 0 ? "تم استلام الموقع ✅" : "اضغط لتحديد موقعك (GPS)"}</span>
                         </button>

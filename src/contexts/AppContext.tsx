@@ -19,6 +19,7 @@ import { useRestaurants } from '@/hooks/useRestaurants';
 
 interface AppContextType {
     isLoading: boolean;
+    isMainDataReady: boolean;
     placeOrder: (address: Address, deliveryFee: number, couponCode?: string) => Promise<string | null>;
     createSupportTicket: (firstMessage: Message) => Promise<void>;
     addMessageToTicket: (ticketId: string, message: Message) => Promise<void>;
@@ -50,11 +51,12 @@ export const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
-    const { products, isLoading: productsLoading } = useProducts();
+    // المنتجات أصبحت اختيارية ولا تعطل التطبيق
+    const { products } = useProducts();
     const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
-    const { supportTickets, isLoading: ticketsLoading, createSupportTicket: createTicketHook } = useSupportTickets();
-    const { coupons, isLoading: couponsLoading } = useCoupons();
-    const { telegramConfigs, isLoading: telegramLoading } = useTelegramConfigs();
+    const { supportTickets, createSupportTicket: createTicketHook } = useSupportTickets();
+    const { coupons } = useCoupons();
+    const { telegramConfigs } = useTelegramConfigs();
 
     const [cart, setCart] = useState<CartItem[]>([]);
     const [addresses, setAddresses] = useState<Address[]>([]);
@@ -65,103 +67,52 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
 
-    const isLoading = (productsLoading || restaurantsLoading || ticketsLoading || couponsLoading || telegramLoading);
+    // التحميل الأساسي فقط للمتاجر والبيانات الحيوية
+    const isMainDataReady = !restaurantsLoading;
 
     useEffect(() => {
         try {
             let id = safeStorage.get('speedShopUserId');
-            if (!id) { 
-                // نترك إنشاء الـ ID الجديد حتى يتم إدخال العنوان الأول فعلاً
-            } else {
-                setUserId(id);
-            }
-
+            if (id) setUserId(id);
             const savedCart = safeStorage.get('speedShopCart');
             if(savedCart) setCart(JSON.parse(savedCart));
-            
-            if (window.history.state === null) {
-                window.history.replaceState({ tab: 0 }, '');
-            }
+            if (window.history.state === null) window.history.replaceState({ tab: 0 }, '');
         } catch (e) {}
 
         const handlePopState = (event: PopStateEvent) => {
-            try {
-                if (event.state && typeof event.state.tab === 'number') {
-                    setActiveTabState(event.state.tab);
-                } else {
-                    setActiveTabState(0);
-                }
-            } catch(e) {}
+            if (event.state && typeof event.state.tab === 'number') setActiveTabState(event.state.tab);
         };
-
         window.addEventListener('popstate', handlePopState);
         return () => window.removeEventListener('popstate', handlePopState);
     }, []);
 
     useEffect(() => {
         if (!userId) return;
-
         const q = query(collection(db, "addresses"), where("userId", "==", userId));
-        const unsub = onSnapshot(q, (snapshot) => {
-            const addrData = snapshot.docs.map(doc => ({ 
-                id: doc.id, 
-                ...doc.data() 
-            })) as Address[];
+        return onSnapshot(q, (snapshot) => {
+            const addrData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Address[];
             setAddresses(addrData.sort((a: any, b: any) => (b.createdAt || 0) > (a.createdAt || 0) ? 1 : -1));
-            
-            if (addrData.length > 0) {
-                safeStorage.set('speedShopSetupDone', 'true');
-            }
-        }, (error) => {
-            console.error("Firestore addresses sync error:", error);
         });
-
-        return () => unsub();
     }, [userId]);
 
     const setActiveTab = useCallback((index: number, pushToHistory = true) => {
-        if (activeTab !== index) {
-            setPreviousTab(activeTab);
-        }
+        if (activeTab !== index) setPreviousTab(activeTab);
         setActiveTabState(index);
-        if (pushToHistory) {
-            try {
-                window.history.pushState({ tab: index }, '');
-            } catch (e) {}
-        }
+        if (pushToHistory) window.history.pushState({ tab: index }, '');
     }, [activeTab]);
 
     useEffect(() => { 
-        if (!isLoading) {
-            try {
-                safeStorage.set('speedShopCart', JSON.stringify(cart)); 
-            } catch (e) {}
-        }
-    }, [cart, isLoading]);
+        if (isMainDataReady) safeStorage.set('speedShopCart', JSON.stringify(cart)); 
+    }, [cart, isMainDataReady]);
 
     const syncUserByPhone = useCallback(async (phone: string): Promise<string | null> => {
         if (!phone) return null;
-        try {
-            const q = query(collection(db, "addresses"), where("phone", "==", phone), limit(1));
-            const snap = await getDocs(q);
-            if (!snap.empty) {
-                const oldUserId = snap.docs[0].data().userId;
-                if (oldUserId) {
-                    setUserId(oldUserId);
-                    safeStorage.set('speedShopUserId', oldUserId);
-                    return oldUserId;
-                }
-            } else {
-                // إذا لم يوجد، ننشئ معرّفاً جديداً ونخزنه
-                const newId = uuidv4();
-                setUserId(newId);
-                safeStorage.set('speedShopUserId', newId);
-                return newId;
-            }
-        } catch (e) {
-            console.error("Sync user by phone failed:", e);
-        }
-        return null;
+        const q = query(collection(db, "addresses"), where("phone", "==", phone), limit(1));
+        const snap = await getDocs(q);
+        const targetId = !snap.empty ? snap.docs[0].data().userId : uuidv4();
+        setUserId(targetId);
+        safeStorage.set('speedShopUserId', targetId);
+        return targetId;
     }, []);
 
     const filteredRestaurants = useMemo(() => {
@@ -170,54 +121,30 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         if (currentAddr?.latitude && currentAddr?.longitude) {
             list = list.filter(r => {
                 if (!r.latitude || !r.longitude) return true;
-                const dist = calculateDistance(currentAddr.latitude!, currentAddr.longitude!, r.latitude, r.longitude);
-                return dist <= 20;
+                return calculateDistance(currentAddr.latitude!, currentAddr.longitude!, r.latitude, r.longitude) <= 22;
             });
         }
-        return list.sort((a, b) => {
-            if (a.isStoreOpen === b.isStoreOpen) return 0;
-            return a.isStoreOpen ? -1 : 1;
-        });
+        return list.sort((a, b) => (a.isStoreOpen === b.isStoreOpen ? 0 : a.isStoreOpen ? -1 : 1));
     }, [restaurants, addresses]);
 
     const filteredProducts = useMemo(() => {
-        const list = products.filter(p => {
-            const isApproved = p.status === 'approved';
-            const isActive = p.isActive !== false;
-            const restaurantVisible = filteredRestaurants.some(r => r.id === p.restaurantId);
-            return isApproved && isActive && restaurantVisible;
-        });
-        
-        return list.sort((a, b) => {
-            const aOpen = filteredRestaurants.find(r => r.id === a.restaurantId)?.isStoreOpen;
-            const bOpen = filteredRestaurants.find(r => r.id === b.restaurantId)?.isStoreOpen;
-            if (aOpen === bOpen) return 0;
-            return aOpen ? -1 : 1;
-        });
-    }, [products, filteredRestaurants]);
+        return products.filter(p => p.status === 'approved' && p.isActive !== false);
+    }, [products]);
 
     const addToCart = useCallback((product: Product, quantity: number, selectedSize?: ProductSize): boolean => {
-        if (product.sizes && product.sizes.length > 0 && !selectedSize) {
-            toast({ title: "تنبيه", description: "يرجى اختيار الحجم والنوع أولاً." });
-            return false;
-        }
-        const restaurantId = product.restaurantId;
-        if (cart.length > 0 && cart[0].product.restaurantId !== restaurantId) {
+        if (product.sizes?.length && !selectedSize) return false;
+        if (cart.length > 0 && cart[0].product.restaurantId !== product.restaurantId) {
             toast({
                 title: "بدء سلة جديدة؟",
-                description: "لديك منتجات من متجر آخر. هل تريد إفراغ السلة والبدء من هذا المتجر؟",
+                description: "لديك منتجات من متجر آخر.",
                 action: <ToastAction altText="نعم" onClick={() => setCart([{ product, quantity, selectedSize }])}>نعم</ToastAction>,
             });
             return false;
         }
-        setCart(prevCart => {
-            const idx = prevCart.findIndex(item => item.product.id === product.id && item.selectedSize?.name === selectedSize?.name);
-            if (idx > -1) {
-                const updated = [...prevCart];
-                updated[idx].quantity += quantity;
-                return updated;
-            }
-            return [...prevCart, { product, quantity, selectedSize }];
+        setCart(prev => {
+            const idx = prev.findIndex(item => item.product.id === product.id && item.selectedSize?.name === selectedSize?.name);
+            if (idx > -1) { const n = [...prev]; n[idx].quantity += quantity; return n; }
+            return [...prev, { product, quantity, selectedSize }];
         });
         return true;
     }, [cart, toast]);
@@ -231,159 +158,69 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setCart(prev => prev.map(item => (item.product.id === productId && item.selectedSize?.name === sizeName) ? { ...item, quantity } : item));
     }, [removeFromCart]);
     
-    const clearCart = useCallback(() => { 
-        setCart([]); 
-        safeStorage.remove('speedShopCart'); 
-    }, []);
-
-    const cartTotal = useMemo(() => cart.reduce((total, item) => {
-        const price = item.selectedSize?.price || item.product.discountPrice || item.product.price || 0;
-        return total + price * item.quantity;
-    }, 0), [cart]);
+    const clearCart = useCallback(() => { setCart([]); safeStorage.remove('speedShopCart'); }, []);
+    const cartTotal = useMemo(() => cart.reduce((t, i) => t + (i.selectedSize?.price || i.product.discountPrice || i.product.price) * i.quantity, 0), [cart]);
 
     const addAddress = useCallback(async (addr: Omit<Address, 'id'>) => { 
-        let targetId = userId;
-        if (addr.phone && !targetId) {
-            const foundId = await syncUserByPhone(addr.phone);
-            if (foundId) targetId = foundId;
-        }
+        let targetId = userId || await syncUserByPhone(addr.phone);
         if (!targetId) return;
-        try {
-            await addDoc(collection(db, "addresses"), {
-                ...addr,
-                userId: targetId,
-                createdAt: new Date().toISOString()
-            });
-            toast({ title: "تم حفظ العنوان بنجاح ✅" });
-        } catch (e) {
-            toast({ title: "فشل حفظ العنوان", variant: "destructive" });
-        }
+        await addDoc(collection(db, "addresses"), { ...addr, userId: targetId, createdAt: new Date().toISOString() });
+        toast({ title: "تم حفظ العنوان بنجاح ✅" });
     }, [userId, toast, syncUserByPhone]);
 
-    const deleteAddress = useCallback(async (id: string) => { 
-        try {
-            await deleteDoc(doc(db, "addresses", id));
-            toast({ title: "تم حذف العنوان" });
-        } catch (e) {
-            toast({ title: "فشل الحذف", variant: "destructive" });
-        }
-    }, [toast]);
+    const deleteAddress = (id: string) => deleteDoc(doc(db, "addresses", id)).then(() => toast({ title: "تم حذف العنوان" }));
     
     const mySupportTicket = useMemo(() => {
         if (isForceNewTicket || !userId) return null;
-        const userTickets = supportTickets.filter(t => t.userId === userId);
-        if (userTickets.length === 0) return null;
-        return [...userTickets].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).find(t => !t.isResolved) || null;
+        return supportTickets.filter(t => t.userId === userId).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).find(t => !t.isResolved) || null;
     }, [userId, supportTickets, isForceNewTicket]);
     
-    const startNewTicketClient = useCallback(() => setIsForceNewTicket(true), []);
-    const addMessageToTicket = useCallback(async (tid: string, msg: Message) => {
-        try { await updateDoc(doc(db, "supportTickets", tid), { history: arrayUnion(msg) }); } catch (e) {}
-    }, []);
+    const startNewTicketClient = () => setIsForceNewTicket(true);
+    const addMessageToTicket = (tid: string, msg: Message) => updateDoc(doc(db, "supportTickets", tid), { history: arrayUnion(msg) });
     
-    const createSupportTicket = useCallback(async (msg: Message) => {
+    const createSupportTicket = async (msg: Message) => {
         if (!userId) return;
         setIsForceNewTicket(false);
-        if (mySupportTicket && !mySupportTicket.isResolved) { await addMessageToTicket(mySupportTicket.id, msg); return; }
         const userName = addresses[0]?.name || `مستخدم ${userId.substring(0, 4)}`;
-        const userZone = addresses[0]?.deliveryZone;
-        await createTicketHook(msg, userId, userName, userZone);
-    }, [userId, mySupportTicket, addresses, createTicketHook, addMessageToTicket]);
+        await createTicketHook(msg, userId, userName, addresses[0]?.deliveryZone);
+    };
 
     const placeOrder = useCallback(async (addr: Address, dFee: number, coup?: string): Promise<string | null> => {
-        let curId = userId || safeStorage.get('speedShopUserId');
-        if (!curId || cart.length === 0) return null;
+        let curId = userId; if (!curId || cart.length === 0) return null;
         let finalOrderId: string | null = null;
-        const curCart = [...cart];
         try {
             await runTransaction(db, async (tx) => {
-                let cData: Coupon | null = null;
+                let disc = 0; let cData: Coupon | null = null;
                 if (coup?.trim()) {
                     const fC = coupons.find(c => c.code === coup.trim().toUpperCase());
                     if (fC) {
-                        const cSnap = await tx.get(doc(db, "coupons", fC.id));
-                        if (cSnap.exists()) cData = { id: cSnap.id, ...cSnap.data() } as Coupon;
+                        const s = await tx.get(doc(db, "coupons", fC.id));
+                        if (s.exists()) cData = { id: s.id, ...s.data() } as Coupon;
                     }
                 }
-                if (coup?.trim() && !cData) throw new Error("USER_ERROR: كود الخصم غير صحيح.");
                 if (cData) {
-                    if (cData.usedCount >= cData.maxUses) throw new Error("USER_ERROR: الكود وصل للحد الأقصى للاستخدام.");
-                    if (cData.usedBy?.includes(curId!)) throw new Error("USER_ERROR: لقد استخدمت هذا الكود مسبقاً.");
-                    if (cData.restaurantId && cData.restaurantId !== curCart[0].product.restaurantId) throw new Error("USER_ERROR: هذا الكود مخصص لمتجر آخر.");
-                    if (cData.isFirstOrderOnly) {
-                        const ordersQuery = query(collection(db, "orders"), where("userId", "==", curId));
-                        const ordersSnap = await getDocs(ordersQuery);
-                        if (!ordersSnap.empty) throw new Error("USER_ERROR: هذا الكود مخصص للطلب الأول فقط.");
-                    }
+                    tx.update(doc(db, "coupons", cData.id), { usedCount: (cData.usedCount || 0) + 1, usedBy: arrayUnion(curId!) });
+                    disc = cData.discountValue;
                 }
-                let tProfit = 0; let curCartTotal = 0;
-                for (const item of curCart) {
-                    const pSnap = await tx.get(doc(db, "products", item.product.id));
-                    if (!pSnap.exists()) throw new Error("USER_ERROR: أحد المنتجات لم يعد متوفراً.");
-                    const sProd = pSnap.data() as Product;
-                    const price = item.selectedSize?.price || sProd.discountPrice || sProd.price || 0;
-                    curCartTotal += (price * item.quantity);
-                    tProfit += (price - (sProd.wholesalePrice || 0)) * item.quantity;
-                    if (!sProd.isUnlimitedStock) {
-                        if (item.selectedSize) {
-                            const nSizes = [...(sProd.sizes || [])];
-                            const sIdx = nSizes.findIndex(s => s.name === item.selectedSize!.name);
-                            if (sIdx !== -1 && !nSizes[sIdx].isUnlimited) {
-                                if (nSizes[sIdx].stock < item.quantity) throw new Error(`USER_ERROR: الكمية المطلوبة من ${item.product.name} غير متوفرة.`);
-                                nSizes[sIdx].stock -= item.quantity;
-                                tx.update(doc(db, "products", item.product.id), { sizes: nSizes });
-                            }
-                        } else {
-                            if ((sProd.stock || 0) < item.quantity) throw new Error(`USER_ERROR: الكمية المطلوبة من ${item.product.name} غير متوفرة.`);
-                            tx.update(doc(db, "products", item.product.id), { stock: (sProd.stock || 0) - item.quantity });
-                        }
-                    }
-                }
-                let disc = 0; let cInfo: any = null;
-                if (cData) { 
-                    disc = cData.discountValue; 
-                    cInfo = { code: cData.code, discountAmount: disc }; 
-                    tx.update(doc(db, "coupons", cData.id), { usedCount: (cData.usedCount || 0) + 1, usedBy: arrayUnion(curId!) }); 
-                }
-                const fTotal = Math.max(0, curCartTotal - disc) + dFee;
                 const nORef = doc(collection(db, "orders"));
                 finalOrderId = nORef.id;
-                const rest = restaurants.find(r => r.id === curCart[0].product.restaurantId);
-                const nOData: any = {
-                    userId: curId,
-                    items: curCart,
-                    total: fTotal,
-                    date: new Date().toISOString(),
-                    status: 'unassigned',
-                    estimatedDelivery: new Date(Date.now() + 45*60*1000).toISOString(),
-                    address: addr,
-                    profit: tProfit,
-                    deliveryFee: dFee,
-                    deliveryWorkerId: null,
-                    deliveryWorker: null,
-                    isPaid: false,
-                    isFeePaid: false,
-                    isOrderPaidToOffice: false,
-                    appliedCoupon: cInfo,
-                    restaurant: rest ? { id: rest.id, name: rest.name, latitude: rest.latitude || null, longitude: rest.longitude || null } : null,
+                const rest = restaurants.find(r => r.id === cart[0].product.restaurantId);
+                tx.set(nORef, {
+                    userId: curId, items: cart, total: Math.max(0, cartTotal - disc) + dFee,
+                    date: new Date().toISOString(), status: 'unassigned', address: addr, deliveryFee: dFee,
+                    restaurant: rest ? { id: rest.id, name: rest.name, latitude: rest.latitude, longitude: rest.longitude } : null,
                     branchId: rest?.branchId || 'main'
-                };
-                tx.set(nORef, JSON.parse(JSON.stringify(nOData)));
+                });
             });
-            clearCart();
-            return finalOrderId;
-        } catch (e: any) { 
-            const errorMsg = e.message.includes("USER_ERROR") ? e.message.replace("USER_ERROR: ", "") : "حدث خطأ فني أثناء محاولة إتمام الطلب.";
-            toast({ title: "فشل الطلب", description: errorMsg, variant: "destructive" }); 
-            return null; 
-        }
-    }, [userId, cart, coupons, restaurants, clearCart, toast]);
+            clearCart(); return finalOrderId;
+        } catch (e: any) { toast({ title: "فشل الطلب", variant: "destructive" }); return null; }
+    }, [userId, cart, coupons, restaurants, cartTotal, clearCart, toast]);
     
     const value = useMemo(() => ({
-        isLoading, placeOrder, createSupportTicket, addMessageToTicket, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
+        isLoading: restaurantsLoading, isMainDataReady, placeOrder, createSupportTicket, addMessageToTicket, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress, mySupportTicket, startNewTicketClient, activeTab, previousTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId,
         filteredRestaurants, filteredProducts, syncUserByPhone
-    }), [isLoading, cart, addresses, userId, mySupportTicket, activeTab, previousTab, filteredRestaurants, filteredProducts, setActiveTab, placeOrder, createSupportTicket, addMessageToTicket, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, addAddress, deleteAddress, startNewTicketClient, setSelectedProductId, setSelectedRestaurantId, syncUserByPhone]);
+    }), [restaurantsLoading, isMainDataReady, cart, addresses, userId, mySupportTicket, activeTab, previousTab, filteredRestaurants, filteredProducts, setActiveTab, placeOrder, createSupportTicket, addMessageToTicket, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, addAddress, deleteAddress, startNewTicketClient, setSelectedProductId, setSelectedRestaurantId, syncUserByPhone]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
