@@ -55,40 +55,50 @@ export default function HomePage() {
   
   const setActiveTab = context?.setActiveTab || (() => {});
 
-  const bestSellers = useMemo(() => {
-    // حساب فوري بدون انتظار
+  // عرض آخر 8 منتجات تم بيعها فعلياً بناءً على الطلبات المسلمة
+  const latestBestSellers = useMemo(() => {
     if (!allOrders.length || !products.length) return [];
-    const salesCount: { [key: string]: number } = {};
-    allOrders.forEach(order => {
-        if (order.status === 'delivered') {
-            order.items.forEach(item => {
-                salesCount[item.product.id] = (salesCount[item.product.id] || 0) + item.quantity;
-            });
-        }
+    
+    // استخراج معرفات المنتجات من الطلبات المسلمة وترتيبها من الأحدث للأقدم
+    const soldProductIds: string[] = [];
+    const deliveredOrders = [...allOrders]
+        .filter(o => o.status === 'delivered')
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    deliveredOrders.forEach(order => {
+        order.items.forEach(item => {
+            if (!soldProductIds.includes(item.product.id)) {
+                soldProductIds.push(item.product.id);
+            }
+        });
     });
-    return products
-        .filter(p => (salesCount[p.id] || 0) > 0 && p.status === 'approved')
-        .sort((a, b) => (salesCount[b.id] || 0) - (salesCount[a.id] || 0))
-        .slice(0, 10);
+
+    // جلب بيانات المنتجات المطابقة (بحد أقصى 8)
+    return soldProductIds
+        .map(id => products.find(p => p.id === id))
+        .filter((p): p is any => !!p && p.status === 'approved' && p.isActive !== false)
+        .slice(0, 8);
   }, [allOrders, products]);
   
   return (
-    <div className="space-y-8 p-4 pb-20 animate-in fade-in duration-300">
+    <div className="space-y-8 p-4 pb-24 animate-in fade-in duration-300">
       <header>
         <h1 className="text-3xl font-black text-primary leading-tight">سبيد شوب</h1>
         <p className="text-muted-foreground text-lg font-bold">أسرع توصيل في منطقتك!</p>
       </header>
 
+      {/* قسم البنرات - يظهر فوراً */}
       <section className="min-h-[160px] relative">
         <Carousel className="w-full" opts={{ loop: true, direction: 'rtl' }} plugins={[plugin.current]}>
             <CarouselContent>
                 {banners.length > 0 ? banners.map((banner, idx) => (
                     <BannerItem key={banner.id} banner={banner} index={idx} />
-                )) : <CarouselItem><div className="aspect-video bg-muted/10 rounded-[2rem] border-2 border-dashed animate-pulse" /></CarouselItem>}
+                )) : <CarouselItem><div className="aspect-video bg-muted/5 rounded-[2rem] border-2 border-dashed animate-pulse" /></CarouselItem>}
             </CarouselContent>
         </Carousel>
       </section>
 
+      {/* قسم الأقسام - يظهر فوراً */}
       <section>
         <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-2xl font-black">الأقسام</h2>
@@ -104,7 +114,7 @@ export default function HomePage() {
                         <p className="mt-2 text-sm font-black truncate">الكل</p>
                     </div>
                 </button>
-                {categories.map((category) => (
+                {categories.length > 0 ? categories.map((category) => (
                     <button key={category.id} onClick={() => setActiveTab(2)} className="flex-shrink-0 group">
                         <div className="w-24 text-center">
                             <div className="p-4 bg-secondary rounded-[1.5rem] flex items-center justify-center aspect-square transition-all group-active:scale-90 shadow-sm">
@@ -113,23 +123,23 @@ export default function HomePage() {
                             <p className="mt-2 text-sm font-black truncate">{category.name}</p>
                         </div>
                     </button>
-                ))}
+                )) : [1,2,3].map(i => <div key={i} className="w-24 h-24 bg-muted/10 rounded-[1.5rem] animate-pulse" />)}
             </div>
             <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </section>
       
-      {bestSellers.length > 0 && (
+      {/* الأكثر مبيعاً - يظهر فقط إذا وجدت مبيعات حقيقية */}
+      {latestBestSellers.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center justify-between px-1">
                 <h2 className="text-2xl font-black flex items-center gap-2">
-                    <Sparkles className="h-6 w-6 text-amber-500" /> الأكثر مبيعاً
+                    <Sparkles className="h-6 w-6 text-amber-500" /> الأكثر مبيعاً الآن
                 </h2>
-                <button onClick={() => setActiveTab(2)} className="text-xs font-bold text-primary">مشاهدة الكل</button>
             </div>
             <ScrollArea className="w-full whitespace-nowrap">
                 <div className="flex w-max space-x-4 space-x-reverse pb-4 px-1">
-                    {bestSellers.map((product, idx) => (
+                    {latestBestSellers.map((product, idx) => (
                         <ProductCard key={product.id} product={product} priority={idx < 4} />
                     ))}
                 </div>
@@ -138,6 +148,7 @@ export default function HomePage() {
           </section>
       )}
 
+      {/* أشهر المتاجر - ظهور مباشر */}
       <section>
          <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-2xl font-black">أشهر المتاجر</h2>
@@ -147,7 +158,7 @@ export default function HomePage() {
             <div className="flex w-max space-x-5 space-x-reverse pb-6 px-1">
               {restaurants.length > 0 ? restaurants.map((restaurant, idx) => (
                   <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} priority={idx < 4} />
-              )) : [1,2].map(i => <div key={i} className="w-[280px] aspect-[16/9] bg-muted/10 rounded-[2.5rem] border-2 border-dashed animate-pulse" />)}
+              )) : [1,2].map(i => <div key={i} className="w-[280px] aspect-[16/9] bg-muted/5 rounded-[2.5rem] border-2 border-dashed animate-pulse" />)}
             </div>
             <ScrollBar orientation="horizontal" />
         </ScrollArea>

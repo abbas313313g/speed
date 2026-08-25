@@ -25,6 +25,7 @@ function ProductsPageContent() {
   const { categories } = useCategories();
   const loaderRef = useRef<HTMLDivElement>(null);
 
+  // تصفية المنتجات بناءً على الفئة والبحث، مع ضمان الحالات المعتمدة والنشطة فقط
   const filteredProducts = useMemo(() => {
       let prods = products.filter(p => p.status === 'approved' && p.isActive !== false);
       if(activeTab !== 'all') prods = prods.filter(p => p.categoryId === activeTab);
@@ -32,29 +33,32 @@ function ProductsPageContent() {
       return prods;
   }, [products, activeTab, searchTerm]);
 
+  // تصفير عدد العناصر الظاهرة عند تغيير الفئة أو البحث
   useEffect(() => {
     setVisibleCount(ITEMS_PER_PAGE);
   }, [activeTab, searchTerm]);
 
+  // المنتجات التي سيتم عرضها فعلياً بناءً على نظام الـ 10x10
   const pagedProducts = useMemo(() => {
     return filteredProducts.slice(0, visibleCount);
   }, [filteredProducts, visibleCount]);
 
   const hasMore = visibleCount < filteredProducts.length;
 
+  // نظام الـ Intersection Observer للتحميل التلقائي عند الوصول للنهاية
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !isAutoLoading) {
           setIsAutoLoading(true);
-          // تأخير بسيط لإعطاء إحساس بالتحميل التدريجي الفعلي
+          // تأخير بسيط لإعطاء إحساس بالتحميل التدريجي الفعلي ومنع تعليق المتصفح
           setTimeout(() => {
             setVisibleCount(prev => prev + ITEMS_PER_PAGE);
             setIsAutoLoading(false);
-          }, 400);
+          }, 300);
         }
       },
-      { threshold: 0.1, rootMargin: '100px' }
+      { threshold: 0.1, rootMargin: '200px' }
     );
 
     if (loaderRef.current) {
@@ -101,17 +105,18 @@ function ProductsPageContent() {
                 ))}
             </div>
 
+            {/* نقطة مراقبة التحميل التلقائي */}
             {hasMore && (
                 <div ref={loaderRef} className="py-12 flex flex-col items-center justify-center gap-2">
                     <Loader2 className="h-7 w-7 animate-spin text-primary opacity-50" />
-                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">جارِ تحميل المزيد...</p>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">جارِ جلب المزيد من الوجبات...</p>
                 </div>
             )}
 
-            {filteredProducts.length === 0 && products.length > 0 && (
+            {filteredProducts.length === 0 && (
                 <div className="text-center py-20 bg-muted/5 rounded-[2.5rem] border-2 border-dashed">
                     <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
-                    <p className="text-muted-foreground font-black">لا توجد منتجات مطابقة حالياً.</p>
+                    <p className="text-muted-foreground font-black">لا توجد نتائج مطابقة حالياً.</p>
                 </div>
             )}
         </div>

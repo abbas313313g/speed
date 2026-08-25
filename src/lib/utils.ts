@@ -1,3 +1,4 @@
+
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -42,7 +43,7 @@ export const isLocationInAllowedZones = (lat: number, lng: number) => {
         const babilSouthCenterLat = 32.3333;
         const babilSouthCenterLng = 44.6500;
         const dist = calculateDistance(lat, lng, babilSouthCenterLat, babilSouthCenterLng);
-        return dist <= 18;
+        return dist <= 22; // زيادة النطاق قليلاً لضمان عدم حظر الزبائن عن الخطأ
     } catch (e) {
         return true;
     }
@@ -56,21 +57,18 @@ export const isLocationInAllowedZones = (lat: number, lng: number) => {
  */
 export const calculateDeliveryFee = (distanceInKm: number) => {
     const minFee = 1000;
-    const includedDistance = 3; // كيلومترات مشمولة في الألف الأولى
-    const ratePerKm = 1000 / 3; // سعر الكيلومتر الواحد بعد المسافة المشمولة
+    const includedDistance = 3; 
+    const ratePerKm = 1000 / 3; 
 
     if (!distanceInKm || distanceInKm <= includedDistance) {
         return minFee;
     }
     
-    // حساب المسافة الإضافية التي تزيد عن الـ 3 كم
     const extraDistance = distanceInKm - includedDistance;
     let totalFee = minFee + (extraDistance * ratePerKm);
     
-    // التقريب لأقرب فئة نقدية عراقية (250 دينار)
     totalFee = Math.round(totalFee / 250) * 250;
     
-    // السقف الأعلى للتوصيل 15000 لضمان المنطقية
     return Math.min(Math.max(totalFee, 1000), 15000);
 }
 
