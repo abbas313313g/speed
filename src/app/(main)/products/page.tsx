@@ -21,6 +21,7 @@ function ProductsPageContent() {
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [isAutoLoading, setIsAutoLoading] = useState(false);
 
+  // جلب المنتجات بدون حجب الواجهة
   const { products } = useProducts();
   const { categories } = useCategories();
   const loaderRef = useRef<HTMLDivElement>(null);
@@ -47,14 +48,13 @@ function ProductsPageContent() {
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !isAutoLoading) {
           setIsAutoLoading(true);
-          // تأخير بسيط لمحاكاة جلب البيانات التدريجي 10 بـ 10
           setTimeout(() => {
             setVisibleCount(prev => prev + ITEMS_PER_PAGE);
             setIsAutoLoading(false);
-          }, 300);
+          }, 100);
         }
       },
-      { threshold: 0.1, rootMargin: '50px' }
+      { threshold: 0.1, rootMargin: '100px' }
     );
 
     if (loaderRef.current) observer.observe(loaderRef.current);
@@ -92,7 +92,7 @@ function ProductsPageContent() {
         <div className="mt-6">
            <div className="grid grid-cols-2 gap-4">
                 {pagedProducts.map((product) => (
-                    <div key={product.id} className="w-full animate-in fade-in zoom-in-95 duration-300">
+                    <div key={product.id} className="w-full animate-in fade-in zoom-in-95 duration-200">
                         <ProductCard product={product} />
                     </div>
                 ))}

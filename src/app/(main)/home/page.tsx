@@ -5,11 +5,13 @@ import { useRef, useContext, useMemo } from "react";
 import Image from "next/image";
 import Autoplay from "embla-carousel-autoplay";
 import { 
-  Store, 
   ChevronLeft,
   Star,
   Flame,
-  LayoutGrid
+  ShoppingBasket,
+  Utensils,
+  Stethoscope,
+  Gift
 } from "lucide-react";
 import {
   Carousel,
@@ -18,16 +20,22 @@ import {
 } from "@/components/ui/carousel";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { AppContext } from "@/contexts/AppContext";
-import { cn, formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { useBanners } from "@/hooks/useBanners";
-import { useCategories } from "@/hooks/useCategories";
 import { useRestaurants } from "@/hooks/useRestaurants";
 import { Skeleton } from "@/components/ui/skeleton";
+
+// أقسام ثابتة للظهور الفوري دون تحميل
+const STATIC_CATEGORIES = [
+  { id: 'cat1', name: 'المطاعم', icon: Utensils },
+  { id: 'cat2', name: 'الماركت', icon: ShoppingBasket },
+  { id: 'cat3', name: 'الصيدلية', icon: Stethoscope },
+  { id: 'cat4', name: 'الهدايا', icon: Gift },
+];
 
 export default function HomePage() {
   const context = useContext(AppContext);
   const { banners, isLoading: bannersLoading } = useBanners();
-  const { categories, isLoading: catsLoading } = useCategories();
   const { restaurants, isLoading: storesLoading } = useRestaurants();
   
   const plugin = useRef(Autoplay({ delay: 3000, stopOnInteraction: false }));
@@ -41,14 +49,11 @@ export default function HomePage() {
     setActiveTab(10);
   };
 
-  // عرض أول 8 متاجر فقط في الرئيسية لضمان السرعة
   const topStores = useMemo(() => restaurants.slice(0, 8), [restaurants]);
-  
-  // عرض آخر 8 مبيعات حقيقية (أو أول 8 منتجات إذا لم يوجد مبيعات بعد)
   const topSellers = useMemo(() => filteredProducts.slice(0, 8), [filteredProducts]);
 
   return (
-    <div className="space-y-8 p-4 pb-32 animate-in fade-in duration-500">
+    <div className="space-y-8 p-4 pb-32 animate-in fade-in duration-300">
       <header className="flex justify-between items-center py-2">
         <div>
             <h1 className="text-3xl font-black text-primary leading-tight italic tracking-tighter">SPEED SHOP</h1>
@@ -56,7 +61,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* قسم البانر الإعلاني - استدعاء مباشر من Firestore */}
+      {/* قسم البانر - لودنك مستقل */}
       <section className="relative">
         {bannersLoading ? (
             <Skeleton className="w-full aspect-[21/9] rounded-[2rem]" />
@@ -80,7 +85,7 @@ export default function HomePage() {
                     {banners.length === 0 && (
                         <CarouselItem className="basis-full">
                              <div className="relative aspect-[21/9] w-full overflow-hidden rounded-[2rem] bg-muted/20 flex items-center justify-center border-4 border-white border-dashed">
-                                <p className="text-muted-foreground font-bold">جاهز لإضافة عروضك الجديدة</p>
+                                <p className="text-muted-foreground font-bold">جاهز لعروضك الجديدة</p>
                              </div>
                         </CarouselItem>
                     )}
@@ -89,39 +94,35 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* قسم الأقسام - استدعاء مباشر من Firestore */}
+      {/* قسم الأقسام - ظهور فوري 100% */}
       <section>
         <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-xl font-black text-slate-800">اكتشف الأقسام</h2>
             <button onClick={() => setActiveTab(1)} className="text-primary font-black text-xs">عرض الكل</button>
         </div>
         <div className="grid grid-cols-4 gap-3">
-            {catsLoading ? (
-                Array(4).fill(0).map((_, i) => <Skeleton key={i} className="aspect-square rounded-[1.5rem]" />)
-            ) : (
-                categories.map((category) => (
-                    <button 
-                      key={category.id} 
-                      onClick={() => setActiveTab(1)} 
-                      className="flex flex-col items-center gap-2 group"
-                    >
-                        <div className="w-full aspect-square rounded-[1.5rem] flex items-center justify-center shadow-sm transition-all group-active:scale-90 bg-white border-2 border-slate-50 text-primary">
-                            {category.icon && <category.icon className="h-8 w-8" />}
-                        </div>
-                        <span className="text-[10px] font-black">{category.name}</span>
-                    </button>
-                ))
-            )}
+            {STATIC_CATEGORIES.map((category) => (
+                <button 
+                  key={category.id} 
+                  onClick={() => setActiveTab(1)} 
+                  className="flex flex-col items-center gap-2 group"
+                >
+                    <div className="w-full aspect-square rounded-[1.5rem] flex items-center justify-center shadow-sm transition-all group-active:scale-90 bg-white border-2 border-slate-50 text-primary">
+                        <category.icon className="h-8 w-8" />
+                    </div>
+                    <span className="text-[10px] font-black">{category.name}</span>
+                </button>
+            ))}
         </div>
       </section>
 
-      {/* قسم أشهر المتاجر - استدعاء مباشر من Firestore */}
+      {/* قسم أشهر المتاجر */}
       <section>
          <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-xl font-black text-slate-800">أشهر المتاجر</h2>
              <button onClick={() => setActiveTab(1)} className="text-primary font-black text-xs">تصفح المتاجر</button>
         </div>
-        {storesLoading ? (
+        {storesLoading && topStores.length === 0 ? (
             <div className="flex gap-4 overflow-hidden">
                 <Skeleton className="w-[260px] h-[180px] shrink-0 rounded-[2.5rem]" />
                 <Skeleton className="w-[260px] h-[180px] shrink-0 rounded-[2.5rem]" />
@@ -165,7 +166,7 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* قسم الأكثر مبيعاً - 8 منتجات فقط تدريجياً وبشكل حي */}
+      {/* قسم الأكثر مبيعاً */}
       {topSellers.length > 0 && (
           <section className="space-y-4">
               <div className="flex items-center justify-between px-1">
@@ -194,12 +195,6 @@ export default function HomePage() {
               </div>
           </section>
       )}
-
-      <section className="bg-primary/5 p-8 rounded-[3rem] border-4 border-white shadow-inner text-center space-y-3">
-            <h3 className="text-xl font-black text-primary italic">هل أنت صاحب متجر؟</h3>
-            <p className="text-xs font-bold text-muted-foreground leading-relaxed">انضم إلينا الآن وزد مبيعاتك مع أسرع خدمة توصيل في المحافظة.</p>
-            <button onClick={() => setActiveTab(7)} className="h-12 px-8 bg-primary text-white rounded-2xl font-black text-sm shadow-xl shadow-primary/20 active:scale-95 transition-all">تواصل معنا للتسجيل</button>
-      </section>
     </div>
   );
 }
