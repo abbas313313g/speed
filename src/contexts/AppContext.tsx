@@ -71,10 +71,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             let id = safeStorage.get('speedShopUserId');
             if (!id) { 
-                id = uuidv4(); 
-                safeStorage.set('speedShopUserId', id); 
+                // نترك إنشاء الـ ID الجديد حتى يتم إدخال العنوان الأول فعلاً
+            } else {
+                setUserId(id);
             }
-            setUserId(id);
 
             const savedCart = safeStorage.get('speedShopCart');
             if(savedCart) setCart(JSON.parse(savedCart));
@@ -108,6 +108,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 ...doc.data() 
             })) as Address[];
             setAddresses(addrData.sort((a: any, b: any) => (b.createdAt || 0) > (a.createdAt || 0) ? 1 : -1));
+            
+            if (addrData.length > 0) {
+                safeStorage.set('speedShopSetupDone', 'true');
+            }
         }, (error) => {
             console.error("Firestore addresses sync error:", error);
         });
@@ -147,6 +151,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     safeStorage.set('speedShopUserId', oldUserId);
                     return oldUserId;
                 }
+            } else {
+                // إذا لم يوجد، ننشئ معرّفاً جديداً ونخزنه
+                const newId = uuidv4();
+                setUserId(newId);
+                safeStorage.set('speedShopUserId', newId);
+                return newId;
             }
         } catch (e) {
             console.error("Sync user by phone failed:", e);
@@ -233,7 +243,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const addAddress = useCallback(async (addr: Omit<Address, 'id'>) => { 
         let targetId = userId;
-        if (addr.phone) {
+        if (addr.phone && !targetId) {
             const foundId = await syncUserByPhone(addr.phone);
             if (foundId) targetId = foundId;
         }
@@ -244,7 +254,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 userId: targetId,
                 createdAt: new Date().toISOString()
             });
-            toast({ title: "تم حفظ العنوان سحابياً بنجاح ✅" });
+            toast({ title: "تم حفظ العنوان بنجاح ✅" });
         } catch (e) {
             toast({ title: "فشل حفظ العنوان", variant: "destructive" });
         }

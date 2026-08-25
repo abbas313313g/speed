@@ -44,18 +44,24 @@ export default function MainAppLayout() {
   const [forceHideLoading, setForceHideLoading] = useState(false);
 
   if (!context) return null;
-  const { activeTab, syncUserByPhone } = context;
+  const { activeTab, syncUserByPhone, userId } = context;
 
   useEffect(() => {
-    const timer = setTimeout(() => setForceHideLoading(true), 300); 
+    const timer = setTimeout(() => setForceHideLoading(true), 500); 
     return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
-    if (forceHideLoading && !settings?.isMaintenanceMode && addresses.length === 0) {
-      setShowAddressPrompt(true);
+    if (forceHideLoading && !settings?.isMaintenanceMode) {
+      // فحص إذا كان المستخدم جديداً كلياً (لا يوجد معرف ولا يوجد عناوين محملة)
+      const storedUserId = safeStorage.get('speedShopUserId');
+      const isNewUser = !storedUserId || (addresses.length === 0 && !safeStorage.get('speedShopSetupDone'));
+      
+      if (isNewUser) {
+        setShowAddressPrompt(true);
+      }
     }
-  }, [forceHideLoading, settings?.isMaintenanceMode, addresses]);
+  }, [forceHideLoading, settings?.isMaintenanceMode, addresses.length]);
 
   const handleGetLocation = useCallback(() => {
     setIslocLoading(true);
@@ -89,23 +95,47 @@ export default function MainAppLayout() {
       toast({ title: "يرجى إكمال البيانات والموقع", variant: "destructive" });
       return;
     }
+    
     setIsSaving(true);
     try {
         let currentDeviceId = safeStorage.get('speedShopDeviceId') || uuidv4();
         safeStorage.set('speedShopDeviceId', currentDeviceId);
         
+        // فحص تكرار الرقم: هل الرقم مستخدم من قبل جهاز آخر؟
         const phoneQuery = query(collection(db, "addresses"), where("phone", "==", newAddr.phone), limit(1));
         const phoneSnap = await getDocs(phoneQuery);
-        if (!phoneSnap.empty && phoneSnap.docs[0].data().deviceId !== currentDeviceId) {
-            toast({ title: "الرقم مسجل على جهاز آخر", variant: "destructive" });
-            setIsSaving(false); return;
+        
+        if (!phoneSnap.empty) {
+            const existingData = phoneSnap.docs[0].data();
+            if (existingData.deviceId && existingData.deviceId !== currentDeviceId) {
+                toast({ 
+                    title: "عذراً، هذا الرقم موجود فعلاً", 
+                    description: "هذا الرقم مسجل مسبقاً على جهاز آخر. يرجى استخدام رقمك الخاص.", 
+                    variant: "destructive" 
+                });
+                setIsSaving(false); 
+                return;
+            }
         }
 
+        // إذا وصل هنا، يعني إما الرقم جديد أو تابع لنفس الجهاز
         await syncUserByPhone(newAddr.phone);
-        await addAddress({ ...newAddr, latitude: newAddr.lat, longitude: newAddr.lng, deliveryZone: "عام", branchId: "main", deviceId: currentDeviceId } as any);
+        await addAddress({ 
+            ...newAddr, 
+            latitude: newAddr.lat, 
+            longitude: newAddr.lng, 
+            deliveryZone: "عام", 
+            branchId: "main", 
+            deviceId: currentDeviceId 
+        } as any);
+        
+        safeStorage.set('speedShopSetupDone', 'true');
         setShowAddressPrompt(false);
-    } catch (e) { toast({ title: "خطأ في الحفظ", variant: "destructive" }); }
-    finally { setIsSaving(false); }
+    } catch (e) { 
+        toast({ title: "خطأ في الاتصال بالسيرفر", variant: "destructive" }); 
+    } finally { 
+        setIsSaving(false); 
+    }
   };
 
   const content = (
