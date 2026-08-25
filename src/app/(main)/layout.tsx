@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useContext, useCallback } from 'react';
@@ -46,7 +47,7 @@ export default function MainAppLayout() {
   const { activeTab, setActiveTab, syncUserByPhone } = context;
 
   useEffect(() => {
-    // تقليل وقت شاشة السبلاش الخضراء إلى نصف ثانية فقط للسرعة الجنونية
+    // شاشة السبلاش لنصف ثانية فقط للسرعة المطلقة
     const timer = setTimeout(() => {
         setForceHideLoading(true);
     }, 500); 
@@ -63,7 +64,6 @@ export default function MainAppLayout() {
     setIslocLoading(true);
     
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
-        // إعدادات خاصة لمتصفح سفاري وآيفون لضمان عدم الحظر
         const options = {
             enableHighAccuracy: true, 
             timeout: 10000, 
@@ -87,7 +87,7 @@ export default function MainAppLayout() {
             (error) => {
                 toast({ 
                     title: "يرجى السماح بالوصول للموقع", 
-                    description: "تأكد من تفعيل الموقع في إعدادات الخصوصية بجهازك لضمان دقة التوصيل.", 
+                    description: "تأكد من تفعيل الموقع في إعدادات الخصوصية بجهازك.", 
                     variant: "destructive" 
                 });
                 setIslocLoading(false);
@@ -134,7 +134,7 @@ export default function MainAppLayout() {
             }
         }
 
-        const existingUserId = await syncUserByPhone(newAddr.phone);
+        await syncUserByPhone(newAddr.phone);
         
         await addAddress({
             name: newAddr.name,
@@ -148,32 +148,13 @@ export default function MainAppLayout() {
         } as any);
 
         setShowAddressPrompt(false);
-        if (existingUserId) {
-            toast({ title: "أهلاً بك مجدداً! تم استعادة بياناتك سحابياً ☁️" });
-        } else {
-            toast({ title: "أهلاً بك في سبيد شوب!" });
-        }
+        toast({ title: "أهلاً بك في سبيد شوب!" });
     } catch (e) {
         toast({ title: "حدث خطأ أثناء الحفظ", variant: "destructive" });
     } finally {
         setIsSaving(false);
     }
   };
-
-  if (!forceHideLoading) {
-    return (
-        <div className="flex h-screen w-full flex-col items-center justify-center bg-[#00b358]">
-            <h1 className="text-6xl font-black text-white italic tracking-tighter drop-shadow-[0_4px_4px_rgba(0,0,0,0.25)] select-none animate-in fade-in zoom-in duration-300">
-              Speed Shop
-            </h1>
-            <div className="mt-16 flex gap-3">
-                <div className="h-2.5 w-2.5 bg-white/90 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                <div className="h-2.5 w-2.5 bg-white/90 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                <div className="h-2.5 w-2.5 bg-white/90 rounded-full animate-bounce" />
-            </div>
-        </div>
-    );
-  }
 
   const content = (
     <div className="overflow-guard flex flex-col h-full w-full">
@@ -202,7 +183,18 @@ export default function MainAppLayout() {
   return (
     <div className="min-h-screen w-full bg-slate-100 flex justify-center items-center p-0 sm:p-4 overflow-hidden">
       <div className="w-full max-w-[480px] h-[100dvh] sm:h-[850px] sm:max-h-[95vh] flex flex-col bg-card shadow-2xl relative overflow-hidden sm:rounded-[3rem] sm:border-[8px] sm:border-white">
-        {isBlocked ? (
+        {!forceHideLoading ? (
+            <div className="flex h-full w-full flex-col items-center justify-center bg-[#00b358] z-[100]">
+                <h1 className="text-6xl font-black text-white italic tracking-tighter drop-shadow-[0_4px_4px_rgba(0,0,0,0.25)] select-none animate-in fade-in zoom-in duration-300">
+                Speed Shop
+                </h1>
+                <div className="mt-16 flex gap-3">
+                    <div className="h-2.5 w-2.5 bg-white/90 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                    <div className="h-2.5 w-2.5 bg-white/90 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                    <div className="h-2.5 w-2.5 bg-white/90 rounded-full animate-bounce" />
+                </div>
+            </div>
+        ) : isBlocked ? (
             <div className="flex h-full w-full flex-col items-center justify-center bg-background p-8 text-center">
               <AlertCircle className="h-24 w-24 text-destructive mb-6" />
               <h1 className="text-3xl font-black mb-4 text-primary">نعتذر منك جداً</h1>
@@ -220,10 +212,9 @@ export default function MainAppLayout() {
                 <h1 className="text-3xl font-black mb-4 text-primary leading-tight">عذراً، المتجر في استراحة قصيرة</h1>
                 <div className="p-6 bg-muted/30 rounded-[2rem] border-2 border-dashed border-primary/20 w-full">
                     <p className="text-foreground font-bold text-lg leading-relaxed">
-                        {settings.maintenanceMessage || "نعمل حالياً على تحسين بعض الخدمات لنقدم لكم تجربة أفضل. سنعود للعمل خلال وقت قصير جداً!"}
+                        {settings.maintenanceMessage || "نعمل حالياً على تحسين بعض الخدمات."}
                     </p>
                 </div>
-                <p className="mt-10 text-xs font-black text-muted-foreground/60 uppercase tracking-widest">Speed Shop Operations</p>
             </div>
         ) : content}
 
@@ -234,40 +225,40 @@ export default function MainAppLayout() {
                 <div className="flex-1 overflow-y-auto px-6 pt-10 pb-4 space-y-8 scrollbar-hide">
                     <SheetHeader className="text-right pb-2">
                         <div className="flex items-center gap-4">
-                            <div className="p-4 bg-primary/10 rounded-[1.5rem] shadow-inner">
+                            <div className="p-4 bg-primary/10 rounded-[1.5rem]">
                                 <Navigation className="h-8 w-8 text-primary animate-pulse" />
                             </div>
                             <div>
                                 <SheetTitle className="text-3xl font-black text-slate-800 leading-tight">مرحباً بك!</SheetTitle>
-                                <p className="text-muted-foreground text-sm font-bold mt-1">لنبدأ بتجهيز معلومات التوصيل الخاصة بك.</p>
+                                <p className="text-muted-foreground text-sm font-bold mt-1">لنبدأ بتجهيز معلومات التوصيل.</p>
                             </div>
                         </div>
                     </SheetHeader>
                     
                     <div className="space-y-6">
                         <div className="space-y-4">
-                            <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
+                            <h3 className="text-xs font-black text-primary flex items-center gap-2">
                                 <User className="h-4 w-4" /> 1. معلوماتك الشخصية
                             </h3>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-black pr-1 text-muted-foreground">الاسم الكامل</Label>
+                                    <Label className="text-[10px] font-black pr-1">الاسم الكامل</Label>
                                     <Input 
                                         value={newAddr.name} 
                                         onChange={(e) => setNewAddr({...newAddr, name: e.target.value})} 
-                                        placeholder="اكتب اسمك..." 
-                                        className="h-14 rounded-2xl text-base font-bold bg-muted/30 border-none shadow-inner focus-visible:ring-primary/50" 
+                                        placeholder="اسمك..." 
+                                        className="h-14 rounded-2xl font-bold bg-muted/30 border-none" 
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] font-black pr-1 text-muted-foreground">رقم الهاتف</Label>
+                                    <Label className="text-[10px] font-black pr-1">رقم الهاتف</Label>
                                     <Input 
                                         value={newAddr.phone} 
                                         onChange={(e) => setNewAddr({...newAddr, phone: e.target.value})} 
                                         placeholder="07XXXXXXXX" 
                                         type="tel" 
                                         dir="ltr" 
-                                        className="h-14 rounded-2xl text-base font-bold bg-muted/30 border-none shadow-inner focus-visible:ring-primary/50" 
+                                        className="h-14 rounded-2xl font-bold bg-muted/30 border-none" 
                                     />
                                 </div>
                             </div>
@@ -276,37 +267,35 @@ export default function MainAppLayout() {
                         <Separator className="opacity-40" />
 
                         <div className="pt-2">
-                            <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2 mb-4">
+                            <h3 className="text-xs font-black text-primary flex items-center gap-2 mb-4">
                                 <Map className="h-4 w-4" /> 2. الموقع الجغرافي
                             </h3>
                             <button 
                                 onClick={handleGetLocation} 
                                 type="button"
-                                className={`w-full py-8 flex flex-col items-center justify-center gap-2 border-4 border-dashed rounded-[3rem] transition-all active:scale-95 ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50 shadow-inner' : 'border-primary/20 bg-card hover:bg-primary/5 shadow-sm'}`}
+                                className={`w-full py-8 flex flex-col items-center justify-center gap-2 border-4 border-dashed rounded-[3rem] transition-all active:scale-95 ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50' : 'border-primary/20 bg-card'}`}
                                 disabled={islocLoading}
                             >
                                 {islocLoading ? (
-                                    <><Loader2 className="animate-spin h-10 w-10 text-primary" /> <span className="font-black text-primary text-base">جارِ تحديد إحداثياتك...</span></>
+                                    <><Loader2 className="animate-spin h-10 w-10 text-primary" /> <span className="font-black text-primary">جارِ تحديد الإحداثيات...</span></>
                                 ) : newAddr.lat !== 0 ? (
-                                    <><CheckCircle2 className="h-10 w-10 text-green-500 animate-in zoom-in" /> <span className="font-black text-green-600 text-base">تم استلام الموقع بدقة ✅</span></>
+                                    <><CheckCircle2 className="h-10 w-10 text-green-500 animate-in zoom-in" /> <span className="font-black text-green-600">تم استلام الموقع بدقة ✅</span></>
                                 ) : (
-                                    <><MapPin className="h-10 w-10 text-primary" /> <span className="font-black text-slate-700 text-base">اضغط لتحديد موقعك المباشر (GPS)</span></>
+                                    <><MapPin className="h-10 w-10 text-primary" /> <span className="font-black text-slate-700">اضغط لتحديد موقعك المباشر (GPS)</span></>
                                 )}
                             </button>
-                            <p className="text-[10px] text-center text-muted-foreground font-bold mt-3 px-4">ملاحظة: استرجاع البيانات سحابياً يتم تلقائياً عبر رقم هاتفك.</p>
                         </div>
                     </div>
                 </div>
 
                 <div className="p-6 bg-background border-t shadow-2xl rounded-t-[2.5rem]">
-                    <Button 
+                    <button 
                         onClick={handleSaveAddress} 
-                        className="w-full py-9 text-2xl font-black rounded-[2rem] shadow-xl shadow-primary/30 transition-all active:scale-95" 
+                        className="w-full py-6 bg-primary text-white text-2xl font-black rounded-[2rem] shadow-xl active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100" 
                         disabled={islocLoading || isSaving || newAddr.lat === 0}
                     >
-                        {isSaving ? <Loader2 className="animate-spin h-6 w-6 mr-2" /> : null}
-                        {isSaving ? "جارِ المزامنة السحابية..." : "حفظ وبدء التسوق"}
-                    </Button>
+                        {isSaving ? "جارِ الحفظ..." : "حفظ وبدء التسوق"}
+                    </button>
                 </div>
             </SheetContent>
         </Sheet>

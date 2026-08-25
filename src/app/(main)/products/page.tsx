@@ -21,7 +21,7 @@ function ProductsPageContent() {
   const { categories } = useCategories();
 
   const filteredProducts = useMemo(() => {
-      let prods = products;
+      let prods = products.filter(p => p.status === 'approved' && p.isActive !== false);
 
       if(activeTab !== 'all') {
           prods = prods.filter(p => p.categoryId === activeTab);
@@ -80,7 +80,13 @@ function ProductsPageContent() {
                         <ProductCard key={product.id} product={product} />
                     ))}
                 </div>
-            ) : null}
+            ) : (
+                <div className="flex flex-col gap-4">
+                    <div className="grid grid-cols-2 gap-4 opacity-10">
+                        {[1,2,3,4].map(i => <div key={i} className="aspect-[3/4] bg-muted rounded-[1.5rem]" />)}
+                    </div>
+                </div>
+            )}
         </div>
       </Tabs>
     </div>

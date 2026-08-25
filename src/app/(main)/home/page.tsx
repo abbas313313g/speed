@@ -65,7 +65,7 @@ export default function HomePage() {
   const { setActiveTab } = context;
 
   const bestSellersByCategory = useMemo(() => {
-    if (!products.length || !allOrders.length) return [];
+    // إزالة شرط الانتظار للسماح بالتحميل التدريجي
     const salesCount: { [productId: string]: number } = {};
     allOrders.forEach(order => {
         order.items.forEach(item => {
@@ -77,8 +77,8 @@ export default function HomePage() {
 
     categories.forEach(category => {
       const categoryProducts = products
-        .filter(p => p.categoryId === category.id && salesCount[p.id] > 0)
-        .sort((a, b) => salesCount[b.id] - salesCount[a.id])
+        .filter(p => p.categoryId === category.id && (salesCount[p.id] > 0 || p.status === 'approved'))
+        .sort((a, b) => (salesCount[b.id] || 0) - (salesCount[a.id] || 0))
         .slice(0, 10);
 
       if (categoryProducts.length > 0) {
@@ -168,7 +168,7 @@ export default function HomePage() {
             </div>
         )) : (
             <div className="flex gap-4 overflow-hidden py-2">
-                {[1,2,3].map(i => <div key={i} className="min-w-[160px] aspect-[3/4] bg-muted/10 rounded-[1.5rem] animate-pulse" />)}
+                {[1,2,3].map(i => <div key={i} className="min-w-[160px] aspect-[3/4] bg-muted/5 rounded-[1.5rem]" />)}
             </div>
         )}
       </section>
@@ -187,7 +187,7 @@ export default function HomePage() {
                   <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} />
               )) : (
                   <div className="flex gap-5">
-                      {[1,2].map(i => <div key={i} className="w-[300px] aspect-[16/9] bg-muted/10 rounded-[2.5rem] animate-pulse" />)}
+                      {[1,2].map(i => <div key={i} className="w-[300px] aspect-[16/9] bg-muted/5 rounded-[2.5rem]" />)}
                   </div>
               )}
             </div>
