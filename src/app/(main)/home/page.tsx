@@ -15,7 +15,6 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Layers, Sparkles } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useCategories } from "@/hooks/useCategories";
 import { useBanners } from "@/hooks/useBanners";
 import { useProducts } from "@/hooks/useProducts";
@@ -37,8 +36,8 @@ const BannerItem = ({ banner }: { banner: any }) => {
                 alt="Promotion" 
                 className="object-cover" 
                 unoptimized={true}
-                priority={false}
-                loading="lazy"
+                priority={true}
+                loading="eager"
             />
         </CardContent>
       </Card>
@@ -48,11 +47,11 @@ const BannerItem = ({ banner }: { banner: any }) => {
 
 export default function HomePage() {
   const context = useContext(AppContext);
-  const { categories, isLoading: categoriesLoading } = useCategories();
-  const { banners, isLoading: bannersLoading } = useBanners();
-  const { products, isLoading: productsLoading } = useProducts();
-  const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
-  const { allOrders, isLoading: ordersLoading } = useOrders();
+  const { categories } = useCategories();
+  const { banners } = useBanners();
+  const { products } = useProducts();
+  const { restaurants } = useRestaurants();
+  const { allOrders } = useOrders();
   
   const plugin = useRef(
     Autoplay({ delay: 3000, stopOnInteraction: true })
@@ -62,8 +61,6 @@ export default function HomePage() {
   const { setActiveTab } = context;
 
   const bestSellersByCategory = useMemo(() => {
-    if (productsLoading || ordersLoading || categoriesLoading) return [];
-    
     const salesCount: { [productId: string]: number } = {};
     allOrders.forEach(order => {
         order.items.forEach(item => {
@@ -88,31 +85,27 @@ export default function HomePage() {
     });
 
     return categoryGroups;
-  }, [productsLoading, ordersLoading, products, categories, categoriesLoading]);
+  }, [allOrders, products, categories]);
   
   return (
-    <div className="space-y-8 p-4 pb-20 animate-in fade-in duration-500">
+    <div className="space-y-8 p-4 pb-20 animate-in fade-in duration-300">
       <header>
         <h1 className="text-3xl font-black text-primary">سبيد شوب</h1>
         <p className="text-muted-foreground text-lg font-bold">أسرع توصيل في منطقتك!</p>
       </header>
 
       <section>
-        {bannersLoading ? (
-            <Skeleton className="w-full aspect-video rounded-[2rem]" />
-        ) : (
-            <Carousel 
-                className="w-full" 
-                opts={{ loop: true, direction: 'rtl' }}
-                plugins={[plugin.current]}
-            >
-            <CarouselContent>
-                {(banners.length > 0 ? banners : [{id: 'placeholder', image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='}]).map((banner) => (
-                <BannerItem key={banner.id} banner={banner} />
-                ))}
-            </CarouselContent>
-            </Carousel>
-        )}
+        <Carousel 
+            className="w-full" 
+            opts={{ loop: true, direction: 'rtl' }}
+            plugins={[plugin.current]}
+        >
+        <CarouselContent>
+            {(banners.length > 0 ? banners : [{id: 'placeholder', image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='}]).map((banner) => (
+            <BannerItem key={banner.id} banner={banner} />
+            ))}
+        </CarouselContent>
+        </Carousel>
       </section>
 
       <section>
@@ -130,20 +123,16 @@ export default function HomePage() {
                         <p className="mt-2 text-sm font-black truncate">الكل</p>
                     </div>
                 </button>
-                {categoriesLoading ? (
-                    [1,2,3,4].map(i => <Skeleton key={i} className="w-24 h-24 rounded-[1.5rem]" />)
-                ) : (
-                    categories.map((category) => (
-                        <button key={category.id} onClick={() => setActiveTab(2)} className="flex-shrink-0 group">
-                            <div className="w-24 text-center">
-                                <div className="p-4 bg-secondary rounded-[1.5rem] flex items-center justify-center aspect-square transition-all group-active:scale-90">
-                                    <category.icon className="h-10 w-10 text-primary" />
-                                </div>
-                                <p className="mt-2 text-sm font-black truncate">{category.name}</p>
+                {categories.map((category) => (
+                    <button key={category.id} onClick={() => setActiveTab(2)} className="flex-shrink-0 group">
+                        <div className="w-24 text-center">
+                            <div className="p-4 bg-secondary rounded-[1.5rem] flex items-center justify-center aspect-square transition-all group-active:scale-90">
+                                <category.icon className="h-10 w-10 text-primary" />
                             </div>
-                        </button>
-                    ))
-                )}
+                            <p className="mt-2 text-sm font-black truncate">{category.name}</p>
+                        </div>
+                    </button>
+                ))}
             </div>
             <ScrollBar orientation="horizontal" />
         </ScrollArea>
@@ -153,12 +142,7 @@ export default function HomePage() {
         <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black">الأكثر مبيعاً</h2>
         </div>
-        {productsLoading || ordersLoading ? (
-            <div className="flex gap-4 overflow-hidden">
-                <Skeleton className="w-40 h-56 rounded-3xl" />
-                <Skeleton className="w-40 h-56 rounded-3xl" />
-            </div>
-        ) : bestSellersByCategory.length > 0 ? (
+        {bestSellersByCategory.length > 0 ? (
             bestSellersByCategory.map(({ category, products: categoryProducts }) => (
             <div key={category.id} className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -176,7 +160,7 @@ export default function HomePage() {
             </div>
             ))
         ) : (
-             <div className="text-center py-10 opacity-30 italic font-bold">لا يوجد مبيعات حالياً</div>
+             <div className="text-center py-10 opacity-30 italic font-bold">جارِ تحميل المبيعات...</div>
         )}
       </section>
 
@@ -190,13 +174,10 @@ export default function HomePage() {
         </div>
         <ScrollArea className="w-full whitespace-nowrap">
             <div className="flex w-max space-x-5 space-x-reverse pb-6 px-1">
-              {restaurantsLoading ? (
-                  [1,2].map(i => <Skeleton key={i} className="w-[300px] h-[200px] rounded-[2.5rem]" />)
-              ) : (
-                restaurants.map((restaurant) => (
-                    <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} />
-                ))
-              )}
+              {restaurants.map((restaurant) => (
+                  <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} />
+              ))}
+              {restaurants.length === 0 && <div className="p-10 opacity-30 italic font-bold">جارِ جلب المتاجر...</div>}
             </div>
             <ScrollBar orientation="horizontal" />
         </ScrollArea>

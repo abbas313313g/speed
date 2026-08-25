@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useContext, useCallback } from 'react';
-import { BottomNav } from '@/components/BottomNav';
+import { BottomNav } from '@/components/ui/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useAddresses } from '@/hooks/useAddresses';
 import { HardHat, Loader2, MapPin, AlertCircle, CheckCircle2, Navigation, Ghost, User, Phone, Map } from 'lucide-react';
@@ -47,9 +47,10 @@ export default function MainAppLayout() {
   const { activeTab, setActiveTab, syncUserByPhone } = context;
 
   useEffect(() => {
+    // تقليل وقت السبلاش لأدنى حد ممكن لجعل الفتح لحظي
     const timer = setTimeout(() => {
         setForceHideLoading(true);
-    }, 1500); // تقليل وقت السبلاش لجعل الفتح أسرع
+    }, 500); 
     return () => clearTimeout(timer);
   }, []);
 
@@ -63,6 +64,7 @@ export default function MainAppLayout() {
     setIslocLoading(true);
     
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        // إعدادات خاصة للآيفون وسفاري لضمان عدم الحظر
         const options = {
             enableHighAccuracy: true, 
             timeout: 10000, 
@@ -159,12 +161,10 @@ export default function MainAppLayout() {
     }
   };
 
-  const isActuallyLoading = settingsLoading && !forceHideLoading;
-
-  if (isActuallyLoading) {
+  if (!forceHideLoading) {
     return (
-        <div className="flex h-screen w-full flex-col items-center justify-center bg-[#00b358] animate-in fade-out duration-300">
-            <h1 className="text-6xl font-black text-white italic tracking-tighter drop-shadow-[0_4px_4px_rgba(0,0,0,0.25)] select-none">
+        <div className="flex h-screen w-full flex-col items-center justify-center bg-[#00b358]">
+            <h1 className="text-6xl font-black text-white italic tracking-tighter drop-shadow-[0_4px_4px_rgba(0,0,0,0.25)] select-none animate-in fade-in zoom-in duration-300">
               Speed Shop
             </h1>
             <div className="mt-16 flex gap-3">
