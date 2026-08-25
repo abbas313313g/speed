@@ -82,7 +82,7 @@ function ProductCardComponent({ product, priority = false }: ProductCardProps) {
         onClick={handleOpenProduct}
         className={cn(
             "group cursor-pointer transition-all duration-300 relative shrink-0", 
-            "w-full sm:max-w-none min-w-[160px] max-w-[200px]",
+            "w-full sm:max-w-none min-w-[150px] max-w-[200px]",
             (isOutOfStock || !restaurant?.isStoreOpen) && "opacity-60"
         )}
     >
@@ -97,10 +97,10 @@ function ProductCardComponent({ product, priority = false }: ProductCardProps) {
                   className="object-cover"
                   unoptimized={true}
                   priority={priority}
+                  loading={priority ? "eager" : "lazy"}
                 />
             )}
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 z-10">نفد</Badge>}
-            {!restaurant?.isStoreOpen && <Badge variant="destructive" className="absolute top-2 left-2 text-[10px] z-10">مغلق</Badge>}
             {hasSizes && <Badge className="absolute top-2 right-2 bg-primary/80 backdrop-blur-md text-[10px] font-black z-10">أنواع</Badge>}
             {hasDiscount && <div className="absolute top-2 right-2 bg-red-600 text-white text-[9px] font-black px-2 py-1 rounded-lg shadow-lg z-10">خصم %</div>}
           </div>
@@ -119,7 +119,7 @@ function ProductCardComponent({ product, priority = false }: ProductCardProps) {
                   {!hasSizes && hasDiscount && <p className="text-[9px] text-muted-foreground line-through decoration-destructive/50 font-bold">{formatCurrency(product.price)}</p>}
                   <p className={cn("font-black text-primary leading-none", hasSizes ? "text-[10px]" : "text-sm")}>{priceDisplay}</p>
               </div>
-              <Button size="icon" variant="ghost" className={cn("h-9 w-9 rounded-xl shadow-sm active:scale-75", hasSizes ? "bg-secondary text-primary" : "bg-primary text-white")} onClick={handleAddToCart} disabled={isOutOfStock || !restaurant?.isStoreOpen}>
+              <Button size="icon" variant="ghost" className={cn("h-9 w-9 rounded-xl shadow-sm active:scale-75", hasSizes ? "bg-secondary text-primary" : "bg-primary text-white")} onClick={handleAddToCart} disabled={isOutOfStock || (restaurant && !restaurant.isStoreOpen)}>
                 {hasSizes ? <ListChecks className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
               </Button>
             </div>

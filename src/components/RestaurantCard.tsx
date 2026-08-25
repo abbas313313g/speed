@@ -31,7 +31,7 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false, p
         onClick={handleOpenRestaurant} 
         className={cn(
             "group cursor-pointer transition-all duration-300 relative",
-            compact ? "w-[240px] shrink-0" : (large ? "w-[300px] shrink-0" : "w-full")
+            compact ? "w-[220px] shrink-0" : (large ? "w-[280px] shrink-0" : "w-full")
         )}
     >
       <Card className={cn(
@@ -50,6 +50,7 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false, p
                       className="object-cover"
                       unoptimized={true}
                       priority={priority}
+                      loading={priority ? "eager" : "lazy"}
                   />
               )}
               {!restaurant.isStoreOpen && (
@@ -60,12 +61,7 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false, p
           </div>
           <div className="flex-grow text-right">
               <div className="flex justify-between items-start">
-                  <CardTitle className={cn("font-black text-slate-800", large ? "text-2xl" : "text-sm truncate")}>{restaurant.name}</CardTitle>
-                  {!large && !compact && (
-                      <Badge variant={restaurant.isStoreOpen ? 'secondary' : 'destructive'} className={cn("rounded-xl text-[10px]", restaurant.isStoreOpen && "bg-green-100 text-green-700")}>
-                          {restaurant.isStoreOpen ? 'مفتوح' : 'مغلق'}
-                      </Badge>
-                  )}
+                  <CardTitle className={cn("font-black text-slate-800", large ? "text-xl" : "text-sm truncate")}>{restaurant.name}</CardTitle>
               </div>
               <p className="text-[9px] text-muted-foreground font-bold mt-1">أسرع توصيل في منطقتك</p>
           </div>

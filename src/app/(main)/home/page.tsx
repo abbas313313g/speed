@@ -53,12 +53,12 @@ export default function HomePage() {
   
   const plugin = useRef(Autoplay({ delay: 3000, stopOnInteraction: true }));
   
-  if (!context) return null;
-  const { setActiveTab } = context;
+  const setActiveTab = context?.setActiveTab || (() => {});
 
+  // حساب الأكثر مبيعاً بشكل مباشر وسريع جداً
   const bestSellers = useMemo(() => {
-    if (allOrders.length === 0 || products.length === 0) return [];
-    const salesCount: { [productId: string]: number } = {};
+    if (!allOrders.length || !products.length) return [];
+    const salesCount: { [key: string]: number } = {};
     allOrders.forEach(order => {
         if (order.status === 'delivered') {
             order.items.forEach(item => {
@@ -69,7 +69,7 @@ export default function HomePage() {
     return products
         .filter(p => (salesCount[p.id] || 0) > 0 && p.status === 'approved')
         .sort((a, b) => (salesCount[b.id] || 0) - (salesCount[a.id] || 0))
-        .slice(0, 15);
+        .slice(0, 12);
   }, [allOrders, products]);
   
   return (

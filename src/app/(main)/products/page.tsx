@@ -56,15 +56,14 @@ function ProductsPageContent() {
         </div>
         
         <div className="mt-6">
-           {filteredProducts.length > 0 ? (
-                <div className="grid grid-cols-2 gap-4">
-                    {filteredProducts.map((product) => (
-                        <div key={product.id} className="w-full">
-                            <ProductCard product={product} />
-                        </div>
-                    ))}
-                </div>
-            ) : (
+           <div className="grid grid-cols-2 gap-4">
+                {filteredProducts.map((product) => (
+                    <div key={product.id} className="w-full">
+                        <ProductCard product={product} />
+                    </div>
+                ))}
+            </div>
+            {filteredProducts.length === 0 && (
                 <div className="text-center py-20 bg-muted/5 rounded-[2.5rem] border-2 border-dashed">
                     <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
                     <p className="text-muted-foreground font-black">لا توجد منتجات مطابقة للبحث.</p>
