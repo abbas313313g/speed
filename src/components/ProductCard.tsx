@@ -99,7 +99,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
     >
       <Card className="overflow-hidden border-none shadow-md rounded-[1.5rem] bg-card w-full">
         <CardContent className="p-0">
-          <div className="relative w-full aspect-square overflow-hidden bg-muted/20">
+          <div className="relative w-full aspect-square overflow-hidden bg-muted/5">
             {product.image && (
                 <Image
                   src={product.image}

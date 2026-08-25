@@ -7,18 +7,15 @@ import { useRestaurants } from '@/hooks/useRestaurants';
 import { useCategories } from '@/hooks/useCategories';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
-import { Search, Store, Loader2 } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Search, Store } from 'lucide-react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 export default function RestaurantsPage() {
-  const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
-  const { categories, isLoading: categoriesLoading } = useCategories();
+  const { restaurants } = useRestaurants();
+  const { categories } = useCategories();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
-
-  const isLoading = restaurantsLoading || categoriesLoading;
 
   const filteredRestaurants = useMemo(() => {
       let list = restaurants;
@@ -34,19 +31,6 @@ export default function RestaurantsPage() {
       return list;
   }, [restaurants, activeTab, searchTerm]);
 
-  if (isLoading) {
-    return (
-        <div className="p-4 space-y-6">
-            <Skeleton className="h-10 w-48" />
-            <Skeleton className="h-12 w-full" />
-            <div className="space-y-4">
-                <Skeleton className="h-48 w-full rounded-[2.5rem]" />
-                <Skeleton className="h-48 w-full rounded-[2.5rem]" />
-            </div>
-        </div>
-    );
-  }
-  
   return (
     <div className="p-4 space-y-6 pb-40">
       <header className="space-y-4">
@@ -91,16 +75,9 @@ export default function RestaurantsPage() {
         <div className="mt-6">
            {searchTerm.trim() !== '' ? (
                 <div className="space-y-5">
-                    {filteredRestaurants.length > 0 ? (
-                        filteredRestaurants.map((restaurant) => (
-                            <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} />
-                        ))
-                    ) : (
-                        <div className="text-center py-20 bg-muted/20 rounded-[2.5rem] border-2 border-dashed">
-                            <Store className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
-                            <p className="text-muted-foreground font-black">لا توجد متاجر تطابق بحثك.</p>
-                        </div>
-                    )}
+                    {filteredRestaurants.map((restaurant) => (
+                        <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} />
+                    ))}
                 </div>
            ) : activeTab === 'all' ? (
                 <div className="space-y-10">
@@ -131,16 +108,9 @@ export default function RestaurantsPage() {
                 </div>
            ) : (
                 <div className="space-y-5">
-                    {filteredRestaurants.length > 0 ? (
-                        filteredRestaurants.map((restaurant) => (
-                            <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} />
-                        ))
-                    ) : (
-                        <div className="text-center py-20 bg-muted/20 rounded-[2.5rem] border-2 border-dashed">
-                            <Store className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
-                            <p className="text-muted-foreground font-black">لا توجد متاجر في هذا القسم حالياً.</p>
-                        </div>
-                    )}
+                    {filteredRestaurants.map((restaurant) => (
+                        <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} />
+                    ))}
                 </div>
            )}
         </div>

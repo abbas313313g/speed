@@ -6,10 +6,9 @@ import { useSearchParams } from 'next/navigation';
 import { ProductCard } from "@/components/ProductCard";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
-import { Search, Loader2 } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
-import { Skeleton } from '@/components/ui/skeleton';
 
 function ProductsPageContent() {
   const searchParams = useSearchParams();
@@ -18,10 +17,8 @@ function ProductsPageContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState(initialCategory);
 
-  const { products, isLoading: productsLoading } = useProducts();
-  const { categories, isLoading: categoriesLoading } = useCategories();
-
-  const isLoading = productsLoading || categoriesLoading;
+  const { products } = useProducts();
+  const { categories } = useCategories();
 
   const filteredProducts = useMemo(() => {
       let prods = products;
@@ -36,23 +33,6 @@ function ProductsPageContent() {
       
       return prods;
   }, [products, activeTab, searchTerm]);
-
-  if (isLoading) {
-    return (
-        <div className="p-4 space-y-4">
-            <div className="space-y-2">
-                <Skeleton className="h-8 w-48" />
-                <Skeleton className="h-4 w-64" />
-            </div>
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-             <div className="grid grid-cols-2 gap-4 mt-6">
-                <Skeleton className="h-64 w-full" />
-                <Skeleton className="h-64 w-full" />
-            </div>
-        </div>
-    );
-  }
   
   return (
     <div className="p-4 pb-40">
@@ -100,11 +80,7 @@ function ProductsPageContent() {
                         <ProductCard key={product.id} product={product} />
                     ))}
                 </div>
-            ) : (
-                <p className="text-center text-muted-foreground py-20 font-bold italic">
-                    لا توجد منتجات تطابق بحثك حالياً.
-                </p>
-            )}
+            ) : null}
         </div>
       </Tabs>
     </div>
@@ -113,18 +89,7 @@ function ProductsPageContent() {
 
 export default function ProductsPage() {
     return (
-        <Suspense fallback={<div className="p-4 space-y-4">
-            <div className="space-y-2">
-                <Skeleton className="h-8 w-48" />
-                <Skeleton className="h-4 w-64" />
-            </div>
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-             <div className="grid grid-cols-2 gap-4 mt-6">
-                <Skeleton className="h-64 w-full" />
-                <Skeleton className="h-64 w-full" />
-            </div>
-        </div>}>
+        <Suspense fallback={null}>
             <ProductsPageContent />
         </Suspense>
     );

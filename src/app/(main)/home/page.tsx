@@ -29,7 +29,7 @@ const BannerItem = ({ banner }: { banner: any }) => {
       className="relative basis-full opacity-100"
     >
       <Card className="border-none shadow-none overflow-hidden rounded-[2rem]">
-        <CardContent className="relative flex aspect-video items-center justify-center p-0 bg-muted/10">
+        <CardContent className="relative flex aspect-video items-center justify-center p-0 bg-muted/5">
             <Image 
                 src={banner.image} 
                 fill 
@@ -142,8 +142,7 @@ export default function HomePage() {
         <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black">الأكثر مبيعاً</h2>
         </div>
-        {bestSellersByCategory.length > 0 ? (
-            bestSellersByCategory.map(({ category, products: categoryProducts }) => (
+        {bestSellersByCategory.map(({ category, products: categoryProducts }) => (
             <div key={category.id} className="space-y-3">
                 <div className="flex items-center justify-between">
                     <h3 className="text-lg font-black text-muted-foreground">{category.name}</h3>
@@ -158,10 +157,7 @@ export default function HomePage() {
                     <ScrollBar orientation="horizontal" />
                 </ScrollArea>
             </div>
-            ))
-        ) : (
-             <div className="text-center py-10 opacity-30 italic font-bold">جارِ تحميل المبيعات...</div>
-        )}
+        ))}
       </section>
 
       <section>
@@ -177,7 +173,6 @@ export default function HomePage() {
               {restaurants.map((restaurant) => (
                   <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} />
               ))}
-              {restaurants.length === 0 && <div className="p-10 opacity-30 italic font-bold">جارِ جلب المتاجر...</div>}
             </div>
             <ScrollBar orientation="horizontal" />
         </ScrollArea>

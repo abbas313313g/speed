@@ -14,6 +14,25 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useBranches } from '@/hooks/useBranches';
 
+// استيراد المكونات مباشرة لضمان السرعة
+import AdminDashboard from './page';
+import AdminOrdersPage from './orders/page';
+import AdminProductsPage from './products/page';
+import AdminCategoriesPage from './categories/page';
+import AdminStoresPage from './stores/page';
+import AdminBannersPage from './banners/page';
+import AdminDeliveryZonesPage from './delivery-zones/page';
+import AdminCouponsPage from './coupons/page';
+import AdminUsersPage from './users/page';
+import AdminDeliveryWorkersPage from './delivery-workers/page';
+import AdminReportsPage from './reports/page';
+import AdminSupportTicketsPage from './support-tickets/page';
+import AdminTelegramPage from './telegram/page';
+import AdminSettingsPage from './settings/page';
+import AdminApprovalsPage from './approvals/page';
+import AdminAccessPage from './access-requests/page';
+import AdminBranchesPage from './branches/page';
+
 const ADMIN_PIN = "31344313";
 
 function AdminLayoutContent() {
@@ -27,7 +46,7 @@ function AdminLayoutContent() {
   const [isInitialCheckDone, setIsInitialCheckDone] = useState(false);
   
   const { accessList, isLoading: accessLoading, requestAccess, autoApproveFirst, getDeviceId } = useAdminAccess(branchParam);
-  const { branches, isLoading: branchesLoading } = useBranches();
+  const { branches } = useBranches();
   const { toast } = useToast();
 
   const currentBranch = useMemo(() => {
@@ -36,14 +55,11 @@ function AdminLayoutContent() {
   }, [branchParam, branches]);
 
   useEffect(() => {
-    // تسريع التحقق من الصلاحيات بشكل لحظي
     if (!accessLoading) {
         const deviceId = getDeviceId();
         const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === branchParam);
         if (myAccess && myAccess.status === 'approved') {
             setIsAuthenticated(true);
-        } else {
-            setIsAuthenticated(false);
         }
         setIsInitialCheckDone(true);
     }
@@ -76,7 +92,6 @@ function AdminLayoutContent() {
       return (
           <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
               <Loader2 className="h-10 w-10 animate-spin text-primary"/>
-              <p className="mt-4 font-bold text-muted-foreground animate-pulse">جارِ التحقق لحظياً...</p>
           </div>
       )
   }
@@ -193,7 +208,7 @@ function AdminLayoutContent() {
 
 export default function AdminLayout() {
   return (
-    <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary"/></div>}>
+    <Suspense fallback={null}>
       <AdminLayoutContent />
     </Suspense>
   );
