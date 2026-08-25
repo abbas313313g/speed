@@ -50,7 +50,6 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false, p
                       className="object-cover"
                       unoptimized={true}
                       priority={priority}
-                      loading={priority ? "eager" : "lazy"}
                   />
               )}
               {!restaurant.isStoreOpen && (

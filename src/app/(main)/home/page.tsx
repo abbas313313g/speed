@@ -35,7 +35,6 @@ const BannerItem = ({ banner, index }: { banner: any, index: number }) => {
                     className="object-cover" 
                     unoptimized={true}
                     priority={index < 2}
-                    loading={index < 2 ? "eager" : "lazy"}
                 />
             )}
         </CardContent>
@@ -74,13 +73,13 @@ export default function HomePage() {
   }, [allOrders, products]);
   
   return (
-    <div className="space-y-8 p-4 pb-20 animate-in fade-in duration-150">
+    <div className="space-y-8 p-4 pb-20 animate-in fade-in duration-300">
       <header>
         <h1 className="text-3xl font-black text-primary leading-tight">سبيد شوب</h1>
         <p className="text-muted-foreground text-lg font-bold">أسرع توصيل في منطقتك!</p>
       </header>
 
-      <section className="min-h-[150px]">
+      <section className="min-h-[150px] relative">
         <Carousel className="w-full" opts={{ loop: true, direction: 'rtl' }} plugins={[plugin.current]}>
             <CarouselContent>
                 {banners.length > 0 ? banners.map((banner, idx) => (
@@ -148,7 +147,7 @@ export default function HomePage() {
             <div className="flex w-max space-x-5 space-x-reverse pb-6 px-1">
               {restaurants.length > 0 ? restaurants.map((restaurant, idx) => (
                   <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} priority={idx < 4} />
-              )) : [1,2].map(i => <div key={i} className="w-[300px] aspect-[16/9] bg-muted/5 rounded-[2.5rem]" />)}
+              )) : [1,2].map(i => <div key={i} className="w-[300px] aspect-[16/9] bg-muted/10 rounded-[2.5rem]" />)}
             </div>
             <ScrollBar orientation="horizontal" />
         </ScrollArea>

@@ -45,7 +45,7 @@ export default function MainAppLayout() {
   const { activeTab, syncUserByPhone } = context;
 
   useEffect(() => {
-    // إخفاء السبلاش فوراً (لحظياً)
+    // إخفاء السبلاش فوراً وبشكل لحظي
     const timer = setTimeout(() => setShowSplash(false), 50); 
     return () => clearTimeout(timer);
   }, []);
@@ -106,7 +106,7 @@ export default function MainAppLayout() {
             }
         }
         await syncUserByPhone(newAddr.phone);
-        await addAddress({ ...newAddr, latitude: newAddr.lat, longitude: newAddr.lng, deliveryZone: "عام", branchId: "main", deviceId: currentDeviceId } as any);
+        await addAddress({ ...newAddr, latitude: newAddr.lat, longitude: newAddr.lng, deliveryZone: "عام", branchId: "main" } as any);
         safeStorage.set('speedShopSetupDone', 'true');
         setShowAddressPrompt(false);
     } catch (e) { toast({ title: "خطأ في الاتصال", variant: "destructive" }); } finally { setIsSaving(false); }

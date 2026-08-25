@@ -86,8 +86,8 @@ function ProductCardComponent({ product, priority = false }: ProductCardProps) {
             (isOutOfStock || !restaurant?.isStoreOpen) && "opacity-60"
         )}
     >
-      <Card className="overflow-hidden border-none shadow-md rounded-[1.5rem] bg-card w-full">
-        <CardContent className="p-0">
+      <Card className="overflow-hidden border-none shadow-md rounded-[1.5rem] bg-card w-full h-full">
+        <CardContent className="p-0 flex flex-col h-full">
           <div className="relative w-full aspect-square overflow-hidden bg-muted/5">
             {product.image && (
                 <Image
@@ -97,7 +97,6 @@ function ProductCardComponent({ product, priority = false }: ProductCardProps) {
                   className="object-cover"
                   unoptimized={true}
                   priority={priority}
-                  loading={priority ? "eager" : "lazy"}
                 />
             )}
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 z-10">نفد</Badge>}
@@ -105,14 +104,16 @@ function ProductCardComponent({ product, priority = false }: ProductCardProps) {
             {hasSizes && <Badge className="absolute top-2 right-2 bg-primary/80 backdrop-blur-md text-[10px] font-black z-10">أنواع</Badge>}
             {hasDiscount && <div className="absolute top-2 right-2 bg-red-600 text-white text-[9px] font-black px-2 py-1 rounded-lg shadow-lg z-10">خصم %</div>}
           </div>
-          <div className="p-3 text-right">
-            <h3 className="line-clamp-2 h-10 font-black text-sm text-slate-800 leading-tight mb-1">{product.name}</h3>
-            {restaurant && (
-                <div className="flex items-center gap-1 mt-0.5 text-primary">
-                    <Store className="h-3 w-3" />
-                    <span className="text-[9px] font-bold truncate">{restaurant.name}</span>
-                </div>
-            )}
+          <div className="p-3 text-right flex-1 flex flex-col justify-between">
+            <div>
+                <h3 className="line-clamp-2 h-10 font-black text-sm text-slate-800 leading-tight mb-1">{product.name}</h3>
+                {restaurant && (
+                    <div className="flex items-center gap-1 mt-0.5 text-primary">
+                        <Store className="h-3 w-3" />
+                        <span className="text-[9px] font-bold truncate">{restaurant.name}</span>
+                    </div>
+                )}
+            </div>
             <div className="mt-2 flex items-center justify-between">
               <div className="flex flex-col text-right">
                   {!hasSizes && hasDiscount && <p className="text-[9px] text-muted-foreground line-through decoration-destructive/50 font-bold">{formatCurrency(product.price)}</p>}
