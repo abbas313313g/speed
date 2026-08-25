@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/carousel";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Layers, Sparkles, Loader2 } from "lucide-react";
+import { Layers, Sparkles } from "lucide-react";
 import { useCategories } from "@/hooks/useCategories";
 import { useBanners } from "@/hooks/useBanners";
 import { useProducts } from "@/hooks/useProducts";
@@ -34,8 +34,8 @@ const BannerItem = ({ banner, index }: { banner: any, index: number }) => {
                     alt="Promotion" 
                     className="object-cover" 
                     unoptimized={true}
-                    priority={index === 0}
-                    loading="eager"
+                    priority={index < 2}
+                    loading={index < 2 ? "eager" : "lazy"}
                 />
             )}
         </CardContent>
@@ -130,8 +130,8 @@ export default function HomePage() {
             </div>
             <ScrollArea className="w-full whitespace-nowrap">
                 <div className="flex w-max space-x-4 space-x-reverse pb-4 px-1">
-                    {bestSellers.map((product) => (
-                        <ProductCard key={product.id} product={product} />
+                    {bestSellers.map((product, idx) => (
+                        <ProductCard key={product.id} product={product} priority={idx < 4} />
                     ))}
                 </div>
                 <ScrollBar orientation="horizontal" />
@@ -146,8 +146,8 @@ export default function HomePage() {
         </div>
         <ScrollArea className="w-full whitespace-nowrap">
             <div className="flex w-max space-x-5 space-x-reverse pb-6 px-1">
-              {restaurants.length > 0 ? restaurants.map((restaurant) => (
-                  <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} />
+              {restaurants.length > 0 ? restaurants.map((restaurant, idx) => (
+                  <RestaurantCard key={restaurant.id} restaurant={restaurant} large={true} priority={idx < 4} />
               )) : [1,2].map(i => <div key={i} className="w-[300px] aspect-[16/9] bg-muted/5 rounded-[2.5rem]" />)}
             </div>
             <ScrollBar orientation="horizontal" />

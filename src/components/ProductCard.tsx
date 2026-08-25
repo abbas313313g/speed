@@ -16,9 +16,10 @@ import { AppContext } from "@/contexts/AppContext";
 
 interface ProductCardProps {
   product: Product;
+  priority?: boolean;
 }
 
-function ProductCardComponent({ product }: ProductCardProps) {
+function ProductCardComponent({ product, priority = false }: ProductCardProps) {
   const { toast } = useToast();
   const { addToCart } = useCart();
   const { restaurants } = useRestaurants();
@@ -95,7 +96,8 @@ function ProductCardComponent({ product }: ProductCardProps) {
                   fill
                   className="object-cover"
                   unoptimized={true}
-                  loading="lazy"
+                  priority={priority}
+                  loading={priority ? "eager" : "lazy"}
                 />
             )}
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 z-10">نفد</Badge>}

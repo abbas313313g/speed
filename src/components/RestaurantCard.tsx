@@ -13,9 +13,10 @@ interface RestaurantCardProps {
   restaurant: Restaurant;
   large?: boolean;
   compact?: boolean; 
+  priority?: boolean;
 }
 
-function RestaurantCardComponent({ restaurant, large = false, compact = false }: RestaurantCardProps) {
+function RestaurantCardComponent({ restaurant, large = false, compact = false, priority = false }: RestaurantCardProps) {
   const context = useContext(AppContext);
   
   const handleOpenRestaurant = () => {
@@ -48,8 +49,8 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false }:
                       fill
                       className="object-cover"
                       unoptimized={true}
-                      priority={large}
-                      loading={large ? "eager" : "lazy"}
+                      priority={priority}
+                      loading={priority ? "eager" : "lazy"}
                   />
               )}
               {!restaurant.isStoreOpen && (
