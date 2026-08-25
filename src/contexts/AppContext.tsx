@@ -14,7 +14,6 @@ import type {
 import { useProducts } from '@/hooks/useProducts';
 import { useSupportTickets } from '@/hooks/useSupportTickets';
 import { useCoupons } from '@/hooks/useCoupons';
-import { useTelegramConfigs } from '@/hooks/useTelegramConfigs';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useBanners } from '@/hooks/useBanners';
 
@@ -68,6 +67,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
 
     // الركيزة الأساسية للجاهزية: المتاجر والبنرات فقط (بيانات الرئيسية)
+    // لاحظ أننا لا ننتظر المنتجات هنا نهائياً
     const isMainDataReady = !restaurantsLoading && !bannersLoading;
 
     useEffect(() => {

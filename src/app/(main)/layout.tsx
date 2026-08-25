@@ -48,16 +48,11 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, syncUserByPhone, isMainDataReady } = context;
 
-  // السبلاش يختفي فور توفر بيانات المتاجر والبنرات فقط
+  // السبلاش يختفي فوراً بعد 300 ملي ثانية لضمان إقلاع صاروخي
   useEffect(() => {
-    if (isMainDataReady && (banners.length > 0 || restaurants.length > 0)) {
-        const timer = setTimeout(() => setShowSplash(false), 300); 
-        return () => clearTimeout(timer);
-    }
-    // احتياطاً إذا تأخر النت جداً
-    const fallback = setTimeout(() => setShowSplash(false), 2000);
-    return () => clearTimeout(fallback);
-  }, [isMainDataReady, banners.length, restaurants.length]);
+    const timer = setTimeout(() => setShowSplash(false), 300); 
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!showSplash && !settings?.isMaintenanceMode) {
