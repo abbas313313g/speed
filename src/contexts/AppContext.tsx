@@ -16,6 +16,7 @@ import { useSupportTickets } from '@/hooks/useSupportTickets';
 import { useCoupons } from '@/hooks/useCoupons';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useBanners } from '@/hooks/useBanners';
+import { useCategories } from '@/hooks/useCategories';
 
 interface AppContextType {
     isLoading: boolean;
@@ -51,9 +52,10 @@ export const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
-    const { products } = useProducts();
-    const { restaurants } = useRestaurants();
-    const { banners } = useBanners();
+    const { products, isLoading: productsLoading } = useProducts();
+    const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
+    const { banners, isLoading: bannersLoading } = useBanners();
+    const { categories, isLoading: categoriesLoading } = useCategories();
     const { supportTickets, createSupportTicket: createTicketHook } = useSupportTickets();
     const { coupons } = useCoupons();
 
@@ -66,8 +68,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
 
-    // الركيزة الأساسية للجاهزية: فورية لضمان عدم حظر الواجهة
-    const isMainDataReady = true;
+    // جاهزية البيانات الأساسية للرئيسية فقط (بدون انتظار المنتجات)
+    const isMainDataReady = useMemo(() => {
+        return !bannersLoading && !restaurantsLoading && !categoriesLoading;
+    }, [bannersLoading, restaurantsLoading, categoriesLoading]);
 
     useEffect(() => {
         try {
@@ -216,7 +220,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [userId, cart, coupons, restaurants, cartTotal, clearCart, toast]);
     
     const value = useMemo(() => ({
-        isLoading: false, isMainDataReady, placeOrder, createSupportTicket, addMessageToTicket, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
+        isLoading: !isMainDataReady, isMainDataReady, placeOrder, createSupportTicket, addMessageToTicket, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress, mySupportTicket, startNewTicketClient, activeTab, previousTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId,
         filteredRestaurants, filteredProducts, syncUserByPhone
     }), [isMainDataReady, cart, addresses, userId, mySupportTicket, activeTab, previousTab, filteredRestaurants, filteredProducts, setActiveTab, placeOrder, createSupportTicket, addMessageToTicket, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, addAddress, deleteAddress, startNewTicketClient, setSelectedProductId, setSelectedRestaurantId, syncUserByPhone]);

@@ -21,12 +21,13 @@ import { formatCurrency } from "@/lib/utils";
 import { useBanners } from "@/hooks/useBanners";
 import { useRestaurants } from "@/hooks/useRestaurants";
 import { useCategories } from "@/hooks/useCategories";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function HomePage() {
   const context = useContext(AppContext);
-  const { banners } = useBanners();
-  const { restaurants } = useRestaurants();
-  const { categories } = useCategories();
+  const { banners, isLoading: bannersLoading } = useBanners();
+  const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
+  const { categories, isLoading: categoriesLoading } = useCategories();
   
   const plugin = useRef(Autoplay({ delay: 3000, stopOnInteraction: false }));
   
@@ -42,6 +43,20 @@ export default function HomePage() {
   const topStores = useMemo(() => restaurants.slice(0, 8), [restaurants]);
   const topSellers = useMemo(() => filteredProducts.slice(0, 8), [filteredProducts]);
 
+  const isLoading = bannersLoading || restaurantsLoading || categoriesLoading;
+
+  if (isLoading) {
+      return (
+          <div className="p-4 space-y-8 animate-pulse">
+              <Skeleton className="w-full aspect-[21/9] rounded-[2rem]" />
+              <div className="grid grid-cols-4 gap-3">
+                  {[1,2,3,4].map(i => <Skeleton key={i} className="aspect-square rounded-2xl" />)}
+              </div>
+              <Skeleton className="h-48 w-full rounded-[2.5rem]" />
+          </div>
+      );
+  }
+
   return (
     <div className="space-y-8 p-4 pb-32 animate-in fade-in duration-300">
       <header className="flex justify-between items-center py-2">
@@ -51,7 +66,6 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* قسم البانر - يظهر فور وصول البيانات قطعة قطعة */}
       <section className="relative">
         <Carousel className="w-full" opts={{ loop: true, direction: 'rtl' }} plugins={[plugin.current]}>
             <CarouselContent>
@@ -81,7 +95,6 @@ export default function HomePage() {
         </Carousel>
       </section>
 
-      {/* قسم الأقسام من Firestore - يظهر فوراً */}
       <section>
         <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-xl font-black text-slate-800">اكتشف الأقسام</h2>
@@ -106,7 +119,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* قسم أشهر المتاجر - 8 متاجر فقط */}
       <section>
          <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-xl font-black text-slate-800">أشهر المتاجر</h2>
@@ -150,7 +162,6 @@ export default function HomePage() {
         </ScrollArea>
       </section>
 
-      {/* قسم الأكثر مبيعاً - 8 مبيعات حقيقية */}
       {topSellers.length > 0 && (
           <section className="space-y-4">
               <div className="flex items-center justify-between px-1">

@@ -42,13 +42,15 @@ export default function MainAppLayout() {
   const [showSplash, setShowSplash] = useState(true);
 
   if (!context) return null;
-  const { activeTab, syncUserByPhone } = context;
+  const { activeTab, syncUserByPhone, isMainDataReady } = context;
 
-  // إقلاع فوري: السبلاش يختفي بعد 500 ملي ثانية فقط لضمان سرعة الوصول للواجهة
+  // السبلاش يختفي فقط عندما تكون بيانات الرئيسية جاهزة
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 500); 
-    return () => clearTimeout(timer);
-  }, []);
+    if (isMainDataReady) {
+        const timer = setTimeout(() => setShowSplash(false), 500); 
+        return () => clearTimeout(timer);
+    }
+  }, [isMainDataReady]);
 
   useEffect(() => {
     if (!showSplash && !settings?.isMaintenanceMode) {
@@ -135,6 +137,7 @@ export default function MainAppLayout() {
                 </div>
                 <div className="mt-8 flex flex-col items-center gap-2 animate-pulse">
                     <p className="text-primary font-black text-[10px] tracking-widest uppercase">أسرع توصيل في منطقتك</p>
+                    <Loader2 className="h-4 w-4 animate-spin text-primary/40 mt-2" />
                 </div>
             </div>
         )}
