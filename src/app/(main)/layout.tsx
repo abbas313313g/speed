@@ -39,18 +39,19 @@ export default function MainAppLayout() {
   const [newAddr, setNewAddr] = useState({ name: '', phone: '', details: '', lat: 0, lng: 0 });
   const [islocLoading, setIslocLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [forceHideLoading, setForceHideLoading] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   if (!context) return null;
   const { activeTab, syncUserByPhone } = context;
 
   useEffect(() => {
-    const timer = setTimeout(() => setForceHideLoading(true), 500); 
+    // إخفاء شاشة السبلاش بسرعة فائقة (لحظياً تقريباً)
+    const timer = setTimeout(() => setShowSplash(false), 150); 
     return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
-    if (forceHideLoading && !settings?.isMaintenanceMode) {
+    if (!showSplash && !settings?.isMaintenanceMode) {
       const storedUserId = safeStorage.get('speedShopUserId');
       const isNewUser = !storedUserId || (addresses.length === 0 && !safeStorage.get('speedShopSetupDone'));
       
@@ -58,7 +59,7 @@ export default function MainAppLayout() {
         setShowAddressPrompt(true);
       }
     }
-  }, [forceHideLoading, settings?.isMaintenanceMode, addresses.length]);
+  }, [showSplash, settings?.isMaintenanceMode, addresses.length]);
 
   const handleGetLocation = useCallback(() => {
     setIslocLoading(true);
@@ -156,11 +157,14 @@ export default function MainAppLayout() {
 
   return (
     <div className="h-[100dvh] w-full bg-background flex flex-col relative overflow-hidden">
-        {!forceHideLoading ? (
-            <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#00b358] z-[100]">
+        {/* شاشة السبلاش كطبقة فوقية تتلاشى بدلاً من حجب المحتوى */}
+        {showSplash && (
+            <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#00b358] z-[100] transition-opacity duration-300">
                 <h1 className="text-6xl font-black text-white italic animate-in zoom-in duration-200">Speed Shop</h1>
             </div>
-        ) : isBlocked ? (
+        )}
+
+        {isBlocked ? (
             <div className="flex h-full w-full flex-col items-center justify-center p-8 text-center bg-background">
               <AlertCircle className="h-20 w-20 text-destructive mb-6" />
               <h1 className="text-2xl font-black mb-4">نعتذر منك جداً</h1>

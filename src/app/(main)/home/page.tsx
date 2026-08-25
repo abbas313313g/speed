@@ -57,9 +57,13 @@ export default function HomePage() {
   if (!context) return null;
   const { setActiveTab } = context;
 
+  // جعل منطق الأكثر مبيعاً خفيفاً جداً لضمان عدم تأخر الصفحة
   const bestSellers = useMemo(() => {
+    if (allOrders.length === 0 || products.length === 0) return [];
+    
     const salesCount: { [productId: string]: number } = {};
-    allOrders.forEach(order => {
+    // نكتفي بآخر 500 طلب لضمان السرعة الفائقة
+    allOrders.slice(0, 500).forEach(order => {
         if (order.status === 'delivered') {
             order.items.forEach(item => {
                 salesCount[item.product.id] = (salesCount[item.product.id] || 0) + item.quantity;
