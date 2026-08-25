@@ -1,4 +1,3 @@
-
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -66,7 +65,6 @@ export const calculateDeliveryFee = (distanceInKm: number) => {
     return Math.min(Math.max(totalFee, 1000), 15000);
 }
 
-// نظام التخزين الآمن والمحمي للـ WebView
 export const safeStorage = {
     get: (key: string) => {
         try {
@@ -92,11 +90,11 @@ export const safeStorage = {
     }
 };
 
-/**
- * وظيفة ضغط الصور لتقليل استهلاك مساحة Firestore
- * تحول الصورة إلى WebP أو JPEG بجودة منخفضة وحجم أصغر
- */
-export const compressImage = async (base64: string, maxWidth = 800, quality = 0.6): Promise<string> => {
+export const compressImage = async (base64: string, maxWidth = 600, quality = 0.5): Promise<string> => {
+    if (!base64 || !base64.startsWith('data:image')) return base64;
+    // إذا كانت الصورة أصلاً صغيرة (أقل من 30 كيلوبايت) لا داعي لضغطها
+    if (base64.length < 40000) return base64;
+
     return new Promise((resolve) => {
         const img = new Image();
         img.src = base64;
@@ -114,10 +112,8 @@ export const compressImage = async (base64: string, maxWidth = 800, quality = 0.
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0, width, height);
-            
-            // نستخدم jpeg لأنه الأكثر توافقاً والأقل حجماً عند الضغط العالي
             resolve(canvas.toDataURL('image/jpeg', quality));
         };
-        img.onerror = () => resolve(base64); // في حال الفشل نرجع الأصل
+        img.onerror = () => resolve(base64);
     });
 };
