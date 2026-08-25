@@ -57,28 +57,24 @@ export default function HomePage() {
   if (!context) return null;
   const { setActiveTab } = context;
 
-  // جعل منطق الأكثر مبيعاً خفيفاً جداً لضمان عدم تأخر الصفحة
   const bestSellers = useMemo(() => {
     if (allOrders.length === 0 || products.length === 0) return [];
-    
     const salesCount: { [productId: string]: number } = {};
-    // نكتفي بآخر 500 طلب لضمان السرعة الفائقة
-    allOrders.slice(0, 500).forEach(order => {
+    allOrders.forEach(order => {
         if (order.status === 'delivered') {
             order.items.forEach(item => {
                 salesCount[item.product.id] = (salesCount[item.product.id] || 0) + item.quantity;
             });
         }
     });
-
     return products
-        .filter(p => (salesCount[p.id] || 0) > 0 && p.status === 'approved' && p.isActive !== false)
+        .filter(p => (salesCount[p.id] || 0) > 0 && p.status === 'approved')
         .sort((a, b) => (salesCount[b.id] || 0) - (salesCount[a.id] || 0))
         .slice(0, 15);
   }, [allOrders, products]);
   
   return (
-    <div className="space-y-8 p-4 pb-20 animate-in fade-in duration-300">
+    <div className="space-y-8 p-4 pb-20 animate-in fade-in duration-150">
       <header>
         <h1 className="text-3xl font-black text-primary leading-tight">سبيد شوب</h1>
         <p className="text-muted-foreground text-lg font-bold">أسرع توصيل في منطقتك!</p>

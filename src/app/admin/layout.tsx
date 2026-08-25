@@ -14,7 +14,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useBranches } from '@/hooks/useBranches';
 
-// استيراد المكونات مباشرة لضمان السرعة
 import AdminDashboard from './page';
 import AdminOrdersPage from './orders/page';
 import AdminProductsPage from './products/page';
@@ -43,7 +42,6 @@ function AdminLayoutContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [requestStatus, setRequestStatus] = useState<'none' | 'sent'>('none');
-  const [isInitialCheckDone, setIsInitialCheckDone] = useState(false);
   
   const { accessList, isLoading: accessLoading, requestAccess, autoApproveFirst, getDeviceId } = useAdminAccess(branchParam);
   const { branches } = useBranches();
@@ -55,26 +53,22 @@ function AdminLayoutContent() {
   }, [branchParam, branches]);
 
   useEffect(() => {
-    if (!accessLoading) {
-        const deviceId = getDeviceId();
-        const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === branchParam);
-        if (myAccess && myAccess.status === 'approved') {
-            setIsAuthenticated(true);
-        }
-        setIsInitialCheckDone(true);
+    const deviceId = getDeviceId();
+    const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === branchParam);
+    if (myAccess && myAccess.status === 'approved') {
+        setIsAuthenticated(true);
     }
-  }, [accessList, branchParam, accessLoading, getDeviceId]);
+  }, [accessList, branchParam, getDeviceId]);
 
   const handleLogin = async () => {
     if (pin === ADMIN_PIN) {
         const deviceName = navigator.userAgent.substring(0, 50);
-        const deviceId = getDeviceId();
-        
         const wasFirst = await autoApproveFirst(branchParam, deviceName);
         if (wasFirst) {
             setIsAuthenticated(true);
             toast({ title: "مرحباً بك!", description: `تم اعتماد جهازك كأدمن لـ ${currentBranch.name}` });
         } else {
+            const deviceId = getDeviceId();
             const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === branchParam);
             if (myAccess?.status === 'approved') {
                 setIsAuthenticated(true);
@@ -88,7 +82,7 @@ function AdminLayoutContent() {
     }
   };
 
-  if (!isInitialCheckDone) {
+  if (accessLoading && !isAuthenticated) {
       return (
           <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
               <Loader2 className="h-10 w-10 animate-spin text-primary"/>
@@ -99,43 +93,30 @@ function AdminLayoutContent() {
   if (!isAuthenticated) {
      return (
        <div className="flex h-screen w-full flex-col items-center justify-center bg-muted/40 p-4">
-        <Card className="w-full max-w-sm rounded-[2.5rem] shadow-2xl border-none overflow-hidden animate-in fade-in zoom-in duration-300">
+        <Card className="w-full max-w-sm rounded-[2.5rem] shadow-2xl border-none overflow-hidden">
             <CardHeader className="text-center bg-primary text-white pb-8">
                 <Shield className="h-16 w-16 mx-auto mb-2" />
                 <CardTitle className="text-2xl font-black italic">بوابة فرع: {currentBranch.name}</CardTitle>
-                <CardDescription className="text-white/80 font-bold">يرجى تسجيل الدخول من جهاز موثوق</CardDescription>
+                <CardDescription className="text-white/80 font-bold">يرجى تسجيل الدخول</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-8">
                 {requestStatus === 'sent' ? (
-                    <div className="text-center space-y-4 animate-in zoom-in">
+                    <div className="text-center space-y-4">
                         <Fingerprint className="h-16 w-16 mx-auto text-orange-500 animate-pulse" />
                         <h2 className="text-xl font-black">جهاز غير مرخص</h2>
-                        <p className="text-sm font-bold text-muted-foreground leading-relaxed">
-                            تم إرسال طلب ترخيص لهذا الجهاز لدخول <span className="text-primary">{currentBranch.name}</span>.
-                            يرجى الانتظار حتى يتم تفعيلك من قبل الإدارة.
-                        </p>
+                        <p className="text-sm font-bold text-muted-foreground">بانتظار موافقة أدمن الفرع.</p>
                         <Button variant="outline" className="w-full rounded-xl" onClick={() => setRequestStatus('none')}>محاولة مرة أخرى</Button>
                     </div>
                 ) : (
                     <>
                         <div className="space-y-2">
-                            <label className="text-xs font-black pr-1">أدخل الرمز السري للمسؤول</label>
+                            <label className="text-xs font-black pr-1">الرمز السري للمسؤول</label>
                             <div className="relative">
                                 <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                                <Input 
-                                    type="password" 
-                                    placeholder="••••••••" 
-                                    value={pin}
-                                    onChange={(e) => setPin(e.target.value)}
-                                    className="pr-10 h-14 rounded-2xl text-center text-2xl font-black"
-                                    dir="ltr"
-                                    onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                                />
+                                <Input type="password" placeholder="••••••••" value={pin} onChange={(e)=>setPin(e.target.value)} className="pr-10 h-14 rounded-2xl text-center text-2xl font-black" dir="ltr" onKeyDown={(e)=>e.key === 'Enter' && handleLogin()} />
                             </div>
                         </div>
-                        <Button onClick={handleLogin} className="w-full h-14 rounded-2xl text-xl font-bold shadow-lg shadow-primary/20">
-                            طلب الدخول والترخيص
-                        </Button>
+                        <Button onClick={handleLogin} className="w-full h-14 rounded-2xl text-xl font-bold shadow-lg">طلب الدخول والترخيص</Button>
                     </>
                 )}
             </CardContent>
@@ -149,23 +130,13 @@ function AdminLayoutContent() {
       <aside className="sticky inset-y-0 right-0 z-50 hidden w-16 flex-col border-l bg-card sm:flex shadow-xl shrink-0 overflow-hidden">
          <AdminNav onTabChange={setActiveTab} activeTab={activeTab} isBranch={branchParam !== 'main'} />
       </aside>
-      
       <div className="flex flex-1 flex-col relative overflow-hidden">
          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-4 border-b bg-background px-4 sm:h-16 sm:px-6">
           <Sheet>
-            <SheetTrigger asChild>
-              <Button size="icon" variant="outline" className="sm:hidden">
-                <PanelLeft className="h-5 w-5" />
-                <span className="sr-only">القائمة</span>
-              </Button>
-            </SheetTrigger>
+            <SheetTrigger asChild><Button size="icon" variant="outline" className="sm:hidden"><PanelLeft className="h-5 w-5" /></Button></SheetTrigger>
             <SheetContent side="right" className="sm:max-w-xs p-0 overflow-hidden flex flex-col">
-               <SheetHeader className="p-4 border-b text-right shrink-0">
-                 <SheetTitle>لوحة التحكم - {currentBranch.name}</SheetTitle>
-               </SheetHeader>
-               <div className="flex-1 overflow-hidden">
-                  <AdminNav isSheet={true} onTabChange={setActiveTab} activeTab={activeTab} isBranch={branchParam !== 'main'} />
-               </div>
+               <SheetHeader className="p-4 border-b text-right shrink-0"><SheetTitle>لوحة التحكم - {currentBranch.name}</SheetTitle></SheetHeader>
+               <div className="flex-1 overflow-hidden"><AdminNav isSheet={true} onTabChange={setActiveTab} activeTab={activeTab} isBranch={branchParam !== 'main'} /></div>
             </SheetContent>
           </Sheet>
           <div className="flex items-center gap-2">
@@ -173,15 +144,8 @@ function AdminLayoutContent() {
             <div className="text-xl font-black text-primary truncate max-w-[200px]">{currentBranch.name}</div>
           </div>
         </header>
-
         <main className="flex-1 relative overflow-hidden bg-muted/5">
-          <div 
-            className="spa-stack-container" 
-            style={{ 
-                transform: `translateX(${activeTab * 100}%)`,
-                transition: 'transform 0.1s cubic-bezier(0.16, 1, 0.3, 1)' 
-            }}
-          >
+          <div className="spa-stack-container" style={{ transform: `translateX(${activeTab * 100}%)`, transition: 'transform 0.1s cubic-bezier(0.16, 1, 0.3, 1)' }}>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDashboard branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminOrdersPage branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminProductsPage branchId={branchParam} /></ScrollArea></div>

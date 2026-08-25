@@ -5,7 +5,7 @@ import { useState, useEffect, useContext, useCallback } from 'react';
 import { BottomNav } from '@/components/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useAddresses } from '@/hooks/useAddresses';
-import { HardHat, Loader2, MapPin, AlertCircle, CheckCircle2, Navigation, User, Phone } from 'lucide-react';
+import { HardHat, Loader2, MapPin, AlertCircle, CheckCircle2, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -45,19 +45,16 @@ export default function MainAppLayout() {
   const { activeTab, syncUserByPhone } = context;
 
   useEffect(() => {
-    // إخفاء شاشة السبلاش بسرعة فائقة (لحظياً تقريباً)
-    const timer = setTimeout(() => setShowSplash(false), 150); 
+    // إخفاء السبلاش فوراً (لحظياً)
+    const timer = setTimeout(() => setShowSplash(false), 50); 
     return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
     if (!showSplash && !settings?.isMaintenanceMode) {
       const storedUserId = safeStorage.get('speedShopUserId');
-      const isNewUser = !storedUserId || (addresses.length === 0 && !safeStorage.get('speedShopSetupDone'));
-      
-      if (isNewUser) {
-        setShowAddressPrompt(true);
-      }
+      const isNewUser = !storedUserId && addresses.length === 0 && !safeStorage.get('speedShopSetupDone');
+      if (isNewUser) setShowAddressPrompt(true);
     }
   }, [showSplash, settings?.isMaintenanceMode, addresses.length]);
 
@@ -93,7 +90,6 @@ export default function MainAppLayout() {
       toast({ title: "يرجى إكمال البيانات والموقع", variant: "destructive" });
       return;
     }
-    
     setIsSaving(true);
     try {
         let currentDeviceId = safeStorage.get('speedShopDeviceId') || uuidv4();
@@ -105,33 +101,15 @@ export default function MainAppLayout() {
         if (!phoneSnap.empty) {
             const existingData = phoneSnap.docs[0].data();
             if (existingData.deviceId && existingData.deviceId !== currentDeviceId) {
-                toast({ 
-                    title: "عذراً، هذا الرقم موجود فعلاً", 
-                    description: "هذا الرقم مسجل مسبقاً على جهاز آخر. يرجى استخدام رقمك الخاص.", 
-                    variant: "destructive" 
-                });
-                setIsSaving(false); 
-                return;
+                toast({ title: "عذراً، هذا الرقم موجود فعلاً", description: "هذا الرقم مسجل مسبقاً على جهاز آخر.", variant: "destructive" });
+                setIsSaving(false); return;
             }
         }
-
         await syncUserByPhone(newAddr.phone);
-        await addAddress({ 
-            ...newAddr, 
-            latitude: newAddr.lat, 
-            longitude: newAddr.lng, 
-            deliveryZone: "عام", 
-            branchId: "main", 
-            deviceId: currentDeviceId 
-        } as any);
-        
+        await addAddress({ ...newAddr, latitude: newAddr.lat, longitude: newAddr.lng, deliveryZone: "عام", branchId: "main", deviceId: currentDeviceId } as any);
         safeStorage.set('speedShopSetupDone', 'true');
         setShowAddressPrompt(false);
-    } catch (e) { 
-        toast({ title: "خطأ في الاتصال بالسيرفر", variant: "destructive" }); 
-    } finally { 
-        setIsSaving(false); 
-    }
+    } catch (e) { toast({ title: "خطأ في الاتصال", variant: "destructive" }); } finally { setIsSaving(false); }
   };
 
   const content = (
@@ -157,13 +135,11 @@ export default function MainAppLayout() {
 
   return (
     <div className="h-[100dvh] w-full bg-background flex flex-col relative overflow-hidden">
-        {/* شاشة السبلاش كطبقة فوقية تتلاشى بدلاً من حجب المحتوى */}
         {showSplash && (
-            <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#00b358] z-[100] transition-opacity duration-300">
-                <h1 className="text-6xl font-black text-white italic animate-in zoom-in duration-200">Speed Shop</h1>
+            <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#00b358] z-[100] transition-opacity duration-200">
+                <h1 className="text-6xl font-black text-white italic animate-in zoom-in duration-150">Speed Shop</h1>
             </div>
         )}
-
         {isBlocked ? (
             <div className="flex h-full w-full flex-col items-center justify-center p-8 text-center bg-background">
               <AlertCircle className="h-20 w-20 text-destructive mb-6" />
@@ -174,7 +150,7 @@ export default function MainAppLayout() {
         ) : settings?.isMaintenanceMode ? (
             <div className="flex h-full w-full flex-col items-center justify-center p-10 text-center bg-background">
                 <HardHat className="h-20 w-20 text-primary mb-6 animate-bounce"/>
-                <h1 className="text-2xl font-black mb-4">المتجر في صيانة قصيرة</h1>
+                <h1 className="text-2xl font-black mb-4">المتجر في صيانة</h1>
                 <p className="font-bold">{settings.maintenanceMessage || "سنعود قريباً."}</p>
             </div>
         ) : content}
