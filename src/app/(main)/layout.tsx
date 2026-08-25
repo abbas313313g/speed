@@ -5,15 +5,13 @@ import { useState, useEffect, useContext, useCallback } from 'react';
 import { BottomNav } from '@/components/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useAddresses } from '@/hooks/useAddresses';
-import { HardHat, Loader2, MapPin, AlertCircle, CheckCircle2, Navigation, Ghost, User, Phone, Map } from 'lucide-react';
+import { HardHat, Loader2, MapPin, AlertCircle, CheckCircle2, Navigation, User, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { isLocationInAllowedZones, safeStorage } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { AppContext } from '@/contexts/AppContext';
-import { Separator } from '@/components/ui/separator';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
@@ -44,7 +42,7 @@ export default function MainAppLayout() {
   const [forceHideLoading, setForceHideLoading] = useState(false);
 
   if (!context) return null;
-  const { activeTab, syncUserByPhone, userId } = context;
+  const { activeTab, syncUserByPhone } = context;
 
   useEffect(() => {
     const timer = setTimeout(() => setForceHideLoading(true), 500); 
@@ -53,7 +51,6 @@ export default function MainAppLayout() {
 
   useEffect(() => {
     if (forceHideLoading && !settings?.isMaintenanceMode) {
-      // فحص إذا كان المستخدم جديداً كلياً (لا يوجد معرف ولا يوجد عناوين محملة)
       const storedUserId = safeStorage.get('speedShopUserId');
       const isNewUser = !storedUserId || (addresses.length === 0 && !safeStorage.get('speedShopSetupDone'));
       
@@ -101,7 +98,6 @@ export default function MainAppLayout() {
         let currentDeviceId = safeStorage.get('speedShopDeviceId') || uuidv4();
         safeStorage.set('speedShopDeviceId', currentDeviceId);
         
-        // فحص تكرار الرقم: هل الرقم مستخدم من قبل جهاز آخر؟
         const phoneQuery = query(collection(db, "addresses"), where("phone", "==", newAddr.phone), limit(1));
         const phoneSnap = await getDocs(phoneQuery);
         
@@ -118,7 +114,6 @@ export default function MainAppLayout() {
             }
         }
 
-        // إذا وصل هنا، يعني إما الرقم جديد أو تابع لنفس الجهاز
         await syncUserByPhone(newAddr.phone);
         await addAddress({ 
             ...newAddr, 
@@ -139,8 +134,8 @@ export default function MainAppLayout() {
   };
 
   const content = (
-    <div className="overflow-guard flex flex-col h-full w-full">
-      <main className="flex-1 relative z-0">
+    <div className="flex flex-col h-full w-full overflow-hidden">
+      <main className="flex-1 relative z-0 overflow-hidden">
         <div className="spa-stack-container" style={{ transform: `translateX(${activeTab * 100}%)` }}>
           <div className="spa-page-view"><HomePage /></div>
           <div className="spa-page-view"><RestaurantsPage /></div>
@@ -160,10 +155,9 @@ export default function MainAppLayout() {
   );
 
   return (
-    <div className="min-h-screen w-full bg-slate-100 flex justify-center items-center overflow-hidden">
-      <div className="w-full max-w-[480px] h-[100dvh] sm:h-[850px] flex flex-col bg-card shadow-2xl relative overflow-hidden sm:rounded-[3rem]">
+    <div className="h-[100dvh] w-full bg-background flex flex-col relative overflow-hidden">
         {!forceHideLoading ? (
-            <div className="flex h-full w-full flex-col items-center justify-center bg-[#00b358] z-[100]">
+            <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#00b358] z-[100]">
                 <h1 className="text-6xl font-black text-white italic animate-in zoom-in duration-200">Speed Shop</h1>
             </div>
         ) : isBlocked ? (
@@ -204,7 +198,6 @@ export default function MainAppLayout() {
                 </div>
             </SheetContent>
         </Sheet>
-      </div>
     </div>
   );
 }
