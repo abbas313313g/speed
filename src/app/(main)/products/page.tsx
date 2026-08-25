@@ -20,7 +20,7 @@ function ProductsPageContent() {
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [isAutoLoading, setIsAutoLoading] = useState(false);
 
-  // تحسين: التحميل الصارم (10 فقط) يبدأ عند دخول هذه الصفحة فقط
+  // تحسين: المنتجات لا يتم طلبها عالمياً، بل يتم استهلاك المتوفر في الـ Cache وسحب المزيد تدريجياً
   const { products } = useProducts();
   const { categories } = useCategories();
   const loaderRef = useRef<HTMLDivElement>(null);
@@ -47,7 +47,7 @@ function ProductsPageContent() {
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !isAutoLoading) {
           setIsAutoLoading(true);
-          // تأخير بسيط لمحاكاة جلب البيانات التدريجي
+          // تأخير بسيط لمحاكاة جلب البيانات التدريجي 10 بـ 10
           setTimeout(() => {
             setVisibleCount(prev => prev + ITEMS_PER_PAGE);
             setIsAutoLoading(false);

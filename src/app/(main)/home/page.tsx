@@ -54,7 +54,7 @@ export default function HomePage() {
   
   const setActiveTab = context?.setActiveTab || (() => {});
 
-  // تحسين: استخراج آخر 8 مبيعات حقيقية فقط للرئيسية لتقليل الجهد
+  // تحسين: استخراج آخر 8 مبيعات حقيقية فقط للرئيسية لتقليل الجهد ومنع استدعاء الكل
   const latestBestSellers = useMemo(() => {
     if (!allOrders.length || !products.length) return [];
     
@@ -130,7 +130,7 @@ export default function HomePage() {
         </ScrollArea>
       </section>
       
-      {/* الأكثر مبيعاً - 8 منتجات فقط */}
+      {/* الأكثر مبيعاً - 8 منتجات حقيقية فقط بناءً على المبيعات */}
       {latestBestSellers.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center justify-between px-1">
@@ -149,7 +149,7 @@ export default function HomePage() {
           </section>
       )}
 
-      {/* أشهر المتاجر - 8 متاجر فقط */}
+      {/* أشهر المتاجر - 8 متاجر فقط لتقليل حمل التحميل */}
       <section>
          <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-2xl font-black">أشهر المتاجر</h2>

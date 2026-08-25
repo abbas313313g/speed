@@ -5,7 +5,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useAddresses } from '@/hooks/useAddresses';
 import { useBanners } from '@/hooks/useBanners';
-import { useCategories } from '@/hooks/useCategories';
+import { useRestaurants } from '@/hooks/useRestaurants';
 import { HardHat, Loader2, MapPin, AlertCircle, CheckCircle2, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,8 +33,8 @@ export default function MainAppLayout() {
   const context = useContext(AppContext);
   const { settings } = useAppSettings();
   const { addresses, addAddress } = useAddresses();
-  const { banners } = useBanners();
-  const { categories } = useCategories();
+  const { banners, isLoading: bannersLoading } = useBanners();
+  const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
   const { toast } = useToast();
   
   const [showAddressPrompt, setShowAddressPrompt] = useState(false);
@@ -47,11 +47,18 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, syncUserByPhone } = context;
 
-  // نظام إخفاء السبلاش الذكي: توقيت ثابت وقصير جداً لا ينتظر البيانات
+  // نظام إخفاء السبلاش الاحترافي: ينتظر بيانات الرئيسية فقط ولا يهتم بالمنتجات
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 800); 
-    return () => clearTimeout(timer);
-  }, []);
+    const isDataReady = banners.length > 0 || restaurants.length > 0;
+    const fallbackTimer = setTimeout(() => setShowSplash(false), 2000); // حد أقصى ثانيتين في حال فشل النت
+
+    if (isDataReady) {
+        const timer = setTimeout(() => setShowSplash(false), 800); 
+        return () => clearTimeout(timer);
+    }
+    
+    return () => clearTimeout(fallbackTimer);
+  }, [banners, restaurants]);
 
   useEffect(() => {
     if (!showSplash && !settings?.isMaintenanceMode) {
