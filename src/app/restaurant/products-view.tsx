@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, compressImage } from '@/lib/utils';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import type { ProductSize } from '@/lib/types';
@@ -21,13 +21,13 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
     const context = useContext(RestaurantContext);
     const { toast } = useToast();
     
-    // جلب منتجات المطعم الحالي فقط لضمان السرعة والظهور المستقل
     const { products, addProduct, updateProduct, deleteProduct, isLoading: pLoading } = useProducts(undefined, context?.restaurant?.id);
 
     const [isDialogOpen, setIsAdding] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isCompressing, setIsCompressing] = useState(false);
     const [currentP, setCurrentP] = useState({ 
         id: '', name: '', description: '', price: 0, image: '', categoryId: '', 
         storeSectionId: '', stock: 10, isActive: true, isUnlimitedStock: false, sizes: [] as ProductSize[]
@@ -41,8 +41,13 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
     const handleImg = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            setIsCompressing(true);
             const reader = new FileReader();
-            reader.onloadend = () => setCurrentP({ ...currentP, image: reader.result as string });
+            reader.onloadend = async () => {
+                const compressed = await compressImage(reader.result as string);
+                setCurrentP({ ...currentP, image: compressed });
+                setIsCompressing(false);
+            };
             reader.readAsDataURL(file);
         }
     };
@@ -124,15 +129,18 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                     <div className="space-y-4 p-4 text-right">
                         <div className="space-y-1"><Label>اسم الوجبة</Label><Input value={currentP.name} onChange={(e)=>setCurrentP({...currentP, name: e.target.value})} className="h-11 rounded-xl" /></div>
                         <div className="space-y-2">
-                            <Label>صورة الوجبة</Label>
-                            <Button type="button" variant="outline" className="w-full h-12 rounded-xl" onClick={()=>fileRef.current?.click()}><Upload className="h-4 w-4 ml-2"/> ارفع صورة</Button>
+                            <Label>صورة الوجبة (ضغط تلقائي ⚡)</Label>
+                            <Button type="button" variant="outline" className="w-full h-12 rounded-xl" onClick={()=>fileRef.current?.click()} disabled={isCompressing}>
+                                {isCompressing ? <Loader2 className="animate-spin h-4 w-4 ml-2"/> : <Upload className="h-4 w-4 ml-2"/>}
+                                {isCompressing ? "جاري ضغط الصورة..." : "ارفع صورة"}
+                            </Button>
                             <input type="file" ref={fileRef} className="hidden" onChange={handleImg} accept="image/*" />
                             {currentP.image && <div className="relative aspect-video rounded-xl overflow-hidden mt-2 border"><Image src={currentP.image} fill className="object-cover" alt="preview" unoptimized={true}/></div>}
                         </div>
                         <div className="space-y-1"><Label>السعر</Label><Input type="number" value={currentP.price || ''} onChange={(e)=>setCurrentP({...currentP, price: parseFloat(e.target.value)})} className="h-11 rounded-xl" /></div>
                     </div>
                     <DialogFooter className="p-4">
-                        <Button onClick={handleSave} disabled={isProcessing} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl">
+                        <Button onClick={handleSave} disabled={isProcessing || isCompressing} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl">
                             {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : (isEditing ? 'حفظ التعديلات' : 'نشر الوجبة')}
                         </Button>
                     </DialogFooter>

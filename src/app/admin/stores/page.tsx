@@ -42,6 +42,7 @@ import { useRestaurants } from '@/hooks/useRestaurants';
 import { useCategories } from '@/hooks/useCategories';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { compressImage } from '@/lib/utils';
 
 const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     restaurantNumber: '',
@@ -68,6 +69,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentStore, setCurrentStore] = useState<Partial<Restaurant> & {image?:string}>({ ...EMPTY_STORE });
   const [isSaving, setIsSaving] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [newSection, setNewSection] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -86,13 +88,12 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 800000) {
-          toast({ title: "الصورة كبيرة", description: "يرجى اختيار صورة أصغر من 800 كيلوبايت لضمان سرعة التحميل.", variant: "destructive" });
-          return;
-      }
+      setIsCompressing(true);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setCurrentStore({ ...currentStore, image: reader.result as string });
+      reader.onloadend = async () => {
+        const compressed = await compressImage(reader.result as string);
+        setCurrentStore({ ...currentStore, image: compressed });
+        setIsCompressing(false);
       };
       reader.readAsDataURL(file);
     }
@@ -162,7 +163,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
       <header className="flex justify-between items-center">
         <div>
             <h1 className="text-3xl font-black text-primary">إدارة المتاجر</h1>
-            <p className="text-muted-foreground font-bold">إضافة وتعديل بيانات المتاجر والمواقع والعمولات.</p>
+            <p className="text-muted-foreground font-bold">اللوغويات تُضغط تلقائياً لتوفير مساحة Firestore.</p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="rounded-xl h-12 px-6 font-bold shadow-lg">
             إضافة متجر جديد
@@ -194,9 +195,10 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="font-bold">لوغو المتجر (رفع مباشر)</Label>
-                    <Button type="button" variant="outline" className="w-full h-14 rounded-xl font-black gap-2 border-primary/40 text-primary" onClick={() => fileInputRef.current?.click()}>
-                        <Upload className="h-5 w-5" /> اختيار لوغو المتجر
+                    <Label className="font-bold">لوغو المتجر (ضغط تلقائي ⚡)</Label>
+                    <Button type="button" variant="outline" className="w-full h-14 rounded-xl font-black gap-2 border-primary/40 text-primary" onClick={() => fileInputRef.current?.click()} disabled={isCompressing}>
+                        {isCompressing ? <Loader2 className="animate-spin h-5 w-5 ml-2"/> : <Upload className="h-5 w-5" />}
+                        {isCompressing ? "جاري الضغط والمعالجة..." : "اختيار لوغو المتجر"}
                     </Button>
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                     {currentStore.image && (
@@ -258,7 +260,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                 </div>
             </div>
             <DialogFooter>
-                <Button onClick={handleSave} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl" disabled={isSaving}>
+                <Button onClick={handleSave} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl" disabled={isSaving || isCompressing}>
                     {isSaving ? <Loader2 className="animate-spin h-6 w-6" /> : "حفظ المتجر بالبيانات الجديدة"}
                 </Button>
             </DialogFooter>

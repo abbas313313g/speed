@@ -39,7 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, compressImage } from '@/lib/utils';
 import Image from 'next/image';
 import { Edit, Trash2, PlusCircle, Upload, Search } from 'lucide-react';
 import type { Product } from '@/lib/types';
@@ -78,6 +78,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Partial<Product> & {image?: string}>({ ...EMPTY_PRODUCT });
   const [isSaving, setIsSaving] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStoreId, setFilterStoreId] = useState('all');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -112,17 +113,20 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setIsCompressing(true);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setCurrentProduct({ ...currentProduct, image: reader.result as string });
+      reader.onloadend = async () => {
+        const compressed = await compressImage(reader.result as string);
+        setCurrentProduct({ ...currentProduct, image: compressed });
+        setIsCompressing(false);
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleSaveProduct = async () => {
-    if (!currentProduct.name || !currentProduct.restaurantId) {
-        toast({ title: "بيانات ناقصة", variant: "destructive" });
+    if (!currentProduct.name || !currentProduct.restaurantId || !currentProduct.image) {
+        toast({ title: "بيانات ناقصة", description: "يرجى إكمال الاسم والمتجر والصورة", variant: "destructive" });
         return;
     }
     setIsSaving(true);
@@ -143,7 +147,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
       <header className="flex justify-between items-start">
         <div>
             <h1 className="text-3xl font-black text-primary">إدارة المنتجات</h1>
-            <p className="text-muted-foreground font-bold">تعديل فوري ومباشر للمنيو.</p>
+            <p className="text-muted-foreground font-bold">الصور تُضغط تلقائياً لتوفير مساحة Firestore.</p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="rounded-xl h-12 px-6 font-bold shadow-lg gap-2">
             <PlusCircle className="h-5 w-5" /> إضافة منتج
@@ -208,9 +212,10 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="font-bold">صورة المنتج</Label>
-                        <Button type="button" variant="outline" className="w-full h-12 rounded-xl" onClick={() => fileInputRef.current?.click()}>
-                            <Upload className="ml-2 h-4 w-4" /> رفع صورة
+                        <Label className="font-bold">صورة المنتج (ضغط تلقائي ⚡)</Label>
+                        <Button type="button" variant="outline" className="w-full h-12 rounded-xl" onClick={() => fileInputRef.current?.click()} disabled={isCompressing}>
+                            {isCompressing ? <Loader2 className="animate-spin h-5 w-5 ml-2"/> : <Upload className="ml-2 h-4 w-4" />}
+                            {isCompressing ? "جاري المعالجة والضغط..." : "رفع صورة"}
                         </Button>
                         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                         {currentProduct.image && (
@@ -222,7 +227,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                 </div>
 
                 <DialogFooter className="p-4">
-                    <Button onClick={handleSaveProduct} disabled={isSaving} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl">
+                    <Button onClick={handleSaveProduct} disabled={isSaving || isCompressing} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl">
                         {isSaving ? <Loader2 className="animate-spin h-6 w-6"/> : "حفظ المنتج"}
                     </Button>
                 </DialogFooter>

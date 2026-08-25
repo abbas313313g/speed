@@ -45,6 +45,7 @@ import {
 import { useBanners } from '@/hooks/useBanners';
 import { useProducts } from '@/hooks/useProducts';
 import { useRestaurants } from '@/hooks/useRestaurants';
+import { compressImage } from '@/lib/utils';
 
 
 const EMPTY_BANNER: Partial<Banner> & { image: string } = {
@@ -55,12 +56,11 @@ const EMPTY_BANNER: Partial<Banner> & { image: string } = {
 
 export default function AdminBannersPage() {
   const { banners, isLoading: bannersLoading, addBanner, updateBanner, deleteBanner } = useBanners();
-  const { products, isLoading: productsLoading } = useProducts();
-  const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
   const { toast } = useToast();
   
   const [open, setOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentBanner, setCurrentBanner] = useState<Partial<Banner> & { image?: string }>({ ...EMPTY_BANNER });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -79,13 +79,12 @@ export default function AdminBannersPage() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 800000) {
-        toast({ title: "الصورة كبيرة جداً", variant: "destructive" });
-        return;
-      }
+      setIsCompressing(true);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setCurrentBanner({ ...currentBanner, image: reader.result as string });
+      reader.onloadend = async () => {
+        const compressed = await compressImage(reader.result as string, 1200, 0.6); // ضغط أكبر للبنرات لأنها عريضة
+        setCurrentBanner({ ...currentBanner, image: compressed });
+        setIsCompressing(false);
       };
       reader.readAsDataURL(file);
     }
@@ -118,7 +117,7 @@ export default function AdminBannersPage() {
       <header className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">إدارة البنرات</h1>
-          <p className="text-muted-foreground">تحميل صور العروض مباشرة في قاعدة البيانات.</p>
+          <p className="text-muted-foreground">البنرات تُضغط تلقائياً لتقليل استهلاك مساحة قاعدة البيانات.</p>
         </div>
         <Button onClick={() => handleOpenDialog()}>إضافة بنر</Button>
       </header>
@@ -130,9 +129,10 @@ export default function AdminBannersPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4 text-right">
              <div className="space-y-2">
-              <Label>صورة الإعلان (رفع مباشر)</Label>
-              <Button type="button" variant="outline" className="w-full h-14 rounded-xl border-dashed" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="ml-2 h-4 w-4"/> اختر من الملفات
+              <Label>صورة الإعلان (ضغط تلقائي ⚡)</Label>
+              <Button type="button" variant="outline" className="w-full h-14 rounded-xl border-dashed" onClick={() => fileInputRef.current?.click()} disabled={isCompressing}>
+                  {isCompressing ? <Loader2 className="animate-spin h-4 w-4 ml-2"/> : <Upload className="ml-2 h-4 w-4"/>}
+                  {isCompressing ? "جاري ضغط الصورة..." : "اختر من الملفات"}
               </Button>
               <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
             </div>
@@ -154,7 +154,7 @@ export default function AdminBannersPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleSave} disabled={isSaving} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl">
+            <Button onClick={handleSave} disabled={isSaving || isCompressing} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl">
               {isSaving ? <Loader2 className="animate-spin h-5 w-5" /> : 'حفظ البنر'}
             </Button>
           </DialogFooter>

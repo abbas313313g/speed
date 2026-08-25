@@ -43,18 +43,12 @@ export const isLocationInAllowedZones = (lat: number, lng: number) => {
         const babilSouthCenterLat = 32.3333;
         const babilSouthCenterLng = 44.6500;
         const dist = calculateDistance(lat, lng, babilSouthCenterLat, babilSouthCenterLng);
-        return dist <= 22; // زيادة النطاق قليلاً لضمان عدم حظر الزبائن عن الخطأ
+        return dist <= 22; 
     } catch (e) {
         return true;
     }
 }
 
-/**
- * حساب سعر التوصيل المطور:
- * الـ 1000 دينار هي الحد الأدنى وتغطي أول 3 كم.
- * ما زاد عن 3 كم يتم احتسابه (1000 دينار لكل 3 كم إضافية).
- * التقريب لأقرب 250 دينار.
- */
 export const calculateDeliveryFee = (distanceInKm: number) => {
     const minFee = 1000;
     const includedDistance = 3; 
@@ -96,4 +90,34 @@ export const safeStorage = {
             }
         } catch (e) {}
     }
+};
+
+/**
+ * وظيفة ضغط الصور لتقليل استهلاك مساحة Firestore
+ * تحول الصورة إلى WebP أو JPEG بجودة منخفضة وحجم أصغر
+ */
+export const compressImage = async (base64: string, maxWidth = 800, quality = 0.6): Promise<string> => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.src = base64;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxWidth) {
+                height = (maxWidth / width) * height;
+                width = maxWidth;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, width, height);
+            
+            // نستخدم jpeg لأنه الأكثر توافقاً والأقل حجماً عند الضغط العالي
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => resolve(base64); // في حال الفشل نرجع الأصل
+    });
 };
