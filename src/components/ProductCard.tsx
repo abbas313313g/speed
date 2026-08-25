@@ -100,7 +100,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
       <Card className="overflow-hidden border-none shadow-md rounded-[1.5rem] bg-card w-full">
         <CardContent className="p-0">
           <div className="relative w-full aspect-square overflow-hidden bg-muted/5">
-            {product.image && (
+            {product.image ? (
                 <Image
                   src={product.image}
                   alt={product.name}
@@ -110,6 +110,8 @@ function ProductCardComponent({ product }: ProductCardProps) {
                   loading="lazy"
                   decoding="async"
                 />
+            ) : (
+                <div className="w-full h-full bg-muted/10 animate-pulse" />
             )}
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 z-10">نفد</Badge>}
             {!restaurant?.isStoreOpen && <Badge variant="destructive" className="absolute top-2 left-2 text-[10px] z-10">مغلق</Badge>}

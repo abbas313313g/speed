@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { ProductCard } from "@/components/ProductCard";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
-import { Search, PackageOpen } from 'lucide-react';
+import { Search, PackageOpen, Loader2 } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 
@@ -17,7 +17,7 @@ function ProductsPageContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState(initialCategory);
 
-  const { products } = useProducts();
+  const { products, isLoading } = useProducts();
   const { categories } = useCategories();
 
   const filteredProducts = useMemo(() => {
@@ -35,7 +35,7 @@ function ProductsPageContent() {
   }, [products, activeTab, searchTerm]);
   
   return (
-    <div className="p-4 pb-40">
+    <div className="p-4 pb-40 animate-in fade-in duration-500">
       <header className="mb-6 space-y-4">
         <div>
           <h1 className="text-3xl font-black text-primary">كل المنتجات</h1>
@@ -80,10 +80,15 @@ function ProductsPageContent() {
                         <ProductCard key={product.id} product={product} />
                     ))}
                 </div>
+            ) : isLoading ? (
+                <div className="text-center py-20 bg-muted/5 rounded-[2.5rem] border-2 border-dashed flex flex-col items-center justify-center">
+                    <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
+                    <p className="text-primary font-black animate-pulse text-lg">جارِ البحث عن الوجبات...</p>
+                </div>
             ) : (
                 <div className="text-center py-20 bg-muted/5 rounded-[2.5rem] border-2 border-dashed">
                     <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
-                    <p className="text-muted-foreground font-black">لا توجد منتجات حالياً.</p>
+                    <p className="text-muted-foreground font-black">لا توجد منتجات حالياً في هذا القسم.</p>
                 </div>
             )}
         </div>
