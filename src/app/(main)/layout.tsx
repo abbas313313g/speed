@@ -5,9 +5,7 @@ import { useState, useEffect, useContext } from 'react';
 import { BottomNav } from '@/components/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useAddresses } from '@/hooks/useAddresses';
-import { useBanners } from '@/hooks/useBanners';
-import { useRestaurants } from '@/hooks/useRestaurants';
-import { HardHat, Loader2, MapPin, AlertCircle, CheckCircle2, Navigation } from 'lucide-react';
+import { HardHat, AlertCircle, Navigation, MapPin, Loader2, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -34,8 +32,6 @@ export default function MainAppLayout() {
   const context = useContext(AppContext);
   const { settings } = useAppSettings();
   const { addresses, addAddress } = useAddresses();
-  const { banners } = useBanners();
-  const { restaurants } = useRestaurants();
   const { toast } = useToast();
   
   const [showAddressPrompt, setShowAddressPrompt] = useState(false);
@@ -46,9 +42,9 @@ export default function MainAppLayout() {
   const [showSplash, setShowSplash] = useState(true);
 
   if (!context) return null;
-  const { activeTab, syncUserByPhone, isMainDataReady } = context;
+  const { activeTab, syncUserByPhone } = context;
 
-  // السبلاش يختفي فوراً بعد 300 ملي ثانية لضمان إقلاع صاروخي
+  // السبلاش يختفي فوراً بعد 300 ملي ثانية (وقت حركة الختم فقط) لضمان إقلاع صاروخي
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 300); 
     return () => clearTimeout(timer);
@@ -152,6 +148,7 @@ export default function MainAppLayout() {
             <div className="flex h-full w-full flex-col items-center justify-center p-10 text-center bg-background">
                 <HardHat className="h-20 w-20 text-primary mb-6 animate-bounce"/>
                 <h1 className="text-2xl font-black mb-4">المتجر في صيانة</h1>
+                <p className="text-muted-foreground font-bold">{settings.maintenanceMessage || 'سنعود قريباً جداً!'}</p>
             </div>
         ) : content}
 
