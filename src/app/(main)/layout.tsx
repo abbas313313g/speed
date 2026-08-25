@@ -51,11 +51,11 @@ export default function MainAppLayout() {
   // نظام إخفاء السبلاش الاحترافي: ينتظر بيانات الرئيسية فقط (البنرات والمتاجر)
   useEffect(() => {
     const isMainDataReady = banners.length > 0 || restaurants.length > 0;
-    const fallbackTimer = setTimeout(() => setShowSplash(false), 2000); 
+    const fallbackTimer = setTimeout(() => setShowSplash(false), 1500); 
 
     if (isMainDataReady) {
-        // بمجرد توفر البيانات، ننتظر قليلاً لانتهاء حركة الختم
-        const timer = setTimeout(() => setShowSplash(false), 600); 
+        // بمجرد توفر البيانات الأساسية للواجهة، نغلق السبلاش
+        const timer = setTimeout(() => setShowSplash(false), 500); 
         return () => clearTimeout(timer);
     }
     

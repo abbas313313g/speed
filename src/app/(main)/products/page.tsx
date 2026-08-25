@@ -21,7 +21,7 @@ function ProductsPageContent() {
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [isAutoLoading, setIsAutoLoading] = useState(false);
 
-  // المنتجات لا يتم طلبها عالمياً، بل يتم استهلاك المتوفر في الـ Cache وسحب المزيد تدريجياً
+  // المنتجات لا يتم طلبها عالمياً لخدمة صفحة الرئيسية، بل لكل صفحة طلبها الخاص
   const { products } = useProducts();
   const { categories } = useCategories();
   const loaderRef = useRef<HTMLDivElement>(null);
@@ -48,14 +48,14 @@ function ProductsPageContent() {
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !isAutoLoading) {
           setIsAutoLoading(true);
-          // تأخير بسيط لمحاكاة جلب البيانات التدريجي 10 بـ 10
+          // تأخير بسيط لمحاكاة جلب البيانات التدريجي 10 بـ 10 بالملي
           setTimeout(() => {
             setVisibleCount(prev => prev + ITEMS_PER_PAGE);
             setIsAutoLoading(false);
-          }, 400);
+          }, 300);
         }
       },
-      { threshold: 0.1, rootMargin: '100px' }
+      { threshold: 0.1, rootMargin: '50px' }
     );
 
     if (loaderRef.current) observer.observe(loaderRef.current);
@@ -100,16 +100,16 @@ function ProductsPageContent() {
             </div>
 
             {hasMore && (
-                <div ref={loaderRef} className="py-12 flex flex-col items-center justify-center gap-2">
+                <div ref={loaderRef} className="py-10 flex flex-col items-center justify-center gap-2">
                     <Loader2 className="h-7 w-7 animate-spin text-primary opacity-50" />
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">جارِ جلب المزيد...</p>
                 </div>
             )}
 
-            {filteredProducts.length === 0 && (
+            {filteredProducts.length === 0 && products.length > 0 && (
                 <div className="text-center py-20 bg-muted/5 rounded-[2.5rem] border-2 border-dashed">
                     <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
-                    <p className="text-muted-foreground font-black">لا توجد نتائج حالياً.</p>
+                    <p className="text-muted-foreground font-black">لا توجد نتائج مطابقة لبحثك.</p>
                 </div>
             )}
         </div>

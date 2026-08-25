@@ -56,6 +56,7 @@ export default function HomePage() {
   const setActiveTab = context?.setActiveTab || (() => {});
 
   // الأكثر مبيعاً: آخر 8 وجبات حقيقية فقط بناءً على الطلبات المسلمة
+  // لا يمنع الصفحة من الظهور إذا لم يتوفر بعد
   const latestBestSellers = useMemo(() => {
     if (!allOrders.length || !products.length) return [];
     
@@ -89,7 +90,7 @@ export default function HomePage() {
         <p className="text-muted-foreground text-lg font-bold">أسرع توصيل في منطقتك!</p>
       </header>
 
-      {/* البنرات */}
+      {/* البنرات - تظهر فوراً */}
       <section className="min-h-[160px] relative">
         <Carousel className="w-full" opts={{ loop: true, direction: 'rtl' }} plugins={[plugin.current]}>
             <CarouselContent>
@@ -100,7 +101,7 @@ export default function HomePage() {
         </Carousel>
       </section>
 
-      {/* الأقسام */}
+      {/* الأقسام - تظهر فوراً */}
       <section>
         <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-2xl font-black">الأقسام</h2>
@@ -131,7 +132,7 @@ export default function HomePage() {
         </ScrollArea>
       </section>
       
-      {/* الأكثر مبيعاً */}
+      {/* الأكثر مبيعاً - يظهر فقط عند توفر البيانات */}
       {latestBestSellers.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center justify-between px-1">
@@ -150,7 +151,7 @@ export default function HomePage() {
           </section>
       )}
 
-      {/* أشهر المتاجر */}
+      {/* أشهر المتاجر - تظهر فوراً */}
       <section>
          <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-2xl font-black">أشهر المتاجر</h2>
