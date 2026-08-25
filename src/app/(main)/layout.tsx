@@ -47,14 +47,11 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, syncUserByPhone } = context;
 
-  // نظام إخفاء السبلاش الذكي: فقط عندما تتوفر البيانات الأساسية للرئيسية
+  // نظام إخفاء السبلاش الذكي: توقيت ثابت وقصير جداً لا ينتظر البيانات
   useEffect(() => {
-    const isDataReady = banners.length > 0 || categories.length > 0;
-    if (isDataReady) {
-        const timer = setTimeout(() => setShowSplash(false), 800); 
-        return () => clearTimeout(timer);
-    }
-  }, [banners.length, categories.length]);
+    const timer = setTimeout(() => setShowSplash(false), 800); 
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!showSplash && !settings?.isMaintenanceMode) {
