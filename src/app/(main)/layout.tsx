@@ -42,9 +42,9 @@ export default function MainAppLayout() {
   const [showSplash, setShowSplash] = useState(true);
 
   if (!context) return null;
-  const { activeTab, syncUserByPhone, isMainDataReady } = context;
+  const { activeTab, syncUserByPhone } = context;
 
-  // السبلاش يختفي فوراً بعد 500 ملي ثانية لضمان ظهور الختم وسرعة الإقلاع
+  // إقلاع فوري: السبلاش يختفي بعد 500 ملي ثانية فقط لضمان سرعة الوصول للواجهة
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 500); 
     return () => clearTimeout(timer);

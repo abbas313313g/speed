@@ -31,7 +31,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -42,12 +41,10 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils';
 import Image from 'next/image';
-import { Edit, Trash2, PlusCircle, X, Upload, Search } from 'lucide-react';
-import type { Product, ProductSize } from '@/lib/types';
+import { Edit, Trash2, PlusCircle, Upload, Search } from 'lucide-react';
+import type { Product } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Separator } from '@/components/ui/separator';
-import { Textarea } from '@/components/ui/textarea';
 import React from 'react';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
@@ -72,7 +69,7 @@ const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
 };
 
 export default function AdminProductsPage({ branchId }: { branchId: string }) {
-  const { products, isLoading: productsLoading, addProduct, updateProduct, deleteProduct } = useProducts(branchId);
+  const { products, addProduct, updateProduct, deleteProduct } = useProducts(branchId);
   const { categories } = useCategories();
   const { restaurants } = useRestaurants(branchId);
   const { toast } = useToast();
@@ -93,10 +90,6 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
     });
   }, [products, searchTerm, filterStoreId]);
 
-  const selectedStoreData = useMemo(() => {
-    return restaurants.find(r => r.id === currentProduct.restaurantId);
-  }, [currentProduct.restaurantId, restaurants]);
-
   const handleOpenDialog = (product?: Product) => {
     if (product) {
         setIsEditing(true);
@@ -110,7 +103,6 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
             branchId: branchId || 'main',
             restaurantId: defaultStoreId,
             categoryId: storeObj?.categoryId || '',
-            storeSectionId: '',
             sizes: []
         });
     }
@@ -223,7 +215,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                         {currentProduct.image && (
                             <div className="relative w-full aspect-video rounded-2xl overflow-hidden border-2 mt-2">
-                                <Image src={currentProduct.image} fill className="object-contain" alt="preview" unoptimized={true}/>
+                                <Image src={currentProduct.image} fill className="object-contain" alt="preview" unoptimized={true} decoding="async" />
                             </div>
                         )}
                     </div>
@@ -251,7 +243,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
               {filteredProducts.map((p) => (
                 <TableRow key={p.id} className="animate-in fade-in duration-200">
                   <TableCell>
-                    <div className="relative h-12 w-12"><Image src={p.image} fill className="rounded-xl object-cover border" alt="" unoptimized={true} /></div>
+                    <div className="relative h-12 w-12"><Image src={p.image} fill className="rounded-xl object-cover border" alt="" unoptimized={true} decoding="async" /></div>
                   </TableCell>
                   <TableCell className="font-bold">{p.name}</TableCell>
                   <TableCell className="font-black text-primary text-xs">{formatCurrency(p.price)}</TableCell>

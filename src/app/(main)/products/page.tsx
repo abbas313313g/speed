@@ -21,7 +21,7 @@ function ProductsPageContent() {
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [isAutoLoading, setIsAutoLoading] = useState(false);
 
-  // جلب المنتجات بدون حجب الواجهة
+  // جلب المنتجات بشكل تدريجي (10 في 10)
   const { products } = useProducts();
   const { categories } = useCategories();
   const loaderRef = useRef<HTMLDivElement>(null);

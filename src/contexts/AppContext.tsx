@@ -52,8 +52,8 @@ export const AppContext = createContext<AppContextType | null>(null);
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
     const { products } = useProducts();
-    const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
-    const { banners, isLoading: bannersLoading } = useBanners();
+    const { restaurants } = useRestaurants();
+    const { banners } = useBanners();
     const { supportTickets, createSupportTicket: createTicketHook } = useSupportTickets();
     const { coupons } = useCoupons();
 
@@ -66,9 +66,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
 
-    // الركيزة الأساسية للجاهزية: المتاجر والبنرات فقط (بيانات الرئيسية)
-    // لاحظ أننا لا ننتظر المنتجات هنا نهائياً
-    const isMainDataReady = !restaurantsLoading && !bannersLoading;
+    // الركيزة الأساسية للجاهزية: فورية لضمان عدم حظر الواجهة
+    const isMainDataReady = true;
 
     useEffect(() => {
         try {
@@ -102,8 +101,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [activeTab]);
 
     useEffect(() => { 
-        if (isMainDataReady) safeStorage.set('speedShopCart', JSON.stringify(cart)); 
-    }, [cart, isMainDataReady]);
+        safeStorage.set('speedShopCart', JSON.stringify(cart)); 
+    }, [cart]);
 
     const syncUserByPhone = useCallback(async (phone: string): Promise<string | null> => {
         if (!phone) return null;
@@ -217,10 +216,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [userId, cart, coupons, restaurants, cartTotal, clearCart, toast]);
     
     const value = useMemo(() => ({
-        isLoading: restaurantsLoading || bannersLoading, isMainDataReady, placeOrder, createSupportTicket, addMessageToTicket, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
+        isLoading: false, isMainDataReady, placeOrder, createSupportTicket, addMessageToTicket, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal,
         userId, addresses, addAddress, deleteAddress, mySupportTicket, startNewTicketClient, activeTab, previousTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId,
         filteredRestaurants, filteredProducts, syncUserByPhone
-    }), [restaurantsLoading, bannersLoading, isMainDataReady, cart, addresses, userId, mySupportTicket, activeTab, previousTab, filteredRestaurants, filteredProducts, setActiveTab, placeOrder, createSupportTicket, addMessageToTicket, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, addAddress, deleteAddress, startNewTicketClient, setSelectedProductId, setSelectedRestaurantId, syncUserByPhone]);
+    }), [isMainDataReady, cart, addresses, userId, mySupportTicket, activeTab, previousTab, filteredRestaurants, filteredProducts, setActiveTab, placeOrder, createSupportTicket, addMessageToTicket, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, addAddress, deleteAddress, startNewTicketClient, setSelectedProductId, setSelectedRestaurantId, syncUserByPhone]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
