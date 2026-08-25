@@ -27,6 +27,7 @@ import {
   CheckCircle,
   Fingerprint,
   GitBranch,
+  LayoutDashboard
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -39,6 +40,7 @@ import { useAdminAccess } from "@/hooks/useAdminAccess";
 
 const navItems = [
   { index: 0, label: "لوحة التحكم", icon: Home },
+  { index: 17, label: "تخصيص الواجهة", icon: LayoutDashboard, mainOnly: true },
   { index: 1, label: "الطلبات", icon: ShoppingCart },
   { index: 2, label: "المنتجات", icon: Package },
   { index: 14, label: "موافقات المنتجات", icon: CheckCircle, notificationKey: 'pendingProducts' },

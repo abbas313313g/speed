@@ -31,6 +31,7 @@ import AdminSettingsPage from './settings/page';
 import AdminApprovalsPage from './approvals/page';
 import AdminAccessPage from './access-requests/page';
 import AdminBranchesPage from './branches/page';
+import HomeSettingsPage from './home-settings/page';
 
 const ADMIN_PIN = "31344313";
 
@@ -163,6 +164,7 @@ function AdminLayoutContent() {
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminApprovalsPage branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminAccessPage branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminBranchesPage /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><HomeSettingsPage /></ScrollArea></div>
           </div>
         </main>
       </div>
