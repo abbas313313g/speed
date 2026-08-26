@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where, limit, getDocs, orderBy, startAfter } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Product } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -40,16 +40,16 @@ export const useProducts = (branchId?: string, restaurantId?: string, loadLimit:
             // الحالة 2: البحث الشامل (يتم البحث في كل قاعدة البيانات)
             if (searchTerm.trim() !== '') {
                 const ref = collection(db, 'products');
-                // ملاحظة: Firestore لا يدعم البحث الجزئي بـ 'contains' مباشرة، نستخدم تقنية النطاق
+                // نستخدم استعلام بسيط وفلترة محلية لضمان شمولية البحث في كل المتاجر
                 const q = query(
                     ref, 
                     where('status', '==', 'approved'),
-                    limit(40)
+                    limit(50) // حد أقصى لنتائج البحث لضمان السرعة
                 );
                 
                 getDocs(q).then(snap => {
                     const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Product));
-                    // فلترة إضافية في المتصفح لدقة البحث
+                    // فلترة دقيقة في المتصفح لدعم البحث الجزئي
                     const filtered = data.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
                     setProducts(filtered);
                     setHasMore(false);

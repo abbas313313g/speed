@@ -55,7 +55,11 @@ function ProductsPageContent() {
                 if (queueRef.current.length > 0) {
                     const itemToAdd = queueRef.current.shift();
                     if (itemToAdd) {
-                        setDisplayedProducts(prev => [...prev, itemToAdd]);
+                        setDisplayedProducts(prev => {
+                            // فحص أمان إضافي لمنع تكرار الـ ID في الحالة
+                            if (prev.some(p => p.id === itemToAdd.id)) return prev;
+                            return [...prev, itemToAdd];
+                        });
                     }
                 } else {
                     isProcessingQueue.current = false;
@@ -64,7 +68,7 @@ function ProductsPageContent() {
             }, 60); // سرعة الظهور (60 ملي ثانية) لكل وجبة لتظهر واحدة تلو الأخرى
         }
     }
-  }, [filteredProducts]);
+  }, [filteredProducts, displayedProducts.length]);
 
   // تصفير القائمة عند البحث أو تغيير القسم لبدء "واحد واحد" من جديد
   useEffect(() => {
