@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useMemo, useContext, useState } from 'react';
+import { useMemo, useContext, useState, useEffect } from 'react';
 import { ProductCard } from '@/components/ProductCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
@@ -23,13 +23,13 @@ export default function RestaurantProductsPage() {
   if (!context) return null;
   const { selectedRestaurantId, setActiveTab } = context;
 
-  // جلب منتجات هذا المطعم فقط (تحميل معزول تماماً عن أي طابور تحميل آخر)
-  const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 100);
+  // جلب كل منتجات هذا المطعم بمجرد الدخول (تحميل كامل ومعزول)
+  const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 150);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === selectedRestaurantId), [selectedRestaurantId, restaurants]);
   
   const restaurantProducts = useMemo(() => {
-      let list = products.filter(p => p.status === 'approved' && p.isActive !== false);
+      let list = products.filter(p => (p.status === 'approved' || !p.status) && p.isActive !== false);
       
       if (activeSection !== 'all') {
           list = list.filter(p => p.storeSectionId === activeSection);
@@ -46,15 +46,9 @@ export default function RestaurantProductsPage() {
 
   if (isLoading) {
     return (
-        <div className="p-4 space-y-4">
-            <div className="flex items-center gap-4">
-                <Skeleton className="h-24 w-24 rounded-lg" />
-                <div className="space-y-2">
-                    <Skeleton className="h-8 w-48" />
-                    <Skeleton className="h-6 w-24" />
-                </div>
-            </div>
-            <Skeleton className="h-12 w-full rounded-2xl" />
+        <div className="flex h-screen w-full flex-col items-center justify-center">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <p className="mt-4 font-black text-primary animate-pulse">جاري فتح المتجر...</p>
         </div>
     );
   }
@@ -66,7 +60,7 @@ export default function RestaurantProductsPage() {
   const imageUrl = restaurant.image && (restaurant.image.startsWith('http') || restaurant.image.startsWith('data:')) ? restaurant.image : 'https://placehold.co/100x100.png';
 
   return (
-    <div className="p-4 space-y-6 bg-background h-full overflow-y-auto pb-32">
+    <div className="p-4 space-y-6 bg-background h-full overflow-y-auto pb-32 text-right">
        <header className="flex items-center gap-4">
             <button 
                 onClick={() => setActiveTab(1)} 
@@ -141,12 +135,14 @@ export default function RestaurantProductsPage() {
        <div className="space-y-4">
         <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
             <LayoutGrid className="h-5 w-5 text-primary"/>
-            قائمة المنتجات</h2>
+            قائمة الوجبات</h2>
         
         {productsLoading ? (
-            <div className="py-20 flex flex-col items-center justify-center gap-2">
-                <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
-                <p className="text-[10px] font-black text-muted-foreground">جاري فتح المنيو...</p>
+            <div className="py-20 flex flex-col items-center justify-center gap-4">
+                <div className="p-4 bg-primary/5 rounded-full">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary opacity-40" />
+                </div>
+                <p className="text-[11px] font-black text-primary animate-pulse italic">جاري تحضير المنيو بالكامل...</p>
             </div>
         ) : restaurantProducts && restaurantProducts.length > 0 ? (
              <div className="grid grid-cols-2 gap-4">
@@ -159,7 +155,7 @@ export default function RestaurantProductsPage() {
         ): (
             <div className="text-center py-20 bg-muted/10 rounded-[2.5rem] border-2 border-dashed">
                 <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/20 mb-2" />
-                <p className="text-muted-foreground font-black">لا توجد نتائج مطابقة لبحثك.</p>
+                <p className="text-muted-foreground font-black">لا توجد وجبات في هذا القسم.</p>
             </div>
         )}
       </div>

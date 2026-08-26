@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 
 /**
  * Hook لإدارة المنتجات بذكاء وسرعة.
+ * يدعم التحميل المقنن (Pagination) والبحث الشامل.
  */
 export const useProducts = (
     branchId?: string, 
@@ -28,6 +29,7 @@ export const useProducts = (
         let unsub = () => {};
 
         try {
+            // حالة جلب منتج واحد فقط (للصفحة المباشرة)
             if (productId) {
                 unsub = onSnapshot(doc(db, 'products', productId), (docSnap) => {
                     if (docSnap.exists()) {
@@ -36,44 +38,44 @@ export const useProducts = (
                         setProducts([]);
                     }
                     setIsLoading(false);
-                }, (err) => {
-                    setIsLoading(false);
                 });
                 return () => unsub();
             }
 
+            // حالة البحث الشامل (تتجاوز كل الفلاتر وتضرب الداتابيز مباشرة)
             if (searchTerm.trim() !== '') {
                 const ref = collection(db, 'products');
                 const q = isAdmin 
-                    ? query(ref, limit(50))
-                    : query(ref, where('status', '==', 'approved'), limit(50));
+                    ? query(ref, limit(60))
+                    : query(ref, where('status', '==', 'approved'), limit(60));
                 
                 getDocs(q).then(snap => {
                     const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Product));
-                    const filtered = data.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+                    // فلترة النصوص محلياً بعد الجلب السريع
+                    const filtered = data.filter(p => 
+                        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        (p.description || '').toLowerCase().includes(searchTerm.toLowerCase())
+                    );
                     setProducts(filtered);
                     setHasMore(false);
                     setIsLoading(false);
-                });
+                }).catch(() => setIsLoading(false));
                 return;
             }
 
+            // حالة الجلب العادية (سواء لمتجر أو للقائمة العامة)
             const ref = collection(db, 'products');
             let q;
 
-            if (restaurantId) {
-                // في لوحة الأدمن أو إدارة المتجر، نجلب كل المنتجات بدون فلتر الحالة
-                if (isAdmin) {
-                    q = query(ref, where('restaurantId', '==', restaurantId), limit(200));
-                } else {
-                    q = query(ref, where('restaurantId', '==', restaurantId), where('status', '==', 'approved'), limit(100));
-                }
+            if (restaurantId && restaurantId !== 'none') {
+                // تحميل منيو المتجر بالكامل (حد 150 وجبة)
+                q = isAdmin 
+                    ? query(ref, where('restaurantId', '==', restaurantId), limit(150))
+                    : query(ref, where('restaurantId', '==', restaurantId), where('status', '==', 'approved'), limit(150));
             } else if (branchId && branchId !== 'all') {
-                if (isAdmin) {
-                    q = query(ref, where('branchId', '==', branchId), limit(loadLimit));
-                } else {
-                    q = query(ref, where('branchId', '==', branchId), where('status', '==', 'approved'), limit(loadLimit));
-                }
+                q = isAdmin 
+                    ? query(ref, where('branchId', '==', branchId), limit(loadLimit))
+                    : query(ref, where('branchId', '==', branchId), where('status', '==', 'approved'), limit(loadLimit));
             } else {
                 q = isAdmin 
                     ? query(ref, limit(loadLimit))
@@ -106,7 +108,7 @@ export const useProducts = (
             await addDoc(collection(db, "products"), finalData);
             toast({ title: isFromStore ? "تم إرسال الوجبة للمراجعة" : "تم النشر بنجاح ✅" });
         } catch (error: any) { 
-            toast({ title: "فشل الإرسال، حاول تقليل حجم الصورة", variant: "destructive" }); 
+            toast({ title: "فشل الإرسال، حاول مرة أخرى", variant: "destructive" }); 
         }
     }, [toast]);
 
@@ -121,7 +123,7 @@ export const useProducts = (
     const approveProduct = useCallback(async (id: string) => {
         try {
             await updateDoc(doc(db, "products", id), { status: 'approved' });
-            toast({ title: "تم قبول المنتج ونشره للزبائن" });
+            toast({ title: "تم قبول الوجبة ونشرها" });
         } catch (e) { toast({ title: "حدث خطأ غير متوقع", variant: "destructive" }); }
     }, [toast]);
 

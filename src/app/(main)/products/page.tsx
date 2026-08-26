@@ -23,7 +23,7 @@ function ProductsPageContent() {
   const queueRef = useRef<any[]>([]);
   const isProcessingQueue = useRef(false);
 
-  // جلب البيانات: محدد بـ 10 فقط في الدخول، مع دعم البحث الشامل
+  // جلب البيانات: محدد بـ 10 في البداية، مع دعم البحث الشامل
   const { products, isLoading, hasMore } = useProducts(
       undefined, 
       undefined, 
@@ -43,7 +43,7 @@ function ProductsPageContent() {
 
   // محرك التحميل اللحظي: يضيف الوجبات بتتابع زمني تدريجي فردي (واحد واحد)
   useEffect(() => {
-    // تحديد المنتجات الجديدة التي لم تظهر بعد
+    // تحديد المنتجات الجديدة التي لم تظهر بعد في القائمة المعروضة
     const newItems = filteredProducts.filter(p => !displayedProducts.some(dp => dp.id === p.id));
     
     if (newItems.length > 0) {
@@ -65,7 +65,7 @@ function ProductsPageContent() {
                     isProcessingQueue.current = false;
                     clearInterval(interval);
                 }
-            }, 60); // سرعة الظهور (60 ملي ثانية) لكل وجبة لتظهر واحدة تلو الأخرى
+            }, 70); // سرعة الظهور (70 ملي ثانية) لكل وجبة
         }
     }
   }, [filteredProducts, displayedProducts.length]);
@@ -84,7 +84,8 @@ function ProductsPageContent() {
     const observer = new IntersectionObserver(
       entries => {
         if (entries[0].isIntersecting && hasMore && !isLoading && !searchTerm) {
-          setCurrentLimit(prev => prev + 10); // تحميل 10 وجبات إضافية فقط
+          // جلب الدفعة التالية (10 وجبات)
+          setCurrentLimit(prev => prev + 10);
         }
       },
       { threshold: 1.0 }
@@ -137,19 +138,20 @@ function ProductsPageContent() {
                 ))}
             </div>
 
-            {/* نقطة الاستشعار لتحميل المزيد */}
-            <div ref={observerTarget} className="h-20 flex items-center justify-center w-full mt-4">
-                {(isLoading || isProcessingQueue.current) && (
+            {/* نقطة الاستشعار لتحميل المزيد مع علامة التحميل */}
+            <div ref={observerTarget} className="h-24 flex items-center justify-center w-full mt-6">
+                {(isLoading || isProcessingQueue.current) ? (
                     <div className="flex flex-col items-center gap-2">
-                        <Loader2 className="h-6 w-6 animate-spin text-primary opacity-40" />
-                        <p className="text-[9px] font-black text-muted-foreground animate-pulse italic">
-                            {searchTerm ? 'جاري البحث في كافة المتاجر...' : 'جاري تحضير المزيد من الوجبات...'}
+                        <div className="p-3 bg-primary/10 rounded-full">
+                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        </div>
+                        <p className="text-[10px] font-black text-primary animate-pulse">
+                            {searchTerm ? 'جاري البحث...' : 'جاري تحضير الوجبات التالية...'}
                         </p>
                     </div>
-                )}
-                {!hasMore && displayedProducts.length > 0 && !searchTerm && (
-                    <p className="text-[9px] font-black text-muted-foreground opacity-40">وصلت إلى نهاية القائمة ✨</p>
-                )}
+                ) : !hasMore && displayedProducts.length > 0 && !searchTerm ? (
+                    <p className="text-[10px] font-black text-muted-foreground/40">وصلت إلى نهاية القائمة ✨</p>
+                ) : null}
             </div>
 
             {!isLoading && filteredProducts.length === 0 && (
