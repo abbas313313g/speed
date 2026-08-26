@@ -18,8 +18,11 @@ import { AppContext } from '@/contexts/AppContext';
 
 export default function ProductDetailPage() {
   const context = useContext(AppContext);
-  // هنا نستخدم تحميل معزول تماماً لضمان السرعة وعدم التأثر بطوابير التحميل الأخرى
-  const { products, isLoading } = useProducts();
+  if (!context) return null;
+  const { selectedProductId, setActiveTab, activeTab, previousTab, setSelectedRestaurantId } = context;
+
+  // جلب المنتج المطلوب بشكل معزول ومباشر لضمان السرعة القصوى وعدم انتظار القوائم الأخرى
+  const { products, isLoading } = useProducts(undefined, undefined, 1, selectedProductId || undefined);
   const { restaurants } = useRestaurants();
   const { addToCart, cart } = useCart();
   const { toast } = useToast();
@@ -35,13 +38,10 @@ export default function ProductDetailPage() {
   const [initialDistance, setInitialDistance] = useState<number | null>(null);
   const [lastTouch, setLastTouch] = useState({ x: 0, y: 0 });
 
-  if (!context) return null;
-  const { selectedProductId, setActiveTab, activeTab, previousTab, setSelectedRestaurantId } = context;
-
   const isCurrentlyVisible = activeTab === 9;
 
-  // البحث عن المنتج في القائمة الحالية (يتم تحديثه فوراً عند التغيير)
-  const product = useMemo(() => products.find(p => p.id === selectedProductId), [selectedProductId, products]);
+  // استخراج المنتج من نتيجة الجلب المباشرة
+  const product = useMemo(() => products[0] || null, [products]);
   const restaurant = useMemo(() => product ? restaurants.find(r => r.id === product.restaurantId) : null, [product, restaurants]);
 
   const activeSizes = useMemo(() => {
@@ -92,13 +92,14 @@ export default function ProductDetailPage() {
 
   if (isLoading || !product) {
     return (
-        <div className="p-4 space-y-4 h-full bg-background">
-            <Skeleton className="w-full aspect-square rounded-[2rem]" />
-            <div className="px-4 space-y-4">
-                <Skeleton className="h-10 w-3/4" />
+        <div className="p-4 space-y-4 h-full bg-background flex flex-col items-center justify-center">
+            <Skeleton className="w-[90%] aspect-square rounded-[2.5rem]" />
+            <div className="w-full px-6 space-y-4">
+                <Skeleton className="h-10 w-3/4 mr-auto" />
                 <Skeleton className="h-20 w-full rounded-2xl" />
-                <Skeleton className="h-10 w-1/2" />
+                <Skeleton className="h-14 w-1/2 mr-auto" />
             </div>
+            <div className="text-primary font-black text-xs animate-pulse mt-10">جارِ جلب تفاصيل الوجبة...</div>
         </div>
     );
   }
@@ -177,7 +178,6 @@ export default function ProductDetailPage() {
               e.touches[0].clientY - e.touches[1].clientY
           );
           const delta = dist / initialDistance;
-          // تكبير انسيابي مع حد أقصى 4 أضعاف
           setZoomScale(prev => Math.min(Math.max(prev * delta, 1), 4));
           setInitialDistance(dist);
       } else if (e.touches.length === 1 && zoomScale > 1) {
@@ -271,12 +271,12 @@ export default function ProductDetailPage() {
                 </div>
 
                 <p className="text-muted-foreground text-sm font-medium leading-relaxed bg-muted/20 p-4 rounded-2xl border-r-4 border-primary whitespace-pre-wrap">
-                    {product.description || "متاجر SPEED SHOP"}
+                    {product.description || "متاجر SPEED SHOP الاحترافية"}
                 </p>
 
                 <div className="flex items-end justify-between">
                     <div className="space-y-1">
-                        <span className="text-[10px] font-black text-muted-foreground uppercase">السعر</span>
+                        <span className="text-[10px] font-black text-muted-foreground uppercase">السعر الحالي</span>
                         <div className="flex items-center gap-3">
                              {hasDiscount && <p className="text-base font-bold text-muted-foreground line-through decoration-destructive/40">{formatCurrency(product.price)}</p>}
                              <p className={cn("font-black text-primary tracking-tighter", hasSizes && !selectedSize ? "text-xl" : "text-3xl")}>
@@ -286,7 +286,7 @@ export default function ProductDetailPage() {
                     </div>
                     <Badge variant={isOutOfStock ? "destructive" : "secondary"} className="rounded-xl px-4 py-1 font-black">
                         {isOutOfStock ? "نفد" : 
-                         (hasSizes && !selectedSize) ? "يرجى اختيار الحجم" :
+                         (hasSizes && !selectedSize) ? "يرجى الاختيار" :
                          (selectedSize?.isUnlimited || product.isUnlimitedStock) ? "متوفر" : 
                          `باقي: ${availableStock}`}
                     </Badge>

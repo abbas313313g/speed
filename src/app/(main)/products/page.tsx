@@ -17,11 +17,11 @@ function ProductsPageContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState(initialCategory);
   
-  // نظام الظهور المتسلسل (واحدة تلو الأخرى)
+  // نظام الظهور المتسلسل الذكي (واحد تلو الآخر)
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
 
-  // جلب البيانات معزول تماماً لضمان السرعة (التحميل يبدأ فقط عند فتح الصفحة)
-  const { products, isLoading } = useProducts(undefined, undefined, 100);
+  // جلب البيانات معزول تماماً ومحدد العدد لضمان السرعة وتوفير المساحة
+  const { products, isLoading } = useProducts(undefined, undefined, 60);
   const { categories } = useCategories();
 
   const filteredProducts = useMemo(() => {
@@ -31,25 +31,38 @@ function ProductsPageContent() {
       return prods;
   }, [products, activeTab, searchTerm]);
 
-  // منطق "واحد تلو الآخر": يضيف الوجبات بتتابع زمني مع فحص أمان صارم
+  // محرك التحميل اللحظي: يضيف الوجبات بتتابع زمني تدريجي
   useEffect(() => {
-    setDisplayedProducts([]); // تفريغ القائمة عند تغيير الفلتر
+    let isMounted = true;
+    setDisplayedProducts([]); // تصفير القائمة عند كل فلترة جديدة
+
     if (filteredProducts.length > 0) {
         let index = 0;
         const interval = setInterval(() => {
+            if (!isMounted) {
+                clearInterval(interval);
+                return;
+            }
+
             if (index < filteredProducts.length) {
-                setDisplayedProducts(prev => {
-                    const nextItem = filteredProducts[index];
-                    // فحص أمان: منع قراءة id من عنصر غير معرف أو مكرر
-                    if (!nextItem || prev.some(p => p.id === nextItem.id)) return prev;
-                    return [...prev, nextItem];
-                });
+                const itemToAdd = filteredProducts[index];
+                if (itemToAdd) {
+                    setDisplayedProducts(prev => {
+                        // فحص أمان لمنع التكرار وضمان استقرار الواجهة
+                        if (prev.some(p => p.id === itemToAdd.id)) return prev;
+                        return [...prev, itemToAdd];
+                    });
+                }
                 index++;
             } else {
                 clearInterval(interval);
             }
-        }, 80); // سرعة الظهور (80 ملي ثانية لكل وجبة)
-        return () => clearInterval(interval);
+        }, 50); // سرعة الظهور (50 ملي ثانية لكل وجبة) لضمان تجربة مستخدم خفيفة
+        
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+        };
     }
   }, [filteredProducts]);
   
@@ -58,7 +71,7 @@ function ProductsPageContent() {
       <header className="mb-6 space-y-4">
         <div>
           <h1 className="text-3xl font-black text-primary italic">قائمة الوجبات</h1>
-          <p className="text-muted-foreground font-bold text-xs">تصفح وجباتك المفضلة واحدة تلو الأخرى</p>
+          <p className="text-muted-foreground font-bold text-[10px] uppercase tracking-tighter opacity-80">تصفح وجباتك المفضلة بسرعة فائقة</p>
         </div>
         <div className="relative">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -85,7 +98,7 @@ function ProductsPageContent() {
            <div className="grid grid-cols-2 gap-4">
                 {displayedProducts.map((product) => (
                     <div 
-                        key={`display-${product.id}`} 
+                        key={`grid-${product.id}`} 
                         className="animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300"
                     >
                         <ProductCard product={product} />
