@@ -20,7 +20,7 @@ function ProductsPageContent() {
   // نظام الظهور المتسلسل (واحدة تلو الأخرى)
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
 
-  // جلب البيانات معزول تماماً لضمان السرعة
+  // جلب البيانات معزول تماماً لضمان السرعة (التحميل يبدأ فقط عند فتح الصفحة)
   const { products, isLoading } = useProducts(undefined, undefined, 100);
   const { categories } = useCategories();
 
@@ -58,7 +58,7 @@ function ProductsPageContent() {
       <header className="mb-6 space-y-4">
         <div>
           <h1 className="text-3xl font-black text-primary italic">قائمة الوجبات</h1>
-          <p className="text-muted-foreground font-bold text-xs">تصفح وجباتك المفضلة واحد تلو الآخر</p>
+          <p className="text-muted-foreground font-bold text-xs">تصفح وجباتك المفضلة واحدة تلو الأخرى</p>
         </div>
         <div className="relative">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />

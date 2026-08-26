@@ -59,8 +59,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
 
-    // السبلَاش ينتهي فقط عند جاهزية البنرات (الواجهة الرئيسية)
-    // المنتجات معزولة تماماً ولا يتم جلبها هنا لضمان أقصى سرعة
+    // السبلَاش ينتهي فقط عند جاهزية البنرات لضمان سرعة الإقلاع
     const isMainDataReady = useMemo(() => !bannersLoading && banners.length > 0, [bannersLoading, banners.length]);
 
     useEffect(() => {
@@ -100,8 +99,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const addToCart = useCallback((product: Product, quantity: number, selectedSize?: ProductSize): boolean => {
         if (cart.length > 0 && cart[0].product.restaurantId !== product.restaurantId) {
             toast({
-                title: "سلة جديدة؟",
-                description: "لديك طلبات من متجر آخر، هل تريد تفريغ السلة؟",
+                title: "تنبيه",
+                description: "لديك طلبات من متجر آخر، هل تريد استبدال محتويات السلة؟",
                 action: <ToastAction altText="نعم" onClick={() => setCart([{ product, quantity, selectedSize }])}>نعم</ToastAction>,
             });
             return false;
@@ -139,7 +138,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             clearCart();
             return docRef.id;
         } catch (e) {
-            toast({ title: "عذراً، حدث خطأ، يرجى المحاولة لاحقاً." });
+            toast({ title: "عذراً، حدث خطأ في معالجة طلبك." });
             return null;
         }
     }, [userId, cart, coupons, restaurants, cartTotal, toast]);

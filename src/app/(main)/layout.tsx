@@ -45,7 +45,7 @@ export default function MainAppLayout() {
   const { activeTab, syncUserByPhone, isMainDataReady } = context;
 
   useEffect(() => {
-    // تسريع اختفاء السبلاش: بمجرد جاهزية البيانات الأساسية للرئيسية
+    // تسريع اختفاء السبلاش: بمجرد جاهزية البيانات الأساسية (البنرات)
     if (isMainDataReady) {
         const timer = setTimeout(() => setShowSplash(false), 50);
         return () => clearTimeout(timer);
@@ -76,7 +76,7 @@ export default function MainAppLayout() {
                 }
                 setIslocLoading(false);
             },
-            () => { toast({ title: "يرجى تفعيل الموقع", variant: "destructive" }); setIslocLoading(false); },
+            () => { toast({ title: "يرجى تفعيل خدمة تحديد المواقع", variant: "destructive" }); setIslocLoading(false); },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     }
@@ -95,7 +95,7 @@ export default function MainAppLayout() {
         if (!phoneSnap.empty) {
             const existingData = phoneSnap.docs[0].data();
             if (existingData.deviceId && existingData.deviceId !== currentDeviceId) {
-                toast({ title: "هذا الرقم مسجل فعلاً", variant: "destructive" });
+                toast({ title: "هذا الرقم مسجل بحساب آخر", variant: "destructive" });
                 setIsSaving(false); return;
             }
         }
@@ -103,7 +103,7 @@ export default function MainAppLayout() {
         await addAddress({ ...newAddr, latitude: newAddr.lat, longitude: newAddr.lng, deliveryZone: "عام", branchId: "main" } as any);
         safeStorage.set('speedShopSetupDone', 'true');
         setShowAddressPrompt(false);
-    } catch (e) { toast({ title: "خطأ في الاتصال", variant: "destructive" }); } finally { setIsSaving(false); }
+    } catch (e) { toast({ title: "خطأ في الاتصال بالسيرفر", variant: "destructive" }); } finally { setIsSaving(false); }
   };
 
   const content = (
@@ -136,7 +136,7 @@ export default function MainAppLayout() {
                     <h1 className="text-4xl font-black text-white italic tracking-tighter leading-none">SHOP</h1>
                 </div>
                 <div className="mt-8 flex flex-col items-center gap-2">
-                    <p className="text-primary font-black text-[10px] tracking-widest uppercase">أسرع توصيل في منطقتك</p>
+                    <p className="text-primary font-black text-[10px] tracking-widest uppercase">أسرع خدمة توصيل</p>
                     <Loader2 className="h-4 w-4 animate-spin text-primary/40 mt-2" />
                 </div>
             </div>
@@ -145,13 +145,13 @@ export default function MainAppLayout() {
             <div className="flex h-full w-full flex-col items-center justify-center p-8 text-center bg-background">
               <AlertCircle className="h-20 w-20 text-destructive mb-6" />
               <h1 className="text-2xl font-black mb-4">نعتذر منك جداً</h1>
-              <p className="text-muted-foreground font-bold">خدمتنا متوفرة في بابل فقط حالياً.</p>
+              <p className="text-muted-foreground font-bold">خدمتنا حالياً خارج نطاق تغطية منطقتك.</p>
             </div>
         ) : settings?.isMaintenanceMode ? (
             <div className="flex h-full w-full flex-col items-center justify-center p-10 text-center bg-background">
                 <HardHat className="h-20 w-20 text-primary mb-6 animate-bounce"/>
-                <h1 className="text-2xl font-black mb-4">المتجر في صيانة</h1>
-                <p className="text-muted-foreground font-bold">{settings.maintenanceMessage || 'سنعود قريباً جداً!'}</p>
+                <h1 className="text-2xl font-black mb-4">التطبيق في صيانة مؤقتة</h1>
+                <p className="text-muted-foreground font-bold">{settings.maintenanceMessage || 'سنعود لخدمتكم قريباً جداً!'}</p>
             </div>
         ) : content}
 
@@ -164,15 +164,15 @@ export default function MainAppLayout() {
                     </div>
                     <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-3">
-                            <Input value={newAddr.name} onChange={(e)=>setNewAddr({...newAddr, name: e.target.value})} placeholder="الاسم الكامل" className="h-12 rounded-xl bg-muted/30 border-none" />
-                            <Input value={newAddr.phone} onChange={(e)=>setNewAddr({...newAddr, phone: e.target.value})} placeholder="07XXXXXXXX" type="tel" className="h-12 rounded-xl bg-muted/30 border-none text-center font-bold" />
+                            <Input value={newAddr.name} onChange={(e)=>setNewAddr({...newAddr, name: e.target.value})} placeholder="اسمك الكامل" className="h-12 rounded-xl bg-muted/30 border-none" />
+                            <Input value={newAddr.phone} onChange={(e)=>setNewAddr({...newAddr, phone: e.target.value})} placeholder="رقم هاتفك" type="tel" className="h-12 rounded-xl bg-muted/30 border-none text-center font-bold" />
                         </div>
                         <button onClick={handleGetLocation} className={`w-full py-8 flex flex-col items-center gap-2 border-4 border-dashed rounded-[2.5rem] transition-all ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50' : 'border-primary/20 bg-card'}`}>
                             {islocLoading ? <Loader2 className="animate-spin h-8 w-8 text-primary" /> : newAddr.lat !== 0 ? <CheckCircle2 className="h-8 w-8 text-green-500" /> : <MapPin className="h-8 w-8 text-primary" />}
-                            <span className="font-black text-sm">{newAddr.lat !== 0 ? "تم استلام الموقع ✅" : "اضغط لتحديد موقعك (GPS)"}</span>
+                            <span className="font-black text-sm">{newAddr.lat !== 0 ? "تم تحديد موقعك بنجاح ✅" : "تحديد موقع التوصيل (GPS)"}</span>
                         </button>
                         <Button onClick={handleSaveAddress} className="w-full h-16 rounded-[1.8rem] text-xl font-black shadow-xl" disabled={isSaving || newAddr.lat === 0}>
-                            {isSaving ? "جارِ الحفظ..." : "حفظ وبدء التسوق"}
+                            {isSaving ? "جاري الحفظ..." : "بدء التسوق"}
                         </Button>
                     </div>
                 </div>
