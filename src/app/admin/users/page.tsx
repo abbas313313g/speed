@@ -34,6 +34,8 @@ import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 export default function AdminUsersPage({ branchId }: { branchId: string }) {
   const { deliveryWorkers, isLoading, addDeliveryWorker, updateWorkerDetails, deleteWorker } = useDeliveryWorkers(branchId);
@@ -66,7 +68,7 @@ export default function AdminUsersPage({ branchId }: { branchId: string }) {
       setIsSaving(false);
   }
 
-  if (isLoading) return <div className="p-8 text-center animate-pulse">جار تحميل بيانات المناديب...</div>;
+  if (isLoading) return <div className="p-8 text-center animate-pulse font-black text-primary">جار تحميل بيانات المناديب...</div>;
   
   return (
     <div className="space-y-8 text-right">

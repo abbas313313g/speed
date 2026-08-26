@@ -25,7 +25,8 @@ import {
   CheckCircle,
   Fingerprint,
   GitBranch,
-  Banknote
+  Banknote,
+  LayoutDashboard
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -42,9 +43,10 @@ const navItems = [
   { index: 1, label: "الطلبات", icon: ShoppingCart },
   { index: 2, label: "المنتجات", icon: Package },
   { index: 14, label: "موافقات المنتجات", icon: CheckCircle, notificationKey: 'pendingProducts' },
-  { index: 17, label: "طلبات سحب المتاجر", icon: Banknote, notificationKey: 'pendingWithdraws' },
+  { index: 18, label: "طلبات سحب المتاجر", icon: Banknote, notificationKey: 'pendingWithdraws' },
   { index: 15, label: "تراخيص الأجهزة", icon: Fingerprint, notificationKey: 'pendingAccess' },
   { index: 16, label: "إدارة الفروع", icon: GitBranch, mainOnly: true },
+  { index: 17, label: "تخصيص الواجهة", icon: LayoutDashboard, mainOnly: true },
   { index: 3, label: "الأقسام", icon: LayoutGrid, mainOnly: true },
   { index: 4, label: "المتاجر", icon: Store },
   { index: 5, label: "البنرات", icon: GalleryHorizontal, mainOnly: true },

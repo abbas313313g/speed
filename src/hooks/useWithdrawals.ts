@@ -14,7 +14,7 @@ export const useWithdrawals = (branchId?: string, restaurantId?: string) => {
 
     useEffect(() => {
         // لتجنب خطأ الـ Index، نقوم بالجلب والفلترة بدون orderBy في الاستعلام
-        // ونرتب البيانات برمجياً عند وصولها
+        // ونرتب البيانات برمجياً عند وصولها لضمان أقصى سرعة
         const ref = collection(db, 'withdrawals');
         let q = query(ref);
         
@@ -26,10 +26,12 @@ export const useWithdrawals = (branchId?: string, restaurantId?: string) => {
 
         const unsub = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as WithdrawRequest[];
-            // ترتيب البيانات يدوياً من الأحدث إلى الأقدم
+            
+            // ترتيب البيانات يدوياً من الأحدث إلى الأقدم في المتصفح
             const sortedData = data.sort((a, b) => 
                 new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()
             );
+
             setRequests(sortedData);
             setIsLoading(false);
         }, (error) => {
