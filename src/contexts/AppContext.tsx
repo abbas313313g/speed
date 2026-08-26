@@ -55,13 +55,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [cart, setCart] = useState<CartItem[]>([]);
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [userId, setUserId] = useState<string|null>(null);
-    const [isForceNewTicket, setIsForceNewTicket] = useState(false);
     const [activeTab, setActiveTabState] = useState(0);
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
 
-    // التحميل الذكي: السبلَاش ينتهي فقط عند جاهزية البنرات (الواجهة الرئيسية)
-    // المنتجات معزولة تماماً ولا تدخل في حساب الجاهزية هنا
+    // السبلَاش ينتهي فقط عند جاهزية البنرات (الواجهة الرئيسية)
+    // المنتجات معزولة تماماً ولا يتم جلبها هنا لضمان أقصى سرعة
     const isMainDataReady = useMemo(() => !bannersLoading && banners.length > 0, [bannersLoading, banners.length]);
 
     useEffect(() => {
@@ -88,12 +87,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     const syncUserByPhone = useCallback(async (phone: string): Promise<string | null> => {
-        const q = query(collection(db, "addresses"), where("phone", "==", phone), limit(1));
-        const snap = await getDocs(q);
-        const targetId = !snap.empty ? snap.docs[0].data().userId : uuidv4();
-        setUserId(targetId);
-        safeStorage.set('speedShopUserId', targetId);
-        return targetId;
+        try {
+            const q = query(collection(db, "addresses"), where("phone", "==", phone), limit(1));
+            const snap = await getDocs(q);
+            const targetId = !snap.empty ? snap.docs[0].data().userId : uuidv4();
+            setUserId(targetId);
+            safeStorage.set('speedShopUserId', targetId);
+            return targetId;
+        } catch (e) { return null; }
     }, []);
 
     const addToCart = useCallback((product: Product, quantity: number, selectedSize?: ProductSize): boolean => {
@@ -130,14 +131,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             const orderData = {
                 userId, items: cart, total: Math.max(0, cartTotal - disc) + dFee,
                 date: new Date().toISOString(), status: 'unassigned', address: addr, deliveryFee: dFee,
-                restaurant: rest ? { id: rest.id, name: rest.name, latitude: rest.latitude, longitude: rest.longitude } : null,
-                branchId: rest?.branchId || 'main'
+                restaurant: rest ? { id: rest.id, name: rest.name, latitude: rest.latitude, longitude: rest.longitude, commissionRate: rest.commissionRate } : null,
+                branchId: rest?.branchId || 'main',
+                isPaid: false, isFeePaid: false, isOrderPaidToOffice: false
             };
             const docRef = await addDoc(collection(db, "orders"), orderData);
             clearCart();
             return docRef.id;
         } catch (e) {
-            toast({ title: "عذراً، فشل إرسال الطلب، يرجى المحاولة لاحقاً." });
+            toast({ title: "عذراً، حدث خطأ، يرجى المحاولة لاحقاً." });
             return null;
         }
     }, [userId, cart, coupons, restaurants, cartTotal, toast]);
@@ -148,8 +150,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         addAddress: async (a: any) => { await addDoc(collection(db, "addresses"), { ...a, userId: userId || await syncUserByPhone(a.phone) }); },
         deleteAddress: (id: string) => updateDoc(doc(db, "addresses", id), { userId: 'deleted' }),
         mySupportTicket: useMemo(() => supportTickets.find(t => t.userId === userId && !t.isResolved), [userId, supportTickets]),
-        startNewTicketClient: () => setIsForceNewTicket(true),
-        activeTab, previousTab: 0, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId, syncUserByPhone
+        startNewTicketClient: () => {},
+        activeTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId, syncUserByPhone
     };
 
     return <AppContext.Provider value={value as any}>{children}</AppContext.Provider>;

@@ -17,10 +17,10 @@ function ProductsPageContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState(initialCategory);
   
-  // نظام الظهور المتسلسل (واحدة تلو الأخرى) مع منع التكرار
+  // نظام الظهور المتسلسل (واحدة تلو الأخرى)
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
 
-  // جلب البيانات معزول تماماً عن بقية التطبيق لضمان السرعة
+  // جلب البيانات معزول تماماً لضمان السرعة
   const { products, isLoading } = useProducts(undefined, undefined, 100);
   const { categories } = useCategories();
 
@@ -31,24 +31,24 @@ function ProductsPageContent() {
       return prods;
   }, [products, activeTab, searchTerm]);
 
-  // منطق "واحد تلو الآخر": يضيف الوجبات بتتابع زمني ويمنع تكرار المفاتيح
+  // منطق "واحد تلو الآخر": يضيف الوجبات بتتابع زمني مع فحص أمان صارم
   useEffect(() => {
-    setDisplayedProducts([]);
+    setDisplayedProducts([]); // تفريغ القائمة عند تغيير الفلتر
     if (filteredProducts.length > 0) {
         let index = 0;
         const interval = setInterval(() => {
             if (index < filteredProducts.length) {
                 setDisplayedProducts(prev => {
                     const nextItem = filteredProducts[index];
-                    // منع تكرار الوجبة في القائمة المعروضة
-                    if (prev.some(p => p.id === nextItem.id)) return prev;
+                    // فحص أمان: منع قراءة id من عنصر غير معرف أو مكرر
+                    if (!nextItem || prev.some(p => p.id === nextItem.id)) return prev;
                     return [...prev, nextItem];
                 });
                 index++;
             } else {
                 clearInterval(interval);
             }
-        }, 60); // سرعة الظهور (60 ملي ثانية لكل وجبة)
+        }, 80); // سرعة الظهور (80 ملي ثانية لكل وجبة)
         return () => clearInterval(interval);
     }
   }, [filteredProducts]);
@@ -85,7 +85,7 @@ function ProductsPageContent() {
            <div className="grid grid-cols-2 gap-4">
                 {displayedProducts.map((product) => (
                     <div 
-                        key={`prod-${product.id}`} 
+                        key={`display-${product.id}`} 
                         className="animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300"
                     >
                         <ProductCard product={product} />
