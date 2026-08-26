@@ -106,8 +106,9 @@ export interface DeliveryWorker {
     password?: string;
     lastDeliveredAt?: string | null; 
     isOnline?: boolean;
-    isActive?: boolean; // نظام إيقاف العمل
+    isActive?: boolean; 
     branchId: string;
+    idleCount?: number; // عداد الخمول للطلبات المتجاهلة
 }
 
 export type OrderStatus = 'unassigned' | 'pending_assignment' | 'preparing' | 'confirmed' | 'ready_for_pickup' | 'on_the_way' | 'delivered' | 'cancelled';
@@ -127,6 +128,7 @@ export interface Order {
     isFeePaid: boolean;
     isOrderPaidToOffice: boolean;
     branchId: string;
+    confirmedAt?: string; // وقت تعيين المندوب لبدء مهلة الـ 20 ثانية
     appliedCoupon: {
       code: string;
       discountAmount: number;
@@ -144,9 +146,9 @@ export interface WithdrawRequest {
     id: string;
     restaurantId: string;
     restaurantName: string;
-    amount: number; // المبلغ المطلوب
-    commissionAmount: number; // حصة الشركة المحتسبة
-    netAmount: number; // المبلغ الصافي للمتجر
+    amount: number; 
+    commissionAmount: number; 
+    netAmount: number; 
     status: 'pending' | 'completed' | 'rejected';
     requestedAt: string;
     branchId: string;

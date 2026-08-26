@@ -19,6 +19,18 @@ interface DeliveryPageProps {
 
 function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order: Order, onAccept: (id: string) => void, onReject: (id: string) => void, isProcessing: boolean }) {
     const { restaurants } = useRestaurants();
+    const [timeLeft, setTimeLeft] = useState(20);
+
+    useEffect(() => {
+        if (!order.confirmedAt) return;
+        const timer = setInterval(() => {
+            const confirmedTime = new Date(order.confirmedAt!).getTime();
+            const now = new Date().getTime();
+            const diff = 20 - Math.floor((now - confirmedTime) / 1000);
+            setTimeLeft(Math.max(0, diff));
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [order.confirmedAt]);
 
     const { distance, mapUrl } = useMemo(() => {
         const orderRestaurant = restaurants.find(r => r.id === order.restaurant?.id);
@@ -31,9 +43,13 @@ function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order
     }, [order.address, order.restaurant, restaurants]);
 
     return (
-        <Card className="w-full animate-in fade-in-50 border-primary/20 shadow-md">
+        <Card className="w-full animate-in fade-in-50 border-primary/40 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 h-1 bg-primary transition-all duration-1000" style={{ width: `${(timeLeft / 20) * 100}%` }} />
             <CardHeader className="pb-2 text-right">
-                 <CardTitle className="text-primary text-lg font-black">طلب جديد متاح!</CardTitle>
+                 <div className="flex justify-between items-center mb-1">
+                    <Badge variant="outline" className="text-[10px] font-black border-primary text-primary">تنتهي المهلة خلال: {timeLeft}ث</Badge>
+                    <CardTitle className="text-primary text-lg font-black">طلب جديد متاح!</CardTitle>
+                 </div>
                  <CardDescription className="font-bold text-foreground">من متجر: {order.restaurant?.name || 'غير معروف'}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -60,11 +76,11 @@ function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order
                     )}
                     <div className="grid grid-cols-2 gap-2">
                         <Button variant="ghost" className="h-14 rounded-xl text-destructive font-bold border-2 border-destructive/10" onClick={() => onReject(order.id)} disabled={isProcessing}>
-                             تجاهل
+                             تجاهل/رفض
                         </Button>
                         <Button size="lg" className="h-14 rounded-xl text-lg font-black bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200" onClick={() => onAccept(order.id)} disabled={isProcessing}>
                             {isProcessing ? <Loader2 className="h-5 w-5 animate-spin"/> : <Check className="ml-2 h-6 w-6"/>}
-                            قبول
+                            قبول العمل
                         </Button>
                     </div>
                 </div>
@@ -114,11 +130,12 @@ function ActiveOrderListItem({ order, onClick }: { order: Order, onClick: () => 
     );
 }
 
+import { Badge } from '@/components/ui/badge';
+
 export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPageProps) {
     const { toast } = useToast();
     const [workerId, setWorkerId] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [ignoredOrders, setIgnoredOrders] = useState<Set<string>>(new Set());
 
     const { allOrders, isLoading: ordersLoading, updateOrderStatus } = useOrders();
     const { deliveryWorkers, isLoading: workersLoading, updateWorkerStatus } = useDeliveryWorkers();
@@ -133,7 +150,6 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         return deliveryWorkers.find(w => w.id === workerId) || null;
     }, [workerId, deliveryWorkers]);
 
-    // فحص التجميد المالي (إذا كانت ذمته للمكتب > 100 ألف)
     const isFrozen = useMemo(() => {
         if (!workerId || !allOrders) return false;
         const myDelivered = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered' && !o.isOrderPaidToOffice);
@@ -143,12 +159,8 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
 
     const myAssignedOrders = useMemo(() => {
         if (!workerId || !allOrders || isFrozen) return [];
-        return allOrders.filter(o => 
-            o.deliveryWorkerId === workerId && 
-            o.status === 'confirmed' && 
-            !ignoredOrders.has(o.id)
-        );
-    }, [workerId, allOrders, ignoredOrders, isFrozen]);
+        return allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'confirmed');
+    }, [workerId, allOrders, isFrozen]);
     
     const myActiveOrders = useMemo(() => {
         if (!workerId || !allOrders) return [];
@@ -163,7 +175,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         setIsProcessing(true);
         try {
             await updateOrderStatus(orderId, 'preparing', workerId);
-            toast({ title: "تم قبول الطلب! اذهب للمطعم الآن" });
+            toast({ title: "تم قبول الطلب! اذهب للمطعم الآن ✅" });
         } catch (error) {
              toast({ title: "عذراً، حدث خطأ", variant: "destructive" });
         } finally {
@@ -171,9 +183,14 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         }
     };
 
-    const handleRejectOrder = (orderId: string) => {
-        setIgnoredOrders(prev => new Set(prev).add(orderId));
-        toast({ title: "تم تجاهل الطلب" });
+    const handleRejectOrder = async (orderId: string) => {
+        setIsProcessing(true);
+        try {
+            await updateOrderStatus(orderId, 'unassigned');
+            toast({ title: "تم رفض الطلب" });
+        } catch (e) {} finally {
+            setIsProcessing(false);
+        }
     };
     
     const handleLogout = () => {
@@ -197,7 +214,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     if (ordersLoading || workersLoading || !workerId) return <div className="p-8 text-center animate-pulse">جار جلب مهامك...</div>;
 
     return (
-        <div className="block bg-background pb-60">
+        <div className="block bg-background pb-60 h-full overflow-y-auto">
             <header className="p-4 flex justify-between items-center bg-white border-b shadow-sm sticky top-0 z-50">
                  <div className="text-right">
                     <h1 className="text-xl font-black text-primary leading-none">أهلاً {worker?.name?.split(' ')[0] || 'كابتن'}</h1>
@@ -246,7 +263,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                             <div className="space-y-4 animate-in slide-in-from-top duration-500">
                                 <div className="text-right px-2">
                                     <h2 className="text-xl font-black text-primary">طلبات جديدة ({myAssignedOrders.length})</h2>
-                                    <p className="text-xs font-bold text-muted-foreground">اضغط قبول للبدء</p>
+                                    <p className="text-xs font-bold text-muted-foreground">لديك 20 ثانية للقبول</p>
                                 </div>
                                 {myAssignedOrders.map(order => (
                                     <AvailableOrderCard 
