@@ -46,12 +46,11 @@ export const useProducts = (
             if (searchTerm.trim() !== '') {
                 const ref = collection(db, 'products');
                 const q = isAdmin 
-                    ? query(ref, limit(60))
-                    : query(ref, where('status', '==', 'approved'), limit(60));
+                    ? query(ref, limit(200))
+                    : query(ref, where('status', '==', 'approved'), limit(200));
                 
                 getDocs(q).then(snap => {
                     const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Product));
-                    // فلترة النصوص محلياً بعد الجلب السريع
                     const filtered = data.filter(p => 
                         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         (p.description || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -68,10 +67,12 @@ export const useProducts = (
             let q;
 
             if (restaurantId && restaurantId !== 'none') {
-                // تحميل منيو المتجر بالكامل (حد 150 وجبة)
+                // تحميل منيو المتجر بالكامل للأدمن أو الزبون
+                // تم رفع الحد لضمان ظهور كل المنتجات في المتجر
+                const storeLimit = isAdmin ? 1000 : 300;
                 q = isAdmin 
-                    ? query(ref, where('restaurantId', '==', restaurantId), limit(150))
-                    : query(ref, where('restaurantId', '==', restaurantId), where('status', '==', 'approved'), limit(150));
+                    ? query(ref, where('restaurantId', '==', restaurantId), limit(storeLimit))
+                    : query(ref, where('restaurantId', '==', restaurantId), where('status', '==', 'approved'), limit(storeLimit));
             } else if (branchId && branchId !== 'all') {
                 q = isAdmin 
                     ? query(ref, where('branchId', '==', branchId), limit(loadLimit))

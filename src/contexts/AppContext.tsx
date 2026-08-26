@@ -61,7 +61,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
 
-    // السبلَاش ينتهي فقط عند جاهزية البنرات لضمان سرعة الإقلاع
     const isMainDataReady = useMemo(() => !bannersLoading && banners.length > 0, [bannersLoading, banners.length]);
 
     useEffect(() => {
@@ -73,7 +72,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (e) {}
     }, []);
 
-    // نظام الملاحة الذكي: التعامل مع أزرار الهاتف والرجوع
     useEffect(() => {
         const handlePopState = (event: PopStateEvent) => {
             if (event.state && typeof event.state.tab === 'number') {
@@ -142,19 +140,58 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 const found = coupons.find(c => c.code === coup.trim().toUpperCase());
                 if (found) disc = found.discountValue;
             }
+            
+            // تنظيف بيانات السلة لضمان عدم وجود قيم غير مدعومة في Firestore
+            const sanitizedItems = cart.map(item => ({
+                quantity: item.quantity,
+                selectedSize: item.selectedSize ? { name: item.selectedSize.name, price: item.selectedSize.price } : null,
+                product: {
+                    id: item.product.id,
+                    name: item.product.name,
+                    price: item.product.price,
+                    discountPrice: item.product.discountPrice || 0,
+                    image: item.product.image,
+                    restaurantId: item.product.restaurantId
+                }
+            }));
+
             const rest = restaurants.find(r => r.id === cart[0].product.restaurantId);
+            
             const orderData = {
-                userId, items: cart, total: Math.max(0, cartTotal - disc) + dFee,
-                date: new Date().toISOString(), status: 'unassigned', address: addr, deliveryFee: dFee,
-                restaurant: rest ? { id: rest.id, name: rest.name, latitude: rest.latitude, longitude: rest.longitude, commissionRate: rest.commissionRate } : null,
+                userId, 
+                items: sanitizedItems, 
+                total: Math.max(0, cartTotal - disc) + dFee,
+                date: new Date().toISOString(), 
+                status: 'unassigned' as const, 
+                address: {
+                    name: addr.name,
+                    phone: addr.phone,
+                    details: addr.details || '',
+                    deliveryZone: addr.deliveryZone || 'عام',
+                    latitude: addr.latitude || 0,
+                    longitude: addr.longitude || 0
+                }, 
+                deliveryFee: dFee,
+                restaurant: rest ? { 
+                    id: rest.id, 
+                    name: rest.name, 
+                    latitude: rest.latitude || 0, 
+                    longitude: rest.longitude || 0, 
+                    commissionRate: rest.commissionRate || 10 
+                } : null,
                 branchId: rest?.branchId || 'main',
-                isPaid: false, isFeePaid: false, isOrderPaidToOffice: false
+                isPaid: false, 
+                isFeePaid: false, 
+                isOrderPaidToOffice: false,
+                appliedCoupon: coup ? { code: coup, discountAmount: disc } : null
             };
+
             const docRef = await addDoc(collection(db, "orders"), orderData);
             clearCart();
             return docRef.id;
         } catch (e) {
-            toast({ title: "عذراً، حدث خطأ في معالجة طلبك." });
+            console.error("Order Creation Failed:", e);
+            toast({ title: "عذراً، حدث خطأ في معالجة طلبك.", variant: "destructive" });
             return null;
         }
     }, [userId, cart, coupons, restaurants, cartTotal, toast]);
