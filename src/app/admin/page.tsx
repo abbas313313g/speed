@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { CheckCircle, Clock, Building2, TrendingUp, ArrowRight } from 'lucide-react';
+import { CheckCircle, Clock, Building2, TrendingUp, ArrowRight, Package, Users, Receipt } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useOrders } from '@/hooks/useOrders';
 import { useBranches } from '@/hooks/useBranches';
@@ -11,56 +11,98 @@ import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function AdminDashboard({ branchId }: { branchId: string }) {
-  const { products, approveProduct, deleteProduct, isLoading: pLoading } = useProducts(branchId);
+  const { products, approveProduct, isLoading: pLoading } = useProducts(branchId);
   const { allOrders, isLoading: oLoading } = useOrders(branchId);
   const { branches, isLoading: bLoading } = useBranches();
   const router = useRouter();
 
+  const [globalStats, setGlobalStats] = useState({ totalSales: 0, totalOrders: 0, totalProfit: 0 });
+  const [isGlobalLoading, setIsGlobalLoading] = useState(false);
+
   const isMain = branchId === 'main';
+
+  // جلب إحصائيات كل الفروع إذا كان في المدحتية (المركز الرئيسي)
+  useEffect(() => {
+      if (isMain) {
+          setIsGlobalLoading(true);
+          getDocs(collection(db, "orders")).then(snap => {
+              const orders = snap.docs.map(d => d.data());
+              const delivered = orders.filter(o => o.status === 'delivered');
+              setGlobalStats({
+                  totalSales: delivered.reduce((acc, o) => acc + (o.total || 0), 0),
+                  totalOrders: orders.length,
+                  totalProfit: delivered.reduce((acc, o) => acc + (o.profit || 0), 0)
+              });
+              setIsGlobalLoading(false);
+          });
+      }
+  }, [isMain]);
 
   const stats = useMemo(() => {
     const delivered = allOrders.filter(o => o.status === 'delivered');
+    const cancelled = allOrders.filter(o => o.status === 'cancelled');
     return {
         totalRevenue: delivered.reduce((acc, o) => acc + o.total, 0),
         totalProfit: delivered.reduce((acc, o) => acc + o.profit, 0),
         pendingProducts: products.filter(p => p.status === 'pending'),
-        activeOrders: allOrders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length
+        activeOrders: allOrders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length,
+        cancelledCount: cancelled.length
     }
   }, [allOrders, products]);
 
-  if (pLoading || oLoading || bLoading) return <div className="p-8 text-center animate-pulse font-black text-primary">جارِ جلب بيانات الفرع...</div>;
+  if (pLoading || oLoading || bLoading || (isMain && isGlobalLoading)) return <div className="p-8 text-center animate-pulse font-black text-primary">جارِ تحليل أداء النظام...</div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in duration-500">
       <header>
-        <h1 className="text-4xl font-black text-primary">إحصائيات {isMain ? 'المدحتية' : 'الفرع'}</h1>
-        <p className="text-muted-foreground font-bold">متابعة الأداء العملياتي لفرع: {branchId === 'main' ? 'المدحتية' : branchId}</p>
+        <h1 className="text-4xl font-black text-primary">إحصائيات {isMain ? 'المركز الرئيسي' : 'الفرع'}</h1>
+        <p className="text-muted-foreground font-bold italic">نظرة شاملة على عمليات فرع: {branchId === 'main' ? 'المدحتية' : branchId}</p>
       </header>
 
+      {/* قسم الإحصائيات العامة (للمدحتية فقط) */}
+      {isMain && (
+          <div className="grid gap-4 md:grid-cols-3 mb-8">
+              <Card className="rounded-[1.5rem] border-none shadow-xl bg-slate-900 text-white p-6 relative overflow-hidden">
+                  <div className="absolute right-[-10px] bottom-[-10px] opacity-10"><TrendingUp className="h-20 w-20"/></div>
+                  <div className="text-[10px] font-black text-primary uppercase mb-2">إجمالي مبيعات كل الفروع</div>
+                  <div className="text-3xl font-black">{formatCurrency(globalStats.totalSales)}</div>
+              </Card>
+              <Card className="rounded-[1.5rem] border-none shadow-xl bg-slate-900 text-white p-6">
+                  <div className="text-[10px] font-black text-blue-400 uppercase mb-2">إجمالي طلبات النظام</div>
+                  <div className="text-3xl font-black">{globalStats.totalOrders} <span className="text-xs text-white/50">طلب</span></div>
+              </Card>
+              <Card className="rounded-[1.5rem] border-none shadow-xl bg-slate-900 text-white p-6">
+                  <div className="text-[10px] font-black text-green-400 uppercase mb-2">صافي الأرباح الكلية</div>
+                  <div className="text-3xl font-black">{formatCurrency(globalStats.totalProfit)}</div>
+              </Card>
+          </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="rounded-[1.5rem] border-none shadow-lg bg-primary text-white overflow-hidden relative">
-            <div className="absolute right-[-10px] top-[-10px] opacity-10"><TrendingUp className="h-24 w-24" /></div>
-            <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black uppercase text-white/70">مبيعات الفرع</CardTitle></CardHeader>
-            <CardContent><div className="text-2xl font-black">{formatCurrency(stats.totalRevenue)}</div></CardContent>
+        <Card className="rounded-[1.5rem] border-none shadow-lg bg-primary text-white p-5">
+            <div className="text-[10px] font-black text-white/70 uppercase">مبيعات هذا الفرع</div>
+            <div className="text-2xl font-black mt-1">{formatCurrency(stats.totalRevenue)}</div>
         </Card>
-        <Card className="rounded-[1.5rem] border-none shadow-lg bg-white">
-            <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black uppercase text-muted-foreground">أرباح الفرع الصافية</CardTitle></CardHeader>
-            <CardContent><div className="text-2xl font-black text-primary">{formatCurrency(stats.totalProfit)}</div></CardContent>
+        <Card className="rounded-[1.5rem] border-none shadow-lg bg-white p-5">
+            <div className="text-[10px] font-black text-muted-foreground uppercase">طلبات نشطة</div>
+            <div className="text-2xl font-black text-orange-500 mt-1">{stats.activeOrders}</div>
         </Card>
-        <Card className="rounded-[1.5rem] border-none shadow-lg bg-white">
-            <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black uppercase text-muted-foreground">طلبات نشطة</CardTitle></CardHeader>
-            <CardContent><div className="text-2xl font-black text-orange-500">{stats.activeOrders}</div></CardContent>
+        <Card className="rounded-[1.5rem] border-none shadow-lg bg-white p-5">
+            <div className="text-[10px] font-black text-muted-foreground uppercase">مرتجعات / ملغي</div>
+            <div className="text-2xl font-black text-red-500 mt-1">{stats.cancelledCount}</div>
         </Card>
-        <Card className="rounded-[1.5rem] border-none shadow-lg bg-white">
-            <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black uppercase text-muted-foreground">بانتظار الموافقة</CardTitle></CardHeader>
-            <CardContent><div className="text-2xl font-black text-blue-500">{stats.pendingProducts.length}</div></CardContent>
+        <Card className="rounded-[1.5rem] border-none shadow-lg bg-white p-5">
+            <div className="text-[10px] font-black text-muted-foreground uppercase">بانتظار الموافقة</div>
+            <div className="text-2xl font-black text-blue-500 mt-1">{stats.pendingProducts.length}</div>
         </Card>
       </div>
 
       {isMain && (
-          <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <section className="space-y-4">
               <h2 className="text-2xl font-black flex items-center gap-2 px-1"><Building2 className="text-primary"/> إدارة فروع المحافظات</h2>
               <div className="grid gap-4 md:grid-cols-3">
                   {branches.map(b => (
@@ -72,37 +114,34 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
                                 className="w-full rounded-xl font-bold gap-2" 
                                 onClick={() => router.push(`/admin?branch=${b.id}`)}
                               >
-                                دخول الفرع (رابط مستقل) <ArrowRight className="h-4 w-4"/>
+                                دخول الفرع <ArrowRight className="h-4 w-4"/>
                               </Button>
                           </div>
                       </Card>
                   ))}
-                  {branches.length === 0 && <p className="text-center py-10 col-span-full italic text-muted-foreground font-bold">لم يتم إنشاء أي فروع فرعية بعد.</p>}
               </div>
           </section>
       )}
 
       <section className="space-y-4">
-        <h2 className="text-2xl font-black flex items-center gap-2 px-1 text-blue-500"><Clock className="h-6 w-6"/> تعديلات المتاجر المعلقة</h2>
+        <h2 className="text-2xl font-black flex items-center gap-2 px-1 text-blue-500"><Clock className="h-6 w-6"/> مراجعة إضافات المتاجر</h2>
         {stats.pendingProducts.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-[2rem] border-2 border-dashed">
-                <CheckCircle className="h-10 w-10 mx-auto text-green-500 mb-3" />
-                <p className="text-muted-foreground italic font-bold">كافة التعديلات في هذا الفرع تمت مراجعتها.</p>
+                <CheckCircle className="h-10 w-10 mx-auto text-green-500/30 mb-3" />
+                <p className="text-muted-foreground italic font-bold">كافة المنتجات في هذا الفرع تمت مراجعتها.</p>
             </div>
         ) : (
             <div className="grid gap-4 md:grid-cols-2">
-                {stats.pendingProducts.slice(0, 4).map(p => (
-                    <Card key={p.id} className="rounded-2xl shadow-md border-none flex p-4 items-center gap-4 bg-white transition-all hover:scale-[1.02]">
-                        <div className="relative h-20 w-20 flex-shrink-0">
-                            <Image src={p.image} fill className="object-cover rounded-xl" alt={p.name} unoptimized={true} />
+                {stats.pendingProducts.map(p => (
+                    <Card key={p.id} className="rounded-2xl shadow-md border-none flex p-4 items-center gap-4 bg-white">
+                        <div className="relative h-16 w-16 flex-shrink-0">
+                            <Image src={p.image} fill className="object-cover rounded-xl border" alt="" unoptimized={true} />
                         </div>
-                        <div className="flex-1">
-                            <h3 className="font-bold truncate max-w-[150px]">{p.name}</h3>
-                            <div className="mt-1 font-black text-primary">{formatCurrency(p.price)}</div>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="font-black text-sm truncate">{p.name}</h3>
+                            <div className="font-black text-primary text-xs">{formatCurrency(p.price)}</div>
                         </div>
-                        <div className="flex flex-col gap-2">
-                            <Button size="sm" className="bg-green-600 hover:bg-green-700 h-9 rounded-lg px-4 font-black" onClick={()=>approveProduct(p.id)}>قبول</Button>
-                        </div>
+                        <Button size="sm" className="bg-green-600 rounded-lg px-4" onClick={()=>approveProduct(p.id)}>نشر</Button>
                     </Card>
                 ))}
             </div>

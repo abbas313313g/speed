@@ -1,0 +1,58 @@
+
+"use client";
+
+import { useState, useEffect, useCallback } from 'react';
+import { collection, addDoc, updateDoc, onSnapshot, doc, query, where, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { WithdrawRequest } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
+
+export const useWithdrawals = (branchId?: string, restaurantId?: string) => {
+    const [requests, setRequests] = useState<WithdrawRequest[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        const ref = collection(db, 'withdrawals');
+        let q = query(ref, orderBy('requestedAt', 'desc'));
+        
+        if (restaurantId) {
+            q = query(ref, where('restaurantId', '==', restaurantId), orderBy('requestedAt', 'desc'));
+        } else if (branchId && branchId !== 'all') {
+            q = query(ref, where('branchId', '==', branchId), orderBy('requestedAt', 'desc'));
+        }
+
+        const unsub = onSnapshot(q, (snapshot) => {
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as WithdrawRequest[];
+            setRequests(data);
+            setIsLoading(false);
+        });
+        return () => unsub();
+    }, [branchId, restaurantId]);
+
+    const requestWithdraw = useCallback(async (data: Omit<WithdrawRequest, 'id' | 'status' | 'requestedAt'>) => {
+        try {
+            await addDoc(collection(db, "withdrawals"), {
+                ...data,
+                status: 'pending',
+                requestedAt: new Date().toISOString()
+            });
+            toast({ title: "تم إرسال طلب السحب بنجاح ✅" });
+            return true;
+        } catch (e) {
+            toast({ title: "فشل إرسال الطلب", variant: "destructive" });
+            return false;
+        }
+    }, [toast]);
+
+    const updateRequestStatus = useCallback(async (id: string, status: 'completed' | 'rejected') => {
+        try {
+            await updateDoc(doc(db, "withdrawals", id), { status });
+            toast({ title: "تم تحديث حالة الطلب" });
+        } catch (e) {
+            toast({ title: "فشل التحديث", variant: "destructive" });
+        }
+    }, [toast]);
+
+    return { requests, isLoading, requestWithdraw, updateRequestStatus };
+};

@@ -7,34 +7,28 @@ import { db } from '@/lib/firebase';
 import type { Product } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
-export const useProducts = (branchId?: string, restaurantId?: string, loadLimit: number = 100) => {
+export const useProducts = (branchId?: string, restaurantId?: string, loadLimit: number = 20) => {
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
 
     useEffect(() => {
         try {
-            const productsRef = collection(db, 'products');
-            let q = query(productsRef, limit(loadLimit));
+            const ref = collection(db, 'products');
+            // تقنين القراءات: جلب وجبة وجبة أو عدد قليل جداً لتسريع الواجهة
+            let q = query(ref, limit(loadLimit));
             
-            // تحسين جلب المنتجات: إذا كان هناك مطعم محدد، نجلب منتجاته فقط وبسرعة
             if (restaurantId) {
-                q = query(productsRef, where('restaurantId', '==', restaurantId), limit(loadLimit));
+                q = query(ref, where('restaurantId', '==', restaurantId), limit(50));
             } else if (branchId && branchId !== 'all') {
-                q = query(productsRef, where('branchId', '==', branchId), limit(loadLimit));
+                q = query(ref, where('branchId', '==', branchId), limit(50));
             }
 
-            const unsub = onSnapshot(q,
-                (snapshot) => {
-                    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
-                    setProducts(data);
-                    setIsLoading(false);
-                },
-                (error) => {
-                    console.error("Firestore products error:", error);
-                    setIsLoading(false);
-                }
-            );
+            const unsub = onSnapshot(q, (snapshot) => {
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
+                setProducts(data);
+                setIsLoading(false);
+            }, (error) => { setIsLoading(false); });
             return () => unsub();
         } catch (e) {
             setIsLoading(false);
@@ -46,54 +40,35 @@ export const useProducts = (branchId?: string, restaurantId?: string, loadLimit:
             const finalData = { 
                 ...productData, 
                 status: isFromStore ? 'pending' : 'approved',
-                branchId: branchId || productData.branchId || 'main',
-                wholesalePrice: Number(productData.wholesalePrice) || 0,
-                stock: Number(productData.stock) || 0,
-                price: Number(productData.price) || 0,
                 createdAt: new Date().toISOString()
             };
-
             await addDoc(collection(db, "products"), finalData);
-            toast({ title: isFromStore ? "تم إرسال الوجبة للمراجعة" : "تمت إضافة المنتج بنجاح" });
+            toast({ title: isFromStore ? "تم إرسال الوجبة للمراجعة" : "تم النشر بنجاح ✅" });
         } catch (error: any) { 
-            toast({ title: "فشل إضافة المنتج", variant: "destructive" }); 
-            throw error;
-        }
-    }, [toast, branchId]);
-
-    const updateProduct = useCallback(async (updatedProduct: Partial<Product> & { id: string }, shouldMarkPending = false) => {
-        try {
-            const { id, ...productData } = updatedProduct;
-            const finalData: any = { ...productData };
-
-            if (productData.price !== undefined) finalData.price = Number(productData.price);
-            if (productData.stock !== undefined) finalData.stock = Number(productData.stock);
-            
-            if (shouldMarkPending) finalData.status = 'pending';
-
-            await updateDoc(doc(db, "products", id), finalData);
-            toast({ title: "تم التحديث بنجاح" });
-        } catch (error: any) { 
-            toast({ title: "فشل التحديث", variant: "destructive" }); 
+            toast({ title: "فشل الإرسال", variant: "destructive" }); 
         }
     }, [toast]);
 
-    const approveProduct = useCallback(async (productId: string) => {
+    const updateProduct = useCallback(async (updatedProduct: Partial<Product> & { id: string }) => {
         try {
-            await updateDoc(doc(db, "products", productId), { status: 'approved' });
-            toast({ title: "تم النشر بنجاح" });
-        } catch (error: any) {
-            toast({ title: "فشل الإجراء", variant: "destructive" });
-        }
+            const { id, ...data } = updatedProduct;
+            await updateDoc(doc(db, "products", id), data);
+            toast({ title: "تم التحديث" });
+        } catch (error: any) { toast({ title: "فشل التحديث", variant: "destructive" }); }
     }, [toast]);
 
-    const deleteProduct = useCallback(async (productId: string) => {
+    const approveProduct = useCallback(async (id: string) => {
         try {
-            await deleteDoc(doc(db, "products", productId));
+            await updateDoc(doc(db, "products", id), { status: 'approved' });
+            toast({ title: "تم قبول المنتج ونشره" });
+        } catch (e) { toast({ title: "خطأ", variant: "destructive" }); }
+    }, [toast]);
+
+    const deleteProduct = useCallback(async (id: string) => {
+        try {
+            await deleteDoc(doc(db, "products", id));
             toast({ title: "تم الحذف" });
-        } catch (error: any) { 
-            toast({ title: "فشل الحذف", variant: "destructive" }); 
-        }
+        } catch (e) { toast({ title: "فشل الحذف", variant: "destructive" }); }
     }, [toast]);
 
     return { products, isLoading, addProduct, updateProduct, deleteProduct, approveProduct };

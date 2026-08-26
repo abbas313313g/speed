@@ -19,14 +19,13 @@ import {
   Map,
   AreaChart,
   MessageSquareWarning,
-  Bike,
   TicketPercent,
   UserCog,
-  Send,
   Settings,
   CheckCircle,
   Fingerprint,
-  GitBranch
+  GitBranch,
+  Banknote
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -35,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { useSupportTickets } from "@/hooks/useSupportTickets";
 import { useProducts } from "@/hooks/useProducts";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
+import { useWithdrawals } from "@/hooks/useWithdrawals";
 
 
 const navItems = [
@@ -42,6 +42,7 @@ const navItems = [
   { index: 1, label: "الطلبات", icon: ShoppingCart },
   { index: 2, label: "المنتجات", icon: Package },
   { index: 14, label: "موافقات المنتجات", icon: CheckCircle, notificationKey: 'pendingProducts' },
+  { index: 17, label: "طلبات سحب المتاجر", icon: Banknote, notificationKey: 'pendingWithdraws' },
   { index: 15, label: "تراخيص الأجهزة", icon: Fingerprint, notificationKey: 'pendingAccess' },
   { index: 16, label: "إدارة الفروع", icon: GitBranch, mainOnly: true },
   { index: 3, label: "الأقسام", icon: LayoutGrid, mainOnly: true },
@@ -53,7 +54,6 @@ const navItems = [
   { index: 9, label: "تسوية حسابات العمال", icon: UserCog },
   { index: 10, label: "تسوية حسابات المتاجر", icon: AreaChart },
   { index: 11, label: "تذاكر الدعم", icon: MessageSquareWarning, notificationKey: 'openTickets', mainOnly: true },
-  { index: 12, label: "إشعارات تليجرام", icon: Send },
   { index: 13, label: "الإعدادات", icon: Settings, mainOnly: true },
 ];
 
@@ -61,23 +61,19 @@ export function AdminNav({ isSheet = false, onTabChange, activeTab, isBranch = f
   const { supportTickets } = useSupportTickets();
   const { products } = useProducts();
   const { accessList } = useAdminAccess();
+  const { requests } = useWithdrawals();
   
   const filteredItems = useMemo(() => {
       if (!isBranch) return navItems;
       return navItems.filter(item => !item.mainOnly);
   }, [isBranch]);
 
-  const openTicketsCount = useMemo(() => {
-    return supportTickets.filter(t => !t.isResolved).length;
-  }, [supportTickets]);
-
-  const pendingProductsCount = useMemo(() => {
-    return products.filter(p => p.status === 'pending').length;
-  }, [products]);
-
-  const pendingAccessCount = useMemo(() => {
-    return accessList.filter(a => a.status === 'pending').length;
-  }, [accessList]);
+  const counts = useMemo(() => ({
+      openTickets: supportTickets.filter(t => !t.isResolved).length,
+      pendingProducts: products.filter(p => p.status === 'pending').length,
+      pendingAccess: accessList.filter(a => a.status === 'pending').length,
+      pendingWithdraws: requests.filter(r => r.status === 'pending').length
+  }), [supportTickets, products, accessList, requests]);
 
   const navContent = (
     <nav className={cn("flex flex-col items-center gap-4 px-2 py-5", isSheet && "items-stretch text-lg font-medium px-4")}>
@@ -87,9 +83,10 @@ export function AdminNav({ isSheet = false, onTabChange, activeTab, isBranch = f
       {filteredItems.map((item) => {
         const isActive = activeTab === item.index;
         let count = 0;
-        if (item.notificationKey === 'openTickets') count = openTicketsCount;
-        if (item.notificationKey === 'pendingProducts') count = pendingProductsCount;
-        if (item.notificationKey === 'pendingAccess') count = pendingAccessCount;
+        if (item.notificationKey === 'openTickets') count = counts.openTickets;
+        if (item.notificationKey === 'pendingProducts') count = counts.pendingProducts;
+        if (item.notificationKey === 'pendingAccess') count = counts.pendingAccess;
+        if (item.notificationKey === 'pendingWithdraws') count = counts.pendingWithdraws;
         
         const hasNotification = count > 0;
         

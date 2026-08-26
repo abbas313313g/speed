@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { AdminNav } from '@/components/AdminNav';
 import { Shield, KeyRound, PanelLeft, Loader2, Building2, Fingerprint } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -26,12 +26,12 @@ import AdminUsersPage from './users/page';
 import AdminDeliveryWorkersPage from './delivery-workers/page';
 import AdminReportsPage from './reports/page';
 import AdminSupportTicketsPage from './support-tickets/page';
-import AdminTelegramPage from './telegram/page';
 import AdminSettingsPage from './settings/page';
 import AdminApprovalsPage from './approvals/page';
 import AdminAccessPage from './access-requests/page';
 import AdminBranchesPage from './branches/page';
 import HomeSettingsPage from './home-settings/page';
+import AdminWithdrawalsPage from './withdrawals/page';
 
 const ADMIN_PIN = "31344313";
 
@@ -49,11 +49,10 @@ function AdminLayoutContent() {
   const { toast } = useToast();
 
   const currentBranch = useMemo(() => {
-      if (branchParam === 'main') return { name: 'الإدارة الرئيسية', id: 'main' };
-      return branches.find(b => b.id === branchParam) || { name: 'فرع غير معروف', id: branchParam };
+      if (branchParam === 'main') return { name: 'المركز الرئيسي', id: 'main' };
+      return branches.find(b => b.id === branchParam) || { name: 'فرع مستقل', id: branchParam };
   }, [branchParam, branches]);
 
-  // تسريع لحظي: التحقق من التخزين المحلي قبل انتظار Firestore
   useEffect(() => {
     const deviceId = getDeviceId();
     const storedAuth = localStorage.getItem(`admin_auth_${branchParam}`);
@@ -75,7 +74,6 @@ function AdminLayoutContent() {
         if (wasFirst) {
             setIsAuthenticated(true);
             localStorage.setItem(`admin_auth_${branchParam}`, 'true');
-            toast({ title: "مرحباً بك!", description: `تم اعتماد جهازك كأدمن لـ ${currentBranch.name}` });
         } else {
             const deviceId = getDeviceId();
             const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === branchParam);
@@ -93,11 +91,7 @@ function AdminLayoutContent() {
   };
 
   if (accessLoading && !isAuthenticated) {
-      return (
-          <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
-              <Loader2 className="h-10 w-10 animate-spin text-primary"/>
-          </div>
-      )
+      return <div className="flex h-screen w-full items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary"/></div>;
   }
 
   if (!isAuthenticated) {
@@ -109,12 +103,12 @@ function AdminLayoutContent() {
                 <CardTitle className="text-2xl font-black italic">بوابة فرع: {currentBranch.name}</CardTitle>
                 <CardDescription className="text-white/80 font-bold">يرجى تسجيل الدخول</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6 pt-8">
+            <CardContent className="space-y-6 pt-8 text-right">
                 {requestStatus === 'sent' ? (
                     <div className="text-center space-y-4">
                         <Fingerprint className="h-16 w-16 mx-auto text-orange-500 animate-pulse" />
                         <h2 className="text-xl font-black">جهاز غير مرخص</h2>
-                        <p className="text-sm font-bold text-muted-foreground">بانتظار موافقة أدمن الفرع.</p>
+                        <p className="text-sm font-bold text-muted-foreground">بانتظار موافقة أدمن الفرع الرئيسي.</p>
                         <Button variant="outline" className="w-full rounded-xl" onClick={() => setRequestStatus('none')}>محاولة مرة أخرى</Button>
                     </div>
                 ) : (
@@ -168,12 +162,13 @@ function AdminLayoutContent() {
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDeliveryWorkersPage branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminReportsPage /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSupportTicketsPage branchId={branchParam} /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminTelegramPage branchId={branchParam} /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><div className="p-20 text-center font-black">تم إلغاء نظام الإشعارات</div></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSettingsPage /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminApprovalsPage branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminAccessPage branchId={branchParam} /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminBranchesPage /></ScrollArea></div>
             <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><HomeSettingsPage /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminWithdrawalsPage branchId={branchParam} /></ScrollArea></div>
           </div>
         </main>
       </div>

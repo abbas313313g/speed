@@ -38,8 +38,8 @@ export interface Product {
   sizes?: ProductSize[];
   stock: number;
   image: string;
-  categoryId: string; // الفئة العامة (مطعم، ماركت...)
-  storeSectionId?: string; // القسم الداخلي للمتجر (بيتزا، مشروبات...)
+  categoryId: string; 
+  storeSectionId?: string; 
   restaurantId: string;
   status: 'approved' | 'pending';
   branchId: string;
@@ -68,8 +68,8 @@ export interface Restaurant {
   loginCode: string;
   commissionRate: number;
   branchId: string;
-  categoryId: string; // الفئة العامة التي ينتمي لها المتجر
-  menuSections?: string[]; // قائمة الأقسام الداخلية للمتجر (نصوص)
+  categoryId: string; 
+  menuSections?: string[]; 
 }
 
 export interface Branch {
@@ -140,6 +140,16 @@ export interface Order {
     } | null;
 }
 
+export interface WithdrawRequest {
+    id: string;
+    restaurantId: string;
+    restaurantName: string;
+    amount: number;
+    status: 'pending' | 'completed' | 'rejected';
+    requestedAt: string;
+    branchId: string;
+}
+
 export interface Message {
     role: 'user' | 'assistant' | 'admin';
     content: string;
@@ -166,16 +176,6 @@ export interface Coupon {
     usedBy: string[]; 
     restaurantId?: string;
     isFirstOrderOnly?: boolean;
-}
-
-export interface TelegramConfig {
-    id: string;
-    chatId: string;
-    type: 'owner' | 'worker' | 'restaurant';
-    workerId?: string;
-    restaurantId?: string;
-    name: string; 
-    branchId?: string;
 }
 
 export interface AppSettings {
