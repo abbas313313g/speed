@@ -72,7 +72,7 @@ export default function AdminUsersPage({ branchId }: { branchId: string }) {
       await updateWorkerDetails(id, { isActive: !currentStatus });
   }
 
-  if (isLoading) return <div className="p-8 text-center animate-pulse font-black text-primary">جارِ تحديث سجلات المناديب...</div>;
+  if (isLoading) return <div className="p-20 text-center animate-pulse flex flex-col items-center gap-4"><Loader2 className="h-10 w-10 animate-spin text-primary"/><p className="font-black text-primary">جارِ تحديث سجلات المناديب...</p></div>;
   
   return (
     <div className="space-y-8 text-right">
@@ -121,7 +121,7 @@ export default function AdminUsersPage({ branchId }: { branchId: string }) {
                 </TableRow>
             </TableHeader>
             <TableBody>
-            {deliveryWorkers.map((worker) => (
+            {deliveryWorkers.length > 0 ? deliveryWorkers.map((worker) => (
                 <TableRow key={worker.id}>
                     <TableCell className="font-bold">
                         <div>{worker.name}</div>
@@ -153,7 +153,9 @@ export default function AdminUsersPage({ branchId }: { branchId: string }) {
                         </div>
                     </TableCell>
                 </TableRow>
-            ))}
+            )) : (
+                <TableRow><TableCell colSpan={3} className="py-20 text-center text-muted-foreground font-bold italic">لا يوجد مناديب مسجلين في هذا الفرع.</TableCell></TableRow>
+            )}
             </TableBody>
         </Table>
       </Card>

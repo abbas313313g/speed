@@ -21,7 +21,7 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Trash2, Loader2 } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -40,7 +40,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const { toast } = useToast();
   const { allOrders, isLoading, deleteOrder, updateOrderStatus } = useOrders(branchId);
   
-  if (isLoading) return <div className="p-8 text-center animate-pulse font-black text-primary">جارِ تحميل الطلبات...</div>;
+  if (isLoading) return <div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="h-10 w-10 animate-spin text-primary"/><p className="font-black text-primary">جارِ تحميل الطلبات...</p></div>;
   
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
     try {

@@ -42,7 +42,7 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency, compressImage, cn } from '@/lib/utils';
 import Image from 'next/image';
-import { Edit, Trash2, PlusCircle, Upload, Search, ArrowRight, Store, Package, LayoutGrid, ChevronRight, X } from 'lucide-react';
+import { Edit, Trash2, PlusCircle, Upload, Search, ArrowRight, Store, Package, LayoutGrid, ChevronRight, X, Infinity } from 'lucide-react';
 import type { Product, ProductSize, Restaurant } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -56,7 +56,6 @@ import { Separator } from '@/components/ui/separator';
 const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
   name: '',
   price: 0,
-  wholesalePrice: 0,
   discountPrice: 0,
   sizes: [],
   stock: 10,
@@ -79,7 +78,6 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // جلب منتجات المتجر المختار فقط
   const { products, addProduct, updateProduct, deleteProduct, isLoading: productsLoading } = useProducts(
       branchId, 
       selectedStoreId || 'none'
@@ -141,7 +139,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
   const addSize = () => {
       setCurrentProduct({ 
           ...currentProduct, 
-          sizes: [...(currentProduct.sizes || []), { name: '', price: 0, stock: 0 }] 
+          sizes: [...(currentProduct.sizes || []), { name: '', price: 0, stock: 0, isUnlimited: false }] 
       });
   };
 
@@ -169,9 +167,8 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
     }
   };
 
-  if (storesLoading) return <div className="p-8 text-center animate-pulse font-black text-primary">جارِ فتح سجلات المتاجر...</div>;
+  if (storesLoading) return <div className="p-20 text-center animate-pulse flex flex-col items-center gap-4"><Loader2 className="h-10 w-10 animate-spin text-primary"/><p className="font-black text-primary">جارِ فتح سجلات المتاجر...</p></div>;
 
-  // واجهة اختيار المتجر أولاً
   if (!selectedStoreId) {
       return (
           <div className="space-y-8 animate-in fade-in duration-500">
@@ -207,7 +204,6 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
       );
   }
 
-  // واجهة إدارة منتجات المتجر المختار
   return (
     <div className="space-y-8 animate-in slide-in-from-left-4 duration-500 text-right">
       <header className="flex justify-between items-start">
@@ -254,14 +250,10 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                             <Input type="number" value={currentProduct.price || ''} onChange={(e) => setCurrentProduct({...currentProduct, price: parseFloat(e.target.value) || 0})} className="rounded-xl h-12 font-black text-primary" />
                         </div>
                         <div className="space-y-1">
-                            <Label className="font-bold">سعر الجملة (للمكتب)</Label>
-                            <Input type="number" value={currentProduct.wholesalePrice || ''} onChange={(e) => setCurrentProduct({...currentProduct, wholesalePrice: parseFloat(e.target.value) || 0})} className="rounded-xl h-12 font-bold" />
-                        </div>
-                        <div className="space-y-1">
                             <Label className="font-bold">السعر بعد الخصم (اختياري)</Label>
                             <Input type="number" placeholder="اتركه 0 إذا لا يوجد خصم" value={currentProduct.discountPrice || ''} onChange={(e) => setCurrentProduct({...currentProduct, discountPrice: parseFloat(e.target.value) || 0})} className="rounded-xl h-12 font-bold text-red-600" />
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 col-span-2">
                             <Label className="font-bold">الكمية في المخزن</Label>
                             <Input type="number" disabled={currentProduct.isUnlimitedStock} value={currentProduct.stock || ''} onChange={(e) => setCurrentProduct({...currentProduct, stock: parseInt(e.target.value) || 0})} className="rounded-xl h-12 font-bold" />
                         </div>
@@ -270,7 +262,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                     <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border-2 border-dashed">
                         <div className="space-y-0.5">
                             <Label className="font-black">كمية غير محدودة</Label>
-                            <p className="text-[10px] text-muted-foreground font-bold">لن ينقص المخزن عند كل طلب.</p>
+                            <p className="text-[10px] text-muted-foreground font-bold">لن ينقص المخزن عند كل طلب لهذه الوجبة.</p>
                         </div>
                         <Switch checked={currentProduct.isUnlimitedStock} onCheckedChange={(v) => setCurrentProduct({...currentProduct, isUnlimitedStock: v})} />
                     </div>
@@ -310,11 +302,17 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                         </div>
                         <div className="space-y-3">
                             {currentProduct.sizes?.map((size, index) => (
-                                <div key={index} className="grid grid-cols-12 gap-2 items-center bg-slate-50 p-3 rounded-2xl border">
-                                    <div className="col-span-4"><Input placeholder="الاسم (كبير)" value={size.name} onChange={(e)=>handleSizeChange(index, 'name', e.target.value)} className="h-10 rounded-lg text-xs" /></div>
-                                    <div className="col-span-3"><Input type="number" placeholder="السعر" value={size.price || ''} onChange={(e)=>handleSizeChange(index, 'price', parseFloat(e.target.value))} className="h-10 rounded-lg text-xs font-black text-primary" /></div>
-                                    <div className="col-span-3"><Input type="number" placeholder="الكمية" value={size.stock || ''} onChange={(e)=>handleSizeChange(index, 'stock', parseInt(e.target.value))} className="h-10 rounded-lg text-xs" /></div>
-                                    <div className="col-span-2 flex justify-end"><Button variant="ghost" size="icon" onClick={()=>removeSize(index)} className="text-destructive"><X className="h-4 w-4"/></Button></div>
+                                <div key={index} className="flex flex-col bg-slate-50 p-4 rounded-2xl border gap-3">
+                                    <div className="grid grid-cols-12 gap-2 items-center">
+                                        <div className="col-span-4"><Input placeholder="الاسم (كبير)" value={size.name} onChange={(e)=>handleSizeChange(index, 'name', e.target.value)} className="h-10 rounded-lg text-xs" /></div>
+                                        <div className="col-span-3"><Input type="number" placeholder="السعر" value={size.price || ''} onChange={(e)=>handleSizeChange(index, 'price', parseFloat(e.target.value))} className="h-10 rounded-lg text-xs font-black text-primary" /></div>
+                                        <div className="col-span-3"><Input type="number" disabled={size.isUnlimited} placeholder="الكمية" value={size.stock || ''} onChange={(e)=>handleSizeChange(index, 'stock', parseInt(e.target.value))} className="h-10 rounded-lg text-xs" /></div>
+                                        <div className="col-span-2 flex justify-end"><Button variant="ghost" size="icon" onClick={()=>removeSize(index)} className="text-destructive"><X className="h-4 w-4"/></Button></div>
+                                    </div>
+                                    <div className="flex items-center justify-between px-1">
+                                        <span className="text-[10px] font-bold text-muted-foreground flex items-center gap-1"><Infinity className="h-3 w-3"/> كمية مفتوحة لهذا النوع</span>
+                                        <Switch checked={size.isUnlimited} onCheckedChange={(v) => handleSizeChange(index, 'isUnlimited', v)} className="scale-75" />
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -349,15 +347,14 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
               <TableRow>
                 <TableHead className="font-black">الوجبة</TableHead>
                 <TableHead className="font-black">السعر (بيع)</TableHead>
-                <TableHead className="font-black">الجملة</TableHead>
                 <TableHead className="font-black">المخزن</TableHead>
                 <TableHead className="font-black text-center">إجراء</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {productsLoading ? (
-                  <TableRow><TableCell colSpan={5} className="py-20 text-center animate-pulse font-bold">جاري جلب قائمة الوجبات...</TableCell></TableRow>
-              ) : filteredProducts.map((p) => (
+                  <TableRow><TableCell colSpan={4} className="py-20 text-center flex flex-col items-center gap-2"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-40"/><p className="font-bold text-muted-foreground animate-pulse">جاري جلب قائمة الوجبات...</p></TableCell></TableRow>
+              ) : filteredProducts.length > 0 ? filteredProducts.map((p) => (
                 <TableRow key={p.id} className={cn("hover:bg-muted/20 transition-colors", !(p.isActive ?? true) && "opacity-40 grayscale")}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -369,7 +366,6 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                     </div>
                   </TableCell>
                   <TableCell className="font-black text-primary">{formatCurrency(p.price)}</TableCell>
-                  <TableCell className="font-bold text-muted-foreground text-xs">{formatCurrency(p.wholesalePrice || 0)}</TableCell>
                   <TableCell>
                       {p.isUnlimitedStock ? <Badge variant="secondary" className="text-[10px]">مفتوح ∞</Badge> : <Badge variant={p.stock <= 5 ? "destructive" : "outline"} className="font-bold">{p.stock}</Badge>}
                   </TableCell>
@@ -386,8 +382,9 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                       </div>
                   </TableCell>
                 </TableRow>
-              ))}
-              {!productsLoading && filteredProducts.length === 0 && <TableRow><TableCell colSpan={5} className="py-20 text-center text-muted-foreground italic font-bold">لا يوجد وجبات مضافة لهذا المتجر.</TableCell></TableRow>}
+              )) : (
+                  <TableRow><TableCell colSpan={4} className="py-20 text-center text-muted-foreground italic font-bold">لا يوجد وجبات مضافة لهذا المتجر.</TableCell></TableRow>
+              )}
             </TableBody>
           </Table>
       </div>

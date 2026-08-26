@@ -158,6 +158,8 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
     }
   };
 
+  if (isLoading) return <div className="p-20 text-center animate-pulse flex flex-col items-center gap-4"><Loader2 className="h-10 w-10 animate-spin text-primary"/><p className="font-black text-primary">جارِ تحميل المتاجر...</p></div>;
+
   return (
     <div className="space-y-8">
       <header className="flex justify-between items-center">
@@ -279,7 +281,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {restaurants.map((store) => (
+                {restaurants.length > 0 ? restaurants.map((store) => (
                     <TableRow key={store.id}>
                         <TableCell>
                             <div className="relative h-10 w-10">
@@ -318,10 +320,11 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                             </div>
                         </TableCell>
                     </TableRow>
-                ))}
+                )) : (
+                    <TableRow><TableCell colSpan={5} className="p-20 text-center text-muted-foreground italic font-bold">لا يوجد متاجر مضافة في هذا الفرع.</TableCell></TableRow>
+                )}
             </TableBody>
         </Table>
-        {restaurants.length === 0 && <div className="p-20 text-center text-muted-foreground italic font-bold">لا يوجد متاجر مضافة في هذا الفرع.</div>}
       </Card>
     </div>
   );
