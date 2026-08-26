@@ -77,16 +77,17 @@ export default function ProductDetailPage() {
 
   const availableStock = useMemo(() => {
     if (selectedSize) return selectedSize.stock;
+    if (hasSizes) return 0; // إذا لم يختر حجماً بعد وهو متاح بأحجام، نعتبر الكمية العامة لا معنى لها
     return product?.stock ?? 0;
-  }, [selectedSize, product]);
+  }, [selectedSize, product, hasSizes]);
 
   const isOutOfStock = useMemo(() => {
-      if (activeSizes.length > 0) {
-          if (!selectedSize) return false;
+      if (hasSizes) {
+          if (!selectedSize) return false; // نترك الزبون يرى الأنواع أولاً
           return !selectedSize.isUnlimited && selectedSize.stock <= 0;
       }
       return !product?.isUnlimitedStock && (product?.stock ?? 0) <= 0;
-  }, [product, selectedSize, activeSizes]);
+  }, [product, selectedSize, hasSizes]);
 
   if (!isCurrentlyVisible) return null;
 
@@ -109,7 +110,7 @@ export default function ProductDetailPage() {
         toast({ title: "المتجر مغلق حاليًا", variant: "destructive" });
         return;
       }
-      if (activeSizes.length > 0 && !selectedSize) {
+      if (hasSizes && !selectedSize) {
         toast({ title: "يرجى اختيار الحجم والنوع أولاً", variant: "destructive" });
         return;
       }
@@ -138,6 +139,7 @@ export default function ProductDetailPage() {
     const isUnlimited = selectedSize?.isUnlimited || product.isUnlimitedStock;
     if (!isUnlimited && newQuantity > availableStock) {
       setQuantity(availableStock);
+      toast({ title: "وصلت للحد الأقصى المتوفر", variant: "destructive" });
     } else if (newQuantity < 1) {
       setQuantity(1);
     } else {

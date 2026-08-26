@@ -42,9 +42,8 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency, compressImage, cn } from '@/lib/utils';
 import Image from 'next/image';
-import { Edit, Trash2, PlusCircle, Upload, Search, ArrowRight, Store, Package, LayoutGrid, ChevronRight, X, Infinity } from 'lucide-react';
+import { Edit, Trash2, PlusCircle, Upload, Search, ArrowRight, Store, Package, LayoutGrid, ChevronRight, X, Infinity, Loader2 } from 'lucide-react';
 import type { Product, ProductSize, Restaurant } from '@/lib/types';
-import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
 import { useProducts } from '@/hooks/useProducts';
@@ -262,8 +261,16 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                             <Input type="number" placeholder="اتركه 0 إذا لا يوجد خصم" value={currentProduct.discountPrice || ''} onChange={(e) => setCurrentProduct({...currentProduct, discountPrice: parseFloat(e.target.value) || 0})} className="rounded-xl h-12 font-bold text-red-600" />
                         </div>
                         <div className="space-y-1 col-span-2">
-                            <Label className="font-bold">الكمية في المخزن</Label>
-                            <Input type="number" disabled={currentProduct.isUnlimitedStock} value={currentProduct.stock || ''} onChange={(e) => setCurrentProduct({...currentProduct, stock: parseInt(e.target.value) || 0})} className="rounded-xl h-12 font-bold" />
+                            <Label className="font-bold">الكمية في المخزن (للوجبة العامة)</Label>
+                            <Input 
+                                type="number" 
+                                disabled={currentProduct.isUnlimitedStock || (currentProduct.sizes && currentProduct.sizes.length > 0)} 
+                                value={currentProduct.stock || ''} 
+                                onChange={(e) => setCurrentProduct({...currentProduct, stock: parseInt(e.target.value) || 0})} 
+                                className="rounded-xl h-12 font-bold" 
+                                placeholder={(currentProduct.sizes && currentProduct.sizes.length > 0) ? "مدارة حسب الأنواع بالأسفل" : ""}
+                            />
+                            {(currentProduct.sizes && currentProduct.sizes.length > 0) && <p className="text-[10px] text-orange-600 font-bold">ملاحظة: بما أنك أضفت أنواعاً، سيتم تجاهل الكمية العامة واستخدام كمية كل نوع.</p>}
                         </div>
                     </div>
 
@@ -305,7 +312,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
 
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <Label className="font-black text-lg">الأحجام والأنواع (تعتمد أسعارها تلقائياً)</Label>
+                            <Label className="font-black text-lg">الأحجام والأنواع (تعتمد كمياتها تلقائياً)</Label>
                             <Button type="button" variant="outline" size="sm" onClick={addSize} className="rounded-lg font-bold gap-1"><PlusCircle className="h-4 w-4"/> إضافة خيار</Button>
                         </div>
                         <div className="space-y-3">
@@ -314,7 +321,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                                     <div className="grid grid-cols-12 gap-2 items-center">
                                         <div className="col-span-4"><Input placeholder="الاسم (كبير)" value={size.name} onChange={(e)=>handleSizeChange(index, 'name', e.target.value)} className="h-10 rounded-lg text-xs" /></div>
                                         <div className="col-span-3"><Input type="number" placeholder="السعر" value={size.price || ''} onChange={(e)=>handleSizeChange(index, 'price', parseFloat(e.target.value))} className="h-10 rounded-lg text-xs font-black text-primary" /></div>
-                                        <div className="col-span-3"><Input type="number" disabled={size.isUnlimited} placeholder="الكمية" value={size.stock || ''} onChange={(e)=>handleSizeChange(index, 'stock', parseInt(e.target.value))} className="h-10 rounded-lg text-xs" /></div>
+                                        <div className="col-span-3"><Input type="number" disabled={size.isUnlimited} placeholder="الكمية" value={size.stock || ''} onChange={(e)=>handleSizeChange(index, 'stock', parseInt(e.target.value))} className="h-10 rounded-lg text-xs font-bold" /></div>
                                         <div className="col-span-2 flex justify-end"><Button variant="ghost" size="icon" onClick={()=>removeSize(index)} className="text-destructive"><X className="h-4 w-4"/></Button></div>
                                     </div>
                                     <div className="flex items-center justify-between px-1">
@@ -378,7 +385,9 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                     {p.sizes && p.sizes.length > 0 ? "متعدد" : formatCurrency(p.price)}
                   </TableCell>
                   <TableCell>
-                      {p.isUnlimitedStock ? <Badge variant="secondary" className="text-[10px]">مفتوح ∞</Badge> : <Badge variant={p.stock <= 5 ? "destructive" : "outline"} className="font-bold">{p.stock}</Badge>}
+                      {p.isUnlimitedStock ? <Badge variant="secondary" className="text-[10px]">مفتوح ∞</Badge> : 
+                       (p.sizes && p.sizes.length > 0) ? <Badge variant="outline" className="text-[9px] font-bold border-orange-200 text-orange-600">حسب الأنواع</Badge> :
+                       <Badge variant={p.stock <= 5 ? "destructive" : "outline"} className="font-bold">{p.stock}</Badge>}
                   </TableCell>
                   <TableCell className="text-center">
                       <div className="flex justify-center gap-2">
