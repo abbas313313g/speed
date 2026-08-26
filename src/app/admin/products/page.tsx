@@ -80,7 +80,11 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
   
   const { products, addProduct, updateProduct, deleteProduct, isLoading: productsLoading } = useProducts(
       branchId, 
-      selectedStoreId || 'none'
+      selectedStoreId || 'none',
+      200,
+      undefined,
+      '',
+      true // isAdmin: جلب كل الحالات
   );
 
   const [open, setOpen] = useState(false);
@@ -150,10 +154,14 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
   };
 
   const handleSaveProduct = async () => {
-    if (!currentProduct.name || !currentProduct.image || !currentProduct.price) {
-        toast({ title: "بيانات ناقصة", description: "يرجى إكمال الاسم والسعر والصورة", variant: "destructive" });
+    const hasValidSizes = currentProduct.sizes && currentProduct.sizes.length > 0;
+    const isBasePriceValid = (currentProduct.price || 0) > 0;
+
+    if (!currentProduct.name || !currentProduct.image || (!isBasePriceValid && !hasValidSizes)) {
+        toast({ title: "بيانات ناقصة", description: "يرجى إكمال الاسم والصورة وتحديد سعر أو إضافة أنواع.", variant: "destructive" });
         return;
     }
+
     setIsSaving(true);
     try {
         if (isEditing && currentProduct.id) {
@@ -246,7 +254,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                         </div>
                         
                         <div className="space-y-1">
-                            <Label className="font-bold">السعر للزبون (بيع)</Label>
+                            <Label className="font-bold">السعر العام (إذا لا توجد أنواع)</Label>
                             <Input type="number" value={currentProduct.price || ''} onChange={(e) => setCurrentProduct({...currentProduct, price: parseFloat(e.target.value) || 0})} className="rounded-xl h-12 font-black text-primary" />
                         </div>
                         <div className="space-y-1">
@@ -261,7 +269,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
 
                     <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border-2 border-dashed">
                         <div className="space-y-0.5">
-                            <Label className="font-black">كمية غير محدودة</Label>
+                            <Label className="font-black">كمية غير محدودة للوجبة ككل</Label>
                             <p className="text-[10px] text-muted-foreground font-bold">لن ينقص المخزن عند كل طلب لهذه الوجبة.</p>
                         </div>
                         <Switch checked={currentProduct.isUnlimitedStock} onCheckedChange={(v) => setCurrentProduct({...currentProduct, isUnlimitedStock: v})} />
@@ -297,7 +305,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
 
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <Label className="font-black text-lg">الأحجام والأنواع (اختياري)</Label>
+                            <Label className="font-black text-lg">الأحجام والأنواع (تعتمد أسعارها تلقائياً)</Label>
                             <Button type="button" variant="outline" size="sm" onClick={addSize} className="rounded-lg font-bold gap-1"><PlusCircle className="h-4 w-4"/> إضافة خيار</Button>
                         </div>
                         <div className="space-y-3">
@@ -346,7 +354,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
             <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead className="font-black">الوجبة</TableHead>
-                <TableHead className="font-black">السعر (بيع)</TableHead>
+                <TableHead className="font-black">السعر</TableHead>
                 <TableHead className="font-black">المخزن</TableHead>
                 <TableHead className="font-black text-center">إجراء</TableHead>
               </TableRow>
@@ -362,10 +370,13 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                         <div className="text-right">
                             <div className="font-black text-sm">{p.name}</div>
                             <div className="text-[9px] font-bold text-muted-foreground">{p.storeSectionId || 'بدون قسم'}</div>
+                            {p.status === 'pending' && <Badge className="bg-orange-500 text-[8px] h-4 py-0">قيد المراجعة</Badge>}
                         </div>
                     </div>
                   </TableCell>
-                  <TableCell className="font-black text-primary">{formatCurrency(p.price)}</TableCell>
+                  <TableCell className="font-black text-primary">
+                    {p.sizes && p.sizes.length > 0 ? "متعدد" : formatCurrency(p.price)}
+                  </TableCell>
                   <TableCell>
                       {p.isUnlimitedStock ? <Badge variant="secondary" className="text-[10px]">مفتوح ∞</Badge> : <Badge variant={p.stock <= 5 ? "destructive" : "outline"} className="font-bold">{p.stock}</Badge>}
                   </TableCell>

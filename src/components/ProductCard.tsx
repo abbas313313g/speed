@@ -64,7 +64,6 @@ function ProductCardComponent({ product }: ProductCardProps) {
   };
 
   const priceDisplay = useMemo(() => {
-    // إصلاح السعر 0: إذا كان هناك أحجام، ابحث عن أقل سعر
     if (hasSizes) {
       const prices = activeSizes.map(s => s.price).filter(p => p > 0);
       if (prices.length > 0) {
@@ -74,7 +73,6 @@ function ProductCardComponent({ product }: ProductCardProps) {
         return `تبدأ من ${formatCurrency(min)}`;
       }
     }
-    // السعر العادي أو المخصوم
     const finalPrice = product.discountPrice || product.price || 0;
     return formatCurrency(finalPrice);
   }, [product, hasSizes, activeSizes]);

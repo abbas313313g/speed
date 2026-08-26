@@ -9,9 +9,15 @@ import { useToast } from '@/hooks/use-toast';
 
 /**
  * Hook لإدارة المنتجات بذكاء وسرعة.
- * يدعم: جلب منتج واحد، جلب منتجات متجر، أو تحميل تدريجي (Pagination) للقائمة العامة.
  */
-export const useProducts = (branchId?: string, restaurantId?: string, loadLimit: number = 10, productId?: string, searchTerm: string = '') => {
+export const useProducts = (
+    branchId?: string, 
+    restaurantId?: string, 
+    loadLimit: number = 10, 
+    productId?: string, 
+    searchTerm: string = '',
+    isAdmin: boolean = false
+) => {
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [hasMore, setHasMore] = useState(true);
@@ -22,7 +28,6 @@ export const useProducts = (branchId?: string, restaurantId?: string, loadLimit:
         let unsub = () => {};
 
         try {
-            // الحالة 1: جلب منتج واحد محدد برابط مباشر (لحظي)
             if (productId) {
                 unsub = onSnapshot(doc(db, 'products', productId), (docSnap) => {
                     if (docSnap.exists()) {
@@ -37,19 +42,14 @@ export const useProducts = (branchId?: string, restaurantId?: string, loadLimit:
                 return () => unsub();
             }
 
-            // الحالة 2: البحث الشامل (يتم البحث في كل قاعدة البيانات)
             if (searchTerm.trim() !== '') {
                 const ref = collection(db, 'products');
-                // نستخدم استعلام بسيط وفلترة محلية لضمان شمولية البحث في كل المتاجر
-                const q = query(
-                    ref, 
-                    where('status', '==', 'approved'),
-                    limit(50) // حد أقصى لنتائج البحث لضمان السرعة
-                );
+                const q = isAdmin 
+                    ? query(ref, limit(50))
+                    : query(ref, where('status', '==', 'approved'), limit(50));
                 
                 getDocs(q).then(snap => {
                     const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Product));
-                    // فلترة دقيقة في المتصفح لدعم البحث الجزئي
                     const filtered = data.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
                     setProducts(filtered);
                     setHasMore(false);
@@ -58,18 +58,26 @@ export const useProducts = (branchId?: string, restaurantId?: string, loadLimit:
                 return;
             }
 
-            // الحالة 3: التحميل التدريجي (Infinite Scroll)
             const ref = collection(db, 'products');
-            let q = query(
-                ref, 
-                where('status', '==', 'approved'),
-                limit(loadLimit)
-            );
+            let q;
 
             if (restaurantId) {
-                q = query(ref, where('restaurantId', '==', restaurantId), where('status', '==', 'approved'), limit(100));
+                // في لوحة الأدمن أو إدارة المتجر، نجلب كل المنتجات بدون فلتر الحالة
+                if (isAdmin) {
+                    q = query(ref, where('restaurantId', '==', restaurantId), limit(200));
+                } else {
+                    q = query(ref, where('restaurantId', '==', restaurantId), where('status', '==', 'approved'), limit(100));
+                }
             } else if (branchId && branchId !== 'all') {
-                q = query(ref, where('branchId', '==', branchId), where('status', '==', 'approved'), limit(loadLimit));
+                if (isAdmin) {
+                    q = query(ref, where('branchId', '==', branchId), limit(loadLimit));
+                } else {
+                    q = query(ref, where('branchId', '==', branchId), where('status', '==', 'approved'), limit(loadLimit));
+                }
+            } else {
+                q = isAdmin 
+                    ? query(ref, limit(loadLimit))
+                    : query(ref, where('status', '==', 'approved'), limit(loadLimit));
             }
 
             unsub = onSnapshot(q, (snapshot) => {
@@ -86,7 +94,7 @@ export const useProducts = (branchId?: string, restaurantId?: string, loadLimit:
         }
 
         return () => unsub();
-    }, [branchId, restaurantId, loadLimit, productId, searchTerm]);
+    }, [branchId, restaurantId, loadLimit, productId, searchTerm, isAdmin]);
 
     const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
         try {
