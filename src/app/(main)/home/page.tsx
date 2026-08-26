@@ -22,6 +22,7 @@ import { useBanners } from "@/hooks/useBanners";
 import { useRestaurants } from "@/hooks/useRestaurants";
 import { useCategories } from "@/hooks/useCategories";
 import { useProducts } from "@/hooks/useProducts";
+import { useAppSettings } from "@/hooks/useAppSettings";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function HomePage() {
@@ -29,11 +30,11 @@ export default function HomePage() {
   const { banners, isLoading: bannersLoading } = useBanners();
   const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
   const { categories, isLoading: categoriesLoading } = useCategories();
+  const { settings } = useAppSettings();
   
-  // جلب عدد محدود جداً من المنتجات للأكثر مبيعاً لضمان السرعة
-  const { products: topProducts, isLoading: productsLoading } = useProducts(undefined, undefined, 8);
+  const { products: topProducts, isLoading: productsLoading } = useProducts(undefined, undefined, 12);
   
-  const plugin = useRef(Autoplay({ delay: 3000, stopOnInteraction: false }));
+  const plugin = useRef(Autoplay({ delay: 3500, stopOnInteraction: false }));
   
   const setActiveTab = context?.setActiveTab || (() => {});
   const setSelectedRestaurantId = context?.setSelectedRestaurantId || (() => {});
@@ -43,12 +44,17 @@ export default function HomePage() {
     setActiveTab(10);
   };
 
-  const topStores = useMemo(() => restaurants.slice(0, 8), [restaurants]);
-  
-  // تصفية المنتجات الأكثر مبيعاً من البيانات المحملة محلياً
-  const topSellers = topProducts;
+  const featuredBanners = useMemo(() => {
+    if (!settings?.featuredBannerIds || settings.featuredBannerIds.length === 0) return banners.slice(0, 5);
+    return banners.filter(b => settings.featuredBannerIds?.includes(b.id));
+  }, [banners, settings]);
 
-  const isLoading = bannersLoading && restaurantsLoading && categoriesLoading;
+  const featuredStores = useMemo(() => {
+    if (!settings?.featuredStoreIds || settings.featuredStoreIds.length === 0) return restaurants.slice(0, 8);
+    return restaurants.filter(r => settings.featuredStoreIds?.includes(r.id));
+  }, [restaurants, settings]);
+
+  const isLoading = bannersLoading || restaurantsLoading || categoriesLoading;
 
   if (isLoading) {
       return (
@@ -57,43 +63,37 @@ export default function HomePage() {
               <div className="grid grid-cols-4 gap-3">
                   {[1,2,3,4].map(i => <Skeleton key={i} className="aspect-square rounded-2xl" />)}
               </div>
-              <Skeleton className="h-48 w-full rounded-[2.5rem]" />
           </div>
       );
   }
 
   return (
-    <div className="space-y-8 p-4 pb-32 animate-in fade-in duration-300">
+    <div className="space-y-8 p-4 pb-32 animate-in fade-in duration-300 text-right">
       <header className="flex justify-between items-center py-2">
+        <div className="p-2 bg-primary/10 rounded-xl">
+            <ShoppingBasket className="h-6 w-6 text-primary" />
+        </div>
         <div>
             <h1 className="text-3xl font-black text-primary leading-tight italic tracking-tighter">SPEED SHOP</h1>
-            <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">أسرع توصيل في منطقتك</p>
+            <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">أسرع خدمة في منطقتك</p>
         </div>
       </header>
 
       <section className="relative">
         <Carousel className="w-full" opts={{ loop: true, direction: 'rtl' }} plugins={[plugin.current]}>
             <CarouselContent>
-                {banners.map((banner, index) => (
+                {featuredBanners.map((banner, index) => (
                     <CarouselItem key={banner.id} className="basis-full">
                         <div className="relative aspect-[21/9] w-full overflow-hidden rounded-[2rem] shadow-lg border-4 border-white">
-                            <Image 
-                                src={banner.image} 
-                                fill 
-                                alt="Promotion" 
-                                className="object-cover" 
-                                unoptimized={true}
-                                priority={index === 0}
-                                decoding="async"
-                            />
+                            <Image src={banner.image} fill alt="" className="object-cover" unoptimized={true} priority={index === 0} decoding="async" />
                         </div>
                     </CarouselItem>
                 ))}
-                {banners.length === 0 && (
+                {featuredBanners.length === 0 && (
                     <CarouselItem className="basis-full">
-                            <div className="relative aspect-[21/9] w-full overflow-hidden rounded-[2rem] bg-muted/20 flex items-center justify-center border-4 border-white border-dashed">
-                            <p className="text-muted-foreground font-bold">جاهز لعروضك الجديدة</p>
-                            </div>
+                         <div className="relative aspect-[21/9] w-full overflow-hidden rounded-[2rem] bg-muted/10 flex items-center justify-center border-4 border-white border-dashed">
+                            <p className="text-muted-foreground font-black text-xs">نحن نجهز عروضاً رائعة لك!</p>
+                         </div>
                     </CarouselItem>
                 )}
             </CarouselContent>
@@ -102,19 +102,15 @@ export default function HomePage() {
 
       <section>
         <div className="flex items-center justify-between mb-4 px-1">
-            <h2 className="text-xl font-black text-slate-800">اكتشف الأقسام</h2>
             <button onClick={() => setActiveTab(1)} className="text-primary font-black text-xs">عرض الكل</button>
+            <h2 className="text-xl font-black text-slate-800">اكتشف الأقسام</h2>
         </div>
         <div className="grid grid-cols-4 gap-3">
-            {categories.map((category) => {
+            {categories.slice(0, 4).map((category) => {
                 const Icon = category.icon || ShoppingBasket;
                 return (
-                    <button 
-                      key={category.id} 
-                      onClick={() => { setActiveTab(1); }} 
-                      className="flex flex-col items-center gap-2 group"
-                    >
-                        <div className="w-full aspect-square rounded-[1.5rem] flex items-center justify-center shadow-sm transition-all group-active:scale-90 bg-white border-2 border-slate-50 text-primary">
+                    <button key={category.id} onClick={() => { setActiveTab(1); }} className="flex flex-col items-center gap-2 group">
+                        <div className="w-full aspect-square rounded-[1.8rem] flex items-center justify-center shadow-sm transition-all group-active:scale-90 bg-white border-2 border-slate-50 text-primary">
                             <Icon className="h-8 w-8" />
                         </div>
                         <span className="text-[10px] font-black">{category.name}</span>
@@ -126,40 +122,30 @@ export default function HomePage() {
 
       <section>
          <div className="flex items-center justify-between mb-4 px-1">
+            <button onClick={() => setActiveTab(1)} className="text-primary font-black text-xs">تصفح المتاجر</button>
             <h2 className="text-xl font-black text-slate-800">أشهر المتاجر</h2>
-             <button onClick={() => setActiveTab(1)} className="text-primary font-black text-xs">تصفح المتاجر</button>
         </div>
-        <ScrollArea className="w-full whitespace-nowrap">
+        <ScrollArea className="w-full whitespace-nowrap" dir="rtl">
             <div className="flex w-max space-x-4 space-x-reverse pb-6 px-1">
-                {topStores.map((store, index) => (
+                {featuredStores.map((store, index) => (
                     <div 
                         key={store.id} 
                         onClick={() => handleStoreClick(store.id)}
                         className="w-[260px] shrink-0 bg-white rounded-[2.5rem] p-3 shadow-md border border-slate-50 relative group active:scale-95 transition-all"
                     >
                         <div className="relative aspect-[16/10] w-full overflow-hidden rounded-[1.8rem] mb-3 bg-muted/10">
-                            <Image 
-                                src={store.image} 
-                                alt={store.name} 
-                                fill 
-                                className="object-cover" 
-                                unoptimized={true} 
-                                decoding="async"
-                                priority={index < 2}
-                            />
-                            <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm">
+                            <Image src={store.image} alt={store.name} fill className="object-cover" unoptimized={true} decoding="async" />
+                            <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-md px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm">
                                 <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
                                 <span className="text-[10px] font-black">{store.rating}</span>
                             </div>
                         </div>
-                        <div className="px-2 flex justify-between items-center">
-                            <div>
+                        <div className="px-2 flex justify-between items-center flex-row-reverse">
+                            <div className="text-right">
                                 <h3 className="font-black text-sm text-slate-800 truncate max-w-[150px]">{store.name}</h3>
-                                <p className="text-[9px] text-muted-foreground font-bold italic">توصيل سريع وموثوق</p>
+                                <p className="text-[9px] text-muted-foreground font-bold italic">خدمة سريعة وموثوقة</p>
                             </div>
-                            <div className="p-2 bg-primary/10 rounded-xl">
-                                <ChevronLeft className="h-4 w-4 text-primary" />
-                            </div>
+                            <div className="p-2 bg-primary/10 rounded-xl"><ChevronLeft className="h-4 w-4 text-primary" /></div>
                         </div>
                     </div>
                 ))}
@@ -168,28 +154,22 @@ export default function HomePage() {
         </ScrollArea>
       </section>
 
-      {topSellers.length > 0 && (
+      {topProducts.length > 0 && (
           <section className="space-y-4">
               <div className="flex items-center justify-between px-1">
+                  <button onClick={() => setActiveTab(2)} className="text-primary font-black text-xs">عرض القائمة</button>
                   <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                    <Flame className="h-5 w-5 text-red-500 animate-pulse" />
-                    الأكثر طلباً الآن
+                    الأكثر طلباً الآن <Flame className="h-5 w-5 text-red-500 animate-pulse" />
                   </h2>
-                  <button onClick={() => setActiveTab(2)} className="text-primary font-black text-xs">عرض المنيو</button>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                  {topSellers.map((product) => {
+                  {topProducts.map((product) => {
                       const activeSizes = product.sizes?.filter(s => s.isActive !== false) || [];
-                      const hasSizes = activeSizes.length > 0;
                       let finalPrice = product.discountPrice || product.price || 0;
-                      
-                      if (hasSizes && finalPrice === 0) {
+                      if (activeSizes.length > 0 && finalPrice === 0) {
                           const prices = activeSizes.map(s => s.price).filter(p => p > 0);
-                          if (prices.length > 0) {
-                              finalPrice = Math.min(...prices);
-                          }
+                          if (prices.length > 0) finalPrice = Math.min(...prices);
                       }
-
                       return (
                         <div 
                             key={product.id} 
@@ -197,21 +177,11 @@ export default function HomePage() {
                             className="bg-white rounded-[2rem] p-2 shadow-sm border border-slate-50 flex flex-col gap-2 active:scale-95 transition-all"
                         >
                             <div className="relative aspect-square rounded-[1.5rem] overflow-hidden bg-muted/5">
-                                <Image 
-                                    src={product.image} 
-                                    fill 
-                                    alt={product.name} 
-                                    className="object-cover" 
-                                    unoptimized={true} 
-                                    loading="lazy"
-                                    decoding="async"
-                                />
+                                <Image src={product.image} fill alt={product.name} className="object-cover" unoptimized={true} loading="lazy" decoding="async" />
                             </div>
                             <div className="px-1 py-1">
                                 <h3 className="font-black text-xs text-slate-800 truncate">{product.name}</h3>
-                                <p className="text-primary font-black text-[10px] mt-1">
-                                    {hasSizes && (product.price === 0) ? `من ${formatCurrency(finalPrice)}` : formatCurrency(finalPrice)}
-                                </p>
+                                <p className="text-primary font-black text-[10px] mt-1">{formatCurrency(finalPrice)}</p>
                             </div>
                         </div>
                       );

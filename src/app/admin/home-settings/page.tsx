@@ -1,30 +1,39 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useBanners } from '@/hooks/useBanners';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { useAppSettings } from '@/hooks/useAppSettings';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, LayoutDashboard, Copy, Code, Save, Store, Image as ImageIcon } from 'lucide-react';
+import { CheckCircle2, Store, Image as ImageIcon, Save, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 export default function HomeSettingsPage() {
   const { restaurants } = useRestaurants();
   const { banners } = useBanners();
+  const { settings, setSettings, isSaving } = useAppSettings();
   const { toast } = useToast();
 
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
   const [selectedBanners, setSelectedBanners] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (settings) {
+        setSelectedStores(settings.featuredStoreIds || []);
+        setSelectedBanners(settings.featuredBannerIds || []);
+    }
+  }, [settings]);
 
   const toggleStore = (id: string) => {
     if (selectedStores.includes(id)) {
         setSelectedStores(prev => prev.filter(i => i !== id));
     } else {
         if (selectedStores.length >= 8) {
-            toast({ title: "الحد الأقصى 8 متاجر", variant: "destructive" });
+            toast({ title: "الحد الأقصى هو 8 متاجر", variant: "destructive" });
             return;
         }
         setSelectedStores(prev => [...prev, id]);
@@ -39,48 +48,38 @@ export default function HomeSettingsPage() {
       }
   };
 
-  const generateCode = () => {
-      const storesData = restaurants
-        .filter(r => selectedStores.includes(r.id))
-        .map(r => ({ id: r.id, name: r.name, image: r.image, rating: r.rating }));
-      
-      const bannersData = banners
-        .filter(b => selectedBanners.includes(b.id))
-        .map(b => ({ id: b.id, image: b.image, link: b.link }));
-
-      const code = `
-// انسخ هذا الكود وأرسله للمبرمج لتحديث الصفحة الرئيسية
-const STATIC_BANNERS = ${JSON.stringify(bannersData, null, 2)};
-const STATIC_STORES = ${JSON.stringify(storesData, null, 2)};
-      `;
-
-      navigator.clipboard.writeText(code);
-      toast({ title: "تم نسخ كود التحديث!", description: "أرسل الكود للمبرمج ليقوم بتجميده في الصفحة الرئيسية." });
+  const handleSaveSettings = async () => {
+      await setSettings({
+          featuredStoreIds: selectedStores,
+          featuredBannerIds: selectedBanners
+      });
+      toast({ title: "تم تحديث واجهة التطبيق فوراً ✅" });
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <header className="flex justify-between items-center">
+    <div className="space-y-8 animate-in fade-in duration-500 text-right">
+      <header className="flex justify-between items-start">
         <div>
-          <h1 className="text-4xl font-black text-primary">تخصيص الواجهة الرئيسية</h1>
-          <p className="text-muted-foreground font-bold">اختر المحتوى الذي سيظهر "فورياً" للزبائن بدون تحميل.</p>
+          <h1 className="text-4xl font-black text-primary italic">تخصيص الواجهة</h1>
+          <p className="text-muted-foreground font-bold mt-1">اختر المحتوى الذي سيظهر للزبائن في الصفحة الرئيسية.</p>
         </div>
-        <Button onClick={generateCode} className="h-14 rounded-2xl font-black gap-2 shadow-xl">
-            <Save className="h-5 w-5" /> حفظ وتوليد كود التحديث
+        <Button onClick={handleSaveSettings} disabled={isSaving} className="h-14 rounded-2xl font-black gap-2 shadow-xl px-8">
+            {isSaving ? <Loader2 className="animate-spin h-5 w-5"/> : <Save className="h-5 w-5" />}
+            حفظ التغييرات الآن
         </Button>
       </header>
 
       <div className="grid md:grid-cols-2 gap-8">
           <section className="space-y-4">
-              <h2 className="text-xl font-black flex items-center gap-2 px-1">
-                  <ImageIcon className="text-primary"/> البنرات المختارة ({selectedBanners.length})
+              <h2 className="text-xl font-black flex items-center gap-2 px-1 justify-end">
+                  الإعلانات المفضلة ({selectedBanners.length}) <ImageIcon className="text-primary h-5 w-5"/>
               </h2>
               <div className="grid gap-3">
                   {banners.map(b => (
                       <Card 
                         key={b.id} 
                         onClick={() => toggleBanner(b.id)}
-                        className={cn("p-2 rounded-2xl cursor-pointer border-2 transition-all", selectedBanners.includes(b.id) ? "border-primary bg-primary/5" : "border-transparent bg-white")}
+                        className={cn("p-2 rounded-2xl cursor-pointer border-2 transition-all relative overflow-hidden", selectedBanners.includes(b.id) ? "border-primary bg-primary/5" : "border-transparent bg-white")}
                       >
                           <div className="relative aspect-video rounded-xl overflow-hidden">
                               <Image src={b.image} fill className="object-cover" alt="" unoptimized={true} />
@@ -92,15 +91,15 @@ const STATIC_STORES = ${JSON.stringify(storesData, null, 2)};
           </section>
 
           <section className="space-y-4">
-              <h2 className="text-xl font-black flex items-center gap-2 px-1">
-                  <Store className="text-primary"/> المتاجر الـ 8 المفضلة ({selectedStores.length}/8)
+              <h2 className="text-xl font-black flex items-center gap-2 px-1 justify-end">
+                  أشهر المتاجر ({selectedStores.length}/8) <Store className="text-primary h-5 w-5"/>
               </h2>
               <div className="grid grid-cols-2 gap-3">
                   {restaurants.map(r => (
                       <Card 
                         key={r.id} 
                         onClick={() => toggleStore(r.id)}
-                        className={cn("p-3 rounded-2xl cursor-pointer border-2 transition-all text-right", selectedStores.includes(r.id) ? "border-primary bg-primary/5" : "border-transparent bg-white")}
+                        className={cn("p-3 rounded-2xl cursor-pointer border-2 transition-all text-center", selectedStores.includes(r.id) ? "border-primary bg-primary/5" : "border-transparent bg-white")}
                       >
                           <div className="relative aspect-square rounded-xl overflow-hidden mb-2">
                               <Image src={r.image} fill className="object-cover" alt="" unoptimized={true} />
@@ -112,19 +111,6 @@ const STATIC_STORES = ${JSON.stringify(storesData, null, 2)};
               </div>
           </section>
       </div>
-
-      <Card className="rounded-[2.5rem] bg-slate-800 text-white border-none p-8 text-center">
-            <Code className="h-12 w-12 mx-auto mb-4 text-primary" />
-            <h2 className="text-2xl font-black">نظام التحديث البرمجي</h2>
-            <p className="text-white/60 font-bold mt-2 px-10">
-                لأنك طلبت أداءً صاروخياً، الصفحة الرئيسية لا تعتمد على السيرفر في كل مرة. <br/>
-                عند تغيير الاختيارات أعلاه، اضغط على زر "توليد الكود" وأرسله لي ليقوم التطبيق بتغيير الواجهة فوراً في الزيارة القادمة.
-            </p>
-      </Card>
     </div>
   );
-}
-
-function cn(...inputs: any[]) {
-    return inputs.filter(Boolean).join(' ');
 }

@@ -70,6 +70,7 @@ export interface Restaurant {
   branchId: string;
   categoryId: string; 
   menuSections?: string[]; 
+  isFeatured?: boolean;
 }
 
 export interface Branch {
@@ -84,6 +85,7 @@ export interface Banner {
   image: string;
   linkType?: 'none' | 'product' | 'restaurant';
   link: string;
+  isFeatured?: boolean;
 }
 
 export interface CartItem {
@@ -103,9 +105,8 @@ export interface DeliveryWorker {
     name: string;
     password?: string;
     lastDeliveredAt?: string | null; 
-    unfreezeProgress?: number;
     isOnline?: boolean;
-    totalDeliveredCount?: number;
+    isActive?: boolean; // نظام إيقاف العمل
     branchId: string;
 }
 
@@ -118,9 +119,7 @@ export interface Order {
     total: number;
     date: string; 
     status: OrderStatus;
-    estimatedDelivery: string;
     address: Address;
-    profit: number;
     deliveryFee: number;
     deliveryWorkerId: string | null;
     deliveryWorker: {id: string; name: string} | null;
@@ -137,6 +136,7 @@ export interface Order {
         name: string;
         latitude?: number | null;
         longitude?: number | null;
+        commissionRate?: number;
     } | null;
 }
 
@@ -144,7 +144,9 @@ export interface WithdrawRequest {
     id: string;
     restaurantId: string;
     restaurantName: string;
-    amount: number;
+    amount: number; // المبلغ المطلوب
+    commissionAmount: number; // حصة الشركة المحتسبة
+    netAmount: number; // المبلغ الصافي للمتجر
     status: 'pending' | 'completed' | 'rejected';
     requestedAt: string;
     branchId: string;
@@ -182,6 +184,8 @@ export interface AppSettings {
     id?: string;
     isMaintenanceMode: boolean;
     maintenanceMessage?: string;
+    featuredStoreIds?: string[];
+    featuredBannerIds?: string[];
 }
 
 export interface AdminAccess {

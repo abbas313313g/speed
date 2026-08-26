@@ -5,7 +5,7 @@ import { useContext, useMemo, useState, useEffect, useRef } from 'react';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, PackageSearch, History, Clock, Volume2, VolumeX, PackageCheck, Truck, AlertCircle, PlayCircle, Info } from 'lucide-react';
+import { LogOut, Loader2, PackageSearch, History, Clock, Volume2, VolumeX, PackageCheck, Truck, AlertCircle, PlayCircle, Info, ChevronLeft, Receipt } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -32,7 +32,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         return allOrders.filter(o => o.restaurant?.id === context.restaurant?.id);
     }, [context?.restaurant, allOrders]);
 
-    // الطلبات الجديدة والجار تحضيرها
     const newOrders = myOrders.filter(o => ['unassigned', 'pending_assignment', 'confirmed'].includes(o.status));
     const preparingOrders = myOrders.filter(o => o.status === 'preparing');
     const readyOrders = myOrders.filter(o => o.status === 'ready_for_pickup');
@@ -56,12 +55,12 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
 
     const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
         setProcessingOrderId(orderId);
-        const success = await updateOrderStatus(orderId, status);
-        if (success) {
+        try {
+            await updateOrderStatus(orderId, status);
             toast({ title: "تم تحديث حالة الطلب بنجاح ✅" });
             setSelectedOrder(null);
-        } else {
-            toast({ title: "فشل التحديث، حاول مرة أخرى", variant: "destructive" });
+        } catch (e) {
+            toast({ title: "عذراً، فشل التحديث. يرجى المحاولة لاحقاً.", variant: "destructive" });
         }
         setProcessingOrderId(null);
     };
@@ -69,95 +68,89 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     if (!context?.restaurant || oLoading) return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
             <Loader2 className="animate-spin h-10 w-10 text-primary" />
-            <p className="mt-4 font-bold text-muted-foreground">جاري جلب الطلبات...</p>
-        </div>
-    );
-
-    const OrderItemsList = ({ order }: { order: Order }) => (
-        <div className="space-y-4 py-2">
-            {order.items.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-4 bg-white p-3 rounded-2xl border shadow-sm">
-                    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border">
-                        <Image src={item.product.image || 'https://placehold.co/100x100.png'} alt="" fill className="object-cover" unoptimized={true}/>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <h4 className="font-black text-sm truncate">{item.product.name}</h4>
-                        <div className="flex justify-between items-center mt-1">
-                            <span className="font-bold text-xs text-primary">الكمية: {item.quantity}</span>
-                        </div>
-                    </div>
-                </div>
-            ))}
-            <Separator className="my-2" />
-            <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 flex justify-between items-center">
-                <span className="font-black text-xs">صافي دخل المتجر:</span>
-                <span className="text-xl font-black text-primary">{formatCurrency(order.total - order.deliveryFee)}</span>
-            </div>
+            <p className="mt-4 font-black text-primary">جارِ فتح لوحة التحكم...</p>
         </div>
     );
 
     return (
-        <div className="flex flex-col min-h-full bg-muted/5 pb-40">
+        <div className="flex flex-col min-h-full bg-slate-50 pb-40 text-right">
             <header className="p-4 bg-white border-b shadow-sm flex justify-between items-center sticky top-0 z-50">
                 <div className="text-right">
-                    <h1 className="text-xl font-black text-primary">{context.restaurant.name}</h1>
-                    <p className="text-[10px] font-bold text-muted-foreground">اللوحة تعمل أونلاين</p>
+                    <h1 className="text-xl font-black text-primary italic leading-none">{context.restaurant.name}</h1>
+                    <div className="flex items-center gap-1 mt-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"/>
+                        <span className="text-[9px] font-bold text-muted-foreground">متصل الآن</span>
+                    </div>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" size="icon" className="rounded-xl" onClick={() => setIsMuted(!isMuted)}>
-                        {isMuted ? <VolumeX className="h-5 w-5"/> : <Volume2 className="h-5 w-5"/>}
+                    <Button variant="outline" size="icon" className="rounded-xl border-2" onClick={() => setIsMuted(!isMuted)}>
+                        {isMuted ? <VolumeX className="h-5 w-5 text-muted-foreground"/> : <Volume2 className="h-5 w-5 text-primary"/>}
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={context.logout} className="text-destructive rounded-xl"><LogOut className="h-5 w-5"/></Button>
+                    <Button variant="ghost" size="icon" onClick={context.logout} className="text-destructive rounded-xl hover:bg-destructive/5"><LogOut className="h-5 w-5"/></Button>
                 </div>
             </header>
 
             {!audioUnlocked && (
-                <div className="p-3 bg-primary text-white text-center font-bold text-xs flex items-center justify-center gap-2 cursor-pointer" onClick={() => { audioRef.current?.play().then(() => { audioRef.current?.pause(); setAudioUnlocked(true); }) }}>
-                    <PlayCircle className="h-4 w-4 animate-pulse" /> اضغط هنا لتفعيل جرس التنبيه
+                <div className="mx-4 mt-4 p-4 bg-primary rounded-2xl text-white text-center font-black text-sm flex items-center justify-center gap-3 cursor-pointer shadow-lg shadow-primary/20" onClick={() => { audioRef.current?.play().then(() => { audioRef.current?.pause(); setAudioUnlocked(true); }) }}>
+                    <PlayCircle className="h-6 w-6 animate-bounce" /> اضغط هنا لتفعيل جرس التنبيه للطلبات الجديدة
                 </div>
             )}
 
             <div className="p-4 grid grid-cols-2 gap-3">
-                <Button onClick={() => onNavigate(2)} variant="outline" className="rounded-2xl h-14 bg-white shadow-sm flex flex-col gap-1">
-                    <PackageSearch className="h-5 w-5 text-primary"/>
-                    <span className="text-[10px] font-black">إدارة المنيو</span>
+                <Button onClick={() => onNavigate(2)} variant="outline" className="rounded-[1.5rem] h-16 bg-white border-2 border-primary/10 shadow-sm flex flex-col gap-1 active:bg-primary/5 transition-all">
+                    <PackageSearch className="h-6 w-6 text-primary"/>
+                    <span className="text-[10px] font-black">قائمة الوجبات</span>
                 </Button>
-                <Button onClick={() => onNavigate(3)} variant="outline" className="rounded-2xl h-14 bg-white shadow-sm flex flex-col gap-1">
-                    <History className="h-5 w-5 text-muted-foreground"/>
-                    <span className="text-[10px] font-black">الحسابات</span>
+                <Button onClick={() => onNavigate(3)} variant="outline" className="rounded-[1.5rem] h-16 bg-white border-2 border-slate-100 shadow-sm flex flex-col gap-1 active:bg-slate-50 transition-all">
+                    <History className="h-6 w-6 text-slate-400"/>
+                    <span className="text-[10px] font-black">كشف الحساب</span>
                 </Button>
             </div>
 
             <main className="p-4 space-y-8">
                 <section className="space-y-4">
-                    <h2 className="text-lg font-black flex items-center gap-2 px-1 text-red-600">
-                        <AlertCircle className="h-5 w-5 animate-pulse"/> طلبات جديدة ({newOrders.length})
-                    </h2>
+                    <div className="flex justify-between items-center px-1">
+                        <Badge className="bg-red-500 text-white font-black rounded-lg">{newOrders.length}</Badge>
+                        <h2 className="text-lg font-black flex items-center gap-2 text-slate-800">
+                             طلبات بانتظار القبول <AlertCircle className="h-5 w-5 text-red-500"/>
+                        </h2>
+                    </div>
                     {newOrders.map(order => (
-                        <Card key={order.id} className="rounded-2xl p-4 border-none shadow-sm flex items-center justify-between bg-white">
-                            <div className="flex-1 cursor-pointer" onClick={() => setSelectedOrder(order)}>
-                                <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
-                                <p className="text-[10px] text-muted-foreground font-bold">{order.items.length} وجبات - {formatCurrency(order.total - order.deliveryFee)}</p>
+                        <Card key={order.id} className="rounded-[1.8rem] p-4 border-none shadow-md flex items-center justify-between bg-white border-r-8 border-r-red-500 animate-in slide-in-from-right-4 duration-300">
+                            <div className="flex-1 cursor-pointer space-y-1" onClick={() => setSelectedOrder(order)}>
+                                <div className="flex items-center gap-2 justify-end">
+                                    <span className="text-[10px] font-bold text-muted-foreground">{new Date(order.date).toLocaleTimeString('ar-IQ', {hour:'2-digit', minute:'2-digit'})}</span>
+                                    <p className="font-black text-sm">طلب #{order.id.substring(0, 6)}</p>
+                                </div>
+                                <p className="text-xs font-bold text-slate-600 italic">صافي الدخل: {formatCurrency(order.total - order.deliveryFee)}</p>
                             </div>
-                            <Button className="rounded-xl h-10 font-black px-6 shadow-md bg-green-600 hover:bg-green-700" disabled={processingOrderId === order.id} onClick={() => handleUpdateStatus(order.id, 'preparing')}>
-                                {processingOrderId === order.id ? <Loader2 className="animate-spin h-4 w-4"/> : "قبول"}
+                            <Button className="rounded-xl h-12 font-black px-6 shadow-lg bg-green-600 hover:bg-green-700 active:scale-90 transition-all" disabled={processingOrderId === order.id} onClick={() => handleUpdateStatus(order.id, 'preparing')}>
+                                {processingOrderId === order.id ? <Loader2 className="animate-spin h-5 w-5"/> : "قبول وبدء التحضير"}
                             </Button>
                         </Card>
                     ))}
+                    {newOrders.length === 0 && <div className="p-10 text-center text-muted-foreground font-bold border-2 border-dashed rounded-[2rem] text-xs">لا توجد طلبات جديدة حالياً.</div>}
                 </section>
 
                 <section className="space-y-4">
-                    <h2 className="text-lg font-black flex items-center gap-2 px-1 text-orange-500">
-                        <Clock className="h-5 w-5"/> قيد التحضير ({preparingOrders.length})
-                    </h2>
+                    <div className="flex justify-between items-center px-1">
+                        <Badge variant="outline" className="text-orange-500 border-orange-200 font-black rounded-lg">{preparingOrders.length}</Badge>
+                        <h2 className="text-lg font-black flex items-center gap-2 text-slate-800">
+                             قيد التحضير <Clock className="h-5 w-5 text-orange-500"/>
+                        </h2>
+                    </div>
                     {preparingOrders.map(order => (
-                        <Card key={order.id} className="rounded-2xl p-4 border-none shadow-sm flex items-center justify-between bg-white border-r-4 border-r-orange-500">
+                        <Card key={order.id} className="rounded-[1.8rem] p-4 border-none shadow-md flex items-center justify-between bg-white border-r-8 border-r-orange-500">
                             <div className="flex-1 cursor-pointer" onClick={() => setSelectedOrder(order)}>
-                                <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
-                                {!order.deliveryWorkerId && <Badge variant="outline" className="text-[8px] animate-pulse text-orange-600">جارِ البحث عن سائق...</Badge>}
+                                <p className="font-black text-sm">طلب #{order.id.substring(0, 6)}</p>
+                                {!order.deliveryWorkerId && (
+                                    <div className="flex items-center gap-1 text-[9px] font-black text-orange-600 mt-1">
+                                        <Loader2 className="h-2.5 w-2.5 animate-spin"/> جارِ تأمين سائق للطلب...
+                                    </div>
+                                )}
                             </div>
-                            <Button className="rounded-xl h-10 font-black px-6 shadow-md" disabled={processingOrderId === order.id} onClick={() => handleUpdateStatus(order.id, 'ready_for_pickup')}>
-                                {processingOrderId === order.id ? <Loader2 className="animate-spin h-4 w-4"/> : "تم التجهيز"}
+                            <Button className="rounded-xl h-12 font-black px-6 shadow-md bg-primary hover:bg-primary/90" disabled={processingOrderId === order.id} onClick={() => handleUpdateStatus(order.id, 'ready_for_pickup')}>
+                                {processingOrderId === order.id ? <Loader2 className="animate-spin h-5 w-5"/> : "جاهز للاستلام"}
                             </Button>
                         </Card>
                     ))}
@@ -165,16 +158,21 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
 
                 {(readyOrders.length > 0 || onTheWayOrders.length > 0) && (
                     <section className="space-y-4">
-                        <h2 className="text-sm font-black flex items-center gap-2 px-1 text-green-600">
-                            <PackageCheck className="h-5 w-5"/> متابعة الاستلام ({readyOrders.length + onTheWayOrders.length})
-                        </h2>
+                        <div className="flex justify-between items-center px-1">
+                            <Badge className="bg-green-100 text-green-700 font-black rounded-lg">{readyOrders.length + onTheWayOrders.length}</Badge>
+                            <h2 className="text-lg font-black flex items-center gap-2 text-slate-800">
+                                تم التجهيز والمتابعة <PackageCheck className="h-5 w-5 text-green-600"/>
+                            </h2>
+                        </div>
                         {[...readyOrders, ...onTheWayOrders].map(order => (
-                            <div key={order.id} onClick={() => setSelectedOrder(order)} className="bg-white p-4 rounded-2xl shadow-sm border-r-4 border-r-green-500 flex items-center justify-between cursor-pointer">
-                                <div>
+                            <div key={order.id} onClick={() => setSelectedOrder(order)} className="bg-white p-4 rounded-[1.5rem] shadow-sm border-r-8 border-r-green-500 flex items-center justify-between cursor-pointer">
+                                <div className="text-right">
                                     <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
-                                    <p className="text-[9px] font-bold text-muted-foreground">{order.status === 'ready_for_pickup' ? 'بانتظار وصول المندوب' : 'في الطريق للزبون'}</p>
+                                    <p className="text-[10px] font-bold text-muted-foreground">{order.status === 'ready_for_pickup' ? 'بانتظار وصول المندوب للمحل' : 'الطلب مع المندوب حالياً'}</p>
                                 </div>
-                                <Truck className={cn("h-5 w-5 text-green-600", order.status === 'on_the_way' && "animate-bounce")}/>
+                                <div className={cn("p-2 rounded-xl bg-green-50", order.status === 'on_the_way' && "animate-pulse")}>
+                                    <Truck className="h-6 w-6 text-green-600"/>
+                                </div>
                             </div>
                         ))}
                     </section>
@@ -182,10 +180,38 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
             </main>
 
             <Dialog open={!!selectedOrder} onOpenChange={(v) => !v && setSelectedOrder(null)}>
-                <DialogContent className="max-w-[90vw] sm:max-w-md rounded-[2.5rem] p-0 border-none shadow-2xl">
-                    <DialogHeader className="p-6 bg-primary text-white"><DialogTitle className="text-2xl font-black text-right">تفاصيل الطلب</DialogTitle></DialogHeader>
-                    <div className="p-6 max-h-[50vh] overflow-y-auto">{selectedOrder && <OrderItemsList order={selectedOrder} />}</div>
-                    <DialogFooter className="p-4 bg-muted/5 border-t"><Button variant="outline" className="w-full rounded-xl font-bold h-12" onClick={() => setSelectedOrder(null)}>إغلاق</Button></DialogFooter>
+                <DialogContent className="max-w-[92vw] sm:max-w-md rounded-[2.5rem] p-0 border-none shadow-2xl overflow-hidden">
+                    <DialogHeader className="p-6 bg-primary text-white text-right">
+                        <div className="flex items-center gap-3 justify-end">
+                            <div className="text-right">
+                                <DialogTitle className="text-2xl font-black italic">تفاصيل الطلب</DialogTitle>
+                                <p className="text-[10px] font-bold text-white/70 mt-1">رقم الطلب: #{selectedOrder?.id.substring(0,6)}</p>
+                            </div>
+                            <div className="p-3 bg-white/20 rounded-2xl"><Receipt className="h-8 w-8 text-white"/></div>
+                        </div>
+                    </DialogHeader>
+                    <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
+                        {selectedOrder?.items.map((item, idx) => (
+                            <div key={idx} className="flex items-center gap-4 bg-muted/20 p-3 rounded-2xl border-2 border-white shadow-inner">
+                                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 border-white">
+                                    <Image src={item.product.image || 'https://placehold.co/100x100.png'} alt="" fill className="object-cover" unoptimized={true}/>
+                                </div>
+                                <div className="flex-1 min-w-0 text-right">
+                                    <h4 className="font-black text-sm truncate">{item.product.name}</h4>
+                                    {item.selectedSize && <Badge variant="secondary" className="text-[8px] font-black h-4 px-1.5 mt-1">{item.selectedSize.name}</Badge>}
+                                    <div className="mt-1 font-black text-primary text-xs">الكمية: {item.quantity}</div>
+                                </div>
+                            </div>
+                        ))}
+                        <Separator className="border-dashed" />
+                        <div className="bg-primary/5 p-5 rounded-[2rem] border-2 border-primary/10 flex justify-between items-center">
+                            <span className="font-black text-slate-700">صافي ربحك:</span>
+                            <span className="text-2xl font-black text-primary tracking-tighter">{formatCurrency((selectedOrder?.total || 0) - (selectedOrder?.deliveryFee || 0))}</span>
+                        </div>
+                    </div>
+                    <DialogFooter className="p-4 bg-slate-50 border-t">
+                        <Button variant="outline" className="w-full rounded-2xl font-black h-14 border-2 shadow-sm text-lg" onClick={() => setSelectedOrder(null)}>إغلاق النافذة</Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

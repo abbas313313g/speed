@@ -12,98 +12,99 @@ import {
 } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/utils';
 import Image from 'next/image';
-import type { Restaurant } from '@/lib/types';
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { doc, writeBatch } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useToast } from '@/hooks/use-toast';
+import { Landmark, TrendingUp, Building2, Wallet } from 'lucide-react';
 
-interface StoreWallet {
-    restaurant: Restaurant;
-    totalSales: number; // مبيعات المنتجات
-    officeCommission: number; // حصة الشركة
-    netToStore: number; // الصافي للمتجر
-    orderCount: number;
-    unpaidOrderIds: string[];
-}
+export default function AdminReportsPage({ branchId }: { branchId: string }) {
+  const { restaurants, isLoading: rLoading } = useRestaurants(branchId);
+  const { allOrders, isLoading: oLoading } = useOrders(branchId);
 
-export default function AdminReportsPage() {
-  const { restaurants, isLoading: rLoading } = useRestaurants();
-  const { allOrders, isLoading: oLoading } = useOrders();
-  const { toast } = useToast();
+  const isMain = branchId === 'main';
 
-  const storeWallets: StoreWallet[] = useMemo(() => {
-    if (rLoading || oLoading) return [];
-    return restaurants.map(r => {
-        const myOrders = allOrders.filter(o => o.restaurant?.id === r.id && o.status === 'delivered' && !o.isPaid);
-        const totalSales = myOrders.reduce((acc, o) => {
-             const itemsPrice = o.items.reduce((sum, i) => sum + ((i.selectedSize?.price ?? i.product.discountPrice ?? i.product.price) * i.quantity), 0);
-             return acc + itemsPrice;
-        }, 0);
-        const commission = (totalSales * (r.commissionRate || 0)) / 100;
-        return {
-            restaurant: r,
-            totalSales,
-            officeCommission: commission,
-            netToStore: totalSales - commission,
-            orderCount: myOrders.length,
-            unpaidOrderIds: myOrders.map(o => o.id),
-        };
-    }).filter(w => w.orderCount > 0).sort((a,b) => b.totalSales - a.totalSales);
-  }, [restaurants, allOrders, rLoading, oLoading]);
+  const stats = useMemo(() => {
+    if (rLoading || oLoading) return { totalSales: 0, companyEarnings: 0, storePayouts: 0 };
+    const delivered = allOrders.filter(o => o.status === 'delivered');
+    
+    let totalSales = 0;
+    let companyEarnings = 0;
 
-  const handleSettle = async (ids: string[]) => {
-      if (ids.length === 0) return;
-      const batch = writeBatch(db);
-      ids.forEach(id => batch.update(doc(db, "orders", id), { isPaid: true }));
-      await batch.commit();
-      toast({ title: "تم تسوية حساب المتجر ومسح السجل" });
-  }
+    delivered.forEach(order => {
+        const itemsPrice = order.items.reduce((sum, i) => sum + ((i.selectedSize?.price ?? i.product.discountPrice ?? i.product.price) * i.quantity), 0);
+        const commissionRate = order.restaurant?.commissionRate || 10;
+        const commission = (itemsPrice * commissionRate) / 100;
+        
+        totalSales += itemsPrice;
+        companyEarnings += commission;
+    });
 
-  if (rLoading || oLoading) return <div className="p-8 text-center animate-pulse">جار جلب التقارير المالية...</div>;
+    return {
+        totalSales,
+        companyEarnings,
+        storePayouts: totalSales - companyEarnings
+    };
+  }, [allOrders, rLoading, oLoading]);
+
+  if (rLoading || oLoading) return <div className="p-8 text-center animate-pulse">جارِ حساب الأرباح والعمولات...</div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 text-right animate-in fade-in duration-500">
       <header>
-        <h1 className="text-3xl font-black text-primary">تسوية حسابات المتاجر</h1>
-        <p className="text-muted-foreground">إدارة مستحقات المتاجر وعمولات الشركة.</p>
+        <h1 className="text-3xl font-black text-primary italic">تقرير أرباح الشركة</h1>
+        <p className="text-muted-foreground font-bold">ملخص العمولات والتدفقات المالية لفرع: {isMain ? 'المركز الرئيسي' : branchId}</p>
       </header>
 
-      {storeWallets.length === 0 ? <p className="text-center text-muted-foreground py-20 font-bold italic">لا توجد حسابات معلقة للمتاجر.</p> : 
-      <Card className="rounded-[2rem] border-none shadow-2xl overflow-hidden">
-        <Table>
-            <TableHeader className="bg-muted/50">
-            <TableRow>
-                <TableHead className="font-black">المتجر</TableHead>
-                <TableHead className="font-black">إجمالي المبيعات</TableHead>
-                <TableHead className="font-black">عمولة الشركة ({(storeWallets[0]?.restaurant.commissionRate || 0)}%)</TableHead>
-                <TableHead className="font-black">الصافي للمتجر</TableHead>
-                <TableHead className="font-black text-center">إجراء</TableHead>
-            </TableRow>
-            </TableHeader>
-            <TableBody>
-            {storeWallets.map((w) => (
-                <TableRow key={w.restaurant.id}>
-                    <TableCell>
-                        <div className="flex items-center gap-3">
-                            <Image src={w.restaurant.image} alt={w.restaurant.name} width={40} height={40} className="rounded-lg object-cover" unoptimized={true} />
-                            <span className="font-bold">{w.restaurant.name}</span>
-                        </div>
-                    </TableCell>
-                    <TableCell className="font-bold">{formatCurrency(w.totalSales)}</TableCell>
-                    <TableCell className="font-black text-primary">{formatCurrency(w.officeCommission)}</TableCell>
-                    <TableCell className="font-black text-green-600">{formatCurrency(w.netToStore)}</TableCell>
-                    <TableCell className="text-center">
-                        <Button size="sm" className="rounded-xl font-bold px-4" onClick={()=>handleSettle(w.unpaidOrderIds)}>تسوية الحساب</Button>
-                    </TableCell>
-                </TableRow>
-            ))}
-            </TableBody>
-        </Table>
-      </Card>}
+      <div className="grid gap-4 md:grid-cols-3">
+          <Card className="rounded-[1.5rem] border-none shadow-xl bg-slate-900 text-white p-6 relative overflow-hidden">
+              <div className="absolute left-[-10px] bottom-[-10px] opacity-10"><TrendingUp className="h-20 w-20"/></div>
+              <div className="text-[10px] font-black text-primary uppercase mb-2">إجمالي مبيعات المنتجات</div>
+              <div className="text-3xl font-black">{formatCurrency(stats.totalSales)}</div>
+          </Card>
+          <Card className="rounded-[1.5rem] border-none shadow-xl bg-primary text-white p-6">
+              <div className="text-[10px] font-black text-white/70 uppercase mb-2">صافي أرباح الشركة (العمولات)</div>
+              <div className="text-3xl font-black">{formatCurrency(stats.companyEarnings)}</div>
+          </Card>
+          <Card className="rounded-[1.5rem] border-none shadow-xl bg-white p-6 border-r-4 border-r-orange-500">
+              <div className="text-[10px] font-black text-muted-foreground uppercase mb-2">مستحقات المتاجر الكلية</div>
+              <div className="text-3xl font-black text-slate-800">{formatCurrency(stats.storePayouts)}</div>
+          </Card>
+      </div>
+
+      <section className="space-y-4">
+          <h2 className="text-xl font-black flex items-center gap-2 px-1 justify-end">تفاصيل المتاجر النشطة <Building2 className="text-primary h-5 w-5"/></h2>
+          <Card className="rounded-[2rem] border-none shadow-xl overflow-hidden">
+                <Table>
+                    <TableHeader className="bg-muted/50">
+                        <TableRow>
+                            <TableHead className="font-black">المتجر</TableHead>
+                            <TableHead className="font-black text-center">العمولة</TableHead>
+                            <TableHead className="font-black text-center">إجمالي المبيعات</TableHead>
+                            <TableHead className="font-black text-center">ربح الشركة</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {restaurants.map(r => {
+                            const myOrders = allOrders.filter(o => o.restaurant?.id === r.id && o.status === 'delivered');
+                            const sales = myOrders.reduce((acc, o) => acc + o.items.reduce((sum, i) => sum + ((i.selectedSize?.price ?? i.product.discountPrice ?? i.product.price) * i.quantity), 0), 0);
+                            const earnings = (sales * (r.commissionRate || 10)) / 100;
+                            return (
+                                <TableRow key={r.id}>
+                                    <TableCell className="font-bold flex items-center gap-3 justify-end">
+                                        <span>{r.name}</span>
+                                        <div className="relative h-8 w-8"><Image src={r.image} fill className="rounded-full object-cover border" alt="" unoptimized={true}/></div>
+                                    </TableCell>
+                                    <TableCell className="text-center font-bold text-muted-foreground">{r.commissionRate}%</TableCell>
+                                    <TableCell className="text-center font-black">{formatCurrency(sales)}</TableCell>
+                                    <TableCell className="text-center font-black text-primary">{formatCurrency(earnings)}</TableCell>
+                                </TableRow>
+                            )
+                        })}
+                    </TableBody>
+                </Table>
+          </Card>
+      </section>
     </div>
   );
 }

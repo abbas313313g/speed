@@ -39,23 +39,23 @@ import { useWithdrawals } from "@/hooks/useWithdrawals";
 
 
 const navItems = [
-  { index: 0, label: "لوحة التحكم", icon: Home },
+  { index: 0, label: "الرئيسية", icon: Home },
   { index: 1, label: "الطلبات", icon: ShoppingCart },
   { index: 2, label: "المنتجات", icon: Package },
-  { index: 14, label: "موافقات المنتجات", icon: CheckCircle, notificationKey: 'pendingProducts' },
-  { index: 18, label: "طلبات سحب المتاجر", icon: Banknote, notificationKey: 'pendingWithdraws' },
+  { index: 14, label: "المراجعات", icon: CheckCircle, notificationKey: 'pendingProducts' },
+  { index: 18, label: "سحب الأرصدة", icon: Banknote, notificationKey: 'pendingWithdraws' },
+  { index: 17, label: "تخصيص الواجهة", icon: LayoutDashboard, mainOnly: true },
+  { index: 10, label: "أرباح الشركة", icon: AreaChart },
   { index: 15, label: "تراخيص الأجهزة", icon: Fingerprint, notificationKey: 'pendingAccess' },
   { index: 16, label: "إدارة الفروع", icon: GitBranch, mainOnly: true },
-  { index: 17, label: "تخصيص الواجهة", icon: LayoutDashboard, mainOnly: true },
   { index: 3, label: "الأقسام", icon: LayoutGrid, mainOnly: true },
   { index: 4, label: "المتاجر", icon: Store },
   { index: 5, label: "البنرات", icon: GalleryHorizontal, mainOnly: true },
-  { index: 6, label: "مناطق التوصيل", icon: Map, mainOnly: true },
+  { index: 6, label: "المناطق", icon: Map, mainOnly: true },
   { index: 7, label: "أكواد الخصم", icon: TicketPercent, mainOnly: true },
-  { index: 8, label: "المستخدمين والعمال", icon: Users },
-  { index: 9, label: "تسوية حسابات العمال", icon: UserCog },
-  { index: 10, label: "تسوية حسابات المتاجر", icon: AreaChart },
-  { index: 11, label: "تذاكر الدعم", icon: MessageSquareWarning, notificationKey: 'openTickets', mainOnly: true },
+  { index: 8, label: "المناديب", icon: Users },
+  { index: 9, label: "تصفية العمال", icon: UserCog },
+  { index: 11, label: "الدعم الفني", icon: MessageSquareWarning, notificationKey: 'openTickets', mainOnly: true },
   { index: 13, label: "الإعدادات", icon: Settings, mainOnly: true },
 ];
 

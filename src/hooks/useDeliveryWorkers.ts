@@ -33,7 +33,7 @@ export const useDeliveryWorkers = (branchId?: string) => {
             const workerDocRef = doc(db, "deliveryWorkers", workerData.id);
             const docSnap = await getDoc(workerDocRef);
             if (docSnap.exists()) {
-                toast({ title: "هذا الرقم مسجل مسبقاً", variant: "destructive" });
+                toast({ title: "عذراً، هذا الرقم مسجل مسبقاً", variant: "destructive" });
                 return false;
             }
             const completeWorkerData: DeliveryWorker = {
@@ -41,13 +41,14 @@ export const useDeliveryWorkers = (branchId?: string) => {
                 name: workerData.name,
                 password: workerData.password,
                 isOnline: false,
+                isActive: true,
                 branchId: branchId || 'main'
             };
             await setDoc(workerDocRef, completeWorkerData);
             toast({ title: "تم تسجيل الكابتن بنجاح ✅" });
             return true;
         } catch (error) { 
-            toast({ title: "فشل التسجيل", variant: "destructive" }); 
+            toast({ title: "حدث خطأ أثناء التسجيل، حاول مرة أخرى", variant: "destructive" }); 
             return false;
         }
     }, [toast, branchId]);
@@ -59,10 +60,10 @@ export const useDeliveryWorkers = (branchId?: string) => {
     const updateWorkerDetails = useCallback(async (workerId: string, details: Partial<DeliveryWorker>) => {
         try {
             await updateDoc(doc(db, 'deliveryWorkers', workerId), details);
-            toast({ title: 'تم تحديث بيانات الكابتن' });
+            toast({ title: 'تم تحديث بيانات الكابتن بنجاح' });
             return true;
         } catch (e) {
-            toast({ title: 'فشل التحديث', variant: 'destructive' });
+            toast({ title: 'عذراً، لم نتمكن من التحديث حالياً', variant: 'destructive' });
             return false;
         }
     }, [toast]);
@@ -72,7 +73,7 @@ export const useDeliveryWorkers = (branchId?: string) => {
             await deleteDoc(doc(db, "deliveryWorkers", workerId));
             toast({ title: "تم حذف الحساب نهائياً" });
         } catch(e) {
-            toast({ title: "فشل الحذف", variant: "destructive"});
+            toast({ title: "فشل الحذف، حاول مرة أخرى", variant: "destructive"});
         }
     }, [toast]);
 
