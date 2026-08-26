@@ -18,12 +18,14 @@ function ProductsPageContent() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState(initialCategory);
-  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  
+  // نظام التحميل التدريجي (واحد تلو الآخر)
+  const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
+  const [isIncrementing, setIsIncrementing] = useState(false);
 
-  // جلب البيانات بشكل تدريجي ومعزول (تحميل فقط عند الحاجة)
+  // جلب البيانات فقط عند دخول هذه الصفحة (معزول تماماً)
   const { products, isLoading } = useProducts(undefined, undefined, 200);
   const { categories } = useCategories();
-  const loaderRef = useRef<HTMLDivElement>(null);
 
   const filteredProducts = useMemo(() => {
       let prods = products.filter(p => p.status === 'approved' && p.isActive !== false);
@@ -32,23 +34,22 @@ function ProductsPageContent() {
       return prods;
   }, [products, activeTab, searchTerm]);
 
-  useEffect(() => { 
-    setVisibleCount(ITEMS_PER_PAGE); 
-  }, [activeTab, searchTerm]);
-
-  const pagedProducts = useMemo(() => filteredProducts.slice(0, visibleCount), [filteredProducts, visibleCount]);
-  const hasMore = visibleCount < filteredProducts.length;
-
+  // منطق "واحد تلو الآخر": نأخذ القائمة المفلترة ونضيفها للقائمة المعروضة تدريجياً
   useEffect(() => {
-    const obs = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasMore) {
-          // تحميل المزيد عند التمرير
-          setTimeout(() => setVisibleCount(p => p + ITEMS_PER_PAGE), 100);
-        }
-    }, { threshold: 0.1 });
-    if (loaderRef.current) obs.observe(loaderRef.current);
-    return () => obs.disconnect();
-  }, [hasMore]);
+    setDisplayedProducts([]); // تصفير القائمة عند تغيير الفئة أو البحث
+    if (filteredProducts.length > 0) {
+        let index = 0;
+        const interval = setInterval(() => {
+            if (index < filteredProducts.length) {
+                setDisplayedProducts(prev => [...prev, filteredProducts[index]]);
+                index++;
+            } else {
+                clearInterval(interval);
+            }
+        }, 80); // سرعة الظهور (80 ملي ثانية بين كل وجبة ووجبة)
+        return () => clearInterval(interval);
+    }
+  }, [filteredProducts]);
   
   return (
     <div className="p-4 pb-40 animate-in fade-in duration-500 text-right">
@@ -80,20 +81,20 @@ function ProductsPageContent() {
         
         <div className="mt-6">
            <div className="grid grid-cols-2 gap-4">
-                {pagedProducts.map((product, idx) => (
+                {displayedProducts.map((product) => (
                     <div 
                         key={product.id} 
-                        className="animate-in fade-in zoom-in-95 duration-500" 
-                        style={{ animationDelay: `${idx * 80}ms` }} // تأثير الظهور واحد تلو الآخر بحركة جميلة
+                        className="animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300"
                     >
                         <ProductCard product={product} />
                     </div>
                 ))}
             </div>
 
-            {hasMore && (
-                <div ref={loaderRef} className="py-10 flex flex-col items-center justify-center gap-2 opacity-50">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            {isLoading && displayedProducts.length === 0 && (
+                <div className="py-20 flex flex-col items-center justify-center gap-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
+                    <p className="text-[10px] font-black text-muted-foreground">جاري جلب قائمة الطعام...</p>
                 </div>
             )}
 

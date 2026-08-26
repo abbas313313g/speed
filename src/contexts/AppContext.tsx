@@ -60,8 +60,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
 
-    // السرعة: التطبيق جاهز بمجرد وصول البنرات (الواجهة الرئيسية)
-    const isMainDataReady = useMemo(() => !bannersLoading, [bannersLoading]);
+    // التحميل الذكي: السبلَاش ينتهي فقط عند جاهزية البنرات (الواجهة الرئيسية)
+    // المنتجات معزولة تماماً ولا تدخل في حساب الجاهزية هنا
+    const isMainDataReady = useMemo(() => !bannersLoading && banners.length > 0, [bannersLoading, banners.length]);
 
     useEffect(() => {
         try {
@@ -136,7 +137,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             clearCart();
             return docRef.id;
         } catch (e) {
-            toast({ title: "فشل إنشاء الطلب", variant: "destructive" });
+            toast({ title: "عذراً، فشل إرسال الطلب، يرجى المحاولة لاحقاً." });
             return null;
         }
     }, [userId, cart, coupons, restaurants, cartTotal, toast]);

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useRef, useContext, useMemo } from "react";
+import { useRef, useContext, useMemo, useState, useEffect } from "react";
 import Image from "next/image";
 import Autoplay from "embla-carousel-autoplay";
 import { 
@@ -24,6 +24,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { useProducts } from "@/hooks/useProducts";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ProductCard } from "@/components/ProductCard";
 
 export default function HomePage() {
   const context = useContext(AppContext);
@@ -32,8 +33,26 @@ export default function HomePage() {
   const { categories, isLoading: categoriesLoading } = useCategories();
   const { settings } = useAppSettings();
   
-  const { products: topProducts, isLoading: productsLoading } = useProducts(undefined, undefined, 12);
+  // تحميل محدود جداً للأكثر مبيعاً في الرئيسية (لا يمنع ظهور السبلَاش)
+  const { products: rawProducts, isLoading: productsLoading } = useProducts(undefined, undefined, 8);
   
+  const [displayedTopProducts, setDisplayedTopProducts] = useState<any[]>([]);
+  
+  useEffect(() => {
+      if (rawProducts.length > 0) {
+          let index = 0;
+          const interval = setInterval(() => {
+              if (index < rawProducts.length) {
+                  setDisplayedTopProducts(prev => [...prev, rawProducts[index]]);
+                  index++;
+              } else {
+                  clearInterval(interval);
+              }
+          }, 100);
+          return () => clearInterval(interval);
+      }
+  }, [rawProducts]);
+
   const plugin = useRef(Autoplay({ delay: 3500, stopOnInteraction: false }));
   
   const setActiveTab = context?.setActiveTab || (() => {});
@@ -54,18 +73,9 @@ export default function HomePage() {
     return restaurants.filter(r => settings.featuredStoreIds?.includes(r.id));
   }, [restaurants, settings]);
 
-  const isLoading = bannersLoading || restaurantsLoading || categoriesLoading;
+  const isLoading = bannersLoading; // السبلَاش يعتمد فقط على البنرات
 
-  if (isLoading) {
-      return (
-          <div className="p-4 space-y-8 animate-pulse">
-              <Skeleton className="w-full aspect-[21/9] rounded-[2rem]" />
-              <div className="grid grid-cols-4 gap-3">
-                  {[1,2,3,4].map(i => <Skeleton key={i} className="aspect-square rounded-2xl" />)}
-              </div>
-          </div>
-      );
-  }
+  if (isLoading) return null;
 
   return (
     <div className="space-y-8 p-4 pb-32 animate-in fade-in duration-300 text-right">
@@ -89,13 +99,6 @@ export default function HomePage() {
                         </div>
                     </CarouselItem>
                 ))}
-                {featuredBanners.length === 0 && (
-                    <CarouselItem className="basis-full">
-                         <div className="relative aspect-[21/9] w-full overflow-hidden rounded-[2rem] bg-muted/10 flex items-center justify-center border-4 border-white border-dashed">
-                            <p className="text-muted-foreground font-black text-xs">نحن نجهز عروضاً رائعة لك!</p>
-                         </div>
-                    </CarouselItem>
-                )}
             </CarouselContent>
         </Carousel>
       </section>
@@ -127,7 +130,7 @@ export default function HomePage() {
         </div>
         <ScrollArea className="w-full whitespace-nowrap" dir="rtl">
             <div className="flex w-max space-x-4 space-x-reverse pb-6 px-1">
-                {featuredStores.map((store, index) => (
+                {featuredStores.map((store) => (
                     <div 
                         key={store.id} 
                         onClick={() => handleStoreClick(store.id)}
@@ -154,7 +157,7 @@ export default function HomePage() {
         </ScrollArea>
       </section>
 
-      {topProducts.length > 0 && (
+      {displayedTopProducts.length > 0 && (
           <section className="space-y-4">
               <div className="flex items-center justify-between px-1">
                   <button onClick={() => setActiveTab(2)} className="text-primary font-black text-xs">عرض القائمة</button>
@@ -163,29 +166,11 @@ export default function HomePage() {
                   </h2>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                  {topProducts.map((product) => {
-                      const activeSizes = product.sizes?.filter(s => s.isActive !== false) || [];
-                      let finalPrice = product.discountPrice || product.price || 0;
-                      if (activeSizes.length > 0 && finalPrice === 0) {
-                          const prices = activeSizes.map(s => s.price).filter(p => p > 0);
-                          if (prices.length > 0) finalPrice = Math.min(...prices);
-                      }
-                      return (
-                        <div 
-                            key={product.id} 
-                            onClick={() => { context?.setSelectedProductId(product.id); setActiveTab(9); }}
-                            className="bg-white rounded-[2rem] p-2 shadow-sm border border-slate-50 flex flex-col gap-2 active:scale-95 transition-all"
-                        >
-                            <div className="relative aspect-square rounded-[1.5rem] overflow-hidden bg-muted/5">
-                                <Image src={product.image} fill alt={product.name} className="object-cover" unoptimized={true} loading="lazy" decoding="async" />
-                            </div>
-                            <div className="px-1 py-1">
-                                <h3 className="font-black text-xs text-slate-800 truncate">{product.name}</h3>
-                                <p className="text-primary font-black text-[10px] mt-1">{formatCurrency(finalPrice)}</p>
-                            </div>
-                        </div>
-                      );
-                  })}
+                  {displayedTopProducts.map((product) => (
+                      <div key={product.id} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                          <ProductCard product={product} />
+                      </div>
+                  ))}
               </div>
           </section>
       )}
