@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { collection, onSnapshot, doc, updateDoc, query, where, getDocs, limit } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, query, where, getDocs, limit, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
@@ -45,8 +45,6 @@ export const useOrders = (branchId?: string) => {
     }, []);
 
     useEffect(() => {
-        // تم إلغاء الـ orderBy في الاستعلام لتجنب أخطاء الفهارس
-        // نقوم بالترتيب يدوياً في المتصفح لضمان أقصى سرعة
         const ordersRef = collection(db, 'orders');
         let q = query(ordersRef, limit(60));
         
@@ -90,9 +88,13 @@ export const useOrders = (branchId?: string) => {
 
     const deleteOrder = useCallback(async (orderId: string) => {
         try {
-            await updateDoc(doc(db, "orders", orderId), { status: 'cancelled' });
-        } catch(e) {}
-    }, []);
+            // حذف الطلب نهائياً من قاعدة البيانات
+            await deleteDoc(doc(db, "orders", orderId));
+            toast({ title: "تم حذف الطلب نهائياً من النظام ✅" });
+        } catch(e) {
+            toast({ title: "عذراً، فشل حذف الطلب", variant: "destructive" });
+        }
+    }, [toast]);
 
     return { allOrders, isLoading, updateOrderStatus, deleteOrder };
 };
