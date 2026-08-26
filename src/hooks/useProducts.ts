@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where, limit, orderBy } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Product } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -15,20 +15,25 @@ export const useProducts = (branchId?: string, restaurantId?: string, loadLimit:
     useEffect(() => {
         try {
             const ref = collection(db, 'products');
-            // تقنين القراءات: جلب وجبة وجبة أو عدد قليل جداً لتسريع الواجهة
+            // تقنين القراءات: جلب البيانات بناءً على السياق المطلوب فقط (متجر معين أو فرع معين)
             let q = query(ref, limit(loadLimit));
             
             if (restaurantId) {
-                q = query(ref, where('restaurantId', '==', restaurantId), limit(50));
+                // إذا كان المطلوب منتجات متجر محدد (تحميل معزول)
+                q = query(ref, where('restaurantId', '==', restaurantId), limit(100));
             } else if (branchId && branchId !== 'all') {
-                q = query(ref, where('branchId', '==', branchId), limit(50));
+                // إذا كان المطلوب منتجات فرع محدد
+                q = query(ref, where('branchId', '==', branchId), limit(loadLimit));
             }
 
             const unsub = onSnapshot(q, (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
                 setProducts(data);
                 setIsLoading(false);
-            }, (error) => { setIsLoading(false); });
+            }, (error) => { 
+                console.error("Fetch Error:", error);
+                setIsLoading(false); 
+            });
             return () => unsub();
         } catch (e) {
             setIsLoading(false);

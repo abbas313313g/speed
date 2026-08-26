@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect, useContext, useRef } from 'react';
+import { useState, useMemo, useEffect, useContext } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -18,6 +18,7 @@ import { AppContext } from '@/contexts/AppContext';
 
 export default function ProductDetailPage() {
   const context = useContext(AppContext);
+  // هنا نستخدم تحميل معزول تماماً لضمان السرعة وعدم التأثر بطوابير التحميل الأخرى
   const { products, isLoading } = useProducts();
   const { restaurants } = useRestaurants();
   const { addToCart, cart } = useCart();
@@ -39,6 +40,7 @@ export default function ProductDetailPage() {
 
   const isCurrentlyVisible = activeTab === 9;
 
+  // البحث عن المنتج في القائمة الحالية (يتم تحديثه فوراً عند التغيير)
   const product = useMemo(() => products.find(p => p.id === selectedProductId), [selectedProductId, products]);
   const restaurant = useMemo(() => product ? restaurants.find(r => r.id === product.restaurantId) : null, [product, restaurants]);
 
@@ -71,7 +73,7 @@ export default function ProductDetailPage() {
         setZoomScale(1);
         setZoomOffset({ x: 0, y: 0 });
     }
-  }, [product, isCurrentlyVisible]);
+  }, [selectedProductId, isCurrentlyVisible]);
 
   const availableStock = useMemo(() => {
     if (selectedSize) return selectedSize.stock;
@@ -90,10 +92,13 @@ export default function ProductDetailPage() {
 
   if (isLoading || !product) {
     return (
-        <div className="p-4 space-y-4 h-full">
+        <div className="p-4 space-y-4 h-full bg-background">
             <Skeleton className="w-full aspect-square rounded-[2rem]" />
-            <Skeleton className="h-10 w-3/4" />
-            <Skeleton className="h-6 w-1/2" />
+            <div className="px-4 space-y-4">
+                <Skeleton className="h-10 w-3/4" />
+                <Skeleton className="h-20 w-full rounded-2xl" />
+                <Skeleton className="h-10 w-1/2" />
+            </div>
         </div>
     );
   }

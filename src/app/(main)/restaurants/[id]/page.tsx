@@ -23,7 +23,7 @@ export default function RestaurantProductsPage() {
   if (!context) return null;
   const { selectedRestaurantId, setActiveTab } = context;
 
-  // جلب منتجات هذا المطعم فقط (عزل تام وسرعة خرافية)
+  // جلب منتجات هذا المطعم فقط (تحميل معزول تماماً عن أي طابور تحميل آخر)
   const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 100);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === selectedRestaurantId), [selectedRestaurantId, restaurants]);
@@ -141,8 +141,7 @@ export default function RestaurantProductsPage() {
        <div className="space-y-4">
         <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
             <LayoutGrid className="h-5 w-5 text-primary"/>
-            قائمة المنتجات
-        </h2>
+            قائمة المنتجات</h2>
         
         {productsLoading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-2">
