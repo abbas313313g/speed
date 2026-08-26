@@ -32,6 +32,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -39,16 +40,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { formatCurrency, compressImage } from '@/lib/utils';
+import { formatCurrency, compressImage, cn } from '@/lib/utils';
 import Image from 'next/image';
-import { Edit, Trash2, PlusCircle, Upload, Search } from 'lucide-react';
-import type { Product } from '@/lib/types';
+import { Edit, Trash2, PlusCircle, Upload, Search, ArrowRight, Store, Package, LayoutGrid, ChevronRight, X } from 'lucide-react';
+import type { Product, ProductSize, Restaurant } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { useRestaurants } from '@/hooks/useRestaurants';
+import { Card } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 
 const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
   name: '',
@@ -56,7 +59,7 @@ const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
   wholesalePrice: 0,
   discountPrice: 0,
   sizes: [],
-  stock: 0,
+  stock: 10,
   description: '',
   image: '',
   categoryId: '',
@@ -69,27 +72,34 @@ const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
 };
 
 export default function AdminProductsPage({ branchId }: { branchId: string }) {
-  const { products, addProduct, updateProduct, deleteProduct } = useProducts(branchId);
+  const { restaurants, isLoading: storesLoading } = useRestaurants(branchId);
   const { categories } = useCategories();
-  const { restaurants } = useRestaurants(branchId);
   const { toast } = useToast();
   
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // جلب منتجات المتجر المختار فقط
+  const { products, addProduct, updateProduct, deleteProduct, isLoading: productsLoading } = useProducts(
+      branchId, 
+      selectedStoreId || 'none'
+  );
+
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Partial<Product> & {image?: string}>({ ...EMPTY_PRODUCT });
   const [isSaving, setIsSaving] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStoreId, setFilterStoreId] = useState('all');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const selectedStore = useMemo(() => 
+    restaurants.find(r => r.id === selectedStoreId), 
+    [selectedStoreId, restaurants]
+  );
+
   const filteredProducts = useMemo(() => {
-    return products.filter(p => {
-        const matchesSearch = (p.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStore = filterStoreId === 'all' || p.restaurantId === filterStoreId;
-        return matchesSearch && matchesStore;
-    });
-  }, [products, searchTerm, filterStoreId]);
+    return products.filter(p => (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [products, searchTerm]);
 
   const handleOpenDialog = (product?: Product) => {
     if (product) {
@@ -97,13 +107,11 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
         setCurrentProduct({ ...product, sizes: product.sizes || [] });
     } else {
         setIsEditing(false);
-        const defaultStoreId = filterStoreId !== 'all' ? filterStoreId : '';
-        const storeObj = restaurants.find(r => r.id === defaultStoreId);
         setCurrentProduct({ 
             ...EMPTY_PRODUCT, 
             branchId: branchId || 'main',
-            restaurantId: defaultStoreId,
-            categoryId: storeObj?.categoryId || '',
+            restaurantId: selectedStoreId || '',
+            categoryId: selectedStore?.categoryId || '',
             sizes: []
         });
     }
@@ -124,9 +132,28 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
     }
   };
 
+  const handleSizeChange = (index: number, field: keyof ProductSize, value: any) => {
+      const newSizes = [...(currentProduct.sizes || [])];
+      newSizes[index] = { ...newSizes[index], [field]: value };
+      setCurrentProduct({ ...currentProduct, sizes: newSizes });
+  };
+
+  const addSize = () => {
+      setCurrentProduct({ 
+          ...currentProduct, 
+          sizes: [...(currentProduct.sizes || []), { name: '', price: 0, stock: 0 }] 
+      });
+  };
+
+  const removeSize = (index: number) => {
+      const newSizes = [...(currentProduct.sizes || [])];
+      newSizes.splice(index, 1);
+      setCurrentProduct({ ...currentProduct, sizes: newSizes });
+  };
+
   const handleSaveProduct = async () => {
-    if (!currentProduct.name || !currentProduct.restaurantId || !currentProduct.image) {
-        toast({ title: "بيانات ناقصة", description: "يرجى إكمال الاسم والمتجر والصورة", variant: "destructive" });
+    if (!currentProduct.name || !currentProduct.image || !currentProduct.price) {
+        toast({ title: "بيانات ناقصة", description: "يرجى إكمال الاسم والسعر والصورة", variant: "destructive" });
         return;
     }
     setIsSaving(true);
@@ -142,66 +169,129 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
     }
   };
 
+  if (storesLoading) return <div className="p-8 text-center animate-pulse font-black text-primary">جارِ فتح سجلات المتاجر...</div>;
+
+  // واجهة اختيار المتجر أولاً
+  if (!selectedStoreId) {
+      return (
+          <div className="space-y-8 animate-in fade-in duration-500">
+              <header>
+                  <h1 className="text-4xl font-black text-primary italic">إدارة المنتجات</h1>
+                  <p className="text-muted-foreground font-bold mt-1">اختر متجراً لمشاهدة وتعديل قائمة وجباته.</p>
+              </header>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                  {restaurants.map(store => (
+                      <Card 
+                        key={store.id} 
+                        onClick={() => setSelectedStoreId(store.id)}
+                        className="p-4 rounded-[2rem] border-none shadow-md hover:shadow-xl transition-all cursor-pointer group bg-white overflow-hidden relative"
+                      >
+                          <div className="flex items-center gap-4 relative z-10">
+                              <div className="relative h-16 w-16 shrink-0">
+                                  <Image src={store.image} fill className="rounded-2xl object-cover border-2 border-primary/10" alt="" unoptimized={true}/>
+                              </div>
+                              <div className="flex-1 min-w-0 text-right">
+                                  <h3 className="font-black text-lg truncate">{store.name}</h3>
+                                  <p className="text-[10px] text-muted-foreground font-bold">{store.restaurantNumber}</p>
+                              </div>
+                              <div className="p-2 bg-primary/5 rounded-xl group-hover:bg-primary group-hover:text-white transition-colors">
+                                  <ChevronRight className="h-5 w-5" />
+                              </div>
+                          </div>
+                      </Card>
+                  ))}
+                  {restaurants.length === 0 && <div className="col-span-3 p-20 text-center text-muted-foreground font-bold italic border-2 border-dashed rounded-[3rem]">لا يوجد متاجر مضافة في هذا الفرع بعد.</div>}
+              </div>
+          </div>
+      );
+  }
+
+  // واجهة إدارة منتجات المتجر المختار
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-8 animate-in slide-in-from-left-4 duration-500 text-right">
       <header className="flex justify-between items-start">
-        <div>
-            <h1 className="text-3xl font-black text-primary">إدارة المنتجات</h1>
-            <p className="text-muted-foreground font-bold">الصور تُضغط تلقائياً لتوفير مساحة Firestore.</p>
+        <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => setSelectedStoreId(null)} className="rounded-xl h-12 w-12 border-2"><ArrowRight className="h-6 w-6"/></Button>
+            <div>
+                <h1 className="text-3xl font-black text-slate-800">{selectedStore?.name}</h1>
+                <p className="text-muted-foreground font-bold text-xs">إدارة قائمة الوجبات والأسعار والكميات.</p>
+            </div>
         </div>
         <Button onClick={() => handleOpenDialog()} className="rounded-xl h-12 px-6 font-bold shadow-lg gap-2">
-            <PlusCircle className="h-5 w-5" /> إضافة منتج
+            <PlusCircle className="h-5 w-5" /> إضافة وجبة جديدة
         </Button>
       </header>
 
-      <div className="grid md:grid-cols-2 gap-4 bg-white p-4 rounded-2xl border shadow-sm">
-          <div className="relative">
+      <div className="bg-white p-4 rounded-2xl border shadow-sm flex items-center gap-4">
+          <div className="relative flex-1">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
-                placeholder="ابحث باسم المنتج..." 
+                placeholder="ابحث باسم الوجبة داخل المتجر..." 
                 value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)} 
-                className="pr-10 h-12 rounded-xl"
+                className="pr-10 h-12 rounded-xl border-none bg-muted/30"
               />
           </div>
-          <Select value={filterStoreId} onValueChange={setFilterStoreId}>
-              <SelectTrigger className="h-12 rounded-xl">
-                  <SelectValue placeholder="تصفية حسب المتجر..." />
-              </SelectTrigger>
-              <SelectContent>
-                  <SelectItem value="all">كل المتاجر</SelectItem>
-                  {restaurants.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-              </SelectContent>
-          </Select>
+          <Badge className="h-12 px-6 rounded-xl font-black text-lg bg-primary/10 text-primary border-none">{products.length} وجبة</Badge>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-[2.5rem]">
-                <DialogHeader className="p-4">
-                    <DialogTitle className="text-2xl font-black">{isEditing ? 'تعديل المنتج' : 'إضافة منتج جديد'}</DialogTitle>
+                <DialogHeader className="p-4 border-b">
+                    <DialogTitle className="text-2xl font-black">{isEditing ? 'تعديل بيانات الوجبة' : 'إنشاء وجبة جديدة'}</DialogTitle>
                 </DialogHeader>
                 
                 <div className="space-y-6 p-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-1 col-span-2">
-                            <Label className="font-bold">اسم المنتج</Label>
-                            <Input value={currentProduct.name ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, name: e.target.value})} className="rounded-xl h-11" />
+                            <Label className="font-bold">اسم الوجبة</Label>
+                            <Input value={currentProduct.name ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, name: e.target.value})} className="rounded-xl h-12 font-bold" />
                         </div>
-                         <div className="space-y-1">
-                            <Label className="font-bold">المتجر</Label>
-                            <Select value={currentProduct.restaurantId} onValueChange={(val) => setCurrentProduct({...currentProduct, restaurantId: val})}>
-                                <SelectTrigger className="rounded-xl h-11">
-                                    <SelectValue placeholder="اختر المتجر..." />
+                        
+                        <div className="space-y-1">
+                            <Label className="font-bold">السعر للزبون (بيع)</Label>
+                            <Input type="number" value={currentProduct.price || ''} onChange={(e) => setCurrentProduct({...currentProduct, price: parseFloat(e.target.value) || 0})} className="rounded-xl h-12 font-black text-primary" />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="font-bold">سعر الجملة (للمكتب)</Label>
+                            <Input type="number" value={currentProduct.wholesalePrice || ''} onChange={(e) => setCurrentProduct({...currentProduct, wholesalePrice: parseFloat(e.target.value) || 0})} className="rounded-xl h-12 font-bold" />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="font-bold">السعر بعد الخصم (اختياري)</Label>
+                            <Input type="number" placeholder="اتركه 0 إذا لا يوجد خصم" value={currentProduct.discountPrice || ''} onChange={(e) => setCurrentProduct({...currentProduct, discountPrice: parseFloat(e.target.value) || 0})} className="rounded-xl h-12 font-bold text-red-600" />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="font-bold">الكمية في المخزن</Label>
+                            <Input type="number" disabled={currentProduct.isUnlimitedStock} value={currentProduct.stock || ''} onChange={(e) => setCurrentProduct({...currentProduct, stock: parseInt(e.target.value) || 0})} className="rounded-xl h-12 font-bold" />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border-2 border-dashed">
+                        <div className="space-y-0.5">
+                            <Label className="font-black">كمية غير محدودة</Label>
+                            <p className="text-[10px] text-muted-foreground font-bold">لن ينقص المخزن عند كل طلب.</p>
+                        </div>
+                        <Switch checked={currentProduct.isUnlimitedStock} onCheckedChange={(v) => setCurrentProduct({...currentProduct, isUnlimitedStock: v})} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <Label className="font-bold">قسم المنيو الداخلي</Label>
+                            <Select value={currentProduct.storeSectionId} onValueChange={(val) => setCurrentProduct({...currentProduct, storeSectionId: val})}>
+                                <SelectTrigger className="rounded-xl h-12 font-bold">
+                                    <SelectValue placeholder="اختر قسم من منيو المتجر..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {restaurants.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                                    {selectedStore?.menuSections?.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                    {(!selectedStore?.menuSections || selectedStore.menuSections.length === 0) && <SelectItem value="none" disabled>لا يوجد أقسام معرفة</SelectItem>}
                                 </SelectContent>
                             </Select>
                         </div>
-                         <div className="space-y-1">
-                            <Label className="font-bold">الفئة</Label>
+                        <div className="space-y-1">
+                            <Label className="font-bold">الفئة العامة</Label>
                             <Select value={currentProduct.categoryId} onValueChange={(val) => setCurrentProduct({...currentProduct, categoryId: val})}>
-                                <SelectTrigger className="rounded-xl h-11">
+                                <SelectTrigger className="rounded-xl h-12 font-bold">
                                     <SelectValue placeholder="اختر فئة" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -211,55 +301,93 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                         </div>
                     </div>
 
+                    <Separator className="border-dashed" />
+
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <Label className="font-black text-lg">الأحجام والأنواع (اختياري)</Label>
+                            <Button type="button" variant="outline" size="sm" onClick={addSize} className="rounded-lg font-bold gap-1"><PlusCircle className="h-4 w-4"/> إضافة خيار</Button>
+                        </div>
+                        <div className="space-y-3">
+                            {currentProduct.sizes?.map((size, index) => (
+                                <div key={index} className="grid grid-cols-12 gap-2 items-center bg-slate-50 p-3 rounded-2xl border">
+                                    <div className="col-span-4"><Input placeholder="الاسم (كبير)" value={size.name} onChange={(e)=>handleSizeChange(index, 'name', e.target.value)} className="h-10 rounded-lg text-xs" /></div>
+                                    <div className="col-span-3"><Input type="number" placeholder="السعر" value={size.price || ''} onChange={(e)=>handleSizeChange(index, 'price', parseFloat(e.target.value))} className="h-10 rounded-lg text-xs font-black text-primary" /></div>
+                                    <div className="col-span-3"><Input type="number" placeholder="الكمية" value={size.stock || ''} onChange={(e)=>handleSizeChange(index, 'stock', parseInt(e.target.value))} className="h-10 rounded-lg text-xs" /></div>
+                                    <div className="col-span-2 flex justify-end"><Button variant="ghost" size="icon" onClick={()=>removeSize(index)} className="text-destructive"><X className="h-4 w-4"/></Button></div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                     <div className="space-y-2">
-                        <Label className="font-bold">صورة المنتج (ضغط تلقائي ⚡)</Label>
-                        <Button type="button" variant="outline" className="w-full h-12 rounded-xl" onClick={() => fileInputRef.current?.click()} disabled={isCompressing}>
+                        <Label className="font-bold">صورة الوجبة (ضغط تلقائي ⚡)</Label>
+                        <Button type="button" variant="outline" className="w-full h-14 rounded-xl border-dashed border-2" onClick={() => fileInputRef.current?.click()} disabled={isCompressing}>
                             {isCompressing ? <Loader2 className="animate-spin h-5 w-5 ml-2"/> : <Upload className="ml-2 h-4 w-4" />}
-                            {isCompressing ? "جاري المعالجة والضغط..." : "رفع صورة"}
+                            {isCompressing ? "جاري تحسين الصورة..." : "اختيار صورة الوجبة"}
                         </Button>
                         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                         {currentProduct.image && (
-                            <div className="relative w-full aspect-video rounded-2xl overflow-hidden border-2 mt-2">
-                                <Image src={currentProduct.image} fill className="object-contain" alt="preview" unoptimized={true} decoding="async" />
+                            <div className="relative w-full aspect-video rounded-3xl overflow-hidden border-4 border-white shadow-xl mt-2">
+                                <Image src={currentProduct.image} fill className="object-cover" alt="preview" unoptimized={true} />
                             </div>
                         )}
                     </div>
                 </div>
 
-                <DialogFooter className="p-4">
-                    <Button onClick={handleSaveProduct} disabled={isSaving || isCompressing} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl">
-                        {isSaving ? <Loader2 className="animate-spin h-6 w-6"/> : "حفظ المنتج"}
+                <DialogFooter className="p-4 bg-slate-50 border-t sticky bottom-0">
+                    <Button onClick={handleSaveProduct} disabled={isSaving || isCompressing} className="w-full h-14 rounded-2xl text-xl font-black shadow-2xl">
+                        {isSaving ? <Loader2 className="animate-spin h-6 w-6"/> : (isEditing ? "حفظ التعديلات" : "نشر الوجبة الآن")}
                     </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
 
-        <div className="bg-white rounded-[1.5rem] border shadow-xl overflow-hidden">
+        <div className="bg-white rounded-[2rem] border-none shadow-xl overflow-hidden">
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead className="font-black">صورة</TableHead>
-                <TableHead className="font-black">المنتج</TableHead>
-                <TableHead className="font-black">السعر</TableHead>
+                <TableHead className="font-black">الوجبة</TableHead>
+                <TableHead className="font-black">السعر (بيع)</TableHead>
+                <TableHead className="font-black">الجملة</TableHead>
+                <TableHead className="font-black">المخزن</TableHead>
                 <TableHead className="font-black text-center">إجراء</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredProducts.map((p) => (
-                <TableRow key={p.id} className="animate-in fade-in duration-200">
+              {productsLoading ? (
+                  <TableRow><TableCell colSpan={5} className="py-20 text-center animate-pulse font-bold">جاري جلب قائمة الوجبات...</TableCell></TableRow>
+              ) : filteredProducts.map((p) => (
+                <TableRow key={p.id} className={cn("hover:bg-muted/20 transition-colors", !(p.isActive ?? true) && "opacity-40 grayscale")}>
                   <TableCell>
-                    <div className="relative h-12 w-12"><Image src={p.image} fill className="rounded-xl object-cover border" alt="" unoptimized={true} decoding="async" /></div>
+                    <div className="flex items-center gap-3">
+                        <div className="relative h-12 w-12 shrink-0"><Image src={p.image} fill className="rounded-xl object-cover border shadow-sm" alt="" unoptimized={true} /></div>
+                        <div className="text-right">
+                            <div className="font-black text-sm">{p.name}</div>
+                            <div className="text-[9px] font-bold text-muted-foreground">{p.storeSectionId || 'بدون قسم'}</div>
+                        </div>
+                    </div>
                   </TableCell>
-                  <TableCell className="font-bold">{p.name}</TableCell>
-                  <TableCell className="font-black text-primary text-xs">{formatCurrency(p.price)}</TableCell>
+                  <TableCell className="font-black text-primary">{formatCurrency(p.price)}</TableCell>
+                  <TableCell className="font-bold text-muted-foreground text-xs">{formatCurrency(p.wholesalePrice || 0)}</TableCell>
+                  <TableCell>
+                      {p.isUnlimitedStock ? <Badge variant="secondary" className="text-[10px]">مفتوح ∞</Badge> : <Badge variant={p.stock <= 5 ? "destructive" : "outline"} className="font-bold">{p.stock}</Badge>}
+                  </TableCell>
                   <TableCell className="text-center">
-                      <div className="flex justify-center gap-1">
-                          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" onClick={() => handleOpenDialog(p)}><Edit className="h-4 w-4"/></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive" onClick={() => deleteProduct(p.id)}><Trash2 className="h-4 w-4"/></Button>
+                      <div className="flex justify-center gap-2">
+                          <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-2" onClick={() => handleOpenDialog(p)}><Edit className="h-4 w-4 text-primary"/></Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-destructive"><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger>
+                            <AlertDialogContent className="rounded-[2.5rem]">
+                                <AlertDialogHeader><AlertDialogTitle className="text-right font-black">حذف الوجبة؟</AlertDialogTitle><AlertDialogDescription className="text-right">هل أنت متأكد من حذف وجبة "{p.name}"؟</AlertDialogDescription></AlertDialogHeader>
+                                <AlertDialogFooter className="flex-row gap-2"><AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel><AlertDialogAction onClick={()=>deleteProduct(p.id)} className="flex-1 bg-destructive rounded-xl">حذف نهائي</AlertDialogAction></AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                       </div>
                   </TableCell>
                 </TableRow>
               ))}
+              {!productsLoading && filteredProducts.length === 0 && <TableRow><TableCell colSpan={5} className="py-20 text-center text-muted-foreground italic font-bold">لا يوجد وجبات مضافة لهذا المتجر.</TableCell></TableRow>}
             </TableBody>
           </Table>
       </div>
