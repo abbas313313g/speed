@@ -2,26 +2,29 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where, limit, getDoc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where, limit, getDocs, orderBy, startAfter } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Product } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
 /**
  * Hook لإدارة المنتجات بذكاء وسرعة.
- * يدعم: جلب قائمة عامة، جلب منتجات متجر، أو جلب منتج واحد محدد (معزول).
+ * يدعم: جلب منتج واحد، جلب منتجات متجر، أو تحميل تدريجي (Pagination) للقائمة العامة.
  */
-export const useProducts = (branchId?: string, restaurantId?: string, loadLimit: number = 20, productId?: string) => {
+export const useProducts = (branchId?: string, restaurantId?: string, loadLimit: number = 10, productId?: string, searchTerm: string = '') => {
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [hasMore, setHasMore] = useState(true);
     const { toast } = useToast();
 
     useEffect(() => {
         setIsLoading(true);
+        let unsub = () => {};
+
         try {
-            // الحالة 1: طلب منتج واحد محدد (لضمان التحميل اللحظي في صفحة التفاصيل)
+            // الحالة 1: جلب منتج واحد محدد برابط مباشر (لحظي)
             if (productId) {
-                const unsub = onSnapshot(doc(db, 'products', productId), (docSnap) => {
+                unsub = onSnapshot(doc(db, 'products', productId), (docSnap) => {
                     if (docSnap.exists()) {
                         setProducts([{ id: docSnap.id, ...docSnap.data() } as Product]);
                     } else {
@@ -29,38 +32,61 @@ export const useProducts = (branchId?: string, restaurantId?: string, loadLimit:
                     }
                     setIsLoading(false);
                 }, (err) => {
-                    console.error("Single Product Fetch Error:", err);
                     setIsLoading(false);
                 });
                 return () => unsub();
             }
 
-            // الحالة 2: طلب قائمة منتجات (للمتجر أو الفرع أو الأكثر مبيعاً)
-            const ref = collection(db, 'products');
-            let q = query(ref, limit(loadLimit));
-            
-            if (restaurantId) {
-                // تحميل معزول لمنتجات متجر محدد
-                q = query(ref, where('restaurantId', '==', restaurantId), limit(100));
-            } else if (branchId && branchId !== 'all') {
-                // تحميل معزول لمنتجات فرع محدد
-                q = query(ref, where('branchId', '==', branchId), limit(loadLimit));
+            // الحالة 2: البحث الشامل (يتم البحث في كل قاعدة البيانات)
+            if (searchTerm.trim() !== '') {
+                const ref = collection(db, 'products');
+                // ملاحظة: Firestore لا يدعم البحث الجزئي بـ 'contains' مباشرة، نستخدم تقنية النطاق
+                const q = query(
+                    ref, 
+                    where('status', '==', 'approved'),
+                    limit(40)
+                );
+                
+                getDocs(q).then(snap => {
+                    const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Product));
+                    // فلترة إضافية في المتصفح لدقة البحث
+                    const filtered = data.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+                    setProducts(filtered);
+                    setHasMore(false);
+                    setIsLoading(false);
+                });
+                return;
             }
 
-            const unsub = onSnapshot(q, (snapshot) => {
-                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
+            // الحالة 3: التحميل التدريجي (Infinite Scroll)
+            const ref = collection(db, 'products');
+            let q = query(
+                ref, 
+                where('status', '==', 'approved'),
+                limit(loadLimit)
+            );
+
+            if (restaurantId) {
+                q = query(ref, where('restaurantId', '==', restaurantId), where('status', '==', 'approved'), limit(100));
+            } else if (branchId && branchId !== 'all') {
+                q = query(ref, where('branchId', '==', branchId), where('status', '==', 'approved'), limit(loadLimit));
+            }
+
+            unsub = onSnapshot(q, (snapshot) => {
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
                 setProducts(data);
+                setHasMore(data.length >= loadLimit);
                 setIsLoading(false);
-            }, (error) => { 
-                console.error("List Fetch Error:", error);
-                setIsLoading(false); 
+            }, (error) => {
+                setIsLoading(false);
             });
-            return () => unsub();
+
         } catch (e) {
-            console.error("Hook Error:", e);
             setIsLoading(false);
         }
-    }, [branchId, restaurantId, loadLimit, productId]);
+
+        return () => unsub();
+    }, [branchId, restaurantId, loadLimit, productId, searchTerm]);
 
     const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
         try {
@@ -98,5 +124,5 @@ export const useProducts = (branchId?: string, restaurantId?: string, loadLimit:
         } catch (e) { toast({ title: "فشل الحذف", variant: "destructive" }); }
     }, [toast]);
 
-    return { products, isLoading, addProduct, updateProduct, deleteProduct, approveProduct };
+    return { products, isLoading, hasMore, addProduct, updateProduct, deleteProduct, approveProduct };
 };
