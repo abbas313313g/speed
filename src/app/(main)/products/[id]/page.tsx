@@ -132,7 +132,12 @@ export default function ProductDetailPage() {
   };
 
   const handleBack = () => {
-      setActiveTab(previousTab);
+      // إصلاح مشكلة الصفحة البيضاء: العودة للتبويب السابق المحفوظ أو للرئيسية
+      if (typeof previousTab === 'number' && previousTab !== 9) {
+          setActiveTab(previousTab);
+      } else {
+          setActiveTab(0);
+      }
   };
 
   const hasDiscount = !!product.discountPrice && !selectedSize && !hasSizes;

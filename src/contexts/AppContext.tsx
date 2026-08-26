@@ -35,6 +35,7 @@ interface AppContextType {
     mySupportTicket: SupportTicket | null;
     startNewTicketClient: () => void;
     activeTab: number;
+    previousTab: number;
     setActiveTab: (index: number, pushToHistory?: boolean) => void;
     selectedProductId: string | null;
     setSelectedProductId: (id: string | null) => void;
@@ -56,6 +57,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [userId, setUserId] = useState<string|null>(null);
     const [activeTab, setActiveTabState] = useState(0);
+    const [previousTab, setPreviousTab] = useState(0);
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
 
@@ -71,6 +73,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (e) {}
     }, []);
 
+    // نظام الملاحة الذكي: التعامل مع أزرار الهاتف والرجوع
+    useEffect(() => {
+        const handlePopState = (event: PopStateEvent) => {
+            if (event.state && typeof event.state.tab === 'number') {
+                setActiveTabState(event.state.tab);
+            } else {
+                setActiveTabState(0);
+            }
+        };
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, []);
+
     useEffect(() => {
         if (!userId) return;
         const q = query(collection(db, "addresses"), where("userId", "==", userId));
@@ -81,9 +96,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [userId]);
 
     const setActiveTab = useCallback((index: number, pushToHistory = true) => {
+        setPreviousTab(activeTab);
         setActiveTabState(index);
         if (pushToHistory) window.history.pushState({ tab: index }, '');
-    }, []);
+    }, [activeTab]);
 
     const syncUserByPhone = useCallback(async (phone: string): Promise<string | null> => {
         try {
@@ -150,7 +166,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         deleteAddress: (id: string) => updateDoc(doc(db, "addresses", id), { userId: 'deleted' }),
         mySupportTicket: useMemo(() => supportTickets.find(t => t.userId === userId && !t.isResolved), [userId, supportTickets]),
         startNewTicketClient: () => {},
-        activeTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId, syncUserByPhone
+        activeTab, previousTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId, syncUserByPhone
     };
 
     return <AppContext.Provider value={value as any}>{children}</AppContext.Provider>;
