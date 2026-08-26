@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, updateDoc, onSnapshot, doc, query, where, orderBy } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, onSnapshot, doc, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { WithdrawRequest } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -13,18 +13,27 @@ export const useWithdrawals = (branchId?: string, restaurantId?: string) => {
     const { toast } = useToast();
 
     useEffect(() => {
+        // لتجنب خطأ الـ Index، نقوم بالجلب والفلترة بدون orderBy في الاستعلام
+        // ونرتب البيانات برمجياً عند وصولها
         const ref = collection(db, 'withdrawals');
-        let q = query(ref, orderBy('requestedAt', 'desc'));
+        let q = query(ref);
         
         if (restaurantId) {
-            q = query(ref, where('restaurantId', '==', restaurantId), orderBy('requestedAt', 'desc'));
+            q = query(ref, where('restaurantId', '==', restaurantId));
         } else if (branchId && branchId !== 'all') {
-            q = query(ref, where('branchId', '==', branchId), orderBy('requestedAt', 'desc'));
+            q = query(ref, where('branchId', '==', branchId));
         }
 
         const unsub = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as WithdrawRequest[];
-            setRequests(data);
+            // ترتيب البيانات يدوياً من الأحدث إلى الأقدم
+            const sortedData = data.sort((a, b) => 
+                new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()
+            );
+            setRequests(sortedData);
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Withdrawals fetch error:", error);
             setIsLoading(false);
         });
         return () => unsub();

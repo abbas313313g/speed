@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { collection, onSnapshot, doc, updateDoc, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
@@ -45,20 +45,26 @@ export const useOrders = (branchId?: string) => {
     }, []);
 
     useEffect(() => {
+        // تم إلغاء الـ orderBy في الاستعلام لتجنب أخطاء الفهارس
+        // نقوم بالترتيب يدوياً في المتصفح لضمان أقصى سرعة
         const ordersRef = collection(db, 'orders');
-        // تقليل القراءات بجلب آخر 40 طلب فقط دائماً
-        let q = query(ordersRef, orderBy('date', 'desc'), limit(40));
+        let q = query(ordersRef, limit(60));
         
         if (branchId && branchId !== 'all') {
-            q = query(ordersRef, where('branchId', '==', branchId), orderBy('date', 'desc'), limit(40));
+            q = query(ordersRef, where('branchId', '==', branchId), limit(60));
         }
 
         const unsub = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
-            setAllOrders(data);
+            
+            // ترتيب الطلبات من الأحدث للأقدم
+            const sortedData = data.sort((a, b) => 
+                new Date(b.date).getTime() - new Date(a.date).getTime()
+            );
+
+            setAllOrders(sortedData);
             setIsLoading(false);
             
-            // تشغيل التوزيع التلقائي فقط للطلبات الجديدة في آخر تحديث
             if (data.some(o => o.status === 'preparing' && !o.deliveryWorkerId)) {
                 autoAssignOrders(data);
             }

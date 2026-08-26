@@ -150,25 +150,61 @@ function AdminLayoutContent() {
         </header>
         <main className="flex-1 relative overflow-hidden bg-muted/5">
           <div className="spa-stack-container" style={{ transform: `translateX(${activeTab * 100}%)`, transition: 'none' }}>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDashboard branchId={branchParam} /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminOrdersPage branchId={branchParam} /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminProductsPage branchId={branchParam} /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminCategoriesPage /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminStoresPage branchId={branchParam} /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminBannersPage /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDeliveryZonesPage /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminCouponsPage /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminUsersPage branchId={branchParam} /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDeliveryWorkersPage branchId={branchParam} /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminReportsPage /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSupportTicketsPage branchId={branchParam} /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 0 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDashboard branchId={branchParam} /></ScrollArea>}
+            </div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 1 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminOrdersPage branchId={branchParam} /></ScrollArea>}
+            </div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 2 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminProductsPage branchId={branchParam} /></ScrollArea>}
+            </div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 3 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminCategoriesPage /></ScrollArea>}
+            </div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 4 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminStoresPage branchId={branchParam} /></ScrollArea>}
+            </div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 5 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminBannersPage /></ScrollArea>}
+            </div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 6 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDeliveryZonesPage /></ScrollArea>}
+            </div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 7 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminCouponsPage /></ScrollArea>}
+            </div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 8 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminUsersPage branchId={branchParam} /></ScrollArea>}
+            </div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 9 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDeliveryWorkersPage branchId={branchParam} /></ScrollArea>}
+            </div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 10 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminReportsPage /></ScrollArea>}
+            </div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 11 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSupportTicketsPage branchId={branchParam} /></ScrollArea>}
+            </div>
             <div className="spa-page-view flex-shrink-0"><div className="p-20 text-center font-black">تم إلغاء نظام الإشعارات</div></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSettingsPage /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminApprovalsPage branchId={branchParam} /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminAccessPage branchId={branchParam} /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminBranchesPage /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><HomeSettingsPage /></ScrollArea></div>
-            <div className="spa-page-view flex-shrink-0"><ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminWithdrawalsPage branchId={branchParam} /></ScrollArea></div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 13 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSettingsPage /></ScrollArea>}
+            </div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 14 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminApprovalsPage branchId={branchParam} /></ScrollArea>}
+            </div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 15 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminAccessPage branchId={branchParam} /></ScrollArea>}
+            </div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 16 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminBranchesPage /></ScrollArea>}
+            </div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 17 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><HomeSettingsPage /></ScrollArea>}
+            </div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 18 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminWithdrawalsPage branchId={branchParam} /></ScrollArea>}
+            </div>
           </div>
         </main>
       </div>

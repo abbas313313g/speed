@@ -20,7 +20,7 @@ function ProductsPageContent() {
   const [activeTab, setActiveTab] = useState(initialCategory);
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
 
-  // جلب البيانات بشكل تدريجي ومعزول
+  // جلب البيانات بشكل تدريجي ومعزول (تحميل فقط عند الحاجة)
   const { products, isLoading } = useProducts(undefined, undefined, 200);
   const { categories } = useCategories();
   const loaderRef = useRef<HTMLDivElement>(null);
@@ -32,7 +32,9 @@ function ProductsPageContent() {
       return prods;
   }, [products, activeTab, searchTerm]);
 
-  useEffect(() => { setVisibleCount(ITEMS_PER_PAGE); }, [activeTab, searchTerm]);
+  useEffect(() => { 
+    setVisibleCount(ITEMS_PER_PAGE); 
+  }, [activeTab, searchTerm]);
 
   const pagedProducts = useMemo(() => filteredProducts.slice(0, visibleCount), [filteredProducts, visibleCount]);
   const hasMore = visibleCount < filteredProducts.length;
@@ -40,7 +42,8 @@ function ProductsPageContent() {
   useEffect(() => {
     const obs = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting && hasMore) {
-          setTimeout(() => setVisibleCount(p => p + ITEMS_PER_PAGE), 50);
+          // تحميل المزيد عند التمرير
+          setTimeout(() => setVisibleCount(p => p + ITEMS_PER_PAGE), 100);
         }
     }, { threshold: 0.1 });
     if (loaderRef.current) obs.observe(loaderRef.current);
@@ -81,7 +84,7 @@ function ProductsPageContent() {
                     <div 
                         key={product.id} 
                         className="animate-in fade-in zoom-in-95 duration-500" 
-                        style={{ animationDelay: `${idx * 100}ms` }} // تأثير الظهور واحد تلو الآخر
+                        style={{ animationDelay: `${idx * 80}ms` }} // تأثير الظهور واحد تلو الآخر بحركة جميلة
                     >
                         <ProductCard product={product} />
                     </div>
