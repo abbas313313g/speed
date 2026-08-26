@@ -5,28 +5,27 @@ import { useWithdrawals } from '@/hooks/useWithdrawals';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Store, Banknote, Receipt, Landmark } from 'lucide-react';
+import { CheckCircle2, Store, Banknote } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
-import { Card } from '@/components/ui/card';
 
 export default function AdminWithdrawalsPage({ branchId }: { branchId: string }) {
     const { requests, isLoading, updateRequestStatus } = useWithdrawals(branchId);
 
-    if (isLoading) return <div className="p-8 text-center animate-pulse font-black text-primary">جارِ جلب طلبات السحب...</div>;
+    if (isLoading) return <div className="p-8 text-center animate-pulse font-black text-primary">جاري مراجعة طلبات السحب...</div>;
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 text-right">
             <header>
-                <h1 className="text-4xl font-black text-primary italic">طلبات سحب الأرصدة</h1>
-                <p className="text-muted-foreground font-bold">مراجعة وتأكيد عمليات تسليم المبالغ النقدية للمتاجر.</p>
+                <h1 className="text-4xl font-black text-primary italic">تسوية مستحقات المتاجر</h1>
+                <p className="text-muted-foreground font-bold">مراجعة وتأكيد تسليم المبالغ النقدية للمتاجر المتعاقدة.</p>
             </header>
 
             <div className="bg-white rounded-[2rem] border-none shadow-xl overflow-hidden">
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
-                            <TableHead className="font-black">المتجر والفرع</TableHead>
-                            <TableHead className="font-black">تفصيل المبلغ</TableHead>
+                            <TableHead className="font-black">المتجر</TableHead>
+                            <TableHead className="font-black">تفاصيل الحساب</TableHead>
                             <TableHead className="font-black">الصافي للدفع</TableHead>
                             <TableHead className="font-black text-center">الإجراء</TableHead>
                         </TableRow>
@@ -44,7 +43,7 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                                     </div>
                                 </TableCell>
                                 <TableCell>
-                                    <div className="space-y-1 text-xs font-bold text-muted-foreground">
+                                    <div className="space-y-1 text-[10px] font-bold text-muted-foreground">
                                         <div className="flex justify-between"><span>{formatCurrency(req.amount)}</span><span>إجمالي المبيعات:</span></div>
                                         <div className="flex justify-between text-destructive"><span>{formatCurrency(req.commissionAmount || 0)}</span><span>عمولة الشركة:</span></div>
                                     </div>
@@ -64,15 +63,15 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                                                 </Button>
                                             </>
                                         ) : (
-                                            <Badge className={cn("rounded-lg font-black h-8 px-4", req.status === 'completed' ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600")}>
-                                                {req.status === 'completed' ? 'مكتمل' : 'مرفوض'}
+                                            <Badge className={cn("rounded-lg font-black h-8 px-4", req.status === 'completed' ? "bg-green-50 text-green-600 border-none" : "bg-red-50 text-red-600 border-none")}>
+                                                {req.status === 'completed' ? 'مكتمل ✅' : 'مرفوض ❌'}
                                             </Badge>
                                         )}
                                     </div>
                                 </TableCell>
                             </TableRow>
                         ))}
-                        {requests.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-20 text-muted-foreground italic font-bold">لا توجد طلبات سحب حالياً.</TableCell></TableRow>}
+                        {requests.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-20 text-muted-foreground italic font-bold">لا توجد طلبات سحب حالية للمراجعة.</TableCell></TableRow>}
                     </TableBody>
                 </Table>
             </div>

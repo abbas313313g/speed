@@ -3,7 +3,7 @@
 
 import { useMemo, useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { CheckCircle, Clock, Building2, TrendingUp, ArrowRight, Package, Users, Receipt } from 'lucide-react';
+import { CheckCircle, Clock, Building2, TrendingUp, ArrowRight } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useOrders } from '@/hooks/useOrders';
 import { useBranches } from '@/hooks/useBranches';
@@ -25,7 +25,7 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
 
   const isMain = branchId === 'main';
 
-  // جلب إحصائيات كل الفروع إذا كان في المدحتية (المركز الرئيسي)
+  // جلب إحصائيات النظام الشاملة لفرع المركز الرئيسي فقط
   useEffect(() => {
       if (isMain) {
           setIsGlobalLoading(true);
@@ -47,36 +47,34 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
     const cancelled = allOrders.filter(o => o.status === 'cancelled');
     return {
         totalRevenue: delivered.reduce((acc, o) => acc + o.total, 0),
-        totalProfit: delivered.reduce((acc, o) => acc + o.profit, 0),
         pendingProducts: products.filter(p => p.status === 'pending'),
         activeOrders: allOrders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length,
         cancelledCount: cancelled.length
     }
   }, [allOrders, products]);
 
-  if (pLoading || oLoading || bLoading || (isMain && isGlobalLoading)) return <div className="p-8 text-center animate-pulse font-black text-primary">جارِ تحليل أداء النظام...</div>;
+  if (pLoading || oLoading || bLoading || (isMain && isGlobalLoading)) return <div className="p-8 text-center animate-pulse font-black text-primary">جاري قراءة إحصائيات النظام...</div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <header>
-        <h1 className="text-4xl font-black text-primary">إحصائيات {isMain ? 'المركز الرئيسي' : 'الفرع'}</h1>
-        <p className="text-muted-foreground font-bold italic">نظرة شاملة على عمليات فرع: {branchId === 'main' ? 'المدحتية' : branchId}</p>
+        <h1 className="text-4xl font-black text-primary">نظرة عامة</h1>
+        <p className="text-muted-foreground font-bold italic">إدارة ومتابعة فرع: {branchId === 'main' ? 'المركز العام' : branchId}</p>
       </header>
 
-      {/* قسم الإحصائيات العامة (للمدحتية فقط) */}
       {isMain && (
           <div className="grid gap-4 md:grid-cols-3 mb-8">
               <Card className="rounded-[1.5rem] border-none shadow-xl bg-slate-900 text-white p-6 relative overflow-hidden">
                   <div className="absolute right-[-10px] bottom-[-10px] opacity-10"><TrendingUp className="h-20 w-20"/></div>
-                  <div className="text-[10px] font-black text-primary uppercase mb-2">إجمالي مبيعات كل الفروع</div>
+                  <div className="text-[10px] font-black text-primary uppercase mb-2">مبيعات كافة الفروع</div>
                   <div className="text-3xl font-black">{formatCurrency(globalStats.totalSales)}</div>
               </Card>
               <Card className="rounded-[1.5rem] border-none shadow-xl bg-slate-900 text-white p-6">
-                  <div className="text-[10px] font-black text-blue-400 uppercase mb-2">إجمالي طلبات النظام</div>
+                  <div className="text-[10px] font-black text-blue-400 uppercase mb-2">إجمالي الطلبات الكلية</div>
                   <div className="text-3xl font-black">{globalStats.totalOrders} <span className="text-xs text-white/50">طلب</span></div>
               </Card>
               <Card className="rounded-[1.5rem] border-none shadow-xl bg-slate-900 text-white p-6">
-                  <div className="text-[10px] font-black text-green-400 uppercase mb-2">صافي الأرباح الكلية</div>
+                  <div className="text-[10px] font-black text-green-400 uppercase mb-2">صافي العمولات الكلية</div>
                   <div className="text-3xl font-black">{formatCurrency(globalStats.totalProfit)}</div>
               </Card>
           </div>
@@ -92,11 +90,11 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
             <div className="text-2xl font-black text-orange-500 mt-1">{stats.activeOrders}</div>
         </Card>
         <Card className="rounded-[1.5rem] border-none shadow-lg bg-white p-5">
-            <div className="text-[10px] font-black text-muted-foreground uppercase">مرتجعات / ملغي</div>
+            <div className="text-[10px] font-black text-muted-foreground uppercase">الطلبات الملغية</div>
             <div className="text-2xl font-black text-red-500 mt-1">{stats.cancelledCount}</div>
         </Card>
         <Card className="rounded-[1.5rem] border-none shadow-lg bg-white p-5">
-            <div className="text-[10px] font-black text-muted-foreground uppercase">بانتظار الموافقة</div>
+            <div className="text-[10px] font-black text-muted-foreground uppercase">بانتظار المراجعة</div>
             <div className="text-2xl font-black text-blue-500 mt-1">{stats.pendingProducts.length}</div>
         </Card>
       </div>
@@ -124,11 +122,11 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
       )}
 
       <section className="space-y-4">
-        <h2 className="text-2xl font-black flex items-center gap-2 px-1 text-blue-500"><Clock className="h-6 w-6"/> مراجعة إضافات المتاجر</h2>
+        <h2 className="text-2xl font-black flex items-center gap-2 px-1 text-blue-500"><Clock className="h-6 w-6"/> طلبات تحديث المنيو</h2>
         {stats.pendingProducts.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-[2rem] border-2 border-dashed">
                 <CheckCircle className="h-10 w-10 mx-auto text-green-500/30 mb-3" />
-                <p className="text-muted-foreground italic font-bold">كافة المنتجات في هذا الفرع تمت مراجعتها.</p>
+                <p className="text-muted-foreground italic font-bold">كافة التحديثات في هذا الفرع تم تدقيقها.</p>
             </div>
         ) : (
             <div className="grid gap-4 md:grid-cols-2">

@@ -15,8 +15,7 @@ import Image from 'next/image';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useOrders } from '@/hooks/useOrders';
-import { Button } from '@/components/ui/button';
-import { Landmark, TrendingUp, Building2, Wallet } from 'lucide-react';
+import { TrendingUp, Building2, Wallet, Landmark } from 'lucide-react';
 
 export default function AdminReportsPage({ branchId }: { branchId: string }) {
   const { restaurants, isLoading: rLoading } = useRestaurants(branchId);
@@ -47,41 +46,41 @@ export default function AdminReportsPage({ branchId }: { branchId: string }) {
     };
   }, [allOrders, rLoading, oLoading]);
 
-  if (rLoading || oLoading) return <div className="p-8 text-center animate-pulse">جارِ حساب الأرباح والعمولات...</div>;
+  if (rLoading || oLoading) return <div className="p-8 text-center animate-pulse">جاري احتساب التقارير المالية...</div>;
 
   return (
     <div className="space-y-8 text-right animate-in fade-in duration-500">
       <header>
-        <h1 className="text-3xl font-black text-primary italic">تقرير أرباح الشركة</h1>
-        <p className="text-muted-foreground font-bold">ملخص العمولات والتدفقات المالية لفرع: {isMain ? 'المركز الرئيسي' : branchId}</p>
+        <h1 className="text-3xl font-black text-primary italic">كشف العمولات والأرباح</h1>
+        <p className="text-muted-foreground font-bold">ملخص مالي دقيق لفرع: {isMain ? 'المركز العام' : branchId}</p>
       </header>
 
       <div className="grid gap-4 md:grid-cols-3">
           <Card className="rounded-[1.5rem] border-none shadow-xl bg-slate-900 text-white p-6 relative overflow-hidden">
               <div className="absolute left-[-10px] bottom-[-10px] opacity-10"><TrendingUp className="h-20 w-20"/></div>
-              <div className="text-[10px] font-black text-primary uppercase mb-2">إجمالي مبيعات المنتجات</div>
+              <div className="text-[10px] font-black text-primary uppercase mb-2">مبيعات المنتجات الإجمالية</div>
               <div className="text-3xl font-black">{formatCurrency(stats.totalSales)}</div>
           </Card>
           <Card className="rounded-[1.5rem] border-none shadow-xl bg-primary text-white p-6">
-              <div className="text-[10px] font-black text-white/70 uppercase mb-2">صافي أرباح الشركة (العمولات)</div>
+              <div className="text-[10px] font-black text-white/70 uppercase mb-2">صافي حصة الشركة من العمولات</div>
               <div className="text-3xl font-black">{formatCurrency(stats.companyEarnings)}</div>
           </Card>
           <Card className="rounded-[1.5rem] border-none shadow-xl bg-white p-6 border-r-4 border-r-orange-500">
-              <div className="text-[10px] font-black text-muted-foreground uppercase mb-2">مستحقات المتاجر الكلية</div>
+              <div className="text-[10px] font-black text-muted-foreground uppercase mb-2">إجمالي مستحقات المتاجر</div>
               <div className="text-3xl font-black text-slate-800">{formatCurrency(stats.storePayouts)}</div>
           </Card>
       </div>
 
       <section className="space-y-4">
-          <h2 className="text-xl font-black flex items-center gap-2 px-1 justify-end">تفاصيل المتاجر النشطة <Building2 className="text-primary h-5 w-5"/></h2>
-          <Card className="rounded-[2rem] border-none shadow-xl overflow-hidden">
+          <h2 className="text-xl font-black flex items-center gap-2 px-1 justify-end">أداء المتاجر المالي <Building2 className="text-primary h-5 w-5"/></h2>
+          <Card className="rounded-[2rem] border-none shadow-xl overflow-hidden bg-white">
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
                             <TableHead className="font-black">المتجر</TableHead>
                             <TableHead className="font-black text-center">العمولة</TableHead>
-                            <TableHead className="font-black text-center">إجمالي المبيعات</TableHead>
-                            <TableHead className="font-black text-center">ربح الشركة</TableHead>
+                            <TableHead className="font-black text-center">المبيعات</TableHead>
+                            <TableHead className="font-black text-center">ربح النظام</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, Suspense, useEffect, useRef } from 'react';
+import { useState, useMemo, Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ProductCard } from "@/components/ProductCard";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,8 +10,6 @@ import { Search, PackageOpen, Loader2 } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 
-const ITEMS_PER_PAGE = 8;
-
 function ProductsPageContent() {
   const searchParams = useSearchParams();
   const initialCategory = searchParams.get('category') || 'all';
@@ -19,12 +17,11 @@ function ProductsPageContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState(initialCategory);
   
-  // نظام التحميل التدريجي (واحد تلو الآخر)
+  // نظام الظهور المتسلسل (واحدة تلو الأخرى) مع منع التكرار
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
-  const [isIncrementing, setIsIncrementing] = useState(false);
 
-  // جلب البيانات فقط عند دخول هذه الصفحة (معزول تماماً)
-  const { products, isLoading } = useProducts(undefined, undefined, 200);
+  // جلب البيانات معزول تماماً عن بقية التطبيق لضمان السرعة
+  const { products, isLoading } = useProducts(undefined, undefined, 100);
   const { categories } = useCategories();
 
   const filteredProducts = useMemo(() => {
@@ -34,19 +31,24 @@ function ProductsPageContent() {
       return prods;
   }, [products, activeTab, searchTerm]);
 
-  // منطق "واحد تلو الآخر": نأخذ القائمة المفلترة ونضيفها للقائمة المعروضة تدريجياً
+  // منطق "واحد تلو الآخر": يضيف الوجبات بتتابع زمني ويمنع تكرار المفاتيح
   useEffect(() => {
-    setDisplayedProducts([]); // تصفير القائمة عند تغيير الفئة أو البحث
+    setDisplayedProducts([]);
     if (filteredProducts.length > 0) {
         let index = 0;
         const interval = setInterval(() => {
             if (index < filteredProducts.length) {
-                setDisplayedProducts(prev => [...prev, filteredProducts[index]]);
+                setDisplayedProducts(prev => {
+                    const nextItem = filteredProducts[index];
+                    // منع تكرار الوجبة في القائمة المعروضة
+                    if (prev.some(p => p.id === nextItem.id)) return prev;
+                    return [...prev, nextItem];
+                });
                 index++;
             } else {
                 clearInterval(interval);
             }
-        }, 80); // سرعة الظهور (80 ملي ثانية بين كل وجبة ووجبة)
+        }, 60); // سرعة الظهور (60 ملي ثانية لكل وجبة)
         return () => clearInterval(interval);
     }
   }, [filteredProducts]);
@@ -55,13 +57,13 @@ function ProductsPageContent() {
     <div className="p-4 pb-40 animate-in fade-in duration-500 text-right">
       <header className="mb-6 space-y-4">
         <div>
-          <h1 className="text-3xl font-black text-primary italic">كل الوجبات</h1>
-          <p className="text-muted-foreground font-bold text-xs">اكتشف أشهى الأطباق من حولك</p>
+          <h1 className="text-3xl font-black text-primary italic">قائمة الوجبات</h1>
+          <p className="text-muted-foreground font-bold text-xs">تصفح وجباتك المفضلة واحد تلو الآخر</p>
         </div>
         <div className="relative">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input 
-            placeholder="ابحث عن وجبتك المفضلة..."
+            placeholder="ابحث عن وجبة محددة..."
             className="pr-10 h-12 rounded-2xl border-2 font-bold bg-white"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -83,7 +85,7 @@ function ProductsPageContent() {
            <div className="grid grid-cols-2 gap-4">
                 {displayedProducts.map((product) => (
                     <div 
-                        key={product.id} 
+                        key={`prod-${product.id}`} 
                         className="animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300"
                     >
                         <ProductCard product={product} />
@@ -94,14 +96,14 @@ function ProductsPageContent() {
             {isLoading && displayedProducts.length === 0 && (
                 <div className="py-20 flex flex-col items-center justify-center gap-2">
                     <Loader2 className="h-8 w-8 animate-spin text-primary opacity-40" />
-                    <p className="text-[10px] font-black text-muted-foreground">جاري جلب قائمة الطعام...</p>
+                    <p className="text-[10px] font-black text-muted-foreground">جاري تحضير القائمة لك...</p>
                 </div>
             )}
 
             {!isLoading && filteredProducts.length === 0 && (
                 <div className="text-center py-20 bg-muted/5 rounded-[3rem] border-2 border-dashed">
                     <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
-                    <p className="text-muted-foreground font-black">لا توجد نتائج مطابقة لبحثك.</p>
+                    <p className="text-muted-foreground font-black">عذراً، لم نجد نتائج لما تبحث عنه.</p>
                 </div>
             )}
         </div>
