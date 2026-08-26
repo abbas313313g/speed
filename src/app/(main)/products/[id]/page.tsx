@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect, useContext } from 'react';
+import { useState, useMemo, useEffect, useContext, useRef } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -27,6 +27,12 @@ export default function ProductDetailPage() {
   const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(undefined);
   const [isZoomed, setIsZoomed] = useState(false);
   const [imgError, setImgError] = useState(false);
+
+  // حالات التكبير والتحريك (Pinch to Zoom)
+  const [zoomScale, setZoomScale] = useState(1);
+  const [zoomOffset, setZoomOffset] = useState({ x: 0, y: 0 });
+  const [initialDistance, setInitialDistance] = useState<number | null>(null);
+  const [lastTouch, setLastTouch] = useState({ x: 0, y: 0 });
 
   if (!context) return null;
   const { selectedProductId, setActiveTab, activeTab, previousTab, setSelectedRestaurantId } = context;
@@ -62,6 +68,8 @@ export default function ProductDetailPage() {
         setQuantity(1);
         setImgError(false);
         setIsZoomed(false);
+        setZoomScale(1);
+        setZoomOffset({ x: 0, y: 0 });
     }
   }, [product, isCurrentlyVisible]);
 
@@ -132,7 +140,6 @@ export default function ProductDetailPage() {
   };
 
   const handleBack = () => {
-      // إصلاح مشكلة الصفحة البيضاء: العودة للتبويب السابق المحفوظ أو للرئيسية
       if (typeof previousTab === 'number' && previousTab !== 9) {
           setActiveTab(previousTab);
       } else {
@@ -144,6 +151,51 @@ export default function ProductDetailPage() {
   const imageUrl = imgError 
     ? 'https://placehold.co/600x600/00b358/white?text=Speed+Shop' 
     : (product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/600x600/00b358/white?text=Speed+Shop');
+
+  // محرك اللمس المتعدد للتكبير بالأصابع
+  const onTouchStart = (e: React.TouchEvent) => {
+      if (e.touches.length === 2) {
+          const dist = Math.hypot(
+              e.touches[0].clientX - e.touches[1].clientX,
+              e.touches[0].clientY - e.touches[1].clientY
+          );
+          setInitialDistance(dist);
+      } else if (e.touches.length === 1) {
+          setLastTouch({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+      }
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+      if (e.touches.length === 2 && initialDistance) {
+          const dist = Math.hypot(
+              e.touches[0].clientX - e.touches[1].clientX,
+              e.touches[0].clientY - e.touches[1].clientY
+          );
+          const delta = dist / initialDistance;
+          // تكبير انسيابي مع حد أقصى 4 أضعاف
+          setZoomScale(prev => Math.min(Math.max(prev * delta, 1), 4));
+          setInitialDistance(dist);
+      } else if (e.touches.length === 1 && zoomScale > 1) {
+          const deltaX = e.touches[0].clientX - lastTouch.x;
+          const deltaY = e.touches[0].clientY - lastTouch.y;
+          setZoomOffset(prev => ({ x: prev.x + deltaX, y: prev.y + deltaY }));
+          setLastTouch({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+      }
+  };
+
+  const onTouchEnd = () => {
+      setInitialDistance(null);
+  };
+
+  const toggleZoom = () => {
+      if (isZoomed) {
+          setZoomScale(1);
+          setZoomOffset({ x: 0, y: 0 });
+          setIsZoomed(false);
+      } else {
+          setIsZoomed(true);
+      }
+  };
 
   return (
     <div className="flex flex-col h-full bg-background relative overflow-hidden text-right">
@@ -171,7 +223,7 @@ export default function ProductDetailPage() {
       <div className="flex-1 overflow-y-auto">
           <div 
             className="relative w-full aspect-square overflow-hidden sm:rounded-b-[3.5rem] shadow-2xl cursor-zoom-in"
-            onClick={() => setIsZoomed(true)}
+            onClick={toggleZoom}
           >
             <Image 
                 src={imageUrl} 
@@ -279,7 +331,7 @@ export default function ProductDetailPage() {
                 )}
                 onClick={handleAddToCart} 
                 disabled={isOutOfStock || (restaurant && !restaurant.isStoreOpen)}
-            >
+          >
               <ShoppingCart className="ml-3 h-7 w-7"/>
               {restaurant && !restaurant.isStoreOpen ? "المتجر مغلق" : "إضافة إلى السلة"}
           </Button>
@@ -287,13 +339,23 @@ export default function ProductDetailPage() {
 
       {isZoomed && (
         <div 
-            className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-4 animate-in fade-in duration-300"
-            onClick={() => setIsZoomed(false)}
+            className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-4 animate-in fade-in duration-300 touch-none"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
         >
-            <button className="absolute top-10 right-6 p-4 bg-white/10 rounded-full text-white">
+            <button 
+                className="absolute top-10 right-6 p-4 bg-white/10 rounded-full text-white z-[110]"
+                onClick={toggleZoom}
+            >
                 <X className="h-8 w-8" />
             </button>
-            <div className="relative w-full aspect-square max-w-[500px]">
+            <div 
+                className="relative w-full aspect-square max-w-[500px] transition-transform duration-75 will-change-transform"
+                style={{ 
+                    transform: `scale(${zoomScale}) translate(${zoomOffset.x / zoomScale}px, ${zoomOffset.y / zoomScale}px)` 
+                }}
+            >
                 <Image 
                     src={imageUrl} 
                     alt={product.name} 
@@ -304,8 +366,10 @@ export default function ProductDetailPage() {
                     loading="eager"
                 />
             </div>
-            <p className="mt-8 text-white font-black text-xl">{product.name}</p>
-            <p className="text-white/60 text-sm font-bold mt-2">المس للرجوع</p>
+            <div className="absolute bottom-10 left-0 right-0 text-center pointer-events-none">
+                <p className="text-white font-black text-xl px-6 truncate">{product.name}</p>
+                <p className="text-white/60 text-[10px] font-bold mt-1 uppercase tracking-widest">استخدم إصبعين للتكبير والسحب</p>
+            </div>
         </div>
       )}
     </div>
