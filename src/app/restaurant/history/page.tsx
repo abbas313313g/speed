@@ -52,8 +52,9 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
         const commissionAmount = (totalIncome / (1 - (restaurant.commissionRate/100))) * (restaurant.commissionRate/100);
         
         const success = await requestWithdraw({
-            restaurantId: restaurant.id,
-            restaurantName: restaurant.name,
+            type: 'restaurant',
+            targetId: restaurant.id,
+            targetName: restaurant.name,
             amount: totalIncome + commissionAmount,
             commissionAmount: commissionAmount,
             netAmount: totalIncome,

@@ -2,12 +2,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, updateDoc, onSnapshot, doc, query, where, orderBy } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, onSnapshot, doc, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { WithdrawRequest } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
-export const useWithdrawals = (branchId?: string, restaurantId?: string) => {
+export const useWithdrawals = (branchId?: string, targetId?: string) => {
     const [requests, setRequests] = useState<WithdrawRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
@@ -16,15 +16,14 @@ export const useWithdrawals = (branchId?: string, restaurantId?: string) => {
         const ref = collection(db, 'withdrawals');
         let q = query(ref);
         
-        if (restaurantId) {
-            q = query(ref, where('restaurantId', '==', restaurantId));
+        if (targetId) {
+            q = query(ref, where('targetId', '==', targetId));
         } else if (branchId && branchId !== 'all') {
             q = query(ref, where('branchId', '==', branchId));
         }
 
         const unsub = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as WithdrawRequest[];
-            // ترتيب يدوي لضمان السرعة وتجنب أخطاء الفهرسة (Indexing)
             const sorted = data.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
             setRequests(sorted);
             setIsLoading(false);
@@ -33,7 +32,7 @@ export const useWithdrawals = (branchId?: string, restaurantId?: string) => {
             setIsLoading(false);
         });
         return () => unsub();
-    }, [branchId, restaurantId]);
+    }, [branchId, targetId]);
 
     const requestWithdraw = useCallback(async (data: Omit<WithdrawRequest, 'id' | 'status' | 'requestedAt'>) => {
         try {

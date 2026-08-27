@@ -3,7 +3,7 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Wallet, Landmark, User, Settings2, ShoppingCart, ShieldAlert, ArrowRight, Banknote } from 'lucide-react';
+import { Wallet, Landmark, User, Settings2, ShoppingCart, ShieldAlert, ArrowRight, Banknote, SendHorizontal } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { getWorkerLevel } from '@/lib/workerLevels';
@@ -11,9 +11,11 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 import { useOrders } from '@/hooks/useOrders';
+import { useWithdrawals } from '@/hooks/useWithdrawals';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface DeliveryStatsPageProps {
     onBack: () => void;
@@ -23,8 +25,12 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
   const [workerId, setWorkerId] = useState<string | null>(null);
   const { deliveryWorkers, isLoading: workersLoading, updateWorkerDetails } = useDeliveryWorkers();
   const { allOrders, isLoading: ordersLoading } = useOrders();
+  const { requestWithdraw } = useWithdrawals();
+  const { toast } = useToast();
+  
   const [name, setName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isRequesting, setIsRequesting] = useState(false);
 
   useEffect(() => {
     const id = localStorage.getItem('deliveryWorkerId');
@@ -40,7 +46,6 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
     const unpaidEarnings = myD.filter(o => !o.isFeePaid).reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
     const moneyOwedToOffice = myD.filter(o => !o.isOrderPaidToOffice).reduce((acc, o) => acc + (o.total - o.deliveryFee), 0);
     
-    // منطق التجميد المالي (إذا كانت الذمة > 100 ألف)
     const isActuallyFrozen = moneyOwedToOffice >= 100000;
     
     const levelD = getWorkerLevel(w, myD.length, new Date());
@@ -54,8 +59,25 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
 
   useEffect(() => { if(worker) setName(worker.name || ''); }, [worker]);
 
+  const handleWithdrawRequest = async () => {
+      if (!worker || stats.unpaidEarnings < 5000) {
+          toast({ title: "الحد الأدنى للسحب هو 5,000 د.ع", variant: "destructive" });
+          return;
+      }
+      setIsRequesting(true);
+      const success = await requestWithdraw({
+          type: 'delivery',
+          targetId: worker.id,
+          targetName: worker.name,
+          amount: stats.unpaidEarnings,
+          netAmount: stats.unpaidEarnings,
+          branchId: worker.branchId
+      });
+      setIsRequesting(false);
+  };
+
   if (workersLoading || ordersLoading || !workerId) {
-      return <div className="p-6 space-y-6"><Skeleton className="h-48 w-full rounded-3xl" /></div>;
+      return <div className="p-6 space-y-6"><Skeleton className="h-48 w-full rounded-3xl" /><Skeleton className="h-24 w-full rounded-2xl" /><Skeleton className="h-24 w-full rounded-2xl" /></div>;
   }
 
   const LevelIcon = level?.icon;
@@ -101,21 +123,33 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
         </Card>
       )}
 
-      <div className="grid gap-3 grid-cols-2 text-right">
-        <Card className="rounded-[1.5rem] border-none shadow-md bg-white border-r-4 border-r-primary">
-          <CardHeader className="p-4 pb-1"><CardTitle className="text-[10px] font-bold text-muted-foreground flex items-center gap-2 justify-end"><Wallet className="h-3 w-3 text-primary"/> أرباح التوصيل</CardTitle></CardHeader>
-          <CardContent className="p-4 pt-0"><div className="text-lg font-black text-primary truncate">{formatCurrency(stats.unpaidEarnings)}</div></CardContent>
+      <div className="grid gap-3 grid-cols-1 text-right">
+        <Card className="rounded-[2.5rem] border-none shadow-xl bg-white border-r-8 border-r-primary overflow-hidden">
+          <CardHeader className="p-6 pb-2"><CardTitle className="text-sm font-black text-muted-foreground flex items-center gap-2 justify-end"><Wallet className="h-4 w-4 text-primary"/> رصيد الأرباح القابل للسحب</CardTitle></CardHeader>
+          <CardContent className="p-6 pt-0 space-y-4">
+              <div className="text-4xl font-black text-primary tracking-tighter">{formatCurrency(stats.unpaidEarnings)}</div>
+              <Button 
+                onClick={handleWithdrawRequest} 
+                disabled={isRequesting || stats.unpaidEarnings < 5000}
+                className="w-full h-14 rounded-2xl font-black text-lg gap-2 shadow-lg shadow-primary/10"
+              >
+                  {isRequesting ? <Loader2 className="animate-spin h-5 w-5"/> : <SendHorizontal className="h-5 w-5"/>}
+                  تقديم طلب سحب كاش
+              </Button>
+          </CardContent>
         </Card>
 
-        <Card className="rounded-[1.5rem] border-none shadow-md bg-white border-r-4 border-r-destructive">
-          <CardHeader className="p-4 pb-1"><CardTitle className="text-[10px] font-bold text-muted-foreground flex items-center gap-2 justify-end"><Banknote className="h-3 w-3 text-destructive"/> ذمة للمكتب</CardTitle></CardHeader>
-          <CardContent className="p-4 pt-0"><div className="text-lg font-black text-destructive truncate">{formatCurrency(stats.moneyOwedToOffice)}</div></CardContent>
-        </Card>
+        <div className="grid grid-cols-2 gap-3">
+            <Card className="rounded-[1.5rem] border-none shadow-md bg-white border-r-4 border-r-destructive">
+                <CardHeader className="p-4 pb-1"><CardTitle className="text-[10px] font-bold text-muted-foreground flex items-center gap-2 justify-end"><Banknote className="h-3 w-3 text-destructive"/> ذمة للمكتب</CardTitle></CardHeader>
+                <CardContent className="p-4 pt-0"><div className="text-lg font-black text-destructive truncate">{formatCurrency(stats.moneyOwedToOffice)}</div></CardContent>
+            </Card>
 
-        <Card className="col-span-2 rounded-[1.5rem] border-none shadow-md bg-white">
-          <CardHeader className="p-4 pb-1"><CardTitle className="text-[10px] font-bold text-muted-foreground flex items-center gap-2 justify-end"><ShoppingCart className="h-3 w-3 text-orange-500"/> إجمالي التوصيلات الناجحة</CardTitle></CardHeader>
-          <CardContent className="p-4 pt-0"><div className="text-2xl font-black">+{stats.deliveredOrders} <span className="text-xs font-bold text-muted-foreground">مهمة</span></div></CardContent>
-        </Card>
+            <Card className="rounded-[1.5rem] border-none shadow-md bg-white">
+                <CardHeader className="p-4 pb-1"><CardTitle className="text-[10px] font-bold text-muted-foreground flex items-center gap-2 justify-end"><ShoppingCart className="h-3 w-3 text-orange-500"/> إجمالي المهام</CardTitle></CardHeader>
+                <CardContent className="p-4 pt-0"><div className="text-lg font-black">+{stats.deliveredOrders}</div></CardContent>
+            </Card>
+        </div>
       </div>
 
        <Card className="rounded-[2rem] border-none shadow-md bg-card text-right">
