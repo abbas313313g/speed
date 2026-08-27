@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useOrders } from '@/hooks/useOrders';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 import { useRestaurants } from '@/hooks/useRestaurants';
+import { Badge } from '@/components/ui/badge';
 
 interface DeliveryPageProps {
     onNavigate: (tab: number) => void;
@@ -43,44 +44,39 @@ function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order
     }, [order.address, order.restaurant, restaurants]);
 
     return (
-        <Card className="w-full animate-in fade-in-50 border-primary/40 shadow-xl relative overflow-hidden">
-            <div className="absolute top-0 left-0 h-1 bg-primary transition-all duration-1000" style={{ width: `${(timeLeft / 20) * 100}%` }} />
+        <Card className="w-full animate-in zoom-in duration-300 border-primary/50 shadow-2xl relative overflow-hidden bg-white rounded-[2.5rem]">
+            <div className="absolute top-0 left-0 h-1.5 bg-primary transition-all duration-1000" style={{ width: `${(timeLeft / 20) * 100}%` }} />
             <CardHeader className="pb-2 text-right">
                  <div className="flex justify-between items-center mb-1">
-                    <Badge variant="outline" className="text-[10px] font-black border-primary text-primary">تنتهي المهلة خلال: {timeLeft}ث</Badge>
-                    <CardTitle className="text-primary text-lg font-black">طلب جديد متاح!</CardTitle>
+                    <Badge variant="outline" className="text-[10px] font-black border-primary text-primary px-3 py-1 rounded-full bg-primary/5 animate-pulse">تنتهي خلال: {timeLeft}ث</Badge>
+                    <CardTitle className="text-primary text-2xl font-black italic">طلب جديد!</CardTitle>
                  </div>
-                 <CardDescription className="font-bold text-foreground">من متجر: {order.restaurant?.name || 'غير معروف'}</CardDescription>
+                 <CardDescription className="font-black text-slate-800 text-lg">{order.restaurant?.name || 'متجر جديد'}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="flex justify-between items-center p-3 bg-primary/5 rounded-2xl border border-primary/10">
-                    <span className="font-bold text-sm">أجرة التوصيل:</span>
-                    <span className="text-xl font-black text-primary">{formatCurrency(order.deliveryFee)}</span>
+            <CardContent className="space-y-4 pt-2">
+                <div className="flex justify-between items-center p-4 bg-primary/5 rounded-2xl border-2 border-primary/10">
+                    <span className="font-black text-sm text-slate-600">صافي ربحك:</span>
+                    <span className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(order.deliveryFee)}</span>
                 </div>
-                 <div className="grid grid-cols-2 gap-2 text-xs font-bold text-right">
-                    <div className="p-2 bg-muted rounded-xl">
-                         <p className="text-muted-foreground mb-1">المنطقة</p>
-                         <p className="truncate">{order.address.deliveryZone}</p>
+                 <div className="grid grid-cols-2 gap-3 text-xs font-bold text-right">
+                    <div className="p-3 bg-muted/30 rounded-2xl border">
+                         <p className="text-muted-foreground text-[10px] mb-1 uppercase">الوجهة</p>
+                         <p className="truncate font-black">{order.address.deliveryZone}</p>
                     </div>
-                    <div className="p-2 bg-muted rounded-xl">
-                         <p className="text-muted-foreground mb-1">المسافة</p>
-                         <p>{distance ? `~${distance.toFixed(1)} كم` : 'غير محددة'}</p>
+                    <div className="p-3 bg-muted/30 rounded-2xl border">
+                         <p className="text-muted-foreground text-[10px] mb-1 uppercase">المسافة</p>
+                         <p className="font-black">{distance ? `~${distance.toFixed(1)} كم` : 'غير محددة'}</p>
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-2 pt-2">
-                    {mapUrl && (
-                        <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="w-full">
-                             <Button variant="outline" className="w-full h-11 rounded-xl font-bold"><Map className="ml-2 h-4 w-4"/>رؤية المسار</Button>
-                        </a>
-                    )}
-                    <div className="grid grid-cols-2 gap-2">
-                        <Button variant="ghost" className="h-14 rounded-xl text-destructive font-bold border-2 border-destructive/10" onClick={() => onReject(order.id)} disabled={isProcessing}>
-                             تجاهل/رفض
+                <div className="flex flex-col gap-3 pt-2">
+                    <div className="grid grid-cols-2 gap-3">
+                        <Button variant="outline" className="h-16 rounded-2xl text-destructive font-black border-2 border-destructive/10 bg-destructive/5 hover:bg-destructive/10" onClick={() => onReject(order.id)} disabled={isProcessing}>
+                             تجاهل
                         </Button>
-                        <Button size="lg" className="h-14 rounded-xl text-lg font-black bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200" onClick={() => onAccept(order.id)} disabled={isProcessing}>
-                            {isProcessing ? <Loader2 className="h-5 w-5 animate-spin"/> : <Check className="ml-2 h-6 w-6"/>}
-                            قبول العمل
+                        <Button size="lg" className="h-16 rounded-2xl text-xl font-black bg-green-600 hover:bg-green-700 shadow-xl shadow-green-100 transition-all active:scale-90" onClick={() => onAccept(order.id)} disabled={isProcessing}>
+                            {isProcessing ? <Loader2 className="h-6 w-6 animate-spin"/> : <Check className="ml-2 h-7 w-7"/>}
+                            قبول الطلب
                         </Button>
                     </div>
                 </div>
@@ -101,36 +97,34 @@ function ActiveOrderListItem({ order, onClick }: { order: Order, onClick: () => 
     
     const getStatusColor = (status: OrderStatus) => {
         switch (status) {
-            case 'preparing': return "text-orange-500 bg-orange-50";
-            case 'ready_for_pickup': return "text-green-600 bg-green-50";
-            case 'on_the_way': return "text-blue-500 bg-blue-50";
-            default: return "text-primary bg-primary/5";
+            case 'preparing': return "text-orange-600 bg-orange-50 border-orange-100";
+            case 'ready_for_pickup': return "text-green-600 bg-green-50 border-green-100";
+            case 'on_the_way': return "text-blue-600 bg-blue-50 border-blue-100";
+            default: return "text-primary bg-primary/5 border-primary/10";
         }
     }
 
     return (
         <button 
             onClick={onClick}
-            className="w-full flex items-center gap-4 p-4 bg-card rounded-2xl shadow-sm border border-muted transition-all active:scale-95 text-right"
+            className="w-full flex items-center gap-4 p-5 bg-white rounded-[2rem] shadow-md border border-slate-50 transition-all active:scale-95 text-right hover:shadow-lg"
         >
-            <div className={cn("p-3 rounded-xl", getStatusColor(order.status))}>
-                <Clock className="h-6 w-6" />
+            <div className={cn("p-4 rounded-2xl border", getStatusColor(order.status))}>
+                <Clock className="h-7 w-7" />
             </div>
             <div className="flex-1 min-w-0">
-                <p className="font-black text-foreground truncate">#{order.id.substring(0, 6)} - {order.restaurant?.name || 'متجر'}</p>
+                <p className="font-black text-slate-800 text-lg truncate">#{order.id.substring(0, 6)} - {order.restaurant?.name || 'متجر'}</p>
                 <div className="flex items-center gap-2 mt-1">
-                    <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", getStatusColor(order.status))}>
+                    <span className={cn("text-[10px] font-black px-3 py-1 rounded-full uppercase", getStatusColor(order.status))}>
                         {getStatusText(order.status)}
                     </span>
-                    <span className="text-[10px] text-muted-foreground font-bold">{order.address.deliveryZone}</span>
+                    <span className="text-[10px] text-muted-foreground font-black bg-muted/40 px-2 py-1 rounded-lg italic">{order.address.deliveryZone}</span>
                 </div>
             </div>
-            <ChevronLeft className="h-5 w-5 text-muted-foreground" />
+            <div className="p-2 bg-slate-50 rounded-full"><ChevronLeft className="h-5 w-5 text-slate-400" /></div>
         </button>
     );
 }
-
-import { Badge } from '@/components/ui/badge';
 
 export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPageProps) {
     const { toast } = useToast();
@@ -150,17 +144,10 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         return deliveryWorkers.find(w => w.id === workerId) || null;
     }, [workerId, deliveryWorkers]);
 
-    const isFrozen = useMemo(() => {
-        if (!workerId || !allOrders) return false;
-        const myDelivered = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered' && !o.isOrderPaidToOffice);
-        const debt = myDelivered.reduce((acc, o) => acc + (o.total - o.deliveryFee), 0);
-        return debt >= 100000;
-    }, [workerId, allOrders]);
-
     const myAssignedOrders = useMemo(() => {
-        if (!workerId || !allOrders || isFrozen) return [];
+        if (!workerId || !allOrders) return [];
         return allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'confirmed');
-    }, [workerId, allOrders, isFrozen]);
+    }, [workerId, allOrders]);
     
     const myActiveOrders = useMemo(() => {
         if (!workerId || !allOrders) return [];
@@ -171,11 +158,11 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     }, [workerId, allOrders]);
 
     const handleAcceptOrder = async (orderId: string) => {
-        if (!workerId || isFrozen) return;
+        if (!workerId) return;
         setIsProcessing(true);
         try {
             await updateOrderStatus(orderId, 'preparing', workerId);
-            toast({ title: "تم قبول الطلب! اذهب للمطعم الآن ✅" });
+            toast({ title: "تم قبول العمل! انطلق الآن 🚀" });
         } catch (error) {
              toast({ title: "عذراً، حدث خطأ", variant: "destructive" });
         } finally {
@@ -187,7 +174,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         setIsProcessing(true);
         try {
             await updateOrderStatus(orderId, 'unassigned');
-            toast({ title: "تم رفض الطلب" });
+            toast({ title: "تم الرفض بنجاح" });
         } catch (e) {} finally {
             setIsProcessing(false);
         }
@@ -200,70 +187,59 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     };
     
     const handleToggleOnlineStatus = () => {
-        if (isFrozen) {
-            toast({ title: "لا يمكنك العمل حالياً", description: "حسابك مجمد بسبب الذمة المالية.", variant: "destructive" });
-            return;
-        }
         if (workerId && worker) {
             const newStatus = !worker.isOnline;
             updateWorkerStatus(workerId, newStatus);
-            toast({ title: newStatus ? "أنت متصل وجاهز للطلبات" : "أنت خارج الخدمة الآن" });
+            toast({ title: newStatus ? "أنت متصل وجاهز للطلبات 🟢" : "أنت في استراحة الآن ⚪" });
         }
     };
 
-    if (ordersLoading || workersLoading || !workerId) return <div className="p-8 text-center animate-pulse">جار جلب مهامك...</div>;
+    if (ordersLoading || workersLoading || !workerId) return <div className="flex h-screen items-center justify-center animate-pulse font-black text-primary">جار جلب مهامك...</div>;
 
     return (
-        <div className="block bg-background pb-60 h-full overflow-y-auto">
-            <header className="p-4 flex justify-between items-center bg-white border-b shadow-sm sticky top-0 z-50">
+        <div className="block bg-slate-50 pb-60 h-full overflow-y-auto">
+            <header className="p-5 flex justify-between items-center bg-white border-b shadow-sm sticky top-0 z-50 rounded-b-[2rem]">
                  <div className="text-right">
-                    <h1 className="text-xl font-black text-primary leading-none">أهلاً {worker?.name?.split(' ')[0] || 'كابتن'}</h1>
-                    <button className="flex items-center gap-2 mt-1 active:scale-95 transition-all" onClick={handleToggleOnlineStatus}>
+                    <h1 className="text-2xl font-black text-primary italic leading-none">كابتن {worker?.name?.split(' ')[0] || 'سبيد'}</h1>
+                    <button className="flex items-center gap-2 mt-1.5 active:scale-95 transition-all bg-muted/30 px-3 py-1 rounded-full" onClick={handleToggleOnlineStatus}>
                         <div className={`h-2.5 w-2.5 rounded-full ${worker?.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                        <span className="text-[10px] font-black text-muted-foreground">{worker?.isOnline ? 'أنت متصل الآن' : 'أوفلاين'}</span>
+                        <span className="text-[10px] font-black text-slate-600">{worker?.isOnline ? 'متاح لاستلام الطلبات' : 'خارج الخدمة'}</span>
                     </button>
                  </div>
-                 <div className="flex gap-2">
-                     <Button variant="secondary" size="icon" className="rounded-xl h-10 w-10 shadow-md border-2 border-primary/20" onClick={() => onNavigate(2)}>
-                        <Shield className="h-5 w-5 text-primary"/>
+                 <div className="flex gap-3">
+                     <Button variant="secondary" size="icon" className="rounded-2xl h-12 w-12 shadow-md border-2 border-primary/20 bg-white" onClick={() => onNavigate(2)}>
+                        <Shield className="h-6 w-6 text-primary"/>
                     </Button>
-                    <Button variant="ghost" size="icon" className="rounded-xl h-10 w-10 text-destructive" onClick={handleLogout}>
-                        <LogOut className="h-5 w-5"/>
+                    <Button variant="ghost" size="icon" className="rounded-2xl h-12 w-12 text-destructive bg-destructive/5" onClick={handleLogout}>
+                        <LogOut className="h-6 w-6"/>
                     </Button>
                  </div>
             </header>
 
-            <div className="p-4 space-y-6">
-                {isFrozen ? (
-                    <div className="text-center space-y-6 p-8 animate-in zoom-in duration-300 py-20 bg-destructive/5 rounded-[2.5rem] border-2 border-dashed border-destructive/20">
-                         <div className="p-8 bg-white rounded-full w-fit mx-auto shadow-xl">
-                            <ShieldAlert className="h-20 w-20 text-destructive animate-pulse"/>
+            <div className="p-4 space-y-8 mt-4">
+                {!worker?.isOnline ? (
+                    <div className="text-center space-y-6 p-8 animate-in slide-in-from-bottom duration-500 py-24 bg-white rounded-[3rem] shadow-xl border-4 border-white shadow-slate-200">
+                        <div className="p-10 bg-yellow-50 rounded-full w-fit mx-auto border-4 border-white shadow-xl">
+                            <AlertTriangle className="h-24 w-24 text-yellow-500 animate-bounce"/>
                         </div>
                         <div>
-                            <h2 className="text-3xl font-black text-destructive">حسابك مجمد مالياً</h2>
-                            <p className="text-muted-foreground font-bold mt-2 px-6">ذمة المكتب تجاوزت 100 ألف. يرجى مراجعة الإدارة لتصفية المبالغ.</p>
+                            <h2 className="text-3xl font-black text-slate-800">أنت في استراحة</h2>
+                            <p className="text-muted-foreground font-bold mt-2 px-10 leading-relaxed">لن تصلك أي طلبات في هذه الحالة. فعل نشاطك لتبدأ العمل!</p>
                         </div>
-                    </div>
-                ) : !worker?.isOnline ? (
-                    <div className="text-center space-y-6 p-8 animate-in zoom-in duration-300 py-20 bg-white rounded-[2.5rem] shadow-sm border-2 border-dashed border-muted">
-                        <div className="p-8 bg-yellow-50 rounded-full w-fit mx-auto border-4 border-white shadow-xl">
-                            <AlertTriangle className="h-20 w-20 text-yellow-500"/>
-                        </div>
-                        <div>
-                            <h2 className="text-3xl font-black text-foreground">أنت غير متصل</h2>
-                            <p className="text-muted-foreground font-bold mt-2">لن تصلك أي طلبات في هذه الحالة. ابدأ العمل الآن!</p>
-                        </div>
-                        <Button size="lg" className="w-full h-16 rounded-2xl text-xl font-black shadow-xl" onClick={handleToggleOnlineStatus}>
-                           <CircleDot className="ml-2 h-6 w-6"/> ابدأ استقبال الطلبات
+                        <Button size="lg" className="w-full h-20 rounded-[2.5rem] text-2xl font-black shadow-2xl shadow-primary/30 transition-all active:scale-95" onClick={handleToggleOnlineStatus}>
+                           <CircleDot className="ml-3 h-8 w-8"/> تفعيل الحالة الآن
                         </Button>
                     </div>
                 ) : (
                     <>
                         {myAssignedOrders.length > 0 && (
-                            <div className="space-y-4 animate-in slide-in-from-top duration-500">
-                                <div className="text-right px-2">
-                                    <h2 className="text-xl font-black text-primary">طلبات جديدة ({myAssignedOrders.length})</h2>
-                                    <p className="text-xs font-bold text-muted-foreground">لديك 20 ثانية للقبول</p>
+                            <div className="space-y-4 animate-in slide-in-from-top-4 duration-500">
+                                <div className="text-right px-2 flex justify-between items-end">
+                                    <Badge className="bg-red-500 animate-bounce font-black">{myAssignedOrders.length}</Badge>
+                                    <div>
+                                        <h2 className="text-2xl font-black text-primary italic">طلبات جديدة مخصصة</h2>
+                                        <p className="text-[10px] font-bold text-muted-foreground">قم بالقبول فوراً لضمان عدم سحب الطلب</p>
+                                    </div>
                                 </div>
                                 {myAssignedOrders.map(order => (
                                     <AvailableOrderCard 
@@ -277,13 +253,13 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                             </div>
                         )}
 
-                        {myActiveOrders.length > 0 ? (
-                            <div className="space-y-4">
-                                <div className="text-right px-2">
-                                    <h2 className="text-xl font-black text-foreground">مهامك النشطة ({myActiveOrders.length})</h2>
-                                    <p className="text-xs font-bold text-muted-foreground">اضغط على الطلب لتحديث حالته</p>
-                                </div>
-                                <div className="space-y-3">
+                        <div className="space-y-4">
+                             <div className="text-right px-2">
+                                <h2 className="text-xl font-black text-slate-800">مهامك النشطة ({myActiveOrders.length})</h2>
+                                <p className="text-[10px] font-bold text-muted-foreground">اضغط على البطاقة لتحديث حالة التوصيل</p>
+                            </div>
+                            {myActiveOrders.length > 0 ? (
+                                <div className="space-y-4">
                                     {myActiveOrders.map(order => (
                                         <ActiveOrderListItem 
                                             key={order.id} 
@@ -292,18 +268,18 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                                         />
                                     ))}
                                 </div>
-                            </div>
-                        ) : (
-                            myAssignedOrders.length === 0 && (
-                                <div className="text-center space-y-6 p-8 opacity-60 py-40">
-                                    <Inbox className="mx-auto h-24 w-24 text-muted-foreground animate-pulse"/>
-                                    <div>
-                                        <h2 className="text-2xl font-bold">بانتظار طلب جديد...</h2>
-                                        <p className="text-muted-foreground font-medium">ابقَ قريباً من المناطق الحيوية لزيادة فرصك.</p>
+                            ) : (
+                                myAssignedOrders.length === 0 && (
+                                    <div className="text-center space-y-6 p-10 opacity-60 py-48 bg-white/50 rounded-[3rem] border-4 border-dashed">
+                                        <Inbox className="mx-auto h-24 w-24 text-primary/20 animate-pulse"/>
+                                        <div>
+                                            <h2 className="text-2xl font-black text-slate-400">بانتظار عمل جديد...</h2>
+                                            <p className="text-muted-foreground font-bold text-sm">ابقَ قريباً من مناطق الطلب الكثيفة.</p>
+                                        </div>
                                     </div>
-                                </div>
-                            )
-                        )}
+                                )
+                            )}
+                        </div>
                     </>
                 )}
             </div>

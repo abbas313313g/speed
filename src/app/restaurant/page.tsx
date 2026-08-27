@@ -5,7 +5,7 @@ import { useContext, useMemo, useState, useEffect, useRef } from 'react';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, PackageSearch, History, Clock, Volume2, VolumeX, PackageCheck, Truck, AlertCircle, PlayCircle, Info, ChevronLeft, Receipt } from 'lucide-react';
+import { LogOut, Loader2, PackageSearch, History, Clock, Volume2, VolumeX, PackageCheck, Truck, AlertCircle, PlayCircle, Receipt, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -34,8 +34,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
 
     const newOrders = myOrders.filter(o => ['unassigned', 'pending_assignment', 'confirmed'].includes(o.status));
     const preparingOrders = myOrders.filter(o => o.status === 'preparing');
-    const readyOrders = myOrders.filter(o => o.status === 'ready_for_pickup');
-    const onTheWayOrders = myOrders.filter(o => o.status === 'on_the_way');
+    const activeAndHistoryOrders = myOrders.filter(o => ['ready_for_pickup', 'on_the_way', 'delivered'].includes(o.status));
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -57,10 +56,10 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         setProcessingOrderId(orderId);
         try {
             await updateOrderStatus(orderId, status);
-            toast({ title: "تم تحديث حالة الطلب بنجاح ✅" });
+            toast({ title: "تم التحديث بنجاح ✅" });
             setSelectedOrder(null);
         } catch (e) {
-            toast({ title: "عذراً، فشل التحديث. يرجى المحاولة لاحقاً.", variant: "destructive" });
+            toast({ title: "فشل التحديث، حاول لاحقاً", variant: "destructive" });
         }
         setProcessingOrderId(null);
     };
@@ -112,21 +111,32 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                     <div className="flex justify-between items-center px-1">
                         <Badge className="bg-red-500 text-white font-black rounded-lg">{newOrders.length}</Badge>
                         <h2 className="text-lg font-black flex items-center gap-2 text-slate-800">
-                             طلبات بانتظار القبول <AlertCircle className="h-5 w-5 text-red-500"/>
+                             طلبات جديدة <AlertCircle className="h-5 w-5 text-red-500"/>
                         </h2>
                     </div>
                     {newOrders.map(order => (
-                        <Card key={order.id} className="rounded-[1.8rem] p-4 border-none shadow-md flex items-center justify-between bg-white border-r-8 border-r-red-500 animate-in slide-in-from-right-4 duration-300">
-                            <div className="flex-1 cursor-pointer space-y-1" onClick={() => setSelectedOrder(order)}>
-                                <div className="flex items-center gap-2 justify-end">
-                                    <span className="text-[10px] font-bold text-muted-foreground">{new Date(order.date).toLocaleTimeString('ar-IQ', {hour:'2-digit', minute:'2-digit'})}</span>
-                                    <p className="font-black text-sm">طلب #{order.id.substring(0, 6)}</p>
+                        <Card key={order.id} className="rounded-[2rem] overflow-hidden border-none shadow-md bg-white border-r-8 border-r-red-500 animate-in slide-in-from-right-4 duration-300">
+                            <div className="p-5 space-y-4">
+                                <div className="flex justify-between items-start">
+                                     <span className="text-[10px] font-bold text-muted-foreground">{new Date(order.date).toLocaleTimeString('ar-IQ', {hour:'2-digit', minute:'2-digit'})}</span>
+                                     <p className="font-black text-sm">طلب #{order.id.substring(0, 6)}</p>
                                 </div>
-                                <p className="text-xs font-bold text-slate-600 italic">صافي الدخل: {formatCurrency(order.total - order.deliveryFee)}</p>
+                                <div className="space-y-2 py-2">
+                                    {order.items.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center text-xs font-bold text-slate-700">
+                                            <span>{item.product.name} {item.selectedSize ? `(${item.selectedSize.name})` : ''}</span>
+                                            <span className="p-1 bg-secondary rounded-lg px-2">x{item.quantity}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <Separator className="border-dashed" />
+                                <div className="flex gap-2">
+                                    <Button variant="outline" className="flex-1 rounded-xl font-bold h-12 text-destructive border-destructive/20" onClick={() => handleUpdateStatus(order.id, 'cancelled')}>رفض</Button>
+                                    <Button className="flex-[2] rounded-xl h-12 font-black shadow-lg bg-green-600 hover:bg-green-700" disabled={processingOrderId === order.id} onClick={() => handleUpdateStatus(order.id, 'preparing')}>
+                                        {processingOrderId === order.id ? <Loader2 className="animate-spin h-5 w-5"/> : "قبول وبدء التحضير"}
+                                    </Button>
+                                </div>
                             </div>
-                            <Button className="rounded-xl h-12 font-black px-6 shadow-lg bg-green-600 hover:bg-green-700 active:scale-90 transition-all" disabled={processingOrderId === order.id} onClick={() => handleUpdateStatus(order.id, 'preparing')}>
-                                {processingOrderId === order.id ? <Loader2 className="animate-spin h-5 w-5"/> : "قبول وبدء التحضير"}
-                            </Button>
                         </Card>
                     ))}
                     {newOrders.length === 0 && <div className="p-10 text-center text-muted-foreground font-bold border-2 border-dashed rounded-[2rem] text-xs">لا توجد طلبات جديدة حالياً.</div>}
@@ -136,84 +146,49 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                     <div className="flex justify-between items-center px-1">
                         <Badge variant="outline" className="text-orange-500 border-orange-200 font-black rounded-lg">{preparingOrders.length}</Badge>
                         <h2 className="text-lg font-black flex items-center gap-2 text-slate-800">
-                             قيد التحضير <Clock className="h-5 w-5 text-orange-500"/>
+                             قيد التحضير الآن <Clock className="h-5 w-5 text-orange-500"/>
                         </h2>
                     </div>
                     {preparingOrders.map(order => (
-                        <Card key={order.id} className="rounded-[1.8rem] p-4 border-none shadow-md flex items-center justify-between bg-white border-r-8 border-r-orange-500">
-                            <div className="flex-1 cursor-pointer" onClick={() => setSelectedOrder(order)}>
-                                <p className="font-black text-sm">طلب #{order.id.substring(0, 6)}</p>
-                                {!order.deliveryWorkerId && (
-                                    <div className="flex items-center gap-1 text-[9px] font-black text-orange-600 mt-1">
-                                        <Loader2 className="h-2.5 w-2.5 animate-spin"/> جارِ تأمين سائق للطلب...
-                                    </div>
-                                )}
-                            </div>
-                            <Button className="rounded-xl h-12 font-black px-6 shadow-md bg-primary hover:bg-primary/90" disabled={processingOrderId === order.id} onClick={() => handleUpdateStatus(order.id, 'ready_for_pickup')}>
-                                {processingOrderId === order.id ? <Loader2 className="animate-spin h-5 w-5"/> : "جاهز للاستلام"}
-                            </Button>
+                        <Card key={order.id} className="rounded-[2rem] p-5 border-none shadow-md bg-white border-r-8 border-r-orange-500">
+                             <div className="space-y-3">
+                                <div className="flex justify-between">
+                                    <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
+                                    {!order.deliveryWorkerId && <span className="text-[8px] font-black text-orange-600 flex items-center gap-1"><Loader2 className="h-2 w-2 animate-spin"/> بانتظار سائق</span>}
+                                </div>
+                                <div className="space-y-1">
+                                    {order.items.map((item, idx) => (
+                                        <p key={idx} className="text-xs font-bold opacity-80">{item.product.name} x{item.quantity}</p>
+                                    ))}
+                                </div>
+                                <Button className="w-full rounded-xl h-12 font-black shadow-md bg-primary hover:bg-primary/90" disabled={processingOrderId === order.id} onClick={() => handleUpdateStatus(order.id, 'ready_for_pickup')}>
+                                    {processingOrderId === order.id ? <Loader2 className="animate-spin h-5 w-5"/> : "تم التجهيز (جاهز للاستلام)"}
+                                </Button>
+                             </div>
                         </Card>
                     ))}
                 </section>
 
-                {(readyOrders.length > 0 || onTheWayOrders.length > 0) && (
+                {activeAndHistoryOrders.length > 0 && (
                     <section className="space-y-4">
-                        <div className="flex justify-between items-center px-1">
-                            <Badge className="bg-green-100 text-green-700 font-black rounded-lg">{readyOrders.length + onTheWayOrders.length}</Badge>
-                            <h2 className="text-lg font-black flex items-center gap-2 text-slate-800">
-                                تم التجهيز والمتابعة <PackageCheck className="h-5 w-5 text-green-600"/>
-                            </h2>
+                        <h2 className="text-lg font-black flex items-center gap-2 text-slate-800 px-1">الطلبات النشطة والمكتملة</h2>
+                        <div className="space-y-3">
+                            {activeAndHistoryOrders.slice(0, 10).map(order => (
+                                <div key={order.id} className="bg-white p-4 rounded-[1.5rem] shadow-sm flex items-center justify-between border">
+                                    <div className="text-right">
+                                        <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
+                                        <p className="text-[9px] font-bold text-muted-foreground">
+                                            {order.status === 'ready_for_pickup' ? 'بانتظار السائق' : 
+                                             order.status === 'on_the_way' ? 'في الطريق للزبون' : 'تم التوصيل ✅'}
+                                        </p>
+                                    </div>
+                                    <Badge variant="secondary" className="font-black">{formatCurrency(order.total - order.deliveryFee)}</Badge>
+                                </div>
+                            ))}
                         </div>
-                        {[...readyOrders, ...onTheWayOrders].map(order => (
-                            <div key={order.id} onClick={() => setSelectedOrder(order)} className="bg-white p-4 rounded-[1.5rem] shadow-sm border-r-8 border-r-green-500 flex items-center justify-between cursor-pointer">
-                                <div className="text-right">
-                                    <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
-                                    <p className="text-[10px] font-bold text-muted-foreground">{order.status === 'ready_for_pickup' ? 'بانتظار وصول المندوب للمحل' : 'الطلب مع المندوب حالياً'}</p>
-                                </div>
-                                <div className={cn("p-2 rounded-xl bg-green-50", order.status === 'on_the_way' && "animate-pulse")}>
-                                    <Truck className="h-6 w-6 text-green-600"/>
-                                </div>
-                            </div>
-                        ))}
                     </section>
                 )}
             </main>
-
-            <Dialog open={!!selectedOrder} onOpenChange={(v) => !v && setSelectedOrder(null)}>
-                <DialogContent className="max-w-[92vw] sm:max-w-md rounded-[2.5rem] p-0 border-none shadow-2xl overflow-hidden">
-                    <DialogHeader className="p-6 bg-primary text-white text-right">
-                        <div className="flex items-center gap-3 justify-end">
-                            <div className="text-right">
-                                <DialogTitle className="text-2xl font-black italic">تفاصيل الطلب</DialogTitle>
-                                <p className="text-[10px] font-bold text-white/70 mt-1">رقم الطلب: #{selectedOrder?.id.substring(0,6)}</p>
-                            </div>
-                            <div className="p-3 bg-white/20 rounded-2xl"><Receipt className="h-8 w-8 text-white"/></div>
-                        </div>
-                    </DialogHeader>
-                    <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
-                        {selectedOrder?.items.map((item, idx) => (
-                            <div key={idx} className="flex items-center gap-4 bg-muted/20 p-3 rounded-2xl border-2 border-white shadow-inner">
-                                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 border-white">
-                                    <Image src={item.product.image || 'https://placehold.co/100x100.png'} alt="" fill className="object-cover" unoptimized={true}/>
-                                </div>
-                                <div className="flex-1 min-w-0 text-right">
-                                    <h4 className="font-black text-sm truncate">{item.product.name}</h4>
-                                    {item.selectedSize && <Badge variant="secondary" className="text-[8px] font-black h-4 px-1.5 mt-1">{item.selectedSize.name}</Badge>}
-                                    <div className="mt-1 font-black text-primary text-xs">الكمية: {item.quantity}</div>
-                                </div>
-                            </div>
-                        ))}
-                        <Separator className="border-dashed" />
-                        <div className="bg-primary/5 p-5 rounded-[2rem] border-2 border-primary/10 flex justify-between items-center">
-                            <span className="font-black text-slate-700">صافي ربحك:</span>
-                            <span className="text-2xl font-black text-primary tracking-tighter">{formatCurrency((selectedOrder?.total || 0) - (selectedOrder?.deliveryFee || 0))}</span>
-                        </div>
-                    </div>
-                    <DialogFooter className="p-4 bg-slate-50 border-t">
-                        <Button variant="outline" className="w-full rounded-2xl font-black h-14 border-2 shadow-sm text-lg" onClick={() => setSelectedOrder(null)}>إغلاق النافذة</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }

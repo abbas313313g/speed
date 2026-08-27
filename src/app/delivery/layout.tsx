@@ -7,6 +7,7 @@ import DeliveryPage from './page';
 import DeliveryStatsPage from './stats/page';
 import DeliveryOrderDetailPage from './order/[id]/page';
 import { cn } from '@/lib/utils';
+import { Loader2 } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -15,7 +16,7 @@ declare global {
 }
 
 export default function DeliveryLayout() {
-  const [activeTab, setActiveTab] = useState(0); // 0: Login, 1: Dashboard, 2: Stats, 3: OrderDetail
+  const [activeTab, setActiveTab] = useState(-1); // -1: Checking Auth, 0: Login, 1: Dashboard...
   const [isAuth, setIsAuth] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
@@ -28,6 +29,8 @@ export default function DeliveryLayout() {
     if (id) {
         setIsAuth(true);
         setActiveTab(1);
+    } else {
+        setActiveTab(0);
     }
 
     const initOneSignal = () => {
@@ -42,23 +45,12 @@ export default function DeliveryLayout() {
                 window.OneSignal.init({
                     appId: "fbb7ab81-ec87-4f8c-aaa8-de12522e62b3",
                     allowLocalhostAsSecureOrigin: true,
-                    notifyButton: {
-                        enable: true,
-                        position: 'bottom-left'
-                    },
-                    welcomeNotification: {
-                        title: "سبيد شوب",
-                        message: "تم تفعيل الإشعارات بنجاح! 🚀"
-                    }
+                    notifyButton: { enable: true, position: 'bottom-left' },
+                    welcomeNotification: { title: "سبيد شوب", message: "تم تفعيل الإشعارات بنجاح! 🚀" }
                 });
-
-                if (id) {
-                    window.OneSignal.login(id);
-                }
+                if (id) window.OneSignal.login(id);
             });
-        } catch (e) {
-            console.error("OneSignal init failed", e);
-        }
+        } catch (e) {}
     };
 
     initOneSignal();
@@ -68,6 +60,8 @@ export default function DeliveryLayout() {
       setSelectedOrderId(orderId);
       setActiveTab(3);
   };
+
+  if (activeTab === -1) return <div className="flex h-screen items-center justify-center bg-background"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
 
   return (
     <div className={cn("flex h-screen w-full flex-col bg-card shadow-lg relative overflow-hidden delivery-active")} dir="rtl">
@@ -81,13 +75,6 @@ export default function DeliveryLayout() {
           <div className="spa-page-view">
              <DeliveryLoginPage onLogin={() => { 
                  setIsAuth(true); 
-                 let id: string | null = null;
-                 try {
-                     id = localStorage.getItem('deliveryWorkerId');
-                 } catch(e) {}
-                 if (id && window.OneSignal) {
-                     try { window.OneSignal.login(id); } catch(e) {}
-                 }
                  setActiveTab(1); 
              }} />
           </div>
@@ -107,7 +94,7 @@ export default function DeliveryLayout() {
                     onBack={() => setActiveTab(1)} 
                  />
              ) : (
-                 <div className="flex h-full items-center justify-center font-bold">لم يتم اختيار طلب</div>
+                 <div className="flex h-full items-center justify-center font-bold">يرجى العودة واختيار طلب</div>
              )}
           </div>
         </div>

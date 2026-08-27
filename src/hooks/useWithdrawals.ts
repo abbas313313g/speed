@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, updateDoc, onSnapshot, doc, query, where } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, onSnapshot, doc, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { WithdrawRequest } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -13,8 +13,6 @@ export const useWithdrawals = (branchId?: string, restaurantId?: string) => {
     const { toast } = useToast();
 
     useEffect(() => {
-        // لتجنب خطأ الـ Index، نقوم بالجلب والفلترة بدون orderBy في الاستعلام
-        // ونرتب البيانات برمجياً عند وصولها لضمان أقصى سرعة
         const ref = collection(db, 'withdrawals');
         let q = query(ref);
         
@@ -26,13 +24,9 @@ export const useWithdrawals = (branchId?: string, restaurantId?: string) => {
 
         const unsub = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as WithdrawRequest[];
-            
-            // ترتيب البيانات يدوياً من الأحدث إلى الأقدم في المتصفح
-            const sortedData = data.sort((a, b) => 
-                new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()
-            );
-
-            setRequests(sortedData);
+            // ترتيب يدوي لضمان السرعة وتجنب أخطاء الفهرسة (Indexing)
+            const sorted = data.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
+            setRequests(sorted);
             setIsLoading(false);
         }, (error) => {
             console.error("Withdrawals fetch error:", error);
@@ -51,7 +45,7 @@ export const useWithdrawals = (branchId?: string, restaurantId?: string) => {
             toast({ title: "تم إرسال طلب السحب بنجاح ✅" });
             return true;
         } catch (e) {
-            toast({ title: "فشل إرسال الطلب", variant: "destructive" });
+            toast({ title: "فشل إرسال الطلب، حاول مرة أخرى", variant: "destructive" });
             return false;
         }
     }, [toast]);
@@ -59,9 +53,9 @@ export const useWithdrawals = (branchId?: string, restaurantId?: string) => {
     const updateRequestStatus = useCallback(async (id: string, status: 'completed' | 'rejected') => {
         try {
             await updateDoc(doc(db, "withdrawals", id), { status });
-            toast({ title: "تم تحديث حالة الطلب" });
+            toast({ title: "تم تحديث حالة التسوية بنجاح" });
         } catch (e) {
-            toast({ title: "فشل التحديث", variant: "destructive" });
+            toast({ title: "عذراً، حدث خطأ أثناء التحديث", variant: "destructive" });
         }
     }, [toast]);
 

@@ -26,8 +26,7 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
      useEffect(() => {
         if (restaurantsLoading) return;
         
-        setIsInitialCheckDone(true);
-        // تم تغيير sessionStorage إلى localStorage ليبقى المتجر مسجلاً
+        // جلب معرف المتجر من التخزين الدائم لضمان استمرارية الدخول
         const storedId = localStorage.getItem('speedShopRestaurantId');
 
         if (storedId) {
@@ -38,12 +37,14 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
                 localStorage.removeItem('speedShopRestaurantId');
             }
         }
+        setIsInitialCheckDone(true);
     }, [restaurants, restaurantsLoading]);
 
     const login = useCallback(async (restaurantNumber: string, code: string): Promise<boolean> => {
         const selectedRestaurant = restaurants.find(r => r.restaurantNumber === restaurantNumber);
         
         if (selectedRestaurant && selectedRestaurant.loginCode === code) {
+            // حفظ الحساب بشكل دائم
             localStorage.setItem('speedShopRestaurantId', selectedRestaurant.id);
             setRestaurant(selectedRestaurant);
             return true;
@@ -61,7 +62,7 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
         try {
             await updateOrderStatus(orderId, status);
         } catch (error) {
-            // Error is handled in the hook
+            // Error handling already in hook
         } finally {
             setIsProcessing(false);
         }
