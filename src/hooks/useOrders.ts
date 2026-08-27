@@ -25,14 +25,21 @@ export const useOrders = (branchId?: string) => {
             const workerData = workerSnap.docs[0].data();
             const currentIdle = (workerData.idleCount || 0) + 1;
             
-            const updateData: any = { idleCount: increment(1) };
             if (currentIdle >= 3) {
-                updateData.isOnline = false;
-                updateData.idleCount = 0;
-                toast({ title: "تم إيقاف نشاطك", description: "بسبب تجاهل 3 طلبات، يرجى تفعيل الحالة عند استعدادك.", variant: "destructive" });
+                await updateDoc(workerRef, { 
+                    isOnline: false, 
+                    idleCount: 0 
+                });
+                toast({ 
+                    title: "تم إيقاف نشاطك تلقائياً", 
+                    description: "بسبب تجاهل 3 طلبات متتالية. يرجى تفعيل الحالة عند استعدادك للعمل.", 
+                    variant: "destructive" 
+                });
+            } else {
+                await updateDoc(workerRef, { 
+                    idleCount: increment(1) 
+                });
             }
-            
-            await updateDoc(workerRef, updateData);
         } catch (e) {
             console.error("Penalize error:", e);
         }
@@ -41,10 +48,9 @@ export const useOrders = (branchId?: string) => {
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         if (isAssigningRef.current) return;
         
-        // جلب الطلبات غير المعينة حتى لو كانت قيد التحضير في المطعم
+        // جلب الطلبات التي تحتاج توصيل وغير معينة لأي مندوب
         const pendingOrders = orders.filter(o => 
-            (o.status === 'unassigned' || o.status === 'preparing' || (o.status === 'confirmed' && !o.deliveryWorkerId)) && 
-            !o.deliveryWorkerId
+            (o.status === 'unassigned' || (o.status === 'preparing' && !o.deliveryWorkerId))
         );
         
         if (pendingOrders.length === 0) return;
@@ -52,29 +58,40 @@ export const useOrders = (branchId?: string) => {
         isAssigningRef.current = true;
         try {
             const workersRef = collection(db, "deliveryWorkers");
-            const wQuery = query(workersRef, where("isOnline", "==", true), where("isActive", "==", true), limit(15));
+            // جلب المناديب المتصلين والنشطين فقط
+            const wQuery = query(
+                workersRef, 
+                where("isOnline", "==", true), 
+                where("isActive", "==", true),
+                limit(20)
+            );
             const workersSnap = await getDocs(wQuery);
             const onlineWorkers = workersSnap.docs.map(d => ({ id: d.id, ...d.data() })) as DeliveryWorker[];
 
             if (onlineWorkers.length > 0) {
                 for (const order of pendingOrders) {
+                    // اختيار مندوب عشوائي من المتصلين
                     const worker = onlineWorkers[Math.floor(Math.random() * onlineWorkers.length)];
+                    
                     await updateDoc(doc(db, "orders", order.id), {
                         deliveryWorkerId: worker.id,
                         deliveryWorker: { id: worker.id, name: worker.name },
-                        status: 'confirmed',
+                        status: 'confirmed', // حالة "بانتظار موافقة المندوب"
                         confirmedAt: new Date().toISOString()
                     });
+                    
                     sendOrderNotification(worker.id);
                 }
             }
         } catch (e) {
             console.error("Auto-assign failed:", e);
         } finally {
-            setTimeout(() => { isAssigningRef.current = false; }, 3000);
+            // مهلة بسيطة لمنع تكرار العملية في نفس اللحظة
+            setTimeout(() => { isAssigningRef.current = false; }, 2000);
         }
     }, []);
 
+    // مراقبة وقت الاستجابة (20 ثانية)
     useEffect(() => {
         const interval = setInterval(() => {
             const now = new Date().getTime();
@@ -82,13 +99,15 @@ export const useOrders = (branchId?: string) => {
                 if (order.status === 'confirmed' && order.deliveryWorkerId && order.confirmedAt) {
                     const confirmedTime = new Date(order.confirmedAt).getTime();
                     if (now - confirmedTime > ASSIGNMENT_TIMEOUT_MS) {
-                        await penalizeWorker(order.deliveryWorkerId);
+                        // المندوب لم يستجب، عاقبه واسحب الطلب
+                        const wId = order.deliveryWorkerId;
                         await updateDoc(doc(db, "orders", order.id), {
                             deliveryWorkerId: null,
                             deliveryWorker: null,
                             status: 'unassigned',
                             confirmedAt: null
                         });
+                        await penalizeWorker(wId);
                     }
                 }
             });
@@ -98,10 +117,10 @@ export const useOrders = (branchId?: string) => {
 
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
-        let q = query(ordersRef, limit(60));
+        let q = query(ordersRef, limit(100));
         
         if (branchId && branchId !== 'all') {
-            q = query(ordersRef, where('branchId', '==', branchId), limit(60));
+            q = query(ordersRef, where('branchId', '==', branchId), limit(100));
         }
 
         const unsub = onSnapshot(q, (snapshot) => {
@@ -110,9 +129,8 @@ export const useOrders = (branchId?: string) => {
             setAllOrders(sortedData);
             setIsLoading(false);
             
-            if (data.some(o => (o.status === 'unassigned' || o.status === 'preparing') && !o.deliveryWorkerId)) {
-                autoAssignOrders(data);
-            }
+            // تحفيز التوزيع التلقائي
+            autoAssignOrders(data);
         }, (error) => {
             setIsLoading(false);
         });
@@ -124,24 +142,28 @@ export const useOrders = (branchId?: string) => {
             const orderRef = doc(db, "orders", orderId);
             const updateData: any = { status };
             
+            // إذا المندوب قبل الطلب، صفر عداد الخمول الخاص به
             if (status === 'preparing' && workerId) {
                 const workerRef = doc(db, "deliveryWorkers", workerId);
                 await updateDoc(workerRef, { idleCount: 0 });
             }
 
+            // إذا المندوب رفض الطلب (يرجعه للحالة غير معين)
             if (status === 'unassigned') {
                 const order = allOrders.find(o => o.id === orderId);
                 if (order?.deliveryWorkerId) {
-                    await penalizeWorker(order.deliveryWorkerId);
+                    const wId = order.deliveryWorkerId;
+                    updateData.deliveryWorkerId = null;
+                    updateData.deliveryWorker = null;
+                    updateData.confirmedAt = null;
+                    await penalizeWorker(wId);
                 }
-                updateData.deliveryWorkerId = null;
-                updateData.deliveryWorker = null;
-                updateData.confirmedAt = null;
             }
 
             await updateDoc(orderRef, updateData);
             return true;
         } catch (error: any) {
+            console.error("Update status failed:", error);
             return false;
         }
     }, [allOrders, penalizeWorker]);

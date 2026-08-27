@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatCurrency, calculateDistance, cn } from '@/lib/utils';
-import { LogOut, CircleDot, Loader2, AlertTriangle, Shield, Check, Map, Inbox, Clock, ChevronLeft, ShieldAlert } from 'lucide-react';
+import { LogOut, CircleDot, Loader2, AlertTriangle, Shield, Check, Map, Inbox, Clock, ChevronLeft, Power, PowerOff } from 'lucide-react';
 import type { Order, OrderStatus } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useOrders } from '@/hooks/useOrders';
@@ -33,14 +33,13 @@ function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order
         return () => clearInterval(timer);
     }, [order.confirmedAt]);
 
-    const { distance, mapUrl } = useMemo(() => {
+    const { distance } = useMemo(() => {
         const orderRestaurant = restaurants.find(r => r.id === order.restaurant?.id);
         if (!order.address.latitude || !order.address.longitude || !orderRestaurant?.latitude || !orderRestaurant?.longitude) {
-            return { distance: null, mapUrl: null };
+            return { distance: null };
         }
         const dist = calculateDistance(orderRestaurant.latitude, orderRestaurant.longitude, order.address.latitude, order.address.longitude);
-        const url = `https://www.google.com/maps/dir/?api=1&origin=${orderRestaurant.latitude},${orderRestaurant.longitude}&destination=${order.address.latitude},${order.address.longitude}`;
-        return { distance: dist, mapUrl: url };
+        return { distance: dist };
     }, [order.address, order.restaurant, restaurants]);
 
     return (
@@ -55,7 +54,7 @@ function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order
             </CardHeader>
             <CardContent className="space-y-4 pt-2">
                 <div className="flex justify-between items-center p-4 bg-primary/5 rounded-2xl border-2 border-primary/10">
-                    <span className="font-black text-sm text-slate-600">صافي ربحك:</span>
+                    <span className="font-black text-sm text-slate-600">أرباحك:</span>
                     <span className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(order.deliveryFee)}</span>
                 </div>
                  <div className="grid grid-cols-2 gap-3 text-xs font-bold text-right">
@@ -69,16 +68,13 @@ function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-3 pt-2">
-                    <div className="grid grid-cols-2 gap-3">
-                        <Button variant="outline" className="h-16 rounded-2xl text-destructive font-black border-2 border-destructive/10 bg-destructive/5 hover:bg-destructive/10" onClick={() => onReject(order.id)} disabled={isProcessing}>
-                             تجاهل
-                        </Button>
-                        <Button size="lg" className="h-16 rounded-2xl text-xl font-black bg-green-600 hover:bg-green-700 shadow-xl shadow-green-100 transition-all active:scale-90" onClick={() => onAccept(order.id)} disabled={isProcessing}>
-                            {isProcessing ? <Loader2 className="h-6 w-6 animate-spin"/> : <Check className="ml-2 h-7 w-7"/>}
-                            قبول الطلب
-                        </Button>
-                    </div>
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                    <Button variant="outline" className="h-16 rounded-2xl text-destructive font-black border-2 border-destructive/10 bg-destructive/5" onClick={() => onReject(order.id)} disabled={isProcessing}>
+                         تجاهل
+                    </Button>
+                    <Button size="lg" className="h-16 rounded-2xl text-xl font-black bg-green-600 hover:bg-green-700 shadow-xl" onClick={() => onAccept(order.id)} disabled={isProcessing}>
+                        {isProcessing ? <Loader2 className="h-6 w-6 animate-spin"/> : "قبول الطلب"}
+                    </Button>
                 </div>
             </CardContent>
         </Card>
@@ -198,16 +194,24 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
 
     return (
         <div className="block bg-slate-50 pb-60 h-full overflow-y-auto">
-            <header className="p-5 flex justify-between items-center bg-white border-b shadow-sm sticky top-0 z-50 rounded-b-[2rem]">
+            <header className="p-5 flex justify-between items-center bg-white border-b shadow-sm sticky top-0 z-50 rounded-b-[2.5rem]">
                  <div className="text-right">
                     <h1 className="text-2xl font-black text-primary italic leading-none">كابتن {worker?.name?.split(' ')[0] || 'سبيد'}</h1>
-                    <button className="flex items-center gap-2 mt-1.5 active:scale-95 transition-all bg-muted/30 px-3 py-1 rounded-full" onClick={handleToggleOnlineStatus}>
-                        <div className={`h-2.5 w-2.5 rounded-full ${worker?.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                        <span className="text-[10px] font-black text-slate-600">{worker?.isOnline ? 'متاح لاستلام الطلبات' : 'خارج الخدمة'}</span>
-                    </button>
+                    <p className="text-[10px] font-bold text-muted-foreground mt-1">لوحة تحكم المناديب</p>
                  </div>
-                 <div className="flex gap-3">
-                     <Button variant="secondary" size="icon" className="rounded-2xl h-12 w-12 shadow-md border-2 border-primary/20 bg-white" onClick={() => onNavigate(2)}>
+                 <div className="flex items-center gap-3">
+                    {/* زر النشاط الواضح */}
+                    <Button 
+                        onClick={handleToggleOnlineStatus}
+                        className={cn(
+                            "h-12 rounded-2xl px-6 font-black gap-2 transition-all active:scale-90 shadow-lg",
+                            worker?.isOnline ? "bg-green-600 hover:bg-green-700" : "bg-slate-400 hover:bg-slate-500"
+                        )}
+                    >
+                        {worker?.isOnline ? <><Power className="h-5 w-5"/> متاح</> : <><PowerOff className="h-5 w-5"/> مشغول</>}
+                    </Button>
+
+                    <Button variant="secondary" size="icon" className="rounded-2xl h-12 w-12 border-2 border-primary/20 bg-white" onClick={() => onNavigate(2)}>
                         <Shield className="h-6 w-6 text-primary"/>
                     </Button>
                     <Button variant="ghost" size="icon" className="rounded-2xl h-12 w-12 text-destructive bg-destructive/5" onClick={handleLogout}>
@@ -218,16 +222,16 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
 
             <div className="p-4 space-y-8 mt-4">
                 {!worker?.isOnline ? (
-                    <div className="text-center space-y-6 p-8 animate-in slide-in-from-bottom duration-500 py-24 bg-white rounded-[3rem] shadow-xl border-4 border-white shadow-slate-200">
-                        <div className="p-10 bg-yellow-50 rounded-full w-fit mx-auto border-4 border-white shadow-xl">
+                    <div className="text-center space-y-6 p-8 py-24 bg-white rounded-[3rem] shadow-xl border-4 border-white">
+                        <div className="p-10 bg-yellow-50 rounded-full w-fit mx-auto">
                             <AlertTriangle className="h-24 w-24 text-yellow-500 animate-bounce"/>
                         </div>
                         <div>
                             <h2 className="text-3xl font-black text-slate-800">أنت في استراحة</h2>
-                            <p className="text-muted-foreground font-bold mt-2 px-10 leading-relaxed">لن تصلك أي طلبات في هذه الحالة. فعل نشاطك لتبدأ العمل!</p>
+                            <p className="text-muted-foreground font-bold mt-2 px-10 leading-relaxed">لن تصلك أي طلبات جديدة حتى تقوم بتفعيل حالة "متاح" من الأعلى.</p>
                         </div>
                         <Button size="lg" className="w-full h-20 rounded-[2.5rem] text-2xl font-black shadow-2xl shadow-primary/30 transition-all active:scale-95" onClick={handleToggleOnlineStatus}>
-                           <CircleDot className="ml-3 h-8 w-8"/> تفعيل الحالة الآن
+                           تفعيل الحالة الآن
                         </Button>
                     </div>
                 ) : (
@@ -236,10 +240,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                             <div className="space-y-4 animate-in slide-in-from-top-4 duration-500">
                                 <div className="text-right px-2 flex justify-between items-end">
                                     <Badge className="bg-red-500 animate-bounce font-black">{myAssignedOrders.length}</Badge>
-                                    <div>
-                                        <h2 className="text-2xl font-black text-primary italic">طلبات جديدة مخصصة</h2>
-                                        <p className="text-[10px] font-bold text-muted-foreground">قم بالقبول فوراً لضمان عدم سحب الطلب</p>
-                                    </div>
+                                    <h2 className="text-2xl font-black text-primary italic">طلبات بانتظار قبولك</h2>
                                 </div>
                                 {myAssignedOrders.map(order => (
                                     <AvailableOrderCard 
@@ -256,7 +257,6 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                         <div className="space-y-4">
                              <div className="text-right px-2">
                                 <h2 className="text-xl font-black text-slate-800">مهامك النشطة ({myActiveOrders.length})</h2>
-                                <p className="text-[10px] font-bold text-muted-foreground">اضغط على البطاقة لتحديث حالة التوصيل</p>
                             </div>
                             {myActiveOrders.length > 0 ? (
                                 <div className="space-y-4">
@@ -270,12 +270,9 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                                 </div>
                             ) : (
                                 myAssignedOrders.length === 0 && (
-                                    <div className="text-center space-y-6 p-10 opacity-60 py-48 bg-white/50 rounded-[3rem] border-4 border-dashed">
+                                    <div className="text-center space-y-6 p-10 py-48 bg-white/50 rounded-[3rem] border-4 border-dashed">
                                         <Inbox className="mx-auto h-24 w-24 text-primary/20 animate-pulse"/>
-                                        <div>
-                                            <h2 className="text-2xl font-black text-slate-400">بانتظار عمل جديد...</h2>
-                                            <p className="text-muted-foreground font-bold text-sm">ابقَ قريباً من مناطق الطلب الكثيفة.</p>
-                                        </div>
+                                        <h2 className="text-2xl font-black text-slate-400">بانتظار طلب جديد...</h2>
                                     </div>
                                 )
                             )}
