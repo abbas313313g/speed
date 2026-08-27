@@ -36,6 +36,7 @@ import { useSupportTickets } from "@/hooks/useSupportTickets";
 import { useProducts } from "@/hooks/useProducts";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { useWithdrawals } from "@/hooks/useWithdrawals";
+import { useSearchParams } from 'next/navigation';
 
 
 const navItems = [
@@ -60,6 +61,9 @@ const navItems = [
 ];
 
 export function AdminNav({ isSheet = false, onTabChange, activeTab, isBranch = false }: { isSheet?: boolean, onTabChange: (idx: number) => void, activeTab: number, isBranch?: boolean }) {
+  const searchParams = useSearchParams();
+  const currentBranchId = searchParams.get('branch') || 'main';
+
   const { supportTickets } = useSupportTickets();
   const { products } = useProducts();
   const { accessList } = useAdminAccess();
@@ -71,11 +75,11 @@ export function AdminNav({ isSheet = false, onTabChange, activeTab, isBranch = f
   }, [isBranch]);
 
   const counts = useMemo(() => ({
-      openTickets: supportTickets.filter(t => !t.isResolved).length,
-      pendingProducts: products.filter(p => p.status === 'pending').length,
-      pendingAccess: accessList.filter(a => a.status === 'pending').length,
-      pendingWithdraws: requests.filter(r => r.status === 'pending').length
-  }), [supportTickets, products, accessList, requests]);
+      openTickets: supportTickets.filter(t => !t.isResolved && t.branchId === currentBranchId).length,
+      pendingProducts: products.filter(p => p.status === 'pending' && p.branchId === currentBranchId).length,
+      pendingAccess: accessList.filter(a => a.status === 'pending' && a.branchId === currentBranchId).length,
+      pendingWithdraws: requests.filter(r => r.status === 'pending' && r.branchId === currentBranchId).length
+  }), [supportTickets, products, accessList, requests, currentBranchId]);
 
   const navContent = (
     <nav className={cn("flex flex-col items-center gap-4 px-2 py-5", isSheet && "items-stretch text-lg font-medium px-4")}>

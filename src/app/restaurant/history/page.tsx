@@ -6,7 +6,7 @@ import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { useWithdrawals } from '@/hooks/useWithdrawals';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, ArrowRight, Wallet, History, SendHorizontal } from 'lucide-react';
+import { LogOut, Loader2, ArrowRight, Wallet, History, SendHorizontal, Hourglass } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -24,8 +24,8 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const { totalIncome, pendingSettleCount } = useMemo(() => {
-        if (!restaurant || !allOrders) return { totalIncome: 0, pendingSettleCount: 0 };
+    const { totalIncome, pendingSettleCount, pendingRequest } = useMemo(() => {
+        if (!restaurant || !allOrders) return { totalIncome: 0, pendingSettleCount: 0, pendingRequest: null };
         
         const filtered = allOrders.filter(order => 
             order.restaurant?.id === restaurant.id && 
@@ -39,8 +39,10 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
             return acc + (itemsPrice - commission);
         }, 0);
 
-        return { totalIncome: income, pendingSettleCount: filtered.length };
-    }, [restaurant, allOrders]);
+        const pRequest = requests.find(r => r.targetId === restaurant.id && r.status === 'pending');
+
+        return { totalIncome: income, pendingSettleCount: filtered.length, pendingRequest: pRequest };
+    }, [restaurant, allOrders, requests]);
 
     const handleWithdraw = async () => {
         if (!restaurant || totalIncome < 5000) {
@@ -69,6 +71,8 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
         return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
     }
 
+    const displayBalance = pendingRequest ? 0 : totalIncome;
+
     return (
         <div className="p-4 space-y-6 bg-slate-50 h-full overflow-y-auto pb-32 text-right">
              <header className="flex justify-between items-center sticky top-0 bg-slate-50/90 backdrop-blur-md z-10 py-2">
@@ -88,18 +92,28 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
                     <CardTitle className="text-white/80 text-[10px] font-black uppercase tracking-widest">صافي رصيدك المتاح حالياً</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="text-4xl font-black tracking-tighter drop-shadow-lg">{formatCurrency(totalIncome)}</div>
-                    <div className="p-3 bg-white/10 rounded-2xl border border-white/20 text-[10px] font-bold">
-                        هذا المبلغ يمثل أرباحك الصافية لـ {pendingSettleCount} طلب مكتمل بعد خصم عمولة النظام.
-                    </div>
-                    <Button 
-                        onClick={handleWithdraw} 
-                        disabled={isSubmitting || totalIncome < 5000}
-                        className="w-full h-16 rounded-[1.8rem] bg-white text-primary hover:bg-white/95 font-black text-xl gap-3 shadow-xl active:scale-95 transition-all"
-                    >
-                        {isSubmitting ? <Loader2 className="animate-spin h-6 w-6"/> : <SendHorizontal className="h-6 w-6"/>}
-                        طلب سحب الرصيد كاش
-                    </Button>
+                    <div className="text-4xl font-black tracking-tighter drop-shadow-lg">{formatCurrency(displayBalance)}</div>
+                    
+                    {pendingRequest ? (
+                        <div className="p-4 bg-white/10 rounded-2xl border border-white/20 flex flex-col items-center gap-2 animate-pulse">
+                            <Hourglass className="h-6 w-6 text-white" />
+                            <p className="font-black text-white text-sm">طلب سحب {formatCurrency(pendingRequest.netAmount)} قيد المراجعة</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="p-3 bg-white/10 rounded-2xl border border-white/20 text-[10px] font-bold">
+                                هذا المبلغ يمثل أرباحك الصافية لـ {pendingSettleCount} طلب مكتمل بعد خصم عمولة النظام.
+                            </div>
+                            <Button 
+                                onClick={handleWithdraw} 
+                                disabled={isSubmitting || totalIncome < 5000}
+                                className="w-full h-16 rounded-[1.8rem] bg-white text-primary hover:bg-white/95 font-black text-xl gap-3 shadow-xl active:scale-95 transition-all"
+                            >
+                                {isSubmitting ? <Loader2 className="animate-spin h-6 w-6"/> : <SendHorizontal className="h-6 w-6"/>}
+                                طلب سحب الرصيد كاش
+                            </Button>
+                        </>
+                    )}
                 </CardContent>
             </Card>
 

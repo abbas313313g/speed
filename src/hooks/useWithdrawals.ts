@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, updateDoc, onSnapshot, doc, query, where } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, onSnapshot, doc, query, where, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { WithdrawRequest } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -36,6 +36,13 @@ export const useWithdrawals = (branchId?: string, targetId?: string) => {
 
     const requestWithdraw = useCallback(async (data: Omit<WithdrawRequest, 'id' | 'status' | 'requestedAt'>) => {
         try {
+            // Check if there is already a pending request to prevent duplicates
+            const pendingQuery = requests.find(r => r.targetId === data.targetId && r.status === 'pending');
+            if (pendingQuery) {
+                toast({ title: "لديك طلب قيد المراجعة بالفعل", variant: "destructive" });
+                return false;
+            }
+
             await addDoc(collection(db, "withdrawals"), {
                 ...data,
                 status: 'pending',
@@ -47,7 +54,7 @@ export const useWithdrawals = (branchId?: string, targetId?: string) => {
             toast({ title: "فشل إرسال الطلب، حاول مرة أخرى", variant: "destructive" });
             return false;
         }
-    }, [toast]);
+    }, [toast, requests]);
 
     const updateRequestStatus = useCallback(async (id: string, status: 'completed' | 'rejected') => {
         try {
@@ -58,5 +65,14 @@ export const useWithdrawals = (branchId?: string, targetId?: string) => {
         }
     }, [toast]);
 
-    return { requests, isLoading, requestWithdraw, updateRequestStatus };
+    const deleteWithdrawalRequest = useCallback(async (id: string) => {
+        try {
+            await deleteDoc(doc(db, "withdrawals", id));
+            toast({ title: "تم مسح سجل الطلب نهائياً" });
+        } catch (e) {
+            toast({ title: "فشل مسح السجل", variant: "destructive" });
+        }
+    }, [toast]);
+
+    return { requests, isLoading, requestWithdraw, updateRequestStatus, deleteWithdrawalRequest };
 };

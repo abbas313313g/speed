@@ -3,7 +3,7 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Wallet, Landmark, User, Settings2, ShoppingCart, ShieldAlert, ArrowRight, Banknote, SendHorizontal } from 'lucide-react';
+import { Wallet, Landmark, User, Settings2, ShoppingCart, ShieldAlert, ArrowRight, Banknote, SendHorizontal, Loader2, Hourglass } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { getWorkerLevel } from '@/lib/workerLevels';
@@ -14,7 +14,6 @@ import { useOrders } from '@/hooks/useOrders';
 import { useWithdrawals } from '@/hooks/useWithdrawals';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface DeliveryStatsPageProps {
@@ -25,7 +24,7 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
   const [workerId, setWorkerId] = useState<string | null>(null);
   const { deliveryWorkers, isLoading: workersLoading, updateWorkerDetails } = useDeliveryWorkers();
   const { allOrders, isLoading: ordersLoading } = useOrders();
-  const { requestWithdraw } = useWithdrawals();
+  const { requests, requestWithdraw } = useWithdrawals();
   const { toast } = useToast();
   
   const [name, setName] = useState('');
@@ -37,25 +36,29 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
     setWorkerId(id);
   }, []);
 
-  const { stats, worker, level, isFrozen } = useMemo(() => {
-    if (!workerId || !deliveryWorkers || !allOrders) return { stats: { totalEarnings: 0, deliveredOrders: 0, unpaidEarnings: 0, moneyOwedToOffice: 0 }, worker: null, level: null, isFrozen: false };
+  const { stats, worker, level, isFrozen, pendingRequest } = useMemo(() => {
+    if (!workerId || !deliveryWorkers || !allOrders) return { stats: { totalEarnings: 0, deliveredOrders: 0, unpaidEarnings: 0, moneyOwedToOffice: 0 }, worker: null, level: null, isFrozen: false, pendingRequest: null };
+    
     const w = deliveryWorkers.find(d => d.id === workerId);
-    if (!w) return { stats: { totalEarnings: 0, deliveredOrders: 0, unpaidEarnings: 0, moneyOwedToOffice: 0 }, worker: null, level: null, isFrozen: false };
+    if (!w) return { stats: { totalEarnings: 0, deliveredOrders: 0, unpaidEarnings: 0, moneyOwedToOffice: 0 }, worker: null, level: null, isFrozen: false, pendingRequest: null };
+    
     const myD = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered');
     const totalEarnings = myD.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
     const unpaidEarnings = myD.filter(o => !o.isFeePaid).reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
     const moneyOwedToOffice = myD.filter(o => !o.isOrderPaidToOffice).reduce((acc, o) => acc + (o.total - o.deliveryFee), 0);
     
     const isActuallyFrozen = moneyOwedToOffice >= 100000;
+    const pRequest = requests.find(r => r.targetId === workerId && r.status === 'pending');
     
     const levelD = getWorkerLevel(w, myD.length, new Date());
     return { 
         stats: { totalEarnings, deliveredOrders: myD.length, unpaidEarnings, moneyOwedToOffice }, 
         worker: w, 
         level: levelD.level, 
-        isFrozen: isActuallyFrozen 
+        isFrozen: isActuallyFrozen,
+        pendingRequest: pRequest
     };
-  }, [workerId, deliveryWorkers, allOrders]);
+  }, [workerId, deliveryWorkers, allOrders, requests]);
 
   useEffect(() => { if(worker) setName(worker.name || ''); }, [worker]);
 
@@ -81,6 +84,7 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
   }
 
   const LevelIcon = level?.icon;
+  const displayBalance = pendingRequest ? 0 : stats.unpaidEarnings;
 
   return (
     <div className="p-6 space-y-6 bg-background pb-32">
@@ -127,15 +131,26 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
         <Card className="rounded-[2.5rem] border-none shadow-xl bg-white border-r-8 border-r-primary overflow-hidden">
           <CardHeader className="p-6 pb-2"><CardTitle className="text-sm font-black text-muted-foreground flex items-center gap-2 justify-end"><Wallet className="h-4 w-4 text-primary"/> رصيد الأرباح القابل للسحب</CardTitle></CardHeader>
           <CardContent className="p-6 pt-0 space-y-4">
-              <div className="text-4xl font-black text-primary tracking-tighter">{formatCurrency(stats.unpaidEarnings)}</div>
-              <Button 
-                onClick={handleWithdrawRequest} 
-                disabled={isRequesting || stats.unpaidEarnings < 5000}
-                className="w-full h-14 rounded-2xl font-black text-lg gap-2 shadow-lg shadow-primary/10"
-              >
-                  {isRequesting ? <Loader2 className="animate-spin h-5 w-5"/> : <SendHorizontal className="h-5 w-5"/>}
-                  تقديم طلب سحب كاش
-              </Button>
+              <div className="text-4xl font-black text-primary tracking-tighter">
+                  {formatCurrency(displayBalance)}
+              </div>
+              
+              {pendingRequest ? (
+                  <div className="p-4 bg-orange-50 border-2 border-dashed border-orange-200 rounded-2xl flex flex-col items-center gap-2 animate-pulse">
+                      <Hourglass className="h-6 w-6 text-orange-500" />
+                      <p className="font-black text-orange-600 text-sm">طلبك لسحب {formatCurrency(pendingRequest.netAmount)} قيد المراجعة</p>
+                      <p className="text-[10px] font-bold text-orange-400">سيصلك الرد خلال 24 ساعة</p>
+                  </div>
+              ) : (
+                <Button 
+                    onClick={handleWithdrawRequest} 
+                    disabled={isRequesting || stats.unpaidEarnings < 5000}
+                    className="w-full h-14 rounded-2xl font-black text-lg gap-2 shadow-lg shadow-primary/10 transition-all active:scale-90"
+                >
+                    {isRequesting ? <Loader2 className="animate-spin h-5 w-5"/> : <SendHorizontal className="h-5 w-5"/>}
+                    تقديم طلب سحب كاش
+                </Button>
+              )}
           </CardContent>
         </Card>
 

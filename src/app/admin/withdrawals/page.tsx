@@ -5,13 +5,24 @@ import { useWithdrawals } from '@/hooks/useWithdrawals';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Store, Banknote, Bike, UserCog, Landmark } from 'lucide-react';
+import { CheckCircle2, Store, Banknote, Bike, UserCog, Landmark, Trash2 } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function AdminWithdrawalsPage({ branchId }: { branchId: string }) {
-    const { requests, isLoading, updateRequestStatus } = useWithdrawals(branchId);
+    const { requests, isLoading, updateRequestStatus, deleteWithdrawalRequest } = useWithdrawals(branchId);
 
     if (isLoading) return <div className="p-8 text-center animate-pulse font-black text-primary text-xl">جاري جلب طلبات تسوية الحسابات...</div>;
 
@@ -22,9 +33,9 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
         <Table>
             <TableHeader className="bg-muted/50 h-16">
                 <TableRow>
-                    <TableHead className="font-black text-lg">الجهة</TableHead>
-                    <TableHead className="font-black text-lg">التفاصيل المالية</TableHead>
-                    <TableHead className="font-black text-lg">الصافي للدفع</TableHead>
+                    <TableHead className="font-black text-lg text-right">الجهة</TableHead>
+                    <TableHead className="font-black text-lg text-right">التفاصيل المالية</TableHead>
+                    <TableHead className="font-black text-lg text-left">الصافي للدفع</TableHead>
                     <TableHead className="font-black text-lg text-center">الإجراء</TableHead>
                 </TableRow>
             </TableHeader>
@@ -69,9 +80,30 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                                         </Button>
                                     </>
                                 ) : (
-                                    <Badge className={cn("rounded-xl font-black text-sm h-10 px-6", req.status === 'completed' ? "bg-green-100 text-green-700 border-none" : "bg-red-100 text-red-700 border-none")}>
-                                        {req.status === 'completed' ? 'تمت التسوية ✅' : 'مرفوض ❌'}
-                                    </Badge>
+                                    <div className="flex items-center gap-3">
+                                        <Badge className={cn("rounded-xl font-black text-sm h-10 px-6", req.status === 'completed' ? "bg-green-100 text-green-700 border-none" : "bg-red-100 text-red-700 border-none")}>
+                                            {req.status === 'completed' ? 'تمت التسوية ✅' : 'مرفوض ❌'}
+                                        </Badge>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="text-destructive h-10 w-10 rounded-xl bg-destructive/5 hover:bg-destructive/10">
+                                                    <Trash2 className="h-5 w-5" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent className="rounded-[2rem]">
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle className="text-right font-black">حذف سجل السحب؟</AlertDialogTitle>
+                                                    <AlertDialogDescription className="text-right font-bold text-muted-foreground">
+                                                        سيتم مسح هذا السجل نهائياً من قاعدة البيانات. تأكد من أنك قمت بإنهاء الإجراء المالي.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter className="flex-row gap-3">
+                                                    <AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => deleteWithdrawalRequest(req.id)} className="flex-1 bg-destructive hover:bg-destructive/90 rounded-xl">نعم، حذف السجل</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </div>
                                 )}
                             </div>
                         </TableCell>

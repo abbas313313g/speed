@@ -33,6 +33,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -76,6 +77,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
   
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   
   const { products, addProduct, updateProduct, deleteProduct, isLoading: productsLoading } = useProducts(
       branchId, 
@@ -174,6 +176,28 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
     }
   };
 
+  const toggleSelectProduct = (id: string) => {
+      setSelectedProductIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+      if (selectedProductIds.length === filteredProducts.length) {
+          setSelectedProductIds([]);
+      } else {
+          setSelectedProductIds(filteredProducts.map(p => p.id));
+      }
+  };
+
+  const handleBulkDelete = async () => {
+      if (selectedProductIds.length === 0) return;
+      const count = selectedProductIds.length;
+      for (const id of selectedProductIds) {
+          await deleteProduct(id);
+      }
+      setSelectedProductIds([]);
+      toast({ title: `تم حذف ${count} منتج بنجاح` });
+  };
+
   if (storesLoading) return <div className="p-20 text-center animate-pulse flex flex-col items-center gap-4"><Loader2 className="h-10 w-10 animate-spin text-primary"/><p className="font-black text-primary">جارِ فتح سجلات المتاجر...</p></div>;
 
   if (!selectedStoreId) {
@@ -221,9 +245,32 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                 <p className="text-muted-foreground font-bold text-xs">إدارة قائمة الوجبات والأسعار والكميات.</p>
             </div>
         </div>
-        <Button onClick={() => handleOpenDialog()} className="rounded-xl h-12 px-6 font-bold shadow-lg gap-2">
-            <PlusCircle className="h-5 w-5" /> إضافة وجبة جديدة
-        </Button>
+        <div className="flex gap-2">
+            {selectedProductIds.length > 0 && (
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" className="rounded-xl h-12 px-6 font-bold shadow-lg gap-2">
+                            <Trash2 className="h-5 w-5" /> حذف المحددة ({selectedProductIds.length})
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="rounded-[2.5rem]">
+                        <AlertDialogHeader>
+                            <AlertDialogTitle className="text-right font-black">حذف جماعي؟</AlertDialogTitle>
+                            <AlertDialogDescription className="text-right font-bold">
+                                هل أنت متأكد من حذف {selectedProductIds.length} منتج دفعة واحدة؟ لا يمكن التراجع عن هذا الإجراء.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="flex-row gap-3">
+                            <AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleBulkDelete} className="flex-1 rounded-xl bg-destructive hover:bg-destructive/90">نعم، حذف الكل</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            )}
+            <Button onClick={() => handleOpenDialog()} className="rounded-xl h-12 px-6 font-bold shadow-lg gap-2">
+                <PlusCircle className="h-5 w-5" /> إضافة وجبة جديدة
+            </Button>
+        </div>
       </header>
 
       <div className="bg-white p-4 rounded-2xl border shadow-sm flex items-center gap-4">
@@ -360,17 +407,29 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead className="font-black">الوجبة</TableHead>
-                <TableHead className="font-black">السعر</TableHead>
-                <TableHead className="font-black">المخزن</TableHead>
+                <TableHead className="w-[50px]">
+                    <Checkbox 
+                        checked={selectedProductIds.length === filteredProducts.length && filteredProducts.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                    />
+                </TableHead>
+                <TableHead className="font-black text-right">الوجبة</TableHead>
+                <TableHead className="font-black text-right">السعر</TableHead>
+                <TableHead className="font-black text-right">المخزن</TableHead>
                 <TableHead className="font-black text-center">إجراء</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {productsLoading ? (
-                  <TableRow><TableCell colSpan={4} className="py-20 text-center flex flex-col items-center gap-2"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-40"/><p className="font-bold text-muted-foreground animate-pulse">جاري جلب قائمة الوجبات...</p></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="py-20 text-center flex flex-col items-center gap-2"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-40"/><p className="font-bold text-muted-foreground animate-pulse">جاري جلب قائمة الوجبات...</p></TableCell></TableRow>
               ) : filteredProducts.length > 0 ? filteredProducts.map((p) => (
                 <TableRow key={p.id} className={cn("hover:bg-muted/20 transition-colors", !(p.isActive ?? true) && "opacity-40 grayscale")}>
+                  <TableCell>
+                      <Checkbox 
+                        checked={selectedProductIds.includes(p.id)}
+                        onCheckedChange={() => toggleSelectProduct(p.id)}
+                      />
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                         <div className="relative h-12 w-12 shrink-0"><Image src={p.image} fill className="rounded-xl object-cover border shadow-sm" alt="" unoptimized={true} /></div>
@@ -403,7 +462,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                   </TableCell>
                 </TableRow>
               )) : (
-                  <TableRow><TableCell colSpan={4} className="py-20 text-center text-muted-foreground italic font-bold">لا يوجد وجبات مضافة لهذا المتجر.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="py-20 text-center text-muted-foreground italic font-bold">لا يوجد وجبات مضافة لهذا المتجر.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
