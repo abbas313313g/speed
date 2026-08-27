@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -33,6 +32,7 @@ export default function DeliveryLayout() {
         setActiveTab(0);
     }
 
+    // تفعيل الإشعارات حصراً في صفحة المندوب
     const initOneSignal = () => {
         try {
             const script = document.createElement('script');
@@ -46,14 +46,26 @@ export default function DeliveryLayout() {
                     appId: "fbb7ab81-ec87-4f8c-aaa8-de12522e62b3",
                     allowLocalhostAsSecureOrigin: true,
                     notifyButton: { enable: true, position: 'bottom-left' },
-                    welcomeNotification: { title: "سبيد شوب", message: "تم تفعيل الإشعارات بنجاح! 🚀" }
+                    welcomeNotification: { title: "سبيد شوب", message: "تم تفعيل إشعارات المهام بنجاح! 🚀" }
                 });
-                if (id) window.OneSignal.login(id);
+                if (id) {
+                    window.OneSignal.login(id);
+                    console.log("OneSignal linked to worker:", id);
+                }
             });
-        } catch (e) {}
+        } catch (e) {
+            console.error("OneSignal Init Error:", e);
+        }
     };
 
     initOneSignal();
+
+    return () => {
+        // تنظيف عند الخروج لضمان عدم بقاء الإشعارات فعالة لغير المندوب
+        if (window.OneSignal) {
+            try { window.OneSignal.logout(); } catch(e) {}
+        }
+    };
   }, []);
 
   const handleNavigateToOrder = (orderId: string) => {
@@ -76,6 +88,9 @@ export default function DeliveryLayout() {
              <DeliveryLoginPage onLogin={() => { 
                  setIsAuth(true); 
                  setActiveTab(1); 
+                 // إعادة ربط الإشعارات عند تسجيل الدخول
+                 const id = localStorage.getItem('deliveryWorkerId');
+                 if (id && window.OneSignal) window.OneSignal.login(id);
              }} />
           </div>
           <div className="spa-page-view">

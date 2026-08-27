@@ -37,14 +37,20 @@ export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2
     }
 }
 
+/**
+ * فحص هل الموقع ضمن مناطق جنوب بابل (المدحتية، الهاشمية، القاسم)
+ * نستخدم نقطة مركزية ونطاق تغطية 22 كم
+ */
 export const isLocationInAllowedZones = (lat: number, lng: number) => {
     try {
+        // مركز تقريبي يغطي المدحتية والقاسم والهاشمية
         const babilSouthCenterLat = 32.3333;
         const babilSouthCenterLng = 44.6500;
         const dist = calculateDistance(lat, lng, babilSouthCenterLat, babilSouthCenterLng);
+        // نطاق 22 كم يغطي المدن الثلاث والقرى المحيطة بها
         return dist <= 22; 
     } catch (e) {
-        return true;
+        return true; // في حال حدوث خطأ، نسمح بالدخول مؤقتاً
     }
 }
 
@@ -92,7 +98,6 @@ export const safeStorage = {
 
 export const compressImage = async (base64: string, maxWidth = 600, quality = 0.5): Promise<string> => {
     if (!base64 || !base64.startsWith('data:image')) return base64;
-    // إذا كانت الصورة أصلاً صغيرة (أقل من 30 كيلوبايت) لا داعي لضغطها
     if (base64.length < 40000) return base64;
 
     return new Promise((resolve) => {

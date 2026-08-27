@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useContext } from 'react';
@@ -45,17 +44,19 @@ export default function MainAppLayout() {
   const { activeTab, syncUserByPhone, isMainDataReady } = context;
 
   useEffect(() => {
-    // تسريع اختفاء السبلاش: بمجرد جاهزية البيانات الأساسية (البنرات)
     if (isMainDataReady) {
-        const timer = setTimeout(() => setShowSplash(false), 50);
+        const timer = setTimeout(() => setShowSplash(false), 500);
         return () => clearTimeout(timer);
     }
   }, [isMainDataReady]);
 
+  // فحص وجود عنوان عند انتهاء السبلَاش
   useEffect(() => {
     if (!showSplash && !settings?.isMaintenanceMode) {
-      const storedUserId = safeStorage.get('speedShopUserId');
-      if (!storedUserId && addresses.length === 0 && !safeStorage.get('speedShopSetupDone')) {
+      const userId = safeStorage.get('speedShopUserId');
+      const setupDone = safeStorage.get('speedShopSetupDone');
+      
+      if (!userId || (!setupDone && addresses.length === 0)) {
           setShowAddressPrompt(true);
       }
     }
@@ -72,38 +73,42 @@ export default function MainAppLayout() {
                     setShowAddressPrompt(false);
                 } else {
                     setNewAddr(prev => ({ ...prev, lat: latitude, lng: longitude }));
-                    toast({ title: "تم تحديد موقعك بدقة بنجاح 🛰️" });
+                    toast({ title: "تم تحديد موقعك بنجاح 🛰️" });
                 }
                 setIslocLoading(false);
             },
-            () => { toast({ title: "يرجى تفعيل خدمة تحديد المواقع", variant: "destructive" }); setIslocLoading(false); },
+            () => { 
+                toast({ title: "يرجى تفعيل خدمة تحديد المواقع", variant: "destructive" }); 
+                setIslocLoading(false); 
+            },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     }
   };
 
   const handleSaveAddress = async () => {
-    if (!newAddr.name || !newAddr.phone || newAddr.lat === 0) return;
+    if (!newAddr.name || !newAddr.phone || newAddr.lat === 0) {
+        toast({ title: "يرجى إكمال البيانات وتحديد الموقع", variant: "destructive" });
+        return;
+    }
     setIsSaving(true);
     try {
-        let currentDeviceId = safeStorage.get('speedShopDeviceId') || uuidv4();
-        safeStorage.set('speedShopDeviceId', currentDeviceId);
-        
-        const phoneQuery = query(collection(db, "addresses"), where("phone", "==", newAddr.phone), limit(1));
-        const phoneSnap = await getDocs(phoneQuery);
-        
-        if (!phoneSnap.empty) {
-            const existingData = phoneSnap.docs[0].data();
-            if (existingData.deviceId && existingData.deviceId !== currentDeviceId) {
-                toast({ title: "هذا الرقم مسجل بحساب آخر", variant: "destructive" });
-                setIsSaving(false); return;
-            }
-        }
         await syncUserByPhone(newAddr.phone);
-        await addAddress({ ...newAddr, latitude: newAddr.lat, longitude: newAddr.lng, deliveryZone: "عام", branchId: "main" } as any);
+        await addAddress({ 
+            ...newAddr, 
+            latitude: newAddr.lat, 
+            longitude: newAddr.lng, 
+            deliveryZone: "عام", 
+            branchId: "main" 
+        } as any);
         safeStorage.set('speedShopSetupDone', 'true');
         setShowAddressPrompt(false);
-    } catch (e) { toast({ title: "خطأ في الاتصال بالسيرفر", variant: "destructive" }); } finally { setIsSaving(false); }
+        toast({ title: "مرحباً بك في سبيد شوب! 🎉" });
+    } catch (e) { 
+        toast({ title: "خطأ في المزامنة", variant: "destructive" }); 
+    } finally { 
+        setIsSaving(false); 
+    }
   };
 
   const content = (
@@ -141,11 +146,19 @@ export default function MainAppLayout() {
                 </div>
             </div>
         )}
+
         {isBlocked ? (
-            <div className="flex h-full w-full flex-col items-center justify-center p-8 text-center bg-background">
-              <AlertCircle className="h-20 w-20 text-destructive mb-6" />
-              <h1 className="text-2xl font-black mb-4">نعتذر منك جداً</h1>
-              <p className="text-muted-foreground font-bold">خدمتنا حالياً خارج نطاق تغطية منطقتك.</p>
+            <div className="flex h-full w-full flex-col items-center justify-center p-8 text-center bg-white animate-in zoom-in duration-500">
+              <div className="p-10 bg-destructive/10 rounded-full mb-6">
+                <AlertCircle className="h-20 w-20 text-destructive" />
+              </div>
+              <h1 className="text-3xl font-black mb-4 text-slate-800">نعتذر منك جداً</h1>
+              <p className="text-muted-foreground font-bold text-lg leading-relaxed px-6">
+                خدمتنا حالياً غير متوفرة في منطقتك. نحن نعمل على التوسع لنصل إليك قريباً!
+              </p>
+              <div className="mt-10 p-4 border-2 border-dashed rounded-2xl">
+                <p className="text-xs font-black text-primary uppercase tracking-widest">تغطيتنا الحالية: جنوب بابل حصراً</p>
+              </div>
             </div>
         ) : settings?.isMaintenanceMode ? (
             <div className="flex h-full w-full flex-col items-center justify-center p-10 text-center bg-background">
@@ -156,24 +169,52 @@ export default function MainAppLayout() {
         ) : content}
 
         <Sheet open={showAddressPrompt} onOpenChange={() => {}}>
-            <SheetContent side="bottom" className="h-[75vh] p-0 bg-background rounded-t-[3rem] overflow-hidden">
-                <div className="p-6 space-y-6">
+            <SheetContent side="bottom" className="h-[85vh] p-0 bg-background rounded-t-[3.5rem] overflow-hidden border-none shadow-2xl">
+                <div className="p-8 space-y-8 h-full overflow-y-auto pb-20">
                     <div className="flex items-center gap-4 py-4">
-                        <div className="p-3 bg-primary/10 rounded-2xl"><Navigation className="h-8 w-8 text-primary" /></div>
-                        <div><SheetTitle className="text-2xl font-black">مرحباً بك!</SheetTitle></div>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-3">
-                            <Input value={newAddr.name} onChange={(e)=>setNewAddr({...newAddr, name: e.target.value})} placeholder="اسمك الكامل" className="h-12 rounded-xl bg-muted/30 border-none" />
-                            <Input value={newAddr.phone} onChange={(e)=>setNewAddr({...newAddr, phone: e.target.value})} placeholder="رقم هاتفك" type="tel" className="h-12 rounded-xl bg-muted/30 border-none text-center font-bold" />
+                        <div className="p-4 bg-primary/10 rounded-[1.5rem]"><Navigation className="h-8 w-8 text-primary animate-pulse" /></div>
+                        <div>
+                            <SheetTitle className="text-3xl font-black">أهلاً بك!</SheetTitle>
+                            <p className="text-muted-foreground font-bold text-sm">لنبدأ بتجهيز حسابك للتسوق</p>
                         </div>
-                        <button onClick={handleGetLocation} className={`w-full py-8 flex flex-col items-center gap-2 border-4 border-dashed rounded-[2.5rem] transition-all ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50' : 'border-primary/20 bg-card'}`}>
-                            {islocLoading ? <Loader2 className="animate-spin h-8 w-8 text-primary" /> : newAddr.lat !== 0 ? <CheckCircle2 className="h-8 w-8 text-green-500" /> : <MapPin className="h-8 w-8 text-primary" />}
-                            <span className="font-black text-sm">{newAddr.lat !== 0 ? "تم تحديد موقعك بنجاح ✅" : "تحديد موقع التوصيل (GPS)"}</span>
-                        </button>
-                        <Button onClick={handleSaveAddress} className="w-full h-16 rounded-[1.8rem] text-xl font-black shadow-xl" disabled={isSaving || newAddr.lat === 0}>
-                            {isSaving ? "جاري الحفظ..." : "بدء التسوق"}
+                    </div>
+
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black pr-1 uppercase text-slate-400">اسمك الكامل</label>
+                                <Input value={newAddr.name} onChange={(e)=>setNewAddr({...newAddr, name: e.target.value})} placeholder="اكتب اسمك هنا..." className="h-14 rounded-2xl bg-muted/30 border-none text-lg font-bold" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black pr-1 uppercase text-slate-400">رقم الهاتف</label>
+                                <Input value={newAddr.phone} onChange={(e)=>setNewAddr({...newAddr, phone: e.target.value})} placeholder="07XXXXXXXX" type="tel" className="h-14 rounded-2xl bg-muted/30 border-none text-center text-xl font-black tracking-widest" dir="ltr" />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                             <label className="text-[10px] font-black pr-1 uppercase text-slate-400">موقع التوصيل (GPS)</label>
+                             <button 
+                                onClick={handleGetLocation} 
+                                className={`w-full py-10 flex flex-col items-center gap-3 border-4 border-dashed rounded-[3rem] transition-all active:scale-95 ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50' : 'border-primary/20 bg-card hover:bg-primary/5'}`}
+                             >
+                                {islocLoading ? (
+                                    <><Loader2 className="animate-spin h-10 w-10 text-primary" /><span className="font-black text-primary">جاري تحديد الإحداثيات...</span></>
+                                ) : newAddr.lat !== 0 ? (
+                                    <><CheckCircle2 className="h-10 w-10 text-green-500 animate-in zoom-in" /><span className="font-black text-green-600">تم تثبيت الموقع بنجاح ✅</span></>
+                                ) : (
+                                    <><MapPin className="h-10 w-10 text-primary" /><span className="font-black text-slate-700">اضغط لتحديد موقعك بدقة</span></>
+                                )}
+                             </button>
+                        </div>
+
+                        <Button 
+                            onClick={handleSaveAddress} 
+                            className="w-full h-20 rounded-[2.5rem] text-2xl font-black shadow-2xl shadow-primary/30 transition-all active:scale-95" 
+                            disabled={isSaving || newAddr.lat === 0 || !newAddr.name || !newAddr.phone}
+                        >
+                            {isSaving ? "جاري الحفظ..." : "ابدأ التسوق الآن"}
                         </Button>
+                        <p className="text-center text-[9px] text-muted-foreground font-bold italic">ملاحظة: نستخدم موقعك فقط لحساب المسافة وضمان وصول الطلب لباب بيتك.</p>
                     </div>
                 </div>
             </SheetContent>
