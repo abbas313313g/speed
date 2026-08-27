@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import type { Order, OrderStatus } from '@/lib/types';
 import {
@@ -21,7 +21,7 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Trash2, Loader2 } from 'lucide-react';
+import { MoreHorizontal, Trash2, Loader2, Search, CheckSquare } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -35,10 +35,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const { toast } = useToast();
   const { allOrders, isLoading, deleteOrder, updateOrderStatus } = useOrders(branchId);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   
   if (isLoading) return <div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="h-10 w-10 animate-spin text-primary"/><p className="font-black text-primary">جارِ تحميل الطلبات...</p></div>;
   
@@ -50,7 +53,37 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   
   const handleDelete = async (orderId: string) => {
       await deleteOrder(orderId);
+      setSelectedOrderIds(prev => prev.filter(id => id !== orderId));
   }
+
+  const toggleSelectOrder = (id: string) => {
+      setSelectedOrderIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+      if (selectedOrderIds.length === allOrders.length) {
+          setSelectedOrderIds([]);
+      } else {
+          setSelectedOrderIds(allOrders.map(o => o.id));
+      }
+  };
+
+  const handleBulkDelete = async () => {
+      if (selectedOrderIds.length === 0) return;
+      setIsBulkDeleting(true);
+      const count = selectedOrderIds.length;
+      try {
+          for (const id of selectedOrderIds) {
+              await deleteOrder(id);
+          }
+          setSelectedOrderIds([]);
+          toast({ title: `تم حذف ${count} طلب بنجاح ✅` });
+      } catch (e) {
+          toast({ title: "فشل الحذف الجماعي", variant: "destructive" });
+      } finally {
+          setIsBulkDeleting(false);
+      }
+  };
 
   const getStatusVariant = (status: OrderStatus) => {
     switch (status) {
@@ -82,15 +115,48 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-3xl font-black text-primary">إدارة الطلبات</h1>
-        <p className="text-muted-foreground font-bold">عرض وتحديث حالة الطلبات التابعة للفرع الحالي.</p>
+      <header className="flex justify-between items-start">
+        <div>
+            <h1 className="text-3xl font-black text-primary">إدارة الطلبات</h1>
+            <p className="text-muted-foreground font-bold">عرض وتحديث حالة الطلبات التابعة للفرع الحالي.</p>
+        </div>
+        {selectedOrderIds.length > 0 && (
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="rounded-xl h-12 px-6 font-bold shadow-lg gap-2 animate-in zoom-in">
+                        <Trash2 className="h-5 w-5" />
+                        حذف المحددة ({selectedOrderIds.length})
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="rounded-[2.5rem]">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-right font-black">تأكيد الحذف الجماعي؟</AlertDialogTitle>
+                        <AlertDialogDescription className="text-right font-bold text-muted-foreground">
+                            أنت على وشك حذف {selectedOrderIds.length} طلب نهائياً من قاعدة البيانات. لا يمكن التراجع عن هذا الإجراء.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex-row gap-3">
+                        <AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleBulkDelete} className="flex-1 rounded-xl bg-destructive hover:bg-destructive/90" disabled={isBulkDeleting}>
+                            {isBulkDeleting ? <Loader2 className="animate-spin h-5 w-5" /> : "نعم، حذف الكل"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        )}
       </header>
+
         {allOrders.length > 0 ? (
           <div className="bg-white rounded-[1.5rem] border shadow-xl overflow-hidden">
             <Table>
                 <TableHeader className="bg-muted/50">
                 <TableRow>
+                    <TableHead className="w-[50px]">
+                        <Checkbox 
+                            checked={selectedOrderIds.length === allOrders.length && allOrders.length > 0}
+                            onCheckedChange={toggleSelectAll}
+                        />
+                    </TableHead>
                     <TableHead className="font-black">رقم الطلب</TableHead>
                     <TableHead className="font-black">العميل</TableHead>
                     <TableHead className="font-black">السائق</TableHead>
@@ -102,7 +168,13 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                 </TableHeader>
                 <TableBody>
                 {allOrders.map((order) => (
-                    <TableRow key={order.id} className="hover:bg-muted/30">
+                    <TableRow key={order.id} className={cn("hover:bg-muted/30 transition-colors", selectedOrderIds.includes(order.id) && "bg-primary/5")}>
+                    <TableCell>
+                        <Checkbox 
+                            checked={selectedOrderIds.includes(order.id)}
+                            onCheckedChange={() => toggleSelectOrder(order.id)}
+                        />
+                    </TableCell>
                     <TableCell className="font-bold">#{order.id.substring(0, 6)}</TableCell>
                     <TableCell className="font-bold">{order.address.name}</TableCell>
                     <TableCell className="text-xs font-bold text-muted-foreground">{order.deliveryWorker?.name || 'لم يعين'}</TableCell>
@@ -146,7 +218,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter className="flex-row gap-2">
-                                <AlertDialogCancel className="flex-1 rounded-xl">إلغاء</AlertDialogCancel>
+                                <AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel>
                                 <AlertDialogAction onClick={() => handleDelete(order.id)} className="bg-destructive hover:bg-destructive/90 flex-1 rounded-xl">حذف الآن</AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>
@@ -165,3 +237,4 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
     </div>
   );
 }
+
