@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useContext } from "react";
@@ -47,14 +48,14 @@ export default function AddAddressPage() {
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
                 }));
-                toast({ title: "تم تحديد موقعك بدقة 🛰️" });
+                toast({ title: "تم تحديد موقعك بدقة عالية 🛰️" });
                 setIsFetchingLocation(false);
             },
             (error) => {
-                toast({ title: "يرجى تفعيل الموقع في إعدادات هاتفك.", variant: "destructive" });
+                toast({ title: "يرجى تفعيل الموقع في إعدادات هاتفك بدقة عالية.", variant: "destructive" });
                 setIsFetchingLocation(false);
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
         );
     } else {
         toast({ title: "المتصفح لا يدعم تحديد الموقع", variant: "destructive" });
@@ -142,9 +143,9 @@ export default function AddAddressPage() {
                 disabled={isFetchingLocation}
             >
                 {isFetchingLocation ? (
-                    <><Loader2 className="animate-spin h-10 w-10 text-primary" /> <span className="font-black text-primary text-base">جارِ المزامنة مع القمر الصناعي...</span></>
+                    <><Loader2 className="animate-spin h-10 w-10 text-primary" /> <span className="font-black text-primary text-base">جارِ المزامنة مع القمر الصناعي بدقة عالية...</span></>
                 ) : address.latitude !== 0 ? (
-                    <><CheckCircle2 className="h-10 w-10 text-green-500 animate-in zoom-in" /> <span className="font-black text-green-600 text-base">تم تثبيت موقعك بنجاح ✅</span></>
+                    <><CheckCircle2 className="h-10 w-10 text-green-500 animate-in zoom-in" /> <span className="font-black text-green-600 text-base">تم تثبيت موقعك بدقة ✅</span></>
                 ) : (
                     <><MapPin className="h-10 w-10 text-primary" /> <span className="font-black text-slate-700 text-base">اضغط لتحديد الموقع الجغرافي</span></>
                 )}

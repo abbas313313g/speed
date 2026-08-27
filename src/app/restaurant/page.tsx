@@ -5,14 +5,13 @@ import { useContext, useMemo, useState, useEffect, useRef } from 'react';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, PackageSearch, History, Clock, Volume2, VolumeX, PackageCheck, Truck, AlertCircle, PlayCircle, Receipt, Trash2 } from 'lucide-react';
+import { LogOut, Loader2, PackageSearch, History, Clock, Volume2, VolumeX, AlertCircle, PlayCircle, Receipt, X } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import Image from 'next/image';
 import type { Order, OrderStatus } from '@/lib/types';
 
 export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (tab: number) => void }) {
@@ -56,7 +55,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         setProcessingOrderId(orderId);
         try {
             await updateOrderStatus(orderId, status);
-            toast({ title: "تم التحديث بنجاح ✅" });
+            toast({ title: status === 'cancelled' ? "تم رفض الطلب ❌" : "تم قبول الطلب وبدء التحضير ✅" });
             setSelectedOrder(null);
         } catch (e) {
             toast({ title: "فشل التحديث، حاول لاحقاً", variant: "destructive" });
@@ -115,26 +114,24 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                         </h2>
                     </div>
                     {newOrders.map(order => (
-                        <Card key={order.id} className="rounded-[2rem] overflow-hidden border-none shadow-md bg-white border-r-8 border-r-red-500 animate-in slide-in-from-right-4 duration-300">
-                            <div className="p-5 space-y-4">
+                        <Card 
+                            key={order.id} 
+                            onClick={() => setSelectedOrder(order)}
+                            className="rounded-[2rem] overflow-hidden border-none shadow-md bg-white border-r-8 border-r-red-500 animate-in slide-in-from-right-4 duration-300 cursor-pointer active:scale-95 transition-all"
+                        >
+                            <div className="p-5 space-y-2">
                                 <div className="flex justify-between items-start">
                                      <span className="text-[10px] font-bold text-muted-foreground">{new Date(order.date).toLocaleTimeString('ar-IQ', {hour:'2-digit', minute:'2-digit'})}</span>
                                      <p className="font-black text-sm">طلب #{order.id.substring(0, 6)}</p>
                                 </div>
-                                <div className="space-y-2 py-2">
-                                    {order.items.map((item, idx) => (
-                                        <div key={idx} className="flex justify-between items-center text-xs font-bold text-slate-700">
-                                            <span>{item.product.name} {item.selectedSize ? `(${item.selectedSize.name})` : ''}</span>
-                                            <span className="p-1 bg-secondary rounded-lg px-2">x{item.quantity}</span>
-                                        </div>
-                                    ))}
+                                <div className="text-xs font-bold text-slate-500">
+                                    اضغط لعرض الوجبات واتخاذ قرار
                                 </div>
-                                <Separator className="border-dashed" />
-                                <div className="flex gap-2">
-                                    <Button variant="outline" className="flex-1 rounded-xl font-bold h-12 text-destructive border-destructive/20" onClick={() => handleUpdateStatus(order.id, 'cancelled')}>رفض</Button>
-                                    <Button className="flex-[2] rounded-xl h-12 font-black shadow-lg bg-green-600 hover:bg-green-700" disabled={processingOrderId === order.id} onClick={() => handleUpdateStatus(order.id, 'preparing')}>
-                                        {processingOrderId === order.id ? <Loader2 className="animate-spin h-5 w-5"/> : "قبول وبدء التحضير"}
-                                    </Button>
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                    {order.items.slice(0, 3).map((item, i) => (
+                                        <Badge key={i} variant="secondary" className="text-[8px] font-black">{item.product.name} x{item.quantity}</Badge>
+                                    ))}
+                                    {order.items.length > 3 && <Badge variant="outline" className="text-[8px] font-black">+{order.items.length - 3}</Badge>}
                                 </div>
                             </div>
                         </Card>
@@ -189,6 +186,61 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                     </section>
                 )}
             </main>
+
+            {/* واجهة نصف الشاشة لاستلام الطلب الجديد */}
+            <Dialog open={!!selectedOrder} onOpenChange={(v) => !v && setSelectedOrder(null)}>
+                <DialogContent className="sm:max-w-md bg-white rounded-t-[3rem] p-0 overflow-hidden border-none shadow-2xl">
+                    {selectedOrder && (
+                        <div className="flex flex-col h-full animate-in slide-in-from-bottom duration-300">
+                            <DialogHeader className="p-6 border-b text-right flex flex-row items-center justify-between">
+                                <div>
+                                    <DialogTitle className="text-2xl font-black text-slate-800">تفاصيل الطلب الجديد</DialogTitle>
+                                    <p className="text-[10px] font-bold text-muted-foreground">#{selectedOrder.id.substring(0, 8)}</p>
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={() => setSelectedOrder(null)} className="rounded-full"><X className="h-6 w-6"/></Button>
+                            </DialogHeader>
+
+                            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                                <div className="space-y-3">
+                                    <h3 className="font-black text-primary flex items-center gap-2">وجبات الزبون:</h3>
+                                    {selectedOrder.items.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center bg-muted/20 p-4 rounded-2xl border-2 border-dashed">
+                                            <div className="text-right">
+                                                <p className="font-black text-sm">{item.product.name}</p>
+                                                {item.selectedSize && <Badge variant="outline" className="text-[8px] mt-1 font-bold">{item.selectedSize.name}</Badge>}
+                                            </div>
+                                            <div className="p-2 bg-primary/10 rounded-xl px-4 font-black text-primary">x{item.quantity}</div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 flex justify-between items-center">
+                                    <span className="font-black text-slate-600">صافي ربح المتجر:</span>
+                                    <span className="text-2xl font-black text-slate-900">{formatCurrency(selectedOrder.total - selectedOrder.deliveryFee)}</span>
+                                </div>
+                            </div>
+
+                            <DialogFooter className="p-6 bg-slate-50 border-t sticky bottom-0 flex-row gap-3">
+                                <Button 
+                                    variant="outline" 
+                                    disabled={!!processingOrderId}
+                                    onClick={() => handleUpdateStatus(selectedOrder.id, 'cancelled')}
+                                    className="flex-1 h-16 rounded-2xl font-black text-destructive border-destructive/20 bg-white"
+                                >
+                                    {processingOrderId === selectedOrder.id ? <Loader2 className="animate-spin h-5 w-5"/> : "رفض الطلب"}
+                                </Button>
+                                <Button 
+                                    disabled={!!processingOrderId}
+                                    onClick={() => handleUpdateStatus(selectedOrder.id, 'preparing')}
+                                    className="flex-[2] h-16 rounded-2xl font-black text-xl bg-green-600 hover:bg-green-700 shadow-xl shadow-green-100"
+                                >
+                                    {processingOrderId === selectedOrder.id ? <Loader2 className="animate-spin h-6 w-6"/> : "قبول وتحضير"}
+                                </Button>
+                            </DialogFooter>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

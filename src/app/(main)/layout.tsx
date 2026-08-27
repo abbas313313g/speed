@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useContext } from 'react';
@@ -11,9 +12,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { isLocationInAllowedZones, safeStorage } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { AppContext } from '@/contexts/AppContext';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { v4 as uuidv4 } from 'uuid';
 
 import HomePage from './home/page';
 import RestaurantsPage from './restaurants/page';
@@ -50,7 +48,6 @@ export default function MainAppLayout() {
     }
   }, [isMainDataReady]);
 
-  // فحص وجود عنوان عند انتهاء السبلَاش
   useEffect(() => {
     if (!showSplash && !settings?.isMaintenanceMode) {
       const userId = safeStorage.get('speedShopUserId');
@@ -73,15 +70,15 @@ export default function MainAppLayout() {
                     setShowAddressPrompt(false);
                 } else {
                     setNewAddr(prev => ({ ...prev, lat: latitude, lng: longitude }));
-                    toast({ title: "تم تحديد موقعك بنجاح 🛰️" });
+                    toast({ title: "تم تثبيت موقعك بدقة عالية 🛰️" });
                 }
                 setIslocLoading(false);
             },
             () => { 
-                toast({ title: "يرجى تفعيل خدمة تحديد المواقع", variant: "destructive" }); 
+                toast({ title: "يرجى تفعيل GPS عالي الدقة", variant: "destructive" }); 
                 setIslocLoading(false); 
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
         );
     }
   };
@@ -192,13 +189,13 @@ export default function MainAppLayout() {
                         </div>
 
                         <div className="space-y-2">
-                             <label className="text-[10px] font-black pr-1 uppercase text-slate-400">موقع التوصيل (GPS)</label>
+                             <label className="text-[10px] font-black pr-1 uppercase text-slate-400">موقع التوصيل (GPS عالي الدقة)</label>
                              <button 
                                 onClick={handleGetLocation} 
                                 className={`w-full py-10 flex flex-col items-center gap-3 border-4 border-dashed rounded-[3rem] transition-all active:scale-95 ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50' : 'border-primary/20 bg-card hover:bg-primary/5'}`}
                              >
                                 {islocLoading ? (
-                                    <><Loader2 className="animate-spin h-10 w-10 text-primary" /><span className="font-black text-primary">جاري تحديد الإحداثيات...</span></>
+                                    <><Loader2 className="animate-spin h-10 w-10 text-primary" /><span className="font-black text-primary">جاري تحديد الإحداثيات بدقة...</span></>
                                 ) : newAddr.lat !== 0 ? (
                                     <><CheckCircle2 className="h-10 w-10 text-green-500 animate-in zoom-in" /><span className="font-black text-green-600">تم تثبيت الموقع بنجاح ✅</span></>
                                 ) : (
