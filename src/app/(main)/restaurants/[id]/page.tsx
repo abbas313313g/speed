@@ -23,8 +23,8 @@ export default function RestaurantProductsPage() {
   if (!context) return null;
   const { selectedRestaurantId, setActiveTab } = context;
 
-  // تحميل منتجات هذا المتجر حصراً (بحد عالي لضمان ظهور الكل)
-  const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 150);
+  // جلب منتجات هذا المتجر حصراً مع حد كافٍ لضمان ظهور الكل
+  const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 200);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === selectedRestaurantId), [selectedRestaurantId, restaurants]);
   
@@ -42,19 +42,19 @@ export default function RestaurantProductsPage() {
       return list;
   }, [products, activeSection, searchTerm]);
   
-  // الانتظار حتى اكتمال التحميل تماماً لمنع ظهور 3 منتجات فقط ثم البقية
-  const isLoading = restaurantsLoading || (productsLoading && products.length < 5);
-  const isStillSyncing = productsLoading && products.length > 0;
+  // الاحترافية: ننتظر حتى وصول المنتجات بالكامل (أو انتهاء حالة التحميل) لضمان عدم ظهور 3 منتجات فقط
+  // لا يظهر هذا التحميل إلا داخل هذه الصفحة حصراً
+  const isFullPageLoading = restaurantsLoading || (productsLoading && products.length === 0);
 
-  if (isLoading) {
+  if (isFullPageLoading) {
     return (
-        <div className="flex h-screen w-full flex-col items-center justify-center bg-background z-50 fixed inset-0">
-            <div className="p-8 rounded-[3rem] bg-primary/5 flex flex-col items-center gap-4">
+        <div className="flex h-full w-full flex-col items-center justify-center bg-background p-10 text-center">
+            <div className="p-8 rounded-[3rem] bg-primary/5 flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300">
                 <div className="relative">
                     <Search className="h-12 w-12 text-primary animate-bounce" />
                     <Loader2 className="h-12 w-12 animate-spin text-primary/20 absolute inset-0" />
                 </div>
-                <p className="font-black text-primary italic animate-pulse text-sm">جاري فتح المتجر وتحميل المنيو...</p>
+                <p className="font-black text-primary italic text-sm">جاري جلب منيو المتجر...</p>
             </div>
         </div>
     );
@@ -67,7 +67,7 @@ export default function RestaurantProductsPage() {
   const imageUrl = restaurant.image && (restaurant.image.startsWith('http') || restaurant.image.startsWith('data:')) ? restaurant.image : 'https://placehold.co/100x100.png';
 
   return (
-    <div className="p-4 space-y-6 bg-background h-full overflow-y-auto pb-32 text-right">
+    <div className="p-4 space-y-6 bg-background h-full overflow-y-auto pb-32 text-right animate-in fade-in duration-500">
        <header className="flex items-center gap-4">
             <button 
                 onClick={() => setActiveTab(1)} 
@@ -141,10 +141,10 @@ export default function RestaurantProductsPage() {
 
        <div className="space-y-4">
         <div className="flex justify-between items-center px-1">
-            {isStillSyncing && (
+            {productsLoading && products.length > 0 && (
                 <div className="flex items-center gap-2 text-primary animate-pulse">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    <span className="text-[10px] font-black">جاري مزامنة باقي القائمة...</span>
+                    <span className="text-[10px] font-black">جاري التحديث...</span>
                 </div>
             )}
             <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
@@ -172,4 +172,3 @@ export default function RestaurantProductsPage() {
     </div>
   );
 }
-
