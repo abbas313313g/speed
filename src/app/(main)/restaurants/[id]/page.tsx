@@ -42,14 +42,19 @@ export default function RestaurantProductsPage() {
       return list;
   }, [products, activeSection, searchTerm]);
   
-  const isLoading = restaurantsLoading || (productsLoading && products.length === 0);
+  // الانتظار حتى اكتمال التحميل تماماً لمنع ظهور 3 منتجات فقط ثم البقية
+  const isLoading = restaurantsLoading || (productsLoading && products.length < 5);
+  const isStillSyncing = productsLoading && products.length > 0;
 
   if (isLoading) {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-background z-50 fixed inset-0">
-            <div className="p-8 rounded-[3rem] bg-primary/5 animate-pulse flex flex-col items-center gap-4">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="font-black text-primary italic">جاري فتح المتجر وتحميل المنيو...</p>
+            <div className="p-8 rounded-[3rem] bg-primary/5 flex flex-col items-center gap-4">
+                <div className="relative">
+                    <Search className="h-12 w-12 text-primary animate-bounce" />
+                    <Loader2 className="h-12 w-12 animate-spin text-primary/20 absolute inset-0" />
+                </div>
+                <p className="font-black text-primary italic animate-pulse text-sm">جاري فتح المتجر وتحميل المنيو...</p>
             </div>
         </div>
     );
@@ -135,18 +140,20 @@ export default function RestaurantProductsPage() {
       </div>
 
        <div className="space-y-4">
-        <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-            <LayoutGrid className="h-5 w-5 text-primary"/>
-            قائمة الوجبات</h2>
-        
-        {productsLoading && products.length === 0 ? (
-            <div className="py-20 flex flex-col items-center justify-center gap-4">
-                <div className="p-4 bg-primary/5 rounded-full">
-                    <Loader2 className="h-10 w-10 animate-spin text-primary opacity-40" />
+        <div className="flex justify-between items-center px-1">
+            {isStillSyncing && (
+                <div className="flex items-center gap-2 text-primary animate-pulse">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span className="text-[10px] font-black">جاري مزامنة باقي القائمة...</span>
                 </div>
-                <p className="text-[11px] font-black text-primary animate-pulse italic">جاري تحضير المنيو بالكامل...</p>
-            </div>
-        ) : restaurantProducts && restaurantProducts.length > 0 ? (
+            )}
+            <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                <LayoutGrid className="h-5 w-5 text-primary"/>
+                قائمة الوجبات
+            </h2>
+        </div>
+        
+        {restaurantProducts && restaurantProducts.length > 0 ? (
              <div className="grid grid-cols-2 gap-4">
                 {restaurantProducts.map((product, idx) => (
                     <div key={product.id} className="animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${idx * 40}ms` }}>
@@ -154,7 +161,7 @@ export default function RestaurantProductsPage() {
                     </div>
                 ))}
              </div>
-        ): (
+        ): !productsLoading && (
             <div className="text-center py-20 bg-muted/10 rounded-[2.5rem] border-2 border-dashed">
                 <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/20 mb-2" />
                 <p className="text-muted-foreground font-black">لا توجد وجبات في هذا القسم.</p>
@@ -165,3 +172,4 @@ export default function RestaurantProductsPage() {
     </div>
   );
 }
+
