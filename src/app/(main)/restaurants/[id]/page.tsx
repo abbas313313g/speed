@@ -23,7 +23,6 @@ export default function RestaurantProductsPage() {
   if (!context) return null;
   const { selectedRestaurantId, setActiveTab } = context;
 
-  // جلب كل منتجات هذا المطعم بمجرد الدخول (تحميل كامل ومعزول)
   const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 150);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === selectedRestaurantId), [selectedRestaurantId, restaurants]);
@@ -42,13 +41,15 @@ export default function RestaurantProductsPage() {
       return list;
   }, [products, activeSection, searchTerm]);
   
-  const isLoading = restaurantsLoading;
+  const isLoading = restaurantsLoading || (productsLoading && products.length === 0);
 
   if (isLoading) {
     return (
-        <div className="flex h-screen w-full flex-col items-center justify-center">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="mt-4 font-black text-primary animate-pulse">جاري فتح المتجر...</p>
+        <div className="flex h-screen w-full flex-col items-center justify-center bg-background z-50 fixed inset-0">
+            <div className="p-8 rounded-[3rem] bg-primary/5 animate-pulse flex flex-col items-center gap-4">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <p className="font-black text-primary italic">جاري فتح المتجر وتحميل المنيو...</p>
+            </div>
         </div>
     );
   }
@@ -137,7 +138,7 @@ export default function RestaurantProductsPage() {
             <LayoutGrid className="h-5 w-5 text-primary"/>
             قائمة الوجبات</h2>
         
-        {productsLoading ? (
+        {productsLoading && products.length === 0 ? (
             <div className="py-20 flex flex-col items-center justify-center gap-4">
                 <div className="p-4 bg-primary/5 rounded-full">
                     <Loader2 className="h-10 w-10 animate-spin text-primary opacity-40" />

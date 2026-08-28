@@ -59,8 +59,9 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
             setSelectedOrder(null);
         } catch (e) {
             toast({ title: "فشل التحديث، حاول لاحقاً", variant: "destructive" });
+        } finally {
+            setProcessingOrderId(null);
         }
-        setProcessingOrderId(null);
     };
 
     if (!context?.restaurant || oLoading) return (
@@ -187,7 +188,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                 )}
             </main>
 
-            {/* واجهة نصف الشاشة لاستلام الطلب الجديد */}
             <Dialog open={!!selectedOrder} onOpenChange={(v) => !v && setSelectedOrder(null)}>
                 <DialogContent className="sm:max-w-md bg-white rounded-t-[3rem] p-0 overflow-hidden border-none shadow-2xl">
                     {selectedOrder && (

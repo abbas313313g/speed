@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatCurrency, calculateDistance, cn } from '@/lib/utils';
-import { LogOut, CircleDot, Loader2, AlertTriangle, Shield, Check, Map, Inbox, Clock, ChevronLeft, Power, PowerOff } from 'lucide-react';
+import { LogOut, CircleDot, Loader2, AlertTriangle, Shield, Check, Map, Inbox, Clock, ChevronLeft, Power, PowerOff, PlayCircle } from 'lucide-react';
 import type { Order, OrderStatus } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useOrders } from '@/hooks/useOrders';
@@ -70,7 +70,7 @@ function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order
 
                 <div className="grid grid-cols-2 gap-3 pt-2">
                     <Button variant="outline" className="h-16 rounded-2xl text-destructive font-black border-2 border-destructive/10 bg-destructive/5" onClick={() => onReject(order.id)} disabled={isProcessing}>
-                         تجاهل
+                         {isProcessing ? <Loader2 className="animate-spin h-5 w-5"/> : "تجاهل"}
                     </Button>
                     <Button size="lg" className="h-16 rounded-2xl text-xl font-black bg-green-600 hover:bg-green-700 shadow-xl" onClick={() => onAccept(order.id)} disabled={isProcessing}>
                         {isProcessing ? <Loader2 className="h-6 w-6 animate-spin"/> : "قبول الطلب"}
@@ -126,13 +126,22 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     const { toast } = useToast();
     const [workerId, setWorkerId] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [audioUnlocked, setAudioUnlocked] = useState(false);
 
     const { allOrders, isLoading: ordersLoading, updateOrderStatus } = useOrders();
     const { deliveryWorkers, isLoading: workersLoading, updateWorkerStatus } = useDeliveryWorkers();
+    
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
         const id = localStorage.getItem('deliveryWorkerId');
         if (id) setWorkerId(id);
+
+        if (typeof window !== 'undefined') {
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3');
+            audio.loop = true;
+            audioRef.current = audio;
+        }
     }, []);
     
     const worker = useMemo(() => {
@@ -145,13 +154,13 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         return allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'confirmed');
     }, [workerId, allOrders]);
     
-    const myActiveOrders = useMemo(() => {
-        if (!workerId || !allOrders) return [];
-        return allOrders.filter(o => 
-            o.deliveryWorkerId === workerId && 
-            ['preparing', 'ready_for_pickup', 'on_the_way'].includes(o.status)
-        );
-    }, [workerId, allOrders]);
+    useEffect(() => {
+        if (myAssignedOrders.length > 0 && audioUnlocked && audioRef.current) {
+            audioRef.current.play().catch(() => {});
+        } else if (audioRef.current) {
+            audioRef.current.pause();
+        }
+    }, [myAssignedOrders.length, audioUnlocked]);
 
     const handleAcceptOrder = async (orderId: string) => {
         if (!workerId) return;
@@ -200,7 +209,6 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                     <p className="text-[10px] font-bold text-muted-foreground mt-1">لوحة تحكم المناديب</p>
                  </div>
                  <div className="flex items-center gap-3">
-                    {/* زر النشاط الواضح */}
                     <Button 
                         onClick={handleToggleOnlineStatus}
                         className={cn(
@@ -219,6 +227,12 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                     </Button>
                  </div>
             </header>
+
+            {!audioUnlocked && worker?.isOnline && (
+                <div className="mx-4 mt-4 p-4 bg-orange-500 rounded-2xl text-white text-center font-black text-sm flex items-center justify-center gap-3 cursor-pointer shadow-lg animate-in slide-in-from-top" onClick={() => { audioRef.current?.play().then(() => { audioRef.current?.pause(); setAudioUnlocked(true); }) }}>
+                    <PlayCircle className="h-6 w-6 animate-bounce" /> اضغط هنا لتفعيل صوت تنبيه المهام الجديدة
+                </div>
+            )}
 
             <div className="p-4 space-y-8 mt-4">
                 {!worker?.isOnline ? (
