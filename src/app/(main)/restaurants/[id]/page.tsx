@@ -23,6 +23,7 @@ export default function RestaurantProductsPage() {
   if (!context) return null;
   const { selectedRestaurantId, setActiveTab } = context;
 
+  // تحميل منتجات هذا المتجر حصراً (بحد عالي لضمان ظهور الكل)
   const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 150);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === selectedRestaurantId), [selectedRestaurantId, restaurants]);

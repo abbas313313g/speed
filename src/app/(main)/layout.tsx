@@ -41,6 +41,7 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, syncUserByPhone, isMainDataReady } = context;
 
+  // السبلَاش يختفي فور جاهزية بيانات الرئيسية
   useEffect(() => {
     if (isMainDataReady) {
         const timer = setTimeout(() => setShowSplash(false), 500);
