@@ -153,6 +153,14 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         if (!workerId || !allOrders) return [];
         return allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'confirmed');
     }, [workerId, allOrders]);
+
+    const myActiveOrders = useMemo(() => {
+        if (!workerId || !allOrders) return [];
+        return allOrders.filter(o => 
+            o.deliveryWorkerId === workerId && 
+            ['preparing', 'ready_for_pickup', 'on_the_way'].includes(o.status)
+        );
+    }, [workerId, allOrders]);
     
     useEffect(() => {
         if (myAssignedOrders.length > 0 && audioUnlocked && audioRef.current) {
