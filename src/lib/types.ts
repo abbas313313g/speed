@@ -116,6 +116,7 @@ export type OrderStatus = 'unassigned' | 'pending_assignment' | 'preparing' | 'c
 
 export interface Order {
     id: string;
+    orderNumber?: number; // الرقم التسلسلي البسيط
     userId: string;
     items: CartItem[];
     total: number;

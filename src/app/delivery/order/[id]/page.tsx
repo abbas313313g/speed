@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState } from 'react';
@@ -110,7 +111,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                 <ArrowRight className="h-6 w-6"/>
             </button>
             <div className="flex-1 text-right">
-                <h1 className="text-xl font-black text-primary leading-none">طلب #{order.id.substring(0,6)}</h1>
+                <h1 className="text-xl font-black text-primary leading-none">طلب #{order.orderNumber || '...'}</h1>
                 <p className="text-[10px] font-bold text-muted-foreground mt-1">{getStatusText(order.status)}</p>
             </div>
         </header>

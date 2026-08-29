@@ -2,14 +2,14 @@
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, doc, arrayUnion, updateDoc, getDocs, query, where, onSnapshot, addDoc, limit } from 'firebase/firestore';
+import { collection, doc, arrayUnion, updateDoc, getDocs, query, where, onSnapshot, addDoc, limit, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
 import { safeStorage } from '@/lib/utils';
 import { ToastAction } from '@/components/ui/toast';
 import type { 
-    Product, SupportTicket, Coupon, Address, CartItem, Message, ProductSize, Restaurant
+    Product, SupportTicket, Coupon, Address, CartItem, Message, ProductSize, Restaurant, Order
 } from '@/lib/types';
 import { useSupportTickets } from '@/hooks/useSupportTickets';
 import { useCoupons } from '@/hooks/useCoupons';
@@ -158,6 +158,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const placeOrder = useCallback(async (addr: Address, dFee: number, coup?: string): Promise<string | null> => {
         if (!userId || cart.length === 0) return null;
         try {
+            // جلب الرقم التسلسلي القادم
+            const qLast = query(collection(db, "orders"), orderBy("date", "desc"), limit(1));
+            const lastSnap = await getDocs(qLast);
+            let nextNumber = 1;
+            if (!lastSnap.empty) {
+                const lastOrder = lastSnap.docs[0].data() as Order;
+                nextNumber = (lastOrder.orderNumber || 0) + 1;
+            }
+
             let disc = 0;
             if (coup?.trim()) {
                 const found = coupons.find(c => c.code === coup.trim().toUpperCase());
@@ -180,6 +189,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             const rest = restaurants.find(r => r.id === cart[0].product.restaurantId);
             
             const orderData = {
+                orderNumber: nextNumber, // إضافة الرقم التسلسلي البسيط
                 userId, 
                 items: sanitizedItems, 
                 total: Math.max(0, cartTotal - disc) + dFee,

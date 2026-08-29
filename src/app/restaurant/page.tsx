@@ -134,7 +134,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                             <div className="p-5 space-y-2">
                                 <div className="flex justify-between items-start">
                                      <span className="text-[10px] font-bold text-muted-foreground">{new Date(order.date).toLocaleTimeString('ar-IQ', {hour:'2-digit', minute:'2-digit'})}</span>
-                                     <p className="font-black text-sm">طلب #{order.id.substring(0, 6)}</p>
+                                     <p className="font-black text-sm">طلب #{order.orderNumber || '...'}</p>
                                 </div>
                                 <div className="text-xs font-bold text-slate-500">
                                     اضغط لعرض الوجبات واتخاذ قرار
@@ -166,7 +166,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                         >
                              <div className="space-y-3">
                                 <div className="flex justify-between">
-                                    <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
+                                    <p className="font-black text-sm">#{order.orderNumber || '...'}</p>
                                     {!order.deliveryWorkerId && <span className="text-[8px] font-black text-orange-600 flex items-center gap-1"><Loader2 className="h-2 w-2 animate-spin"/> بانتظار سائق</span>}
                                 </div>
                                 <div className="space-y-1">
@@ -200,7 +200,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                     className="bg-white p-4 rounded-[1.5rem] shadow-sm flex items-center justify-between border cursor-pointer active:scale-95 transition-all hover:shadow-md"
                                 >
                                     <div className="text-right">
-                                        <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
+                                        <p className="font-black text-sm">#{order.orderNumber || '...'}</p>
                                         <p className={cn("text-[9px] font-bold", 
                                             order.status === 'delivered' ? "text-green-600" : 
                                             order.status === 'cancelled' ? "text-destructive" : "text-muted-foreground")}>
@@ -224,7 +224,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                             <DialogHeader className="p-6 border-b text-right flex flex-row items-center justify-between">
                                 <div>
                                     <DialogTitle className="text-2xl font-black text-slate-800">تفاصيل الطلب</DialogTitle>
-                                    <p className="text-[10px] font-bold text-muted-foreground">#{selectedOrder.id.substring(0, 8)}</p>
+                                    <p className="text-[10px] font-bold text-muted-foreground">رقم القائمة: {selectedOrder.orderNumber}</p>
                                 </div>
                                 <Button variant="ghost" size="icon" onClick={() => setSelectedOrder(null)} className="rounded-full"><X className="h-6 w-6"/></Button>
                             </DialogHeader>

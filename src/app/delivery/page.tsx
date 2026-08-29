@@ -109,7 +109,7 @@ function ActiveOrderListItem({ order, onClick }: { order: Order, onClick: () => 
                 <Clock className="h-7 w-7" />
             </div>
             <div className="flex-1 min-w-0">
-                <p className="font-black text-slate-800 text-lg truncate">#{order.id.substring(0, 6)} - {order.restaurant?.name || 'متجر'}</p>
+                <p className="font-black text-slate-800 text-lg truncate">#{order.orderNumber || '...'} - {order.restaurant?.name || 'متجر'}</p>
                 <div className="flex items-center gap-2 mt-1">
                     <span className={cn("text-[10px] font-black px-3 py-1 rounded-full uppercase", getStatusColor(order.status))}>
                         {getStatusText(order.status)}

@@ -131,7 +131,7 @@ export default function OrdersPage() {
                                 <CardHeader className="pb-3 border-b border-muted/50">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <CardTitle className="text-lg font-black">طلب #{order.id.substring(0, 6)}</CardTitle>
+                                            <CardTitle className="text-lg font-black">طلب #{order.orderNumber || '...'}</CardTitle>
                                             <CardDescription className="text-[10px] font-bold">{new Date(order.date).toLocaleString('ar-IQ')}</CardDescription>
                                         </div>
                                         <Badge className={cn("text-white font-black rounded-xl", getStatusVariant(order.status))}>

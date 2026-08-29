@@ -175,7 +175,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                             onCheckedChange={() => toggleSelectOrder(order.id)}
                         />
                     </TableCell>
-                    <TableCell className="font-bold">#{order.id.substring(0, 6)}</TableCell>
+                    <TableCell className="font-bold">#{order.orderNumber || order.id.substring(0, 6)}</TableCell>
                     <TableCell className="font-bold">{order.address.name}</TableCell>
                     <TableCell className="text-xs font-bold text-muted-foreground">{order.deliveryWorker?.name || 'لم يعين'}</TableCell>
                     <TableCell className="text-[10px] font-bold">{new Date(order.date).toLocaleString('ar-IQ')}</TableCell>
@@ -237,4 +237,3 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
     </div>
   );
 }
-
