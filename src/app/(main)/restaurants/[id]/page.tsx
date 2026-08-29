@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { AppContext } from '@/contexts/AppContext';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from '@/components/ui/button';
 
 export default function RestaurantProductsPage() {
   const context = useContext(AppContext);
@@ -24,36 +25,33 @@ export default function RestaurantProductsPage() {
   const { selectedRestaurantId, setActiveTab } = context;
 
   // جلب منتجات هذا المتجر حصراً وبأعلى سرعة ممكنة
-  // قمنا بضبط الـ Hook ليعطي الأولوية لبيانات المتجر المختار
-  const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 500);
+  // قمنا بضبط الـ Hook ليعطي الأولوية لبيانات المتجر المختار مع دعم البحث الحي
+  const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 500, undefined, searchTerm);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === selectedRestaurantId), [selectedRestaurantId, restaurants]);
   
   const restaurantProducts = useMemo(() => {
       if (!selectedRestaurantId) return [];
       // التأكد من أن المنتجات المعروضة تنتمي فعلياً للمتجر المختار حالياً
-      let list = products.filter(p => p.restaurantId === selectedRestaurantId && (p.status === 'approved' || !p.status) && p.isActive !== false);
+      let list = products.filter(p => p.restaurantId === selectedRestaurantId && p.isActive !== false);
       
       if (activeSection !== 'all') {
           list = list.filter(p => p.storeSectionId === activeSection);
       }
       
-      if (searchTerm.trim() !== '') {
-          list = list.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-      }
-      
       return list;
-  }, [products, activeSection, searchTerm, selectedRestaurantId]);
+  }, [products, activeSection, selectedRestaurantId]);
   
-  // نظام التحميل الصارم: ننتظر حتى تتطابق البيانات مع الهوية المطلوبة
-  // أو حتى تنتهي عملية الجلب تماماً ويكون المتجر فارغاً
+  // نظام "سبلَاش المتجر" الصارم: ننتظر حتى تتطابق البيانات مع الهوية المطلوبة
   const hasMatchingProducts = products.length > 0 && products[0].restaurantId === selectedRestaurantId;
-  const isFullPageLoading = !selectedRestaurantId || restaurantsLoading || (productsLoading && !hasMatchingProducts);
+  const isFullPageLoading = !selectedRestaurantId || restaurantsLoading || (productsLoading && !hasMatchingProducts && !searchTerm);
 
   // تصفير البحث والفلترة عند تغيير المتجر
   useEffect(() => {
-      setSearchTerm('');
-      setActiveSection('all');
+      if (selectedRestaurantId) {
+          setSearchTerm('');
+          setActiveSection('all');
+      }
   }, [selectedRestaurantId]);
 
   if (isFullPageLoading) {
@@ -182,7 +180,7 @@ export default function RestaurantProductsPage() {
         ): !productsLoading && (
             <div className="text-center py-20 bg-muted/10 rounded-[2.5rem] border-2 border-dashed">
                 <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/20 mb-2" />
-                <p className="text-muted-foreground font-black">لا توجد وجبات في هذا المتجر حالياً.</p>
+                <p className="text-muted-foreground font-black">لا توجد وجبات تطابق بحثك حالياً.</p>
             </div>
         )}
       </div>

@@ -18,12 +18,12 @@ function ProductsPageContent() {
   const [activeTab, setActiveTab] = useState(initialCategory);
   const [currentLimit, setCurrentLimit] = useState(10);
   
-  // نظام الظهور المتسلسل الذكي (واحد تلو الآخر)
+  // نظام الظهور المتسلسل الذكي
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
   const queueRef = useRef<any[]>([]);
   const isProcessingQueue = useRef(false);
 
-  // جلب البيانات: محدد بـ 10 في البداية، مع دعم البحث الشامل
+  // جلب البيانات مع دعم البحث السحابي الحي
   const { products, isLoading, hasMore } = useProducts(
       undefined, 
       undefined, 
@@ -41,9 +41,8 @@ function ProductsPageContent() {
       return prods;
   }, [products, activeTab]);
 
-  // محرك التحميل اللحظي: يضيف الوجبات بتتابع زمني تدريجي فردي (واحد واحد)
+  // محرك التحميل اللحظي
   useEffect(() => {
-    // تحديد المنتجات الجديدة التي لم تظهر بعد في القائمة المعروضة
     const newItems = filteredProducts.filter(p => !displayedProducts.some(dp => dp.id === p.id));
     
     if (newItems.length > 0) {
@@ -56,7 +55,6 @@ function ProductsPageContent() {
                     const itemToAdd = queueRef.current.shift();
                     if (itemToAdd) {
                         setDisplayedProducts(prev => {
-                            // فحص أمان إضافي لمنع تكرار الـ ID في الحالة
                             if (prev.some(p => p.id === itemToAdd.id)) return prev;
                             return [...prev, itemToAdd];
                         });
@@ -65,26 +63,24 @@ function ProductsPageContent() {
                     isProcessingQueue.current = false;
                     clearInterval(interval);
                 }
-            }, 70); // سرعة الظهور (70 ملي ثانية) لكل وجبة
+            }, 70);
         }
     }
   }, [filteredProducts, displayedProducts.length]);
 
-  // تصفير القائمة عند البحث أو تغيير القسم لبدء "واحد واحد" من جديد
+  // تصفير القائمة عند البحث لبدء "بحث حي"
   useEffect(() => {
       setDisplayedProducts([]);
       queueRef.current = [];
       if (searchTerm) setCurrentLimit(10);
   }, [searchTerm, activeTab]);
 
-  // مستشعر الوصول لنهاية الصفحة (Infinite Scroll)
   const observerTarget = useRef(null);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       entries => {
         if (entries[0].isIntersecting && hasMore && !isLoading && !searchTerm) {
-          // جلب الدفعة التالية (10 وجبات)
           setCurrentLimit(prev => prev + 10);
         }
       },
@@ -103,12 +99,12 @@ function ProductsPageContent() {
       <header className="mb-6 space-y-4">
         <div>
           <h1 className="text-3xl font-black text-primary italic">قائمة الوجبات</h1>
-          <p className="text-muted-foreground font-bold text-[10px] uppercase tracking-tighter opacity-80">تصفح وجباتك المفضلة بسرعة فائقة</p>
+          <p className="text-muted-foreground font-bold text-[10px] uppercase tracking-tighter opacity-80">ابحث عن أي وجبة في كل المتاجر مباشرة</p>
         </div>
         <div className="relative">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input 
-            placeholder="ابحث عن أي وجبة في كل المتاجر..."
+            placeholder="اكتب اسم الوجبة هنا (بحث حي ⚡)..."
             className="pr-10 h-12 rounded-2xl border-2 font-bold bg-white"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -138,7 +134,6 @@ function ProductsPageContent() {
                 ))}
             </div>
 
-            {/* نقطة الاستشعار لتحميل المزيد مع علامة التحميل */}
             <div ref={observerTarget} className="h-24 flex items-center justify-center w-full mt-6">
                 {(isLoading || isProcessingQueue.current) ? (
                     <div className="flex flex-col items-center gap-2">
@@ -146,7 +141,7 @@ function ProductsPageContent() {
                             <Loader2 className="h-6 w-6 animate-spin text-primary" />
                         </div>
                         <p className="text-[10px] font-black text-primary animate-pulse">
-                            {searchTerm ? 'جاري البحث...' : 'جاري تحضير الوجبات التالية...'}
+                            {searchTerm ? 'جاري البحث في قاعدة البيانات...' : 'جاري جلب المزيد...'}
                         </p>
                     </div>
                 ) : !hasMore && displayedProducts.length > 0 && !searchTerm ? (
@@ -157,7 +152,7 @@ function ProductsPageContent() {
             {!isLoading && filteredProducts.length === 0 && (
                 <div className="text-center py-20 bg-muted/5 rounded-[3rem] border-2 border-dashed">
                     <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
-                    <p className="text-muted-foreground font-black">عذراً، لم نجد نتائج لما تبحث عنه.</p>
+                    <p className="text-muted-foreground font-black">عذراً، لم نجد نتائج سحابية لما تبحث عنه.</p>
                 </div>
             )}
         </div>

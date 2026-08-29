@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 
 /**
  * Hook لإدارة المنتجات بذكاء وسرعة.
- * يدعم الترتيب الذكي (المتوفر أولاً) والتحميل المقنن.
+ * يدعم التحميل الصارم لكل متجر والبحث السحابي الحي.
  */
 export const useProducts = (
     branchId?: string, 
@@ -54,7 +54,7 @@ export const useProducts = (
 
     useEffect(() => {
         setIsLoading(true);
-        // تصفير المنتجات فوراً عند تغيير المعايير لمنع ظهور بيانات قديمة (Stale Data)
+        // تصفير فوري لمنع Stale Data (بيانات قديمة)
         setProducts([]);
         
         let unsub = () => {};
@@ -72,13 +72,18 @@ export const useProducts = (
                 return () => unsub();
             }
 
+            const ref = collection(db, 'products');
+            let q;
+
+            // إذا كان هناك بحث، نقوم بجلب حي من السيرفر
             if (searchTerm.trim() !== '') {
-                const ref = collection(db, 'products');
-                const q = isAdmin 
-                    ? query(ref, limit(200))
-                    : query(ref, where('status', '==', 'approved'), limit(200));
+                const searchLimit = isAdmin ? 500 : 200;
+                // فلترة مبدئية لجلب كمية جيدة للبحث الحي
+                const qSearch = isAdmin 
+                    ? query(ref, limit(searchLimit))
+                    : query(ref, where('status', '==', 'approved'), limit(searchLimit));
                 
-                getDocs(q).then(snap => {
+                getDocs(qSearch).then(snap => {
                     const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Product));
                     const filtered = data.filter(p => 
                         p.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -90,10 +95,7 @@ export const useProducts = (
                 return;
             }
 
-            const ref = collection(db, 'products');
-            let q;
-
-            // إذا كان المطلوب متجر معين، نستخدم كود جلب مباشر وسريع جداً
+            // إذا كان المطلوب متجر معين
             if (restaurantId && restaurantId !== 'none') {
                 const storeLimit = isAdmin ? 1000 : 500;
                 q = isAdmin 
