@@ -33,9 +33,8 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
 
     const newOrders = myOrders.filter(o => ['unassigned', 'pending_assignment', 'confirmed'].includes(o.status));
     const preparingOrders = myOrders.filter(o => o.status === 'preparing');
-    const activeAndHistoryOrders = myOrders.filter(o => ['ready_for_pickup', 'on_the_way', 'delivered'].includes(o.status));
+    const activeAndHistoryOrders = myOrders.filter(o => ['ready_for_pickup', 'on_the_way', 'delivered', 'cancelled'].includes(o.status));
 
-    // مزامنة الطلب المختار مع البيانات الحية من السيرفر
     useEffect(() => {
         if (selectedOrder) {
             const liveOrder = allOrders.find(o => o.id === selectedOrder.id);
@@ -80,6 +79,8 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
             <p className="mt-4 font-black text-primary">جارِ فتح لوحة التحكم...</p>
         </div>
     );
+
+    const isNewOrder = (status: OrderStatus) => ['unassigned', 'pending_assignment', 'confirmed'].includes(status);
 
     return (
         <div className="flex flex-col min-h-full bg-slate-50 pb-40 text-right">
@@ -158,7 +159,11 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                         </h2>
                     </div>
                     {preparingOrders.map(order => (
-                        <Card key={order.id} className="rounded-[2rem] p-5 border-none shadow-md bg-white border-r-8 border-r-orange-500">
+                        <Card 
+                            key={order.id} 
+                            onClick={() => setSelectedOrder(order)}
+                            className="rounded-[2rem] p-5 border-none shadow-md bg-white border-r-8 border-r-orange-500 cursor-pointer active:scale-95 transition-all"
+                        >
                              <div className="space-y-3">
                                 <div className="flex justify-between">
                                     <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
@@ -169,7 +174,14 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                         <p key={idx} className="text-xs font-bold opacity-80">{item.product?.name} x{item.quantity}</p>
                                     ))}
                                 </div>
-                                <Button className="w-full rounded-xl h-12 font-black shadow-md bg-primary hover:bg-primary/90" disabled={processingOrderId === order.id} onClick={() => handleUpdateStatus(order.id, 'ready_for_pickup')}>
+                                <Button 
+                                    className="w-full rounded-xl h-12 font-black shadow-md bg-primary hover:bg-primary/90" 
+                                    disabled={processingOrderId === order.id} 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleUpdateStatus(order.id, 'ready_for_pickup');
+                                    }}
+                                >
                                     {processingOrderId === order.id ? <Loader2 className="animate-spin h-5 w-5"/> : "تم التجهيز (جاهز للاستلام)"}
                                 </Button>
                              </div>
@@ -181,13 +193,20 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                     <section className="space-y-4">
                         <h2 className="text-lg font-black flex items-center gap-2 text-slate-800 px-1">الطلبات النشطة والمكتملة</h2>
                         <div className="space-y-3">
-                            {activeAndHistoryOrders.slice(0, 10).map(order => (
-                                <div key={order.id} className="bg-white p-4 rounded-[1.5rem] shadow-sm flex items-center justify-between border">
+                            {activeAndHistoryOrders.slice(0, 15).map(order => (
+                                <div 
+                                    key={order.id} 
+                                    onClick={() => setSelectedOrder(order)}
+                                    className="bg-white p-4 rounded-[1.5rem] shadow-sm flex items-center justify-between border cursor-pointer active:scale-95 transition-all hover:shadow-md"
+                                >
                                     <div className="text-right">
                                         <p className="font-black text-sm">#{order.id.substring(0, 6)}</p>
-                                        <p className="text-[9px] font-bold text-muted-foreground">
+                                        <p className={cn("text-[9px] font-bold", 
+                                            order.status === 'delivered' ? "text-green-600" : 
+                                            order.status === 'cancelled' ? "text-destructive" : "text-muted-foreground")}>
                                             {order.status === 'ready_for_pickup' ? 'بانتظار السائق' : 
-                                             order.status === 'on_the_way' ? 'في الطريق للزبون' : 'تم التوصيل ✅'}
+                                             order.status === 'on_the_way' ? 'في الطريق للزبون' : 
+                                             order.status === 'delivered' ? 'تم التوصيل ✅' : 'ملغي ❌'}
                                         </p>
                                     </div>
                                     <Badge variant="secondary" className="font-black">{formatCurrency(order.total - order.deliveryFee)}</Badge>
@@ -204,7 +223,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                         <div className="flex flex-col h-full animate-in slide-in-from-bottom duration-300">
                             <DialogHeader className="p-6 border-b text-right flex flex-row items-center justify-between">
                                 <div>
-                                    <DialogTitle className="text-2xl font-black text-slate-800">تفاصيل الطلب الجديد</DialogTitle>
+                                    <DialogTitle className="text-2xl font-black text-slate-800">تفاصيل الطلب</DialogTitle>
                                     <p className="text-[10px] font-bold text-muted-foreground">#{selectedOrder.id.substring(0, 8)}</p>
                                 </div>
                                 <Button variant="ghost" size="icon" onClick={() => setSelectedOrder(null)} className="rounded-full"><X className="h-6 w-6"/></Button>
@@ -234,23 +253,29 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                 </div>
                             </div>
 
-                            <DialogFooter className="p-6 bg-slate-50 border-t sticky bottom-0 flex-row gap-3">
-                                <Button 
-                                    variant="outline" 
-                                    disabled={!!processingOrderId}
-                                    onClick={() => handleUpdateStatus(selectedOrder.id, 'cancelled')}
-                                    className="flex-1 h-16 rounded-2xl font-black text-destructive border-destructive/20 bg-white"
-                                >
-                                    {processingOrderId === selectedOrder.id ? <Loader2 className="animate-spin h-5 w-5"/> : "رفض الطلب"}
-                                </Button>
-                                <Button 
-                                    disabled={!!processingOrderId}
-                                    onClick={() => handleUpdateStatus(selectedOrder.id, 'preparing')}
-                                    className="flex-[2] h-16 rounded-2xl font-black text-xl bg-green-600 hover:bg-green-700 shadow-xl shadow-green-100"
-                                >
-                                    {processingOrderId === selectedOrder.id ? <Loader2 className="animate-spin h-6 w-6"/> : "قبول وتحضير"}
-                                </Button>
-                            </DialogFooter>
+                            {isNewOrder(selectedOrder.status) ? (
+                                <DialogFooter className="p-6 bg-slate-50 border-t sticky bottom-0 flex-row gap-3">
+                                    <Button 
+                                        variant="outline" 
+                                        disabled={!!processingOrderId}
+                                        onClick={() => handleUpdateStatus(selectedOrder.id, 'cancelled')}
+                                        className="flex-1 h-16 rounded-2xl font-black text-destructive border-destructive/20 bg-white"
+                                    >
+                                        {processingOrderId === selectedOrder.id ? <Loader2 className="animate-spin h-5 w-5"/> : "رفض الطلب"}
+                                    </Button>
+                                    <Button 
+                                        disabled={!!processingOrderId}
+                                        onClick={() => handleUpdateStatus(selectedOrder.id, 'preparing')}
+                                        className="flex-[2] h-16 rounded-2xl font-black text-xl bg-green-600 hover:bg-green-700 shadow-xl shadow-green-100"
+                                    >
+                                        {processingOrderId === selectedOrder.id ? <Loader2 className="animate-spin h-6 w-6"/> : "قبول وتحضير"}
+                                    </Button>
+                                </DialogFooter>
+                            ) : (
+                                <DialogFooter className="p-6 bg-slate-50 border-t sticky bottom-0">
+                                    <Button variant="outline" onClick={() => setSelectedOrder(null)} className="w-full h-14 rounded-2xl font-black">إغلاق النافذة</Button>
+                                </DialogFooter>
+                            )}
                         </div>
                     )}
                 </DialogContent>
