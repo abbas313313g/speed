@@ -122,21 +122,6 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
     }
   };
 
-  const addMenuSection = () => {
-      if (!newSection.trim()) return;
-      const currentSections = currentStore.menuSections || [];
-      if (currentSections.includes(newSection.trim())) return;
-      setCurrentStore({ ...currentStore, menuSections: [...currentSections, newSection.trim()] });
-      setNewSection('');
-  };
-
-  const removeMenuSection = (section: string) => {
-      setCurrentStore({ 
-          ...currentStore, 
-          menuSections: (currentStore.menuSections || []).filter(s => s !== section) 
-      });
-  };
-
   const handleSave = async () => {
     if (!currentStore.name || !currentStore.image || !currentStore.loginCode || !currentStore.restaurantNumber || !currentStore.categoryId) {
         toast({ title: "بيانات ناقصة", variant: "destructive" }); 
@@ -163,7 +148,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
       <header className="flex justify-between items-center">
         <div>
             <h1 className="text-3xl font-black text-primary">إدارة المتاجر</h1>
-            <p className="text-muted-foreground font-bold italic">تحكم في حالة فتح وإغلاق المتاجر يدوياً.</p>
+            <p className="text-muted-foreground font-bold italic">تحكم في الموقع الجغرافي وحالة المتاجر بدقة.</p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="rounded-xl h-12 px-6 font-bold shadow-lg">
             إضافة متجر جديد
@@ -200,6 +185,23 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                             </SelectContent>
                         </Select>
                     </div>
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="font-bold">الموقع الجغرافي (ضروري لحساب أجور التوصيل)</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                            <Label className="text-[10px]">خط العرض (Lat)</Label>
+                            <Input type="number" step="any" value={currentStore.latitude ?? ''} onChange={(e) => setCurrentStore({...currentStore, latitude: parseFloat(e.target.value)})} className="h-10 rounded-lg font-mono text-xs" />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-[10px]">خط الطول (Lng)</Label>
+                            <Input type="number" step="any" value={currentStore.longitude ?? ''} onChange={(e) => setCurrentStore({...currentStore, longitude: parseFloat(e.target.value)})} className="h-10 rounded-lg font-mono text-xs" />
+                        </div>
+                    </div>
+                    <Button variant="outline" className="w-full gap-2 rounded-xl h-11 text-xs font-bold" onClick={handleFetchLocation}>
+                        <MapPin className="h-4 w-4 text-primary" /> تحديد الموقع من مكاني الحالي
+                    </Button>
                 </div>
 
                 <div className="space-y-2">

@@ -41,10 +41,10 @@ export default function MainAppLayout() {
   if (!context) return null;
   const { activeTab, syncUserByPhone, isMainDataReady } = context;
 
-  // السبلَاش يختفي فور جاهزية بيانات الرئيسية
+  // السبلَاش يختفي فور جاهزية بيانات الرئيسية فقط لضمان السرعة
   useEffect(() => {
     if (isMainDataReady) {
-        const timer = setTimeout(() => setShowSplash(false), 500);
+        const timer = setTimeout(() => setShowSplash(false), 300);
         return () => clearTimeout(timer);
     }
   }, [isMainDataReady]);
