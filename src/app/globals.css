@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -25,6 +26,28 @@
     --ring: 151 100% 35%;
     --radius: 1.25rem;
   }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 151 100% 45%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 151 100% 45%;
+  }
 }
  
 @layer base {
@@ -45,23 +68,10 @@
 }
 
 @keyframes stamp-hit {
-  0% {
-    opacity: 0;
-    transform: scale(3) rotate(-15deg);
-    filter: blur(10px);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(0.95) rotate(0deg);
-    filter: blur(0px);
-  }
-  70% {
-    transform: scale(1.1);
-  }
-  100% {
-    transform: scale(1);
-    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
-  }
+  0% { opacity: 0; transform: scale(3) rotate(-15deg); filter: blur(10px); }
+  50% { opacity: 1; transform: scale(0.95) rotate(0deg); filter: blur(0px); }
+  70% { transform: scale(1.1); }
+  100% { transform: scale(1); box-shadow: 0 20px 50px rgba(0,0,0,0.2); }
 }
 
 .stamp-effect {

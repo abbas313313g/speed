@@ -23,13 +23,13 @@ export default function RestaurantProductsPage() {
   if (!context) return null;
   const { selectedRestaurantId, setActiveTab } = context;
 
-  // جلب منتجات هذا المتجر حصراً مع حد كافٍ لضمان ظهور الكل
-  const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 200);
+  // جلب منتجات هذا المتجر حصراً
+  const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 400);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === selectedRestaurantId), [selectedRestaurantId, restaurants]);
   
   const restaurantProducts = useMemo(() => {
-      let list = products.filter(p => (p.status === 'approved' || !p.status) && p.isActive !== false);
+      let list = products.filter(p => (p.status === 'approved' || !p.status) && p.isActive !== false && p.restaurantId === selectedRestaurantId);
       
       if (activeSection !== 'all') {
           list = list.filter(p => p.storeSectionId === activeSection);
@@ -40,11 +40,10 @@ export default function RestaurantProductsPage() {
       }
       
       return list;
-  }, [products, activeSection, searchTerm]);
+  }, [products, activeSection, searchTerm, selectedRestaurantId]);
   
-  // الاحترافية: ننتظر حتى وصول المنتجات بالكامل (أو انتهاء حالة التحميل) لضمان عدم ظهور 3 منتجات فقط
-  // لا يظهر هذا التحميل إلا داخل هذه الصفحة حصراً
-  const isFullPageLoading = restaurantsLoading || (productsLoading && products.length === 0);
+  // شرط التحميل "الصارم": ننتظر حتى وصول منتجات المتجر الصحيحة أو انتهاء التحميل بالكامل
+  const isFullPageLoading = restaurantsLoading || (productsLoading && products.length === 0) || (products.length > 0 && products[0].restaurantId !== selectedRestaurantId);
 
   if (isFullPageLoading) {
     return (
@@ -75,10 +74,10 @@ export default function RestaurantProductsPage() {
             >
                 <ArrowRight className="h-6 w-6"/>
             </button>
-            <h1 className="text-2xl font-black text-slate-800 truncate">{restaurant.name}</h1>
+            <h1 className="text-2xl font-black text-slate-800 dark:text-white truncate">{restaurant.name}</h1>
       </header>
 
-      <div className="flex flex-col p-5 rounded-[2.5rem] bg-card border-none shadow-md gap-4">
+      <div className="flex flex-col p-5 rounded-[2.5rem] bg-card dark:bg-slate-900 border-none shadow-md gap-4">
          <div className="flex items-center gap-4">
             <div className="relative h-20 w-20 flex-shrink-0">
               <Image
@@ -108,7 +107,7 @@ export default function RestaurantProductsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input 
                 placeholder={`ابحث في منيو ${restaurant.name}...`}
-                className="pl-10 h-12 rounded-2xl border-2 font-bold shadow-sm"
+                className="pl-10 h-12 rounded-2xl border-2 font-bold shadow-sm bg-white dark:bg-slate-950"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -141,13 +140,13 @@ export default function RestaurantProductsPage() {
 
        <div className="space-y-4">
         <div className="flex justify-between items-center px-1">
-            {productsLoading && products.length > 0 && (
+            {productsLoading && (
                 <div className="flex items-center gap-2 text-primary animate-pulse">
                     <Loader2 className="h-3 w-3 animate-spin" />
                     <span className="text-[10px] font-black">جاري التحديث...</span>
                 </div>
             )}
-            <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+            <h2 className="text-xl font-black text-slate-800 dark:text-white flex items-center gap-2">
                 <LayoutGrid className="h-5 w-5 text-primary"/>
                 قائمة الوجبات
             </h2>
@@ -164,7 +163,7 @@ export default function RestaurantProductsPage() {
         ): !productsLoading && (
             <div className="text-center py-20 bg-muted/10 rounded-[2.5rem] border-2 border-dashed">
                 <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/20 mb-2" />
-                <p className="text-muted-foreground font-black">لا توجد وجبات في هذا القسم.</p>
+                <p className="text-muted-foreground font-black">لا توجد وجبات في هذا القسم حالياً.</p>
             </div>
         )}
       </div>

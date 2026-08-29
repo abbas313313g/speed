@@ -42,6 +42,8 @@ interface AppContextType {
     selectedRestaurantId: string | null;
     setSelectedRestaurantId: (id: string | null) => void;
     syncUserByPhone: (phone: string) => Promise<string | null>;
+    isDarkMode: boolean;
+    toggleDarkMode: () => void;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -60,6 +62,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [previousTab, setPreviousTab] = useState(0);
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
+    const [isDarkMode, setIsDarkMode] = useState(false);
 
     const isMainDataReady = useMemo(() => !bannersLoading && banners.length > 0, [bannersLoading, banners.length]);
 
@@ -69,7 +72,27 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             if (id) setUserId(id);
             const savedCart = safeStorage.get('speedShopCart');
             if(savedCart) setCart(JSON.parse(savedCart));
+            
+            const savedTheme = safeStorage.get('speedShopTheme');
+            if (savedTheme === 'dark') {
+                setIsDarkMode(true);
+                document.documentElement.classList.add('dark');
+            }
         } catch (e) {}
+    }, []);
+
+    const toggleDarkMode = useCallback(() => {
+        setIsDarkMode(prev => {
+            const newVal = !prev;
+            if (newVal) {
+                document.documentElement.classList.add('dark');
+                safeStorage.set('speedShopTheme', 'dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+                safeStorage.set('speedShopTheme', 'light');
+            }
+            return newVal;
+        });
     }, []);
 
     useEffect(() => {
@@ -141,7 +164,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 if (found) disc = found.discountValue;
             }
             
-            // تنظيف بيانات السلة لضمان عدم وجود قيم غير مدعومة في Firestore
             const sanitizedItems = cart.map(item => ({
                 quantity: item.quantity,
                 selectedSize: item.selectedSize ? { name: item.selectedSize.name, price: item.selectedSize.price } : null,
@@ -203,7 +225,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         deleteAddress: (id: string) => updateDoc(doc(db, "addresses", id), { userId: 'deleted' }),
         mySupportTicket: useMemo(() => supportTickets.find(t => t.userId === userId && !t.isResolved), [userId, supportTickets]),
         startNewTicketClient: () => {},
-        activeTab, previousTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId, syncUserByPhone
+        activeTab, previousTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId, syncUserByPhone,
+        isDarkMode, toggleDarkMode
     };
 
     return <AppContext.Provider value={value as any}>{children}</AppContext.Provider>;

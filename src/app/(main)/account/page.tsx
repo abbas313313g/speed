@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useContext } from 'react';
@@ -8,26 +9,32 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Home, PlusCircle, Trash2, MessageSquareHeart, Shield } from "lucide-react";
+import { Home, PlusCircle, Trash2, MessageSquareHeart, Shield, Moon, Sun } from "lucide-react";
 import { useAddresses } from "@/hooks/useAddresses";
 import { AppContext } from '@/contexts/AppContext';
+import { Button } from '@/components/ui/button';
 
 export default function AccountPage() {
   const context = useContext(AppContext);
   const { addresses, deleteAddress, isLoading } = useAddresses();
 
   if (!context) return null;
-  const { setActiveTab } = context;
+  const { setActiveTab, isDarkMode, toggleDarkMode } = context;
 
   if (isLoading) {
     return <div className="p-8 text-center animate-pulse">جار التحميل...</div>;
   }
 
   return (
-    <div className="p-6 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <header>
-        <h1 className="text-4xl font-black text-primary">حسابي</h1>
-        <p className="text-muted-foreground text-lg">إدارة معلوماتك وعناوينك</p>
+    <div className="p-6 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 text-right">
+      <header className="flex justify-between items-center">
+        <div>
+            <h1 className="text-4xl font-black text-primary">حسابي</h1>
+            <p className="text-muted-foreground text-lg">إدارة معلوماتك وعناوينك</p>
+        </div>
+        <Button variant="outline" size="icon" onClick={toggleDarkMode} className="h-12 w-12 rounded-2xl border-2">
+            {isDarkMode ? <Sun className="h-6 w-6 text-yellow-500" /> : <Moon className="h-6 w-6 text-slate-700" />}
+        </Button>
       </header>
 
       <div className="grid grid-cols-1 gap-3">
@@ -41,14 +48,14 @@ export default function AccountPage() {
         <div className="grid grid-cols-2 gap-3">
             <button 
                 onClick={() => setActiveTab(7)}
-                className="flex flex-col items-center justify-center gap-2 p-4 bg-card border-2 rounded-[1.5rem] font-bold text-primary transition-all active:bg-primary active:text-white"
+                className="flex flex-col items-center justify-center gap-2 p-4 bg-card dark:bg-slate-900 border-2 rounded-[1.5rem] font-bold text-primary transition-all active:bg-primary active:text-white"
             >
                 <MessageSquareHeart className="h-8 w-8" />
                 الدعم الفني
             </button>
             <button 
                 onClick={() => setActiveTab(8)}
-                className="flex flex-col items-center justify-center gap-2 p-4 bg-card border-2 rounded-[1.5rem] font-bold text-muted-foreground transition-all active:bg-muted"
+                className="flex flex-col items-center justify-center gap-2 p-4 bg-card dark:bg-slate-900 border-2 rounded-[1.5rem] font-bold text-muted-foreground transition-all active:bg-muted"
             >
                 <Shield className="h-8 w-8" />
                 الخصوصية
@@ -65,14 +72,14 @@ export default function AccountPage() {
           </div>
         ) : (
           addresses.map((address) => (
-            <Card key={address.id} className="rounded-[1.5rem] border-none shadow-md">
+            <Card key={address.id} className="rounded-[1.5rem] border-none shadow-md bg-white dark:bg-slate-900">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                     <div className="flex items-center gap-3">
                         <div className="p-3 bg-secondary rounded-2xl">
                              <Home className="h-6 w-6 text-primary" />
                         </div>
-                        <div>
+                        <div className="text-right">
                             <CardTitle className="text-xl font-bold">{address.name}</CardTitle>
                             <CardDescription className="text-lg font-medium">{address.phone}</CardDescription>
                         </div>

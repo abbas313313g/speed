@@ -65,6 +65,7 @@ export interface Restaurant {
   openTime?: string; 
   closeTime?: string; 
   isStoreOpen?: boolean; 
+  isManualClosed?: boolean; // إغلاق يدوي من الأدمن
   loginCode: string;
   commissionRate: number;
   branchId: string;
