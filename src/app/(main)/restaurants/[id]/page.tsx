@@ -42,9 +42,12 @@ export default function RestaurantProductsPage() {
       return list;
   }, [products, activeSection, searchTerm, selectedRestaurantId]);
   
-  // شرط التحميل "الصارم": ننتظر حتى وصول منتجات المتجر الصحيحة أو انتهاء التحميل بالكامل
-  // هذا يمنع ظهور منتجات أي متجر سابق عند التنقل
-  const isFullPageLoading = restaurantsLoading || (productsLoading && products.length === 0) || (products.length > 0 && products[0].restaurantId !== selectedRestaurantId);
+  // شرط التحميل "الصارم جداً": 
+  // 1. ننتظر تحميل المتاجر الأساسي.
+  // 2. ننتظر تحميل المنتجات.
+  // 3. الأهم: إذا كانت هناك منتجات في الذاكرة ولكنها لا تنتمي للمتجر الحالي، نعتبرها "بيانات قديمة" ونستمر في التحميل.
+  const isDataStale = products.length > 0 && products[0].restaurantId !== selectedRestaurantId;
+  const isFullPageLoading = restaurantsLoading || productsLoading || isDataStale || !selectedRestaurantId;
 
   if (isFullPageLoading) {
     return (
