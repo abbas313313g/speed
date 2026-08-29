@@ -23,7 +23,6 @@ import { useRestaurants } from "@/hooks/useRestaurants";
 import { useCategories } from "@/hooks/useCategories";
 import { useProducts } from "@/hooks/useProducts";
 import { useAppSettings } from "@/hooks/useAppSettings";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ProductCard } from "@/components/ProductCard";
 
 export default function HomePage() {
@@ -33,17 +32,25 @@ export default function HomePage() {
   const { categories, isLoading: categoriesLoading } = useCategories();
   const { settings } = useAppSettings();
   
-  // تحميل محدود جداً للأكثر مبيعاً في الرئيسية (لا يمنع ظهور السبلَاش)
+  // تحميل محدود للأكثر مبيعاً في الرئيسية
   const { products: rawProducts, isLoading: productsLoading } = useProducts(undefined, undefined, 8);
   
   const [displayedTopProducts, setDisplayedTopProducts] = useState<any[]>([]);
   
   useEffect(() => {
+      // تصفير القائمة عند تغير البيانات المصدرية لمنع تكرار المفاتيح
+      setDisplayedTopProducts([]);
+      
       if (rawProducts.length > 0) {
           let index = 0;
           const interval = setInterval(() => {
               if (index < rawProducts.length) {
-                  setDisplayedTopProducts(prev => [...prev, rawProducts[index]]);
+                  const itemToAdd = rawProducts[index];
+                  setDisplayedTopProducts(prev => {
+                      // فحص إضافي للتأكد من عدم وجود تكرار نهائياً
+                      if (prev.some(p => p.id === itemToAdd.id)) return prev;
+                      return [...prev, itemToAdd];
+                  });
                   index++;
               } else {
                   clearInterval(interval);
@@ -73,7 +80,7 @@ export default function HomePage() {
     return restaurants.filter(r => settings.featuredStoreIds?.includes(r.id));
   }, [restaurants, settings]);
 
-  const isLoading = bannersLoading; // السبلَاش يعتمد فقط على البنرات
+  const isLoading = bannersLoading;
 
   if (isLoading) return null;
 
@@ -106,14 +113,14 @@ export default function HomePage() {
       <section>
         <div className="flex items-center justify-between mb-4 px-1">
             <button onClick={() => setActiveTab(1)} className="text-primary font-black text-xs">عرض الكل</button>
-            <h2 className="text-xl font-black text-slate-800">اكتشف الأقسام</h2>
+            <h2 className="text-xl font-black text-slate-800 dark:text-white">اكتشف الأقسام</h2>
         </div>
         <div className="grid grid-cols-4 gap-3">
             {categories.slice(0, 4).map((category) => {
                 const Icon = category.icon || ShoppingBasket;
                 return (
                     <button key={category.id} onClick={() => { setActiveTab(1); }} className="flex flex-col items-center gap-2 group">
-                        <div className="w-full aspect-square rounded-[1.8rem] flex items-center justify-center shadow-sm transition-all group-active:scale-90 bg-white border-2 border-slate-50 text-primary">
+                        <div className="w-full aspect-square rounded-[1.8rem] flex items-center justify-center shadow-sm transition-all group-active:scale-90 bg-white dark:bg-slate-900 border-2 border-slate-50 dark:border-slate-800 text-primary">
                             <Icon className="h-8 w-8" />
                         </div>
                         <span className="text-[10px] font-black">{category.name}</span>
@@ -126,7 +133,7 @@ export default function HomePage() {
       <section>
          <div className="flex items-center justify-between mb-4 px-1">
             <button onClick={() => setActiveTab(1)} className="text-primary font-black text-xs">تصفح المتاجر</button>
-            <h2 className="text-xl font-black text-slate-800">أشهر المتاجر</h2>
+            <h2 className="text-xl font-black text-slate-800 dark:text-white">أشهر المتاجر</h2>
         </div>
         <ScrollArea className="w-full whitespace-nowrap" dir="rtl">
             <div className="flex w-max space-x-4 space-x-reverse pb-6 px-1">
@@ -134,18 +141,18 @@ export default function HomePage() {
                     <div 
                         key={store.id} 
                         onClick={() => handleStoreClick(store.id)}
-                        className="w-[260px] shrink-0 bg-white rounded-[2.5rem] p-3 shadow-md border border-slate-50 relative group active:scale-95 transition-all"
+                        className="w-[260px] shrink-0 bg-white dark:bg-slate-900 rounded-[2.5rem] p-3 shadow-md border border-slate-50 dark:border-slate-800 relative group active:scale-95 transition-all"
                     >
                         <div className="relative aspect-[16/10] w-full overflow-hidden rounded-[1.8rem] mb-3 bg-muted/10">
                             <Image src={store.image} alt={store.name} fill className="object-cover" unoptimized={true} decoding="async" />
-                            <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-md px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm">
+                            <div className="absolute top-3 right-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm">
                                 <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
                                 <span className="text-[10px] font-black">{store.rating}</span>
                             </div>
                         </div>
                         <div className="px-2 flex justify-between items-center flex-row-reverse">
                             <div className="text-right">
-                                <h3 className="font-black text-sm text-slate-800 truncate max-w-[150px]">{store.name}</h3>
+                                <h3 className="font-black text-sm text-slate-800 dark:text-white truncate max-w-[150px]">{store.name}</h3>
                                 <p className="text-[9px] text-muted-foreground font-bold italic">خدمة سريعة وموثوقة</p>
                             </div>
                             <div className="p-2 bg-primary/10 rounded-xl"><ChevronLeft className="h-4 w-4 text-primary" /></div>
@@ -161,13 +168,13 @@ export default function HomePage() {
           <section className="space-y-4">
               <div className="flex items-center justify-between px-1">
                   <button onClick={() => setActiveTab(2)} className="text-primary font-black text-xs">عرض القائمة</button>
-                  <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                  <h2 className="text-xl font-black text-slate-800 dark:text-white flex items-center gap-2">
                     الأكثر طلباً الآن <Flame className="h-5 w-5 text-red-500 animate-pulse" />
                   </h2>
               </div>
               <div className="grid grid-cols-2 gap-4">
                   {displayedTopProducts.map((product) => (
-                      <div key={product.id} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                      <div key={`home-prod-${product.id}`} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                           <ProductCard product={product} />
                       </div>
                   ))}

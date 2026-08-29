@@ -7,9 +7,27 @@ import { db } from '@/lib/firebase';
 import type { Product, Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
+function isStoreActuallyOpen(r: Restaurant): boolean {
+    if (r.isManualClosed) return false;
+    
+    const openTimeStr = r.openTime;
+    const closeTimeStr = r.closeTime;
+    if (!openTimeStr || !closeTimeStr) return true; 
+
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const [openHours, openMinutes] = openTimeStr.split(':').map(Number);
+    const openTime = openHours * 60 + openMinutes;
+    const [closeHours, closeMinutes] = closeTimeStr.split(':').map(Number);
+    let closeTime = closeHours * 60 + closeMinutes;
+    
+    if (closeTime < openTime) return currentTime >= openTime || currentTime < closeTime;
+    return currentTime >= openTime && currentTime < closeTime;
+}
+
 /**
  * Hook لإدارة المنتجات بذكاء وسرعة.
- * يدعم التحميل الصارم لكل متجر والبحث السحابي الحي.
+ * يدعم التحميل الصارم لكل متجر والبحث السحابي الحي والترتيب الذكي.
  */
 export const useProducts = (
     branchId?: string, 
@@ -39,14 +57,15 @@ export const useProducts = (
             const restA = restaurants.find(r => r.id === a.restaurantId);
             const restB = restaurants.find(r => r.id === b.restaurantId);
             
-            const isAClosed = restA?.isManualClosed || false;
-            const isBClosed = restB?.isManualClosed || false;
+            const isAOpen = restA ? isStoreActuallyOpen(restA) : true;
+            const isBOpen = restB ? isStoreActuallyOpen(restB) : true;
             
             const isAOut = (a.stock ?? 0) <= 0 && !a.isUnlimitedStock;
             const isBOut = (b.stock ?? 0) <= 0 && !b.isUnlimitedStock;
 
-            const scoreA = (isAClosed ? 2 : 0) + (isAOut ? 1 : 0);
-            const scoreB = (isBClosed ? 2 : 0) + (isBOut ? 1 : 0);
+            // Score: 0=Open&InStock, 1=Open&OutStock, 2=Closed&InStock, 3=Closed&OutStock
+            const scoreA = (!isAOpen ? 2 : 0) + (isAOut ? 1 : 0);
+            const scoreB = (!isBOpen ? 2 : 0) + (isBOut ? 1 : 0);
 
             return scoreA - scoreB;
         });
@@ -54,7 +73,7 @@ export const useProducts = (
 
     useEffect(() => {
         setIsLoading(true);
-        // تصفير فوري لمنع Stale Data (بيانات قديمة)
+        // تصفير فوري لمنع Stale Data
         setProducts([]);
         
         let unsub = () => {};
@@ -78,7 +97,6 @@ export const useProducts = (
             // إذا كان هناك بحث، نقوم بجلب حي من السيرفر
             if (searchTerm.trim() !== '') {
                 const searchLimit = isAdmin ? 500 : 200;
-                // فلترة مبدئية لجلب كمية جيدة للبحث الحي
                 const qSearch = isAdmin 
                     ? query(ref, limit(searchLimit))
                     : query(ref, where('status', '==', 'approved'), limit(searchLimit));
