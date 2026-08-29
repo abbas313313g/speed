@@ -24,12 +24,15 @@ export default function RestaurantProductsPage() {
   const { selectedRestaurantId, setActiveTab } = context;
 
   // جلب منتجات هذا المتجر حصراً وبأعلى سرعة ممكنة
-  const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 400);
+  // قمنا بضبط الـ Hook ليعطي الأولوية لبيانات المتجر المختار
+  const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 500);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === selectedRestaurantId), [selectedRestaurantId, restaurants]);
   
   const restaurantProducts = useMemo(() => {
-      let list = products.filter(p => (p.status === 'approved' || !p.status) && p.isActive !== false && p.restaurantId === selectedRestaurantId);
+      if (!selectedRestaurantId) return [];
+      // التأكد من أن المنتجات المعروضة تنتمي فعلياً للمتجر المختار حالياً
+      let list = products.filter(p => p.restaurantId === selectedRestaurantId && (p.status === 'approved' || !p.status) && p.isActive !== false);
       
       if (activeSection !== 'all') {
           list = list.filter(p => p.storeSectionId === activeSection);
@@ -42,30 +45,41 @@ export default function RestaurantProductsPage() {
       return list;
   }, [products, activeSection, searchTerm, selectedRestaurantId]);
   
-  // شرط التحميل "الصارم جداً": 
-  // 1. ننتظر تحميل المتاجر الأساسي.
-  // 2. ننتظر تحميل المنتجات.
-  // 3. الأهم: إذا كانت هناك منتجات في الذاكرة ولكنها لا تنتمي للمتجر الحالي، نعتبرها "بيانات قديمة" ونستمر في التحميل.
-  const isDataStale = products.length > 0 && products[0].restaurantId !== selectedRestaurantId;
-  const isFullPageLoading = restaurantsLoading || productsLoading || isDataStale || !selectedRestaurantId;
+  // نظام التحميل الصارم: ننتظر حتى تتطابق البيانات مع الهوية المطلوبة
+  // أو حتى تنتهي عملية الجلب تماماً ويكون المتجر فارغاً
+  const hasMatchingProducts = products.length > 0 && products[0].restaurantId === selectedRestaurantId;
+  const isFullPageLoading = !selectedRestaurantId || restaurantsLoading || (productsLoading && !hasMatchingProducts);
+
+  // تصفير البحث والفلترة عند تغيير المتجر
+  useEffect(() => {
+      setSearchTerm('');
+      setActiveSection('all');
+  }, [selectedRestaurantId]);
 
   if (isFullPageLoading) {
     return (
         <div className="flex h-full w-full flex-col items-center justify-center bg-background p-10 text-center">
-            <div className="p-8 rounded-[3rem] bg-primary/5 flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300">
-                <div className="relative">
-                    <Search className="h-12 w-12 text-primary animate-bounce" />
-                    <Loader2 className="h-12 w-12 animate-spin text-primary/20 absolute inset-0" />
+            <div className="p-10 rounded-[3.5rem] bg-primary/5 flex flex-col items-center gap-5 animate-in fade-in zoom-in duration-500">
+                <div className="relative h-20 w-20 flex items-center justify-center">
+                    <Search className="h-14 w-14 text-primary animate-bounce" />
+                    <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
                 </div>
-                <p className="font-black text-primary italic text-sm">جاري جلب منيو المتجر...</p>
-                <p className="text-[10px] text-muted-foreground font-bold">يرجى الانتظار قليلاً لضمان دقة القائمة</p>
+                <div className="space-y-1">
+                    <p className="font-black text-primary italic text-lg">جاري تحضير المنيو...</p>
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Speed Shop Engine v2.0</p>
+                </div>
             </div>
         </div>
     );
   }
 
   if (!restaurant) {
-      return <div className="text-center py-20 font-bold">لم يتم اختيار متجر بعد.</div>
+      return (
+          <div className="flex flex-col items-center justify-center h-full p-10 text-center">
+              <p className="font-black text-muted-foreground">عذراً، لم نتمكن من العثور على المتجر.</p>
+              <Button onClick={() => setActiveTab(1)} className="mt-4 rounded-xl">العودة للمتاجر</Button>
+          </div>
+      );
   }
 
   const imageUrl = restaurant.image && (restaurant.image.startsWith('http') || restaurant.image.startsWith('data:')) ? restaurant.image : 'https://placehold.co/100x100.png';
@@ -111,7 +125,7 @@ export default function RestaurantProductsPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input 
-                placeholder={`ابحث في منيو ${restaurant.name}...`}
+                placeholder={`ابحث في ${restaurant.name}...`}
                 className="pl-10 h-12 rounded-2xl border-2 font-bold shadow-sm bg-white dark:bg-slate-950"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -160,7 +174,7 @@ export default function RestaurantProductsPage() {
         {restaurantProducts && restaurantProducts.length > 0 ? (
              <div className="grid grid-cols-2 gap-4">
                 {restaurantProducts.map((product, idx) => (
-                    <div key={product.id} className="animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${idx * 40}ms` }}>
+                    <div key={product.id} className="animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${idx * 30}ms` }}>
                         <ProductCard product={product} />
                     </div>
                 ))}
@@ -168,7 +182,7 @@ export default function RestaurantProductsPage() {
         ): !productsLoading && (
             <div className="text-center py-20 bg-muted/10 rounded-[2.5rem] border-2 border-dashed">
                 <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/20 mb-2" />
-                <p className="text-muted-foreground font-black">لا توجد وجبات في هذا القسم حالياً.</p>
+                <p className="text-muted-foreground font-black">لا توجد وجبات في هذا المتجر حالياً.</p>
             </div>
         )}
       </div>

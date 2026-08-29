@@ -93,8 +93,9 @@ export const useProducts = (
             const ref = collection(db, 'products');
             let q;
 
+            // إذا كان المطلوب متجر معين، نستخدم كود جلب مباشر وسريع جداً
             if (restaurantId && restaurantId !== 'none') {
-                const storeLimit = isAdmin ? 1000 : 400;
+                const storeLimit = isAdmin ? 1000 : 500;
                 q = isAdmin 
                     ? query(ref, where('restaurantId', '==', restaurantId), limit(storeLimit))
                     : query(ref, where('restaurantId', '==', restaurantId), where('status', '==', 'approved'), limit(storeLimit));
