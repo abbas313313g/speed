@@ -23,7 +23,7 @@ export default function RestaurantProductsPage() {
   if (!context) return null;
   const { selectedRestaurantId, setActiveTab } = context;
 
-  // جلب منتجات هذا المتجر حصراً
+  // جلب منتجات هذا المتجر حصراً وبأعلى سرعة ممكنة
   const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 400);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === selectedRestaurantId), [selectedRestaurantId, restaurants]);
@@ -43,6 +43,7 @@ export default function RestaurantProductsPage() {
   }, [products, activeSection, searchTerm, selectedRestaurantId]);
   
   // شرط التحميل "الصارم": ننتظر حتى وصول منتجات المتجر الصحيحة أو انتهاء التحميل بالكامل
+  // هذا يمنع ظهور منتجات أي متجر سابق عند التنقل
   const isFullPageLoading = restaurantsLoading || (productsLoading && products.length === 0) || (products.length > 0 && products[0].restaurantId !== selectedRestaurantId);
 
   if (isFullPageLoading) {
@@ -54,6 +55,7 @@ export default function RestaurantProductsPage() {
                     <Loader2 className="h-12 w-12 animate-spin text-primary/20 absolute inset-0" />
                 </div>
                 <p className="font-black text-primary italic text-sm">جاري جلب منيو المتجر...</p>
+                <p className="text-[10px] text-muted-foreground font-bold">يرجى الانتظار قليلاً لضمان دقة القائمة</p>
             </div>
         </div>
     );

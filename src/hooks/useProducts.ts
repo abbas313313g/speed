@@ -54,6 +54,9 @@ export const useProducts = (
 
     useEffect(() => {
         setIsLoading(true);
+        // تصفير المنتجات فوراً عند تغيير المعايير لمنع ظهور بيانات قديمة (Stale Data)
+        setProducts([]);
+        
         let unsub = () => {};
 
         try {
