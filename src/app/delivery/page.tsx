@@ -43,7 +43,7 @@ function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order
     }, [order.address, order.restaurant, restaurants]);
 
     return (
-        <Card className="w-full animate-in zoom-in duration-300 border-primary/50 shadow-2xl relative overflow-hidden bg-white rounded-[2.5rem]">
+        <Card key={order.id} className="w-full animate-in zoom-in duration-300 border-primary/50 shadow-2xl relative overflow-hidden bg-white rounded-[2.5rem]">
             <div className="absolute top-0 left-0 h-1.5 bg-primary transition-all duration-1000" style={{ width: `${(timeLeft / 20) * 100}%` }} />
             <CardHeader className="pb-2 text-right">
                  <div className="flex justify-between items-center mb-1">
@@ -102,6 +102,7 @@ function ActiveOrderListItem({ order, onClick }: { order: Order, onClick: () => 
 
     return (
         <button 
+            key={order.id}
             onClick={onClick}
             className="w-full flex items-center gap-4 p-5 bg-white rounded-[2rem] shadow-md border border-slate-50 transition-all active:scale-95 text-right hover:shadow-lg"
         >
@@ -149,6 +150,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         return deliveryWorkers.find(w => w.id === workerId) || null;
     }, [workerId, deliveryWorkers]);
 
+    // عزل الطلبات المخصصة لهذا المندوب بدقة لمنع التكرار الوهمي
     const myAssignedOrders = useMemo(() => {
         if (!workerId || !allOrders) return [];
         return allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'confirmed');
@@ -266,7 +268,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                                 </div>
                                 {myAssignedOrders.map(order => (
                                     <AvailableOrderCard 
-                                        key={order.id} 
+                                        key={`assigned-${order.id}`} 
                                         order={order} 
                                         onAccept={handleAcceptOrder} 
                                         onReject={handleRejectOrder}
@@ -284,7 +286,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                                 <div className="space-y-4">
                                     {myActiveOrders.map(order => (
                                         <ActiveOrderListItem 
-                                            key={order.id} 
+                                            key={`active-${order.id}`} 
                                             order={order} 
                                             onClick={() => onViewOrder(order.id)} 
                                         />

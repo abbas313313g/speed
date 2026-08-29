@@ -7,7 +7,7 @@ import { formatCurrency } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Phone, ArrowRight, XCircle, Store, ChevronDown, ChevronUp, Navigation } from 'lucide-react';
+import { Phone, ArrowRight, XCircle, Store, ChevronDown, ChevronUp, Navigation, MapPin } from 'lucide-react';
 import type { OrderStatus } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -21,6 +21,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from '@/hooks/use-toast';
 import { useOrders } from '@/hooks/useOrders';
 
@@ -90,17 +96,17 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
       onBack();
   }
 
-  const handleOpenMaps = () => {
-      if (order.address.latitude && order.address.longitude) {
-          const url = `google.navigation:q=${order.address.latitude},${order.address.longitude}&mode=d`;
-          const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${order.address.latitude},${order.address.longitude}`;
-          
-          window.location.href = url;
-          setTimeout(() => {
-             window.open(webUrl, '_blank');
-          }, 2000);
+  const openNavigation = (app: 'google' | 'waze') => {
+      if (!order.address.latitude || !order.address.longitude) {
+          toast({ title: "الموقع غير متوفر", variant: "destructive" });
+          return;
+      }
+      
+      const { latitude, longitude } = order.address;
+      if (app === 'google') {
+          window.open(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`, '_blank');
       } else {
-          toast({ title: "الموقع غير متوفر", description: "يرجى التواصل مع الزبون هاتفياً.", variant: "destructive" });
+          window.open(`waze://?ll=${latitude},${longitude}&navigate=yes`, '_blank');
       }
   };
 
@@ -118,17 +124,28 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
 
         <div className="p-4 space-y-6">
             <div className="space-y-4">
-                 <Button 
-                    size="lg"
-                    className="w-full h-20 rounded-[2rem] shadow-xl shadow-primary/20 flex flex-col items-center justify-center gap-1 active:scale-95 transition-all"
-                    onClick={handleOpenMaps}
-                >
-                    <div className="flex items-center gap-2">
-                        <Navigation className="h-7 w-7 text-white animate-pulse" />
-                        <span className="text-xl font-black">فتح في تطبيق الخرائط</span>
-                    </div>
-                    <span className="text-[10px] font-bold text-white/70 italic">اضغط لاختيار تطبيق الملاحة المفضل لديك</span>
-                </Button>
+                 <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button 
+                            size="lg"
+                            className="w-full h-20 rounded-[2rem] shadow-xl shadow-primary/20 flex flex-col items-center justify-center gap-1 active:scale-95 transition-all"
+                        >
+                            <div className="flex items-center gap-2">
+                                <Navigation className="h-7 w-7 text-white animate-pulse" />
+                                <span className="text-xl font-black">التوجه للموقع (GPS)</span>
+                            </div>
+                            <span className="text-[10px] font-bold text-white/70 italic">اضغط لاختيار تطبيق الخرائط</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="rounded-2xl w-[300px] p-2" align="center">
+                        <DropdownMenuItem onClick={() => openNavigation('google')} className="h-14 rounded-xl font-black gap-3 text-lg cursor-pointer">
+                            <MapPin className="text-blue-500 h-6 w-6"/> خرائط جوجل (Google Maps)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openNavigation('waze')} className="h-14 rounded-xl font-black gap-3 text-lg cursor-pointer">
+                            <Navigation className="text-sky-400 h-6 w-6"/> تطبيق ويز (Waze)
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
