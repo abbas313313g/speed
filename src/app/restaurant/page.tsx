@@ -35,6 +35,16 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     const preparingOrders = myOrders.filter(o => o.status === 'preparing');
     const activeAndHistoryOrders = myOrders.filter(o => ['ready_for_pickup', 'on_the_way', 'delivered'].includes(o.status));
 
+    // مزامنة الطلب المختار مع البيانات الحية من السيرفر
+    useEffect(() => {
+        if (selectedOrder) {
+            const liveOrder = allOrders.find(o => o.id === selectedOrder.id);
+            if (liveOrder && JSON.stringify(liveOrder.items) !== JSON.stringify(selectedOrder.items)) {
+                setSelectedOrder(liveOrder);
+            }
+        }
+    }, [allOrders, selectedOrder]);
+
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
@@ -129,10 +139,10 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                     اضغط لعرض الوجبات واتخاذ قرار
                                 </div>
                                 <div className="flex flex-wrap gap-1 mt-2">
-                                    {order.items.slice(0, 3).map((item, i) => (
-                                        <Badge key={i} variant="secondary" className="text-[8px] font-black">{item.product.name} x{item.quantity}</Badge>
+                                    {order.items?.slice(0, 3).map((item, i) => (
+                                        <Badge key={i} variant="secondary" className="text-[8px] font-black">{item.product?.name} x{item.quantity}</Badge>
                                     ))}
-                                    {order.items.length > 3 && <Badge variant="outline" className="text-[8px] font-black">+{order.items.length - 3}</Badge>}
+                                    {(order.items?.length || 0) > 3 && <Badge variant="outline" className="text-[8px] font-black">+{order.items.length - 3}</Badge>}
                                 </div>
                             </div>
                         </Card>
@@ -155,8 +165,8 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                     {!order.deliveryWorkerId && <span className="text-[8px] font-black text-orange-600 flex items-center gap-1"><Loader2 className="h-2 w-2 animate-spin"/> بانتظار سائق</span>}
                                 </div>
                                 <div className="space-y-1">
-                                    {order.items.map((item, idx) => (
-                                        <p key={idx} className="text-xs font-bold opacity-80">{item.product.name} x{item.quantity}</p>
+                                    {order.items?.map((item, idx) => (
+                                        <p key={idx} className="text-xs font-bold opacity-80">{item.product?.name} x{item.quantity}</p>
                                     ))}
                                 </div>
                                 <Button className="w-full rounded-xl h-12 font-black shadow-md bg-primary hover:bg-primary/90" disabled={processingOrderId === order.id} onClick={() => handleUpdateStatus(order.id, 'ready_for_pickup')}>
@@ -189,7 +199,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
             </main>
 
             <Dialog open={!!selectedOrder} onOpenChange={(v) => !v && setSelectedOrder(null)}>
-                <DialogContent className="sm:max-w-md bg-white rounded-t-[3rem] p-0 overflow-hidden border-none shadow-2xl">
+                <DialogContent className="sm:max-w-md bg-white rounded-t-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[90vh]">
                     {selectedOrder && (
                         <div className="flex flex-col h-full animate-in slide-in-from-bottom duration-300">
                             <DialogHeader className="p-6 border-b text-right flex flex-row items-center justify-between">
@@ -203,15 +213,19 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                                 <div className="space-y-3">
                                     <h3 className="font-black text-primary flex items-center gap-2">وجبات الزبون:</h3>
-                                    {selectedOrder.items.map((item, idx) => (
-                                        <div key={idx} className="flex justify-between items-center bg-muted/20 p-4 rounded-2xl border-2 border-dashed">
-                                            <div className="text-right">
-                                                <p className="font-black text-sm">{item.product.name}</p>
-                                                {item.selectedSize && <Badge variant="outline" className="text-[8px] mt-1 font-bold">{item.selectedSize.name}</Badge>}
+                                    {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                                        selectedOrder.items.map((item, idx) => (
+                                            <div key={idx} className="flex justify-between items-center bg-muted/20 p-4 rounded-2xl border-2 border-dashed">
+                                                <div className="text-right">
+                                                    <p className="font-black text-sm">{item.product?.name}</p>
+                                                    {item.selectedSize && <Badge variant="outline" className="text-[8px] mt-1 font-bold">{item.selectedSize.name}</Badge>}
+                                                </div>
+                                                <div className="p-2 bg-primary/10 rounded-xl px-4 font-black text-primary">x{item.quantity}</div>
                                             </div>
-                                            <div className="p-2 bg-primary/10 rounded-xl px-4 font-black text-primary">x{item.quantity}</div>
-                                        </div>
-                                    ))}
+                                        ))
+                                    ) : (
+                                        <p className="text-center py-4 font-bold text-muted-foreground">جاري جلب تفاصيل الوجبات...</p>
+                                    )}
                                 </div>
 
                                 <div className="p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 flex justify-between items-center">
