@@ -43,14 +43,12 @@ export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2
  */
 export const isLocationInAllowedZones = (lat: number, lng: number) => {
     try {
-        // مركز تقريبي يغطي المدحتية والقاسم والهاشمية
         const babilSouthCenterLat = 32.3333;
         const babilSouthCenterLng = 44.6500;
         const dist = calculateDistance(lat, lng, babilSouthCenterLat, babilSouthCenterLng);
-        // نطاق 22 كم يغطي المدن الثلاث والقرى المحيطة بها
         return dist <= 22; 
     } catch (e) {
-        return true; // في حال حدوث خطأ، نسمح بالدخول مؤقتاً
+        return true; 
     }
 }
 
@@ -96,9 +94,13 @@ export const safeStorage = {
     }
 };
 
-export const compressImage = async (base64: string, maxWidth = 600, quality = 0.5): Promise<string> => {
+/**
+ * محرك الضغط الاحترافي المحدث لتوفير المساحة القصوى في Firestore
+ */
+export const compressImage = async (base64: string, maxWidth = 500, quality = 0.4): Promise<string> => {
     if (!base64 || !base64.startsWith('data:image')) return base64;
-    if (base64.length < 40000) return base64;
+    // إذا كانت الصورة أصلاً صغيرة جداً (أقل من 30 كيلوبايت) لا نضغطها
+    if (base64.length < 30000) return base64;
 
     return new Promise((resolve) => {
         const img = new Image();
@@ -108,6 +110,7 @@ export const compressImage = async (base64: string, maxWidth = 600, quality = 0.
             let width = img.width;
             let height = img.height;
 
+            // تصغير الأبعاد لتقليل عدد البكسلات
             if (width > maxWidth) {
                 height = (maxWidth / width) * height;
                 width = maxWidth;
@@ -116,7 +119,14 @@ export const compressImage = async (base64: string, maxWidth = 600, quality = 0.
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
-            ctx?.drawImage(img, 0, 0, width, height);
+            // تحسين الحواف عند التصغير
+            if (ctx) {
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, 0, 0, width, height);
+            }
+            
+            // التحويل لصيغة JPEG مع ضغط عدواني لتوفير المساحة
             resolve(canvas.toDataURL('image/jpeg', quality));
         };
         img.onerror = () => resolve(base64);

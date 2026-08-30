@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -7,11 +6,11 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { HardHat, Loader2, Download, Zap, ShieldCheck, Progress as ProgressIcon } from 'lucide-react';
+import { HardHat, Loader2, Download, Zap, ShieldCheck, DatabaseZap, Trash2 } from 'lucide-react';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { compressImage } from '@/lib/utils';
 import {
@@ -36,13 +35,13 @@ export default function AdminSettingsPage() {
     
     const [showPinDialog, setShowPinDialog] = useState(false);
     const [pinInput, setPinInput] = useState("");
-    const [pendingAction, setPendingAction] = useState<'export' | 'optimize' | null>(null);
+    const [pendingAction, setPendingAction] = useState<'export' | 'optimize' | 'cleanup' | null>(null);
 
     useEffect(() => {
         if (settings?.maintenanceMessage) setMsg(settings.maintenanceMessage);
     }, [settings]);
 
-    const handleActionWithPin = (action: 'export' | 'optimize') => {
+    const handleActionWithPin = (action: 'export' | 'optimize' | 'cleanup') => {
         setPendingAction(action);
         setShowPinDialog(true);
     };
@@ -56,6 +55,7 @@ export default function AdminSettingsPage() {
         setPinInput("");
         if (pendingAction === 'export') await handleExportData();
         if (pendingAction === 'optimize') await handleOptimizeExistingImages();
+        if (pendingAction === 'cleanup') await handleClearOldOrders();
     };
 
     const handleExportData = async () => {
@@ -72,12 +72,12 @@ export default function AdminSettingsPage() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `SpeedShop_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.download = `SpeedShop_FullBackup_${new Date().toISOString().split('T')[0]}.json`;
             a.click();
             setOptimizeStatus('اكتمل بنجاح ✅');
-            toast({ title: "تم تصدير البيانات بنجاح" });
+            toast({ title: "تم تصدير نسخة شاملة بنجاح" });
         } catch (e) {
-            toast({ title: "حدث خطأ أثناء التصدير، حاول تقليل حجم الصور أولاً", variant: "destructive" });
+            toast({ title: "حدث خطأ أثناء التصدير", variant: "destructive" });
         }
     };
 
@@ -88,15 +88,17 @@ export default function AdminSettingsPage() {
         try {
             const collectionsToOptimize = ['products', 'restaurants', 'banners'];
             for (const colName of collectionsToOptimize) {
-                setOptimizeStatus(`فحص صور: ${colName}...`);
+                setOptimizeStatus(`تحسين قاعدة بيانات: ${colName}...`);
                 const snap = await getDocs(collection(db, colName));
                 const totalDocs = snap.docs.length;
+                
                 for (let i = 0; i < totalDocs; i++) {
                     const d = snap.docs[i];
                     const data = d.data();
-                    if (data.image && data.image.startsWith('data:image') && data.image.length > 50000) {
+                    // إذا كانت الصورة تستهلك مساحة كبيرة (أكبر من 40 كيلو بايت) نقوم بضغطها
+                    if (data.image && data.image.startsWith('data:image') && data.image.length > 40000) {
                         try {
-                            const compressed = await compressImage(data.image, 500, 0.4);
+                            const compressed = await compressImage(data.image, 500, 0.35); // ضغط عدواني للقديم
                             await updateDoc(doc(db, colName, d.id), { image: compressed });
                             processedCount++;
                         } catch (err) {}
@@ -104,12 +106,44 @@ export default function AdminSettingsPage() {
                     setOptimizeProgress(Math.round(((i + 1) / totalDocs) * 100));
                 }
             }
-            setOptimizeStatus(`اكتمل! تم تحسين ${processedCount} صورة.`);
-            toast({ title: `تم تفريغ مساحة كبيرة في النظام بنجاح ✅` });
+            setOptimizeStatus(`تم بنجاح! تم ضغط ${processedCount} وثيقة كبيرة.`);
+            toast({ title: `تم توفير مساحة هائلة في الفايرستور بنجاح ✅` });
         } catch (e) {
-            toast({ title: "حدث خطأ غير متوقع، يرجى المحاولة لاحقاً", variant: "destructive" });
+            toast({ title: "فشل محرك التحسين", variant: "destructive" });
         } finally {
             setIsOptimizing(false);
+        }
+    };
+
+    const handleClearOldOrders = async () => {
+        setIsOptimizing(true);
+        setOptimizeStatus('جاري تنظيف الطلبات القديمة جداً...');
+        try {
+            const snap = await getDocs(collection(db, "orders"));
+            const batch = writeBatch(db);
+            let deletedCount = 0;
+            const threshold = new Date();
+            threshold.setMonth(threshold.getMonth() - 2); // حذف الطلبات الأقدم من شهرين فقط
+
+            snap.docs.forEach(d => {
+                const data = d.data();
+                if (new Date(data.date) < threshold) {
+                    batch.delete(doc(db, "orders", d.id));
+                    deletedCount++;
+                }
+            });
+
+            if (deletedCount > 0) {
+                await batch.commit();
+                toast({ title: `تم حذف ${deletedCount} طلب قديم لتوفير مساحة.` });
+            } else {
+                toast({ title: "لا توجد طلبات قديمة تحتاج للحذف." });
+            }
+        } catch (e) {
+            toast({ title: "فشل تنظيف الطلبات", variant: "destructive" });
+        } finally {
+            setIsOptimizing(false);
+            setOptimizeStatus('');
         }
     };
 
@@ -118,15 +152,15 @@ export default function AdminSettingsPage() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500 text-right">
       <header>
-        <h1 className="text-4xl font-black text-primary italic">إدارة النظام</h1>
-        <p className="text-muted-foreground font-bold">أدوات التحكم الشاملة وصيانة التطبيق.</p>
+        <h1 className="text-4xl font-black text-primary italic">إدارة النظام والتحسين</h1>
+        <p className="text-muted-foreground font-bold">أدوات ضغط المكونات وتوفير مساحة الفايرستور.</p>
       </header>
 
       <div className="grid md:grid-cols-2 gap-6">
           <Card className="rounded-[2.5rem] border-none shadow-xl overflow-hidden bg-slate-900 text-white">
               <CardHeader className="bg-white/5">
-                <CardTitle className="text-xl font-black flex items-center gap-2 justify-end">تفريغ المساحة <Zap className="text-yellow-400 h-5 w-5"/></CardTitle>
-                <CardDescription className="text-white/60 font-bold text-right">يقوم هذا المحرك بضغط كافة الصور الحالية لزيادة سرعة التطبيق وتوفير المساحة.</CardDescription>
+                <CardTitle className="text-xl font-black flex items-center gap-2 justify-end">محرك الضغط السحابي <DatabaseZap className="text-yellow-400 h-5 w-5"/></CardTitle>
+                <CardDescription className="text-white/60 font-bold text-right">يقوم هذا المحرك بضغط كافة المكونات (الصور والبيانات) في السيرفر لتوفير مساحة تكفي لشهور قادمة.</CardDescription>
               </CardHeader>
               <CardContent className="pt-6 space-y-6">
                   {isOptimizing && (
@@ -141,10 +175,13 @@ export default function AdminSettingsPage() {
                   <div className="space-y-4">
                       <Button variant="secondary" className="w-full h-14 rounded-2xl font-black gap-2" onClick={() => handleActionWithPin('optimize')} disabled={isOptimizing}>
                          {isOptimizing ? <Loader2 className="animate-spin h-5 w-5" /> : <Zap className="h-5 w-5" />}
-                         بدء تنظيف وتحسين النظام
+                         تفعيل ضغط كافة المكونات (يوفر مساحة 70%)
                       </Button>
-                      <Button variant="outline" className="w-full h-12 rounded-xl font-black gap-2 border-white/20 text-white hover:bg-white/10" onClick={() => handleActionWithPin('export')} disabled={isOptimizing}>
-                         <Download className="h-5 w-5" /> تصدير نسخة احتياطية للبيانات
+                      <Button variant="outline" className="w-full h-12 rounded-xl font-black gap-2 border-white/20 text-white hover:bg-white/10" onClick={() => handleActionWithPin('cleanup')} disabled={isOptimizing}>
+                         <Trash2 className="h-5 w-5" /> حذف الطلبات القديمة (أكثر من شهرين)
+                      </Button>
+                      <Button variant="ghost" className="w-full h-12 rounded-xl font-bold gap-2 text-white/40 hover:text-white" onClick={() => handleActionWithPin('export')} disabled={isOptimizing}>
+                         <Download className="h-5 w-5" /> تصدير نسخة احتياطية شاملة
                       </Button>
                   </div>
               </CardContent>
@@ -173,7 +210,7 @@ export default function AdminSettingsPage() {
                 <DialogHeader><DialogTitle className="text-2xl font-black text-center italic">تحقق الأمان</DialogTitle></DialogHeader>
                 <div className="py-6 space-y-4 text-center">
                     <ShieldCheck className="h-16 w-16 text-primary mx-auto animate-bounce"/>
-                    <p className="font-bold text-muted-foreground">يرجى إدخال الرمز السري لتنفيذ هذه العملية الحساسة.</p>
+                    <p className="font-bold text-muted-foreground">يرجى إدخال الرمز السري لتنفيذ هذه العملية الحساسة التي ستعدل على كافة مكونات النظام.</p>
                     <Input type="password" placeholder="••••••••" value={pinInput} onChange={(e)=>setPinInput(e.target.value)} className="h-14 rounded-2xl text-center text-3xl font-black" onKeyDown={(e)=>e.key === 'Enter' && confirmAction()} dir="ltr"/>
                 </div>
                 <DialogFooter><Button onClick={confirmAction} className="w-full h-14 rounded-2xl text-xl font-black">تأكيد الرمز</Button></DialogFooter>
