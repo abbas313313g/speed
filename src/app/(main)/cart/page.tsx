@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Minus, Plus, Trash2, Home, Loader2, MapPin, AlertCircle, ReceiptText, Ticket, Store } from "lucide-react";
+import { ShoppingBag, Minus, Plus, Trash2, Home, Loader2, MapPin, AlertCircle, ReceiptText, Ticket, Store, CheckCircle2 } from "lucide-react";
 import { formatCurrency, calculateDistance, calculateDeliveryFee, cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -34,6 +34,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useCart } from "@/hooks/useCart";
 import { useAddresses } from "@/hooks/useAddresses";
 import { useRestaurants } from "@/hooks/useRestaurants";
+import { useCoupons } from "@/hooks/useCoupons";
+import { query, collection, where, getDocs, limit } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const MAX_DELIVERY_DISTANCE = 25; // 25 km
 
@@ -42,18 +45,19 @@ export default function CartPage() {
   const [selectedAddressId, setSelectedAddressId] = useState<string | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [couponCode, setCouponCode] = useState("");
+  const [isCheckingCoupon, setIsCheckingCoupon] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
 
   const { cart, updateCartQuantity, removeFromCart, clearCart, cartTotal, placeOrder } = useCart();
   const { addresses } = useAddresses();
   const { restaurants } = useRestaurants();
-
+  const { coupons } = useCoupons();
 
   const cartRestaurant = useMemo(() => {
     if (cart.length === 0) return null;
     const firstItemRestaurantId = cart[0].product.restaurantId;
     return restaurants.find(r => r.id === firstItemRestaurantId);
   }, [cart, restaurants]);
-
 
   const { deliveryFee, distance, isDistanceTooFar } = useMemo(() => {
     if (!selectedAddressId || !cartRestaurant) {
@@ -72,6 +76,55 @@ export default function CartPage() {
     return { deliveryFee: fee, distance: dist, isDistanceTooFar: tooFar };
   }, [selectedAddressId, addresses, cartRestaurant]);
 
+  const handleApplyCoupon = async () => {
+      if (!couponCode.trim()) return;
+      setIsCheckingCoupon(true);
+      
+      const coupon = coupons.find(c => c.code === couponCode.trim().toUpperCase());
+      
+      if (!coupon) {
+          toast({ title: "كود غير صحيح", variant: "destructive" });
+          setAppliedCoupon(null);
+          setIsCheckingCoupon(false);
+          return;
+      }
+
+      if (coupon.usedCount >= coupon.maxUses) {
+          toast({ title: "هذا الكود انتهى استخدامه", variant: "destructive" });
+          setAppliedCoupon(null);
+          setIsCheckingCoupon(false);
+          return;
+      }
+
+      // التحقق من شرط الطلب الأول (فحص سريع)
+      const userId = localStorage.getItem('speedShopUserId');
+      if (coupon.isFirstOrderOnly && userId) {
+          const qOrders = query(collection(db, "orders"), where("userId", "==", userId), limit(1));
+          const orderSnap = await getDocs(qOrders);
+          if (!orderSnap.empty) {
+              toast({ title: "عذراً، هذا الكود للزبائن الجدد فقط", variant: "destructive" });
+              setAppliedCoupon(null);
+              setIsCheckingCoupon(false);
+              return;
+          }
+      }
+
+      setAppliedCoupon(coupon);
+      toast({ title: "تم تطبيق الكود بنجاح ✅" });
+      setIsCheckingCoupon(false);
+  };
+
+  const discountAmount = useMemo(() => {
+      if (!appliedCoupon) return 0;
+      
+      if (appliedCoupon.discountTarget === 'delivery') {
+          if (appliedCoupon.isFullDiscount) return deliveryFee;
+          return Math.min(deliveryFee, appliedCoupon.discountValue);
+      } else {
+          if (appliedCoupon.isFullDiscount) return cartTotal;
+          return Math.min(cartTotal, appliedCoupon.discountValue);
+      }
+  }, [appliedCoupon, cartTotal, deliveryFee]);
 
   const handlePlaceOrder = async () => {
     if (!selectedAddressId) {
@@ -104,6 +157,7 @@ export default function CartPage() {
             duration: 5000,
         });
         setCouponCode("");
+        setAppliedCoupon(null);
     }
     
     setIsSubmitting(false);
@@ -118,8 +172,8 @@ export default function CartPage() {
   }, [distance]);
 
   const finalTotalAmount = useMemo(() => {
-    return cartTotal + deliveryFee;
-  }, [cartTotal, deliveryFee]);
+    return Math.max(0, cartTotal + deliveryFee - discountAmount);
+  }, [cartTotal, deliveryFee, discountAmount]);
 
   if (cart.length === 0) {
     return (
@@ -155,8 +209,8 @@ export default function CartPage() {
           const itemPrice = selectedSize?.price || product.discountPrice || product.price || 0;
           const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/80x80.png';
           return (
-            <div key={product.id + (selectedSize?.name || '')} className="flex items-center gap-4 bg-white dark:bg-slate-900 p-3 rounded-2xl border shadow-sm transition-all hover:shadow-md">
-              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border bg-muted/20">
+            <div key={product.id + (selectedSize?.name || '')} className="flex items-center gap-4 bg-white dark:bg-slate-900 p-3 rounded-2xl border dark:border-slate-800 shadow-sm transition-all hover:shadow-md">
+              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border dark:border-slate-800 bg-muted/20">
                 <Image
                   src={imageUrl}
                   alt={product.name}
@@ -206,24 +260,24 @@ export default function CartPage() {
           <h2 className="text-lg font-black flex items-center gap-2 px-1 text-slate-800 dark:text-white"><MapPin className="h-5 w-5 text-primary"/> اختر عنوان التوصيل</h2>
           {addresses.length > 0 ? (
              <Select value={selectedAddressId} onValueChange={setSelectedAddressId}>
-                <SelectTrigger className="w-full h-14 rounded-2xl border-2 font-bold bg-white dark:bg-slate-900 shadow-sm ring-offset-background">
+                <SelectTrigger className="w-full h-14 rounded-2xl border-2 dark:border-slate-800 font-bold bg-white dark:bg-slate-900 shadow-sm ring-offset-background text-slate-900 dark:text-white">
                     <SelectValue placeholder="اختر من عناوينك المحفوظة..." />
                 </SelectTrigger>
-                <SelectContent className="rounded-2xl shadow-2xl border-none">
+                <SelectContent className="rounded-2xl shadow-2xl border-none bg-white dark:bg-slate-900">
                     {addresses.map(address => (
                         <SelectItem key={address.id} value={address.id} className="font-bold py-3">
                             <div className="flex items-center gap-2">
                                 <div className="p-2 bg-primary/10 rounded-lg">
                                     <Home className="h-4 w-4 text-primary"/>
                                 </div>
-                                <span className="dark:text-white">{address.name}</span>
+                                <span className="text-slate-900 dark:text-white">{address.name}</span>
                             </div>
                         </SelectItem>
                     ))}
                 </SelectContent>
             </Select>
           ) : (
-              <div className="text-center p-8 border-4 border-dashed rounded-[2.5rem] space-y-4 bg-muted/20">
+              <div className="text-center p-8 border-4 border-dashed rounded-[2.5rem] space-y-4 bg-muted/20 dark:bg-slate-900 dark:border-slate-800">
                 <p className="font-bold text-muted-foreground">عذراً، يجب إضافة عنوان أولاً لتتمكن من إتمام الطلب.</p>
                  <Button asChild className="rounded-xl h-12 px-6">
                     <Link href="/account/add-address">إضافة عنوان جديد الآن</Link>
@@ -248,8 +302,18 @@ export default function CartPage() {
                 </div>
                 <span className={cn("text-slate-800 dark:text-white font-black", isDistanceTooFar && "text-destructive")}>{formatCurrency(deliveryFee)}</span>
             </div>
+
+            {appliedCoupon && discountAmount > 0 && (
+                <div className="flex justify-between items-center text-green-600 dark:text-green-400 animate-in slide-in-from-right-2">
+                    <div className="flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" />
+                        <span className="font-bold">خصم الكود ({appliedCoupon.code}):</span>
+                    </div>
+                    <span className="font-black">-{formatCurrency(discountAmount)}</span>
+                </div>
+            )}
             
-            <Separator className="my-2 border-dashed" />
+            <Separator className="my-2 border-dashed dark:border-slate-800" />
             
             <div className="flex justify-between items-end pt-2">
                 <div className="flex flex-col">
@@ -264,15 +328,32 @@ export default function CartPage() {
 
         <div className="pt-2 relative z-10">
              <Label className="text-[10px] font-black pr-1 mb-1.5 block text-slate-500 dark:text-slate-400 uppercase tracking-widest">هل لديك كود خصم؟</Label>
-             <div className="relative">
-                <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                    placeholder="اكتب الكود هنا..." 
-                    value={couponCode} 
-                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                    className="h-14 rounded-2xl text-center font-black bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 shadow-inner pl-10"
-                />
+             <div className="flex gap-2">
+                <div className="relative flex-1">
+                    <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        placeholder="اكتب الكود هنا..." 
+                        value={couponCode} 
+                        onChange={(e) => {
+                            setCouponCode(e.target.value.toUpperCase());
+                            if(appliedCoupon) setAppliedCoupon(null); // ريست الكوبون عند التعديل
+                        }}
+                        className="h-14 rounded-2xl text-center font-black bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 shadow-inner pl-10 text-slate-900 dark:text-white"
+                    />
+                </div>
+                <Button 
+                    onClick={handleApplyCoupon} 
+                    disabled={isCheckingCoupon || !couponCode.trim() || appliedCoupon}
+                    className="h-14 px-6 rounded-2xl font-black shadow-lg transition-all active:scale-90"
+                >
+                    {isCheckingCoupon ? <Loader2 className="h-5 w-5 animate-spin" /> : appliedCoupon ? "تم ✅" : "تطبيق"}
+                </Button>
              </div>
+             {appliedCoupon && (
+                 <p className="text-[10px] text-green-600 font-bold mt-2 text-center">
+                     {appliedCoupon.discountTarget === 'delivery' ? 'تم تفعيل خصم على التوصيل' : 'تم تفعيل خصم على الوجبات'}
+                 </p>
+             )}
         </div>
       </div>
 
@@ -288,7 +369,7 @@ export default function CartPage() {
 
       <div className="flex flex-col gap-3">
         <Button 
-            className="w-full h-16 rounded-[1.8rem] text-2xl font-black shadow-2xl shadow-primary/30 transition-all active:scale-95 bg-primary hover:bg-primary/95" 
+            className="w-full h-16 rounded-[1.8rem] text-2xl font-black shadow-2xl shadow-primary/30 transition-all active:scale-95 bg-primary hover:bg-primary/95 text-white" 
             onClick={handlePlaceOrder} 
             disabled={isSubmitting || addresses.length === 0 || !selectedAddressId || isDistanceTooFar}>
             {isSubmitting ? <><Loader2 className="ml-2 h-6 w-6 animate-spin"/> جارِ تأكيد الطلب...</> : "تأكيد الطلب كاش"}
@@ -301,16 +382,16 @@ export default function CartPage() {
               إفراغ كافة محتويات السلة
             </Button>
           </AlertDialogTrigger>
-          <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl">
+          <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl bg-white dark:bg-slate-900">
             <AlertDialogHeader className="text-right">
               <AlertDialogTitle className="text-2xl font-black text-slate-800 dark:text-white">هل أنت متأكد فعلاً؟</AlertDialogTitle>
-              <AlertDialogDescription className="font-bold text-slate-500">
+              <AlertDialogDescription className="font-bold text-slate-500 dark:text-slate-400">
                 سيتم حذف كافة المنتجات التي قمت باختيارها وستعود السلة فارغة تماماً.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="flex-row gap-3 mt-4">
-              <AlertDialogCancel className="flex-1 h-12 rounded-xl font-bold border-2">تراجع</AlertDialogCancel>
-              <AlertDialogAction onClick={() => { clearCart(); setCouponCode(""); }} className="flex-1 h-12 rounded-xl bg-destructive hover:bg-destructive/90 font-bold shadow-lg shadow-destructive/20">نعم، إفراغ الآن</AlertDialogAction>
+              <AlertDialogCancel className="flex-1 h-12 rounded-xl font-bold border-2 dark:border-slate-800 dark:text-white">تراجع</AlertDialogCancel>
+              <AlertDialogAction onClick={() => { clearCart(); setCouponCode(""); setAppliedCoupon(null); }} className="flex-1 h-12 rounded-xl bg-destructive hover:bg-destructive/90 font-bold shadow-lg shadow-destructive/20 text-white">نعم، إفراغ الآن</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
