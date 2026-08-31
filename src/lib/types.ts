@@ -72,6 +72,8 @@ export interface Restaurant {
   categoryId: string; 
   menuSections?: string[]; 
   isFeatured?: boolean;
+  discountPercentage?: number; // نسبة الخصم المئوية للمتجر
+  isDiscountActive?: boolean; // هل الخصم مفعل حالياً
 }
 
 export interface Branch {
@@ -141,6 +143,8 @@ export interface Order {
         latitude?: number | null;
         longitude?: number | null;
         commissionRate?: number;
+        discountPercentage?: number;
+        isDiscountActive?: boolean;
     } | null;
 }
 

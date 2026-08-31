@@ -153,7 +153,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const removeFromCart = (pid: string, sname?: string) => setCart(prev => prev.filter(i => !(i.product.id === pid && i.selectedSize?.name === sname)));
     const updateCartQuantity = (pid: string, q: number, sname?: string) => setCart(prev => prev.map(i => (i.product.id === pid && i.selectedSize?.name === sname) ? { ...i, quantity: q } : i));
     const clearCart = () => setCart([]);
-    const cartTotal = useMemo(() => cart.reduce((t, i) => t + (i.selectedSize?.price || i.product.discountPrice || i.product.price) * i.quantity, 0), [cart]);
+    
+    const cartTotal = useMemo(() => {
+        return cart.reduce((total, item) => {
+            const rest = restaurants.find(r => r.id === item.product.restaurantId);
+            const isStoreDiscountActive = rest?.isDiscountActive && (rest?.discountPercentage || 0) > 0;
+            const discountMultiplier = isStoreDiscountActive ? (1 - (rest!.discountPercentage! / 100)) : 1;
+
+            const basePrice = item.selectedSize?.price || item.product.discountPrice || item.product.price || 0;
+            const discountedPrice = basePrice * discountMultiplier;
+            
+            return total + (discountedPrice * item.quantity);
+        }, 0);
+    }, [cart, restaurants]);
 
     const placeOrder = useCallback(async (addr: Address, dFee: number, coup?: string): Promise<string | null> => {
         if (!userId || cart.length === 0) return null;
@@ -173,23 +185,30 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 if (found) disc = found.discountValue;
             }
             
-            const sanitizedItems = cart.map(item => ({
-                quantity: item.quantity,
-                selectedSize: item.selectedSize ? { name: item.selectedSize.name, price: item.selectedSize.price } : null,
-                product: {
-                    id: item.product.id,
-                    name: item.product.name,
-                    price: item.product.price,
-                    discountPrice: item.product.discountPrice || 0,
-                    image: item.product.image,
-                    restaurantId: item.product.restaurantId
-                }
-            }));
-
             const rest = restaurants.find(r => r.id === cart[0].product.restaurantId);
+            const isStoreDiscountActive = rest?.isDiscountActive && (rest?.discountPercentage || 0) > 0;
+            const discountMultiplier = isStoreDiscountActive ? (1 - (rest!.discountPercentage! / 100)) : 1;
+
+            const sanitizedItems = cart.map(item => {
+                const basePrice = item.selectedSize?.price || item.product.discountPrice || item.product.price || 0;
+                const finalItemPrice = basePrice * discountMultiplier;
+
+                return {
+                    quantity: item.quantity,
+                    selectedSize: item.selectedSize ? { name: item.selectedSize.name, price: item.selectedSize.price * discountMultiplier } : null,
+                    product: {
+                        id: item.product.id,
+                        name: item.product.name,
+                        price: item.product.price,
+                        discountPrice: (item.product.discountPrice || item.product.price) * discountMultiplier,
+                        image: item.product.image,
+                        restaurantId: item.product.restaurantId
+                    }
+                };
+            });
             
             const orderData = {
-                orderNumber: nextNumber, // إضافة الرقم التسلسلي البسيط
+                orderNumber: nextNumber, 
                 userId, 
                 items: sanitizedItems, 
                 total: Math.max(0, cartTotal - disc) + dFee,
@@ -209,7 +228,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     name: rest.name, 
                     latitude: rest.latitude || 0, 
                     longitude: rest.longitude || 0, 
-                    commissionRate: rest.commissionRate || 10 
+                    commissionRate: rest.commissionRate || 10,
+                    discountPercentage: rest.discountPercentage || 0,
+                    isDiscountActive: rest.isDiscountActive || false
                 } : null,
                 branchId: rest?.branchId || 'main',
                 isPaid: false, 

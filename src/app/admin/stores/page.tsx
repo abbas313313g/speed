@@ -35,7 +35,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Edit, Trash2, Loader2, MapPin, Upload, X, Tags, Clock, Percent, Power, PowerOff } from 'lucide-react';
+import { Edit, Trash2, Loader2, MapPin, Upload, X, Tags, Clock, Percent, Power, PowerOff, Sparkles } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
@@ -59,7 +59,9 @@ const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     branchId: 'main',
     categoryId: '',
     menuSections: [],
-    isManualClosed: false
+    isManualClosed: false,
+    discountPercentage: 0,
+    isDiscountActive: false
 };
 
 export default function AdminStoresPage({ branchId }: { branchId: string }) {
@@ -72,7 +74,6 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
   const [currentStore, setCurrentStore] = useState<Partial<Restaurant> & {image?:string}>({ ...EMPTY_STORE });
   const [isSaving, setIsSaving] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
-  const [newSection, setNewSection] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenDialog = (store?: Restaurant) => {
@@ -83,7 +84,6 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
           setIsEditing(false);
           setCurrentStore({ ...EMPTY_STORE, branchId, menuSections: [] });
       }
-      setNewSection('');
       setOpen(true);
   };
 
@@ -161,13 +161,42 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                 <DialogTitle className="text-2xl font-black text-right">{isEditing ? 'تعديل المتجر' : 'إنشاء متجر جديد'}</DialogTitle>
             </DialogHeader>
             <div className="space-y-6 py-4 text-right">
-                <div className="flex items-center justify-between p-4 bg-orange-50 border-2 border-dashed border-orange-200 rounded-2xl">
-                    <div className="space-y-0.5">
-                        <Label className="font-black text-orange-800">حالة المتجر (إغلاق يدوي)</Label>
-                        <p className="text-[10px] text-orange-600 font-bold">عند التفعيل، سيظهر المتجر "مغلق" للزبائن مهما كان الوقت.</p>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between p-4 bg-orange-50 border-2 border-dashed border-orange-200 rounded-2xl">
+                        <div className="space-y-0.5">
+                            <Label className="font-black text-orange-800">إغلاق يدوي</Label>
+                            <p className="text-[8px] text-orange-600 font-bold">يظهر المتجر "مغلق" دائماً.</p>
+                        </div>
+                        <Switch checked={currentStore.isManualClosed || false} onCheckedChange={(v) => setCurrentStore({...currentStore, isManualClosed: v})} />
                     </div>
-                    <Switch checked={currentStore.isManualClosed || false} onCheckedChange={(v) => setCurrentStore({...currentStore, isManualClosed: v})} />
+
+                    <div className="flex items-center justify-between p-4 bg-primary/5 border-2 border-dashed border-primary/20 rounded-2xl">
+                        <div className="space-y-0.5">
+                            <Label className="font-black text-primary flex items-center gap-1 justify-end">تفعيل الخصم <Sparkles className="h-3 w-3"/></Label>
+                            <p className="text-[8px] text-muted-foreground font-bold">تطبيق خصم عام على كافة الوجبات.</p>
+                        </div>
+                        <Switch checked={currentStore.isDiscountActive || false} onCheckedChange={(v) => setCurrentStore({...currentStore, isDiscountActive: v})} />
+                    </div>
                 </div>
+
+                {currentStore.isDiscountActive && (
+                    <div className="p-4 bg-slate-50 rounded-2xl border-2 animate-in zoom-in duration-300">
+                        <Label className="font-black text-xs mb-2 block">نسبة الخصم المئوية (%)</Label>
+                        <div className="relative">
+                            <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary"/>
+                            <Input 
+                                type="number" 
+                                min="0" 
+                                max="100" 
+                                value={currentStore.discountPercentage || ''} 
+                                onChange={(e) => setCurrentStore({...currentStore, discountPercentage: Math.min(100, Math.max(0, parseInt(e.target.value) || 0))})}
+                                className="pr-10 h-12 rounded-xl text-center text-xl font-black text-primary"
+                                placeholder="0"
+                            />
+                        </div>
+                        <p className="text-[9px] text-muted-foreground font-bold mt-2 text-center italic">سيتم خفض كافة أسعار المنتجات في هذا المتجر بنسبة {currentStore.discountPercentage}% تلقائياً.</p>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
@@ -254,6 +283,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                     <TableHead className="font-black">الحالة</TableHead>
                     <TableHead className="font-black">الاسم</TableHead>
                     <TableHead className="font-black">العمولة</TableHead>
+                    <TableHead className="font-black">الخصم</TableHead>
                     <TableHead className="font-black">إجراءات</TableHead>
                 </TableRow>
             </TableHeader>
@@ -272,6 +302,13 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                             </div>
                         </TableCell>
                         <TableCell className="font-bold text-primary">{store.commissionRate}%</TableCell>
+                        <TableCell>
+                            {store.isDiscountActive ? (
+                                <Badge className="bg-primary/10 text-primary border-primary/20 gap-1 font-black">
+                                    <Percent className="h-3 w-3"/> {store.discountPercentage}%
+                                </Badge>
+                            ) : '-'}
+                        </TableCell>
                         <TableCell>
                             <div className="flex gap-1">
                                 <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl" onClick={() => handleOpenDialog(store)}><Edit className="h-4 w-4" /></Button>

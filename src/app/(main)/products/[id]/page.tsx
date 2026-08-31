@@ -44,6 +44,9 @@ export default function ProductDetailPage() {
   const product = useMemo(() => products[0] || null, [products]);
   const restaurant = useMemo(() => product ? restaurants.find(r => r.id === product.restaurantId) : null, [product, restaurants]);
 
+  const isStoreDiscountActive = restaurant?.isDiscountActive && (restaurant?.discountPercentage || 0) > 0;
+  const discountMultiplier = isStoreDiscountActive ? (1 - (restaurant!.discountPercentage! / 100)) : 1;
+
   const activeSizes = useMemo(() => {
       return product?.sizes?.filter(s => s.isActive !== false) || [];
   }, [product]);
@@ -51,16 +54,17 @@ export default function ProductDetailPage() {
   const hasSizes = activeSizes.length > 0;
 
   const priceDisplay = useMemo(() => {
-    if (selectedSize) return formatCurrency(selectedSize.price);
+    if (selectedSize) return formatCurrency(selectedSize.price * discountMultiplier);
     if (hasSizes) {
-      const prices = activeSizes.map(s => s.price);
+      const prices = activeSizes.map(s => s.price * discountMultiplier);
       const min = Math.min(...prices);
       const max = Math.max(...prices);
       if (min === max) return formatCurrency(min);
       return `${formatCurrency(min)} - ${formatCurrency(max)}`;
     }
-    return formatCurrency(product?.discountPrice || product?.price || 0);
-  }, [selectedSize, product, hasSizes, activeSizes]);
+    const basePrice = product?.discountPrice || product?.price || 0;
+    return formatCurrency(basePrice * discountMultiplier);
+  }, [selectedSize, product, hasSizes, activeSizes, discountMultiplier]);
 
   const cartCount = useMemo(() => cart.reduce((acc, item) => acc + item.quantity, 0), [cart]);
 
@@ -155,7 +159,9 @@ export default function ProductDetailPage() {
       }
   };
 
-  const hasDiscount = !!product.discountPrice && !selectedSize && !hasSizes;
+  const hasIndividualDiscount = !!product.discountPrice && !hasSizes;
+  const hasDiscount = hasIndividualDiscount || isStoreDiscountActive;
+  
   const imageUrl = imgError 
     ? 'https://placehold.co/600x600/00b358/white?text=Speed+Shop' 
     : (product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/600x600/00b358/white?text=Speed+Shop');
@@ -249,7 +255,7 @@ export default function ProductDetailPage() {
             {hasDiscount && (
                 <div className="absolute bottom-12 right-6 bg-red-600 text-white font-black px-4 py-2 rounded-2xl shadow-2xl animate-bounce flex items-center gap-2">
                     <Tag className="h-4 w-4" />
-                    عرض خاص!
+                    {isStoreDiscountActive ? `خصم المتجر ${restaurant.discountPercentage}%` : 'عرض خاص!'}
                 </div>
             )}
           </div>
@@ -310,7 +316,7 @@ export default function ProductDetailPage() {
                             )}
                         >
                             <span className="font-black text-sm">{size.name}</span>
-                            <span className="font-black text-xs opacity-80">{formatCurrency(size.price)}</span>
+                            <span className="font-black text-xs opacity-80">{formatCurrency(size.price * discountMultiplier)}</span>
                         </button>
                       ))}
                     </div>
@@ -320,7 +326,7 @@ export default function ProductDetailPage() {
                 <div className="flex items-center justify-between p-2 bg-slate-50 rounded-[2rem] border-2">
                     <p className="font-black text-sm mr-4">الكمية</p>
                     <div className="flex items-center gap-4 bg-white p-1 rounded-[1.8rem] shadow-sm">
-                        <button onClick={() => handleQuantityChange(quantity - 1)} className="p-3 bg-slate-100 rounded-2xl active:scale-75 transition-all"><Minus className="h-5 w-5"/></button>
+                        <button onClick={() => handleQuantityChange(quantity - 1)} className="p-3 bg-slate-100 rounded-2xl active:scale-75 transition-all"><Option/></button>
                         <span className="w-8 text-center font-black text-xl">{isOutOfStock ? 0 : quantity}</span>
                         <button onClick={() => handleQuantityChange(quantity + 1)} className="p-3 bg-primary rounded-2xl text-white active:scale-75 transition-all"><Plus className="h-5 w-5"/></button>
                     </div>
