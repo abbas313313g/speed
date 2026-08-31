@@ -179,6 +179,7 @@ export interface Coupon {
     code: string;
     discountType: 'fixed'; 
     discountValue: number;
+    isFullDiscount?: boolean;
     maxUses: number;
     usedCount: number;
     usedBy: string[]; 

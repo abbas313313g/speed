@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trash2, Loader2, Store, UserPlus, Bike, Wallet } from 'lucide-react';
+import { Trash2, Loader2, Store, UserPlus, Bike, Wallet, Sparkles } from 'lucide-react';
 import type { Coupon } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -46,6 +46,7 @@ const EMPTY_COUPON: Omit<Coupon, 'id' | 'usedCount' | 'usedBy'> = {
     code: '',
     discountType: 'fixed',
     discountValue: 0,
+    isFullDiscount: false,
     maxUses: 100,
     restaurantId: '',
     isFirstOrderOnly: false,
@@ -65,8 +66,12 @@ export default function AdminCouponsPage() {
   if (isLoading) return <div className="p-8 text-center animate-pulse font-bold text-primary">جارِ تحميل الأكواد...</div>;
   
   const handleSave = async () => {
-    if (!currentCoupon.code || currentCoupon.discountValue <= 0) {
-        toast({ title: "بيانات ناقصة", variant: "destructive"});
+    if (!currentCoupon.code) {
+        toast({ title: "الرجاء إدخال الكود", variant: "destructive"});
+        return;
+    }
+    if (!currentCoupon.isFullDiscount && currentCoupon.discountValue <= 0) {
+        toast({ title: "الرجاء تحديد قيمة الخصم", variant: "destructive"});
         return;
     }
     setIsSaving(true);
@@ -102,7 +107,11 @@ export default function AdminCouponsPage() {
             {coupons.map((coupon) => (
                 <TableRow key={coupon.id}>
                 <TableCell><Badge variant="outline" className="font-black text-lg px-4 py-1">{coupon.code}</Badge></TableCell>
-                <TableCell className="font-black text-primary">{formatCurrency(coupon.discountValue)}</TableCell>
+                <TableCell className="font-black text-primary">
+                    {coupon.isFullDiscount ? (
+                        <Badge className="bg-primary text-white gap-1 animate-pulse">كامل 100%</Badge>
+                    ) : formatCurrency(coupon.discountValue)}
+                </TableCell>
                 <TableCell>
                     {coupon.discountTarget === 'delivery' ? (
                         <Badge className="bg-blue-100 text-blue-700 border-none gap-1 font-black">
@@ -117,7 +126,7 @@ export default function AdminCouponsPage() {
                 <TableCell className="space-y-1">
                     {coupon.restaurantId ? (
                         <div className="flex items-center gap-1 text-xs font-bold text-orange-600 justify-end"><Store className="h-3 w-3"/>{restaurants.find(r=>r.id === coupon.restaurantId)?.name}</div>
-                    ) : <Badge variant="secondary" className="text-[10px]">عام</Badge>}
+                    ) : <Badge variant="secondary" className="text-[10px]">عام (كل الفروع)</Badge>}
                     {coupon.isFirstOrderOnly && <div className="flex items-center gap-1 text-[10px] font-black text-blue-600 justify-end"><UserPlus className="h-3 w-3"/>الطلب الأول فقط</div>}
                 </TableCell>
                 <TableCell className="font-bold">{coupon.usedCount} / {coupon.maxUses}</TableCell>
@@ -127,7 +136,7 @@ export default function AdminCouponsPage() {
                             <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                             <AlertDialogContent className="rounded-[2rem]">
                                 <AlertDialogHeader><AlertDialogTitle className="text-right font-black">حذف الكود؟</AlertDialogTitle></AlertDialogHeader>
-                                <AlertDialogFooter className="flex-row gap-2">
+                                <AlertDialogFooter className="flex-row gap-3">
                                     <AlertDialogCancel className="flex-1 rounded-xl">إلغاء</AlertDialogCancel>
                                     <AlertDialogAction onClick={() => deleteCoupon(coupon.id)} className="flex-1 bg-destructive hover:bg-destructive/90 rounded-xl">حذف</AlertDialogAction>
                                 </AlertDialogFooter>
@@ -165,18 +174,28 @@ export default function AdminCouponsPage() {
                             </div>
                             <div className={cn("flex-1 flex items-center justify-center gap-2 p-3 border-2 rounded-2xl cursor-pointer transition-all", currentCoupon.discountTarget === 'delivery' ? "border-blue-500 bg-blue-50" : "border-muted")} onClick={() => setCurrentCoupon({...currentCoupon, discountTarget: 'delivery'})}>
                                 <RadioGroupItem value="delivery" id="r2" />
-                                <Label htmlFor="r2" className="cursor-pointer font-black text-blue-700">سعر التوصيل فقط</Label>
+                                <Label htmlFor="r2" className="cursor-pointer font-black text-blue-700">سعر التوصيل</Label>
                             </div>
                         </RadioGroup>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                            <Label className="font-bold">قيمة الخصم (IQD)</Label>
-                            <Input type="number" value={currentCoupon.discountValue || ''} onChange={(e) => setCurrentCoupon({...currentCoupon, discountValue: parseFloat(e.target.value) || 0})} className="h-12 rounded-xl font-bold" />
+                    <div className="flex items-center justify-between p-4 bg-primary/5 rounded-2xl border-2 border-dashed border-primary/20">
+                        <div className="flex flex-col text-right">
+                            <span className="font-black text-sm text-primary flex items-center gap-1 justify-end">خصم كامل 100% <Sparkles className="h-3 w-3"/></span>
+                            <span className="text-[10px] text-muted-foreground font-bold">تصفير السعر بالكامل للهدف المختار</span>
                         </div>
-                        <div className="space-y-1">
-                            <Label className="font-bold">أقصى عدد استخدام</Label>
+                        <Switch checked={currentCoupon.isFullDiscount} onCheckedChange={(val) => setCurrentCoupon({...currentCoupon, isFullDiscount: val, discountValue: val ? 0 : currentCoupon.discountValue})} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        {!currentCoupon.isFullDiscount && (
+                            <div className="space-y-1">
+                                <Label className="font-bold">قيمة الخصم (IQD)</Label>
+                                <Input type="number" value={currentCoupon.discountValue || ''} onChange={(e) => setCurrentCoupon({...currentCoupon, discountValue: parseFloat(e.target.value) || 0})} className="h-12 rounded-xl font-bold" />
+                            </div>
+                        )}
+                        <div className={cn("space-y-1", currentCoupon.isFullDiscount ? "col-span-2" : "col-span-1")}>
+                            <Label className="font-bold">أقصى عدد استخدام كلي</Label>
                             <Input type="number" value={currentCoupon.maxUses || ''} onChange={(e) => setCurrentCoupon({...currentCoupon, maxUses: parseInt(e.target.value) || 0})} className="h-12 rounded-xl font-bold" />
                         </div>
                     </div>
@@ -188,10 +207,10 @@ export default function AdminCouponsPage() {
                             onValueChange={(val) => setCurrentCoupon({...currentCoupon, restaurantId: val === 'all' ? '' : val})}
                         >
                             <SelectTrigger className="h-12 rounded-xl">
-                                <SelectValue placeholder="يعمل على كل المتاجر" />
+                                <SelectValue placeholder="يعمل على كل المتاجر والافروع" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">كل المتاجر</SelectItem>
+                                <SelectItem value="all">كل المتاجر (عالمي)</SelectItem>
                                 {restaurants.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                             </SelectContent>
                         </Select>

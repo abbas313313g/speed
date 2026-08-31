@@ -180,13 +180,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             if (coupCode?.trim()) {
                 const coupon = coupons.find(c => c.code === coupCode.trim().toUpperCase());
                 if (coupon) {
-                    // فحص عدد الاستخدام
                     if (coupon.usedCount >= coupon.maxUses) {
                         toast({ title: "هذا الكود انتهى استخدامه", variant: "destructive" });
                         return null;
                     }
 
-                    // فحص "الطلب الأول فقط"
                     if (coupon.isFirstOrderOnly) {
                         const qOrders = query(collection(db, "orders"), where("userId", "==", userId), limit(1));
                         const orderSnap = await getDocs(qOrders);
@@ -196,15 +194,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                         }
                     }
 
-                    // تطبيق الخصم حسب الهدف
                     if (coupon.discountTarget === 'delivery') {
-                        appliedDiscount = Math.min(finalDeliveryFee, coupon.discountValue);
+                        appliedDiscount = coupon.isFullDiscount ? finalDeliveryFee : Math.min(finalDeliveryFee, coupon.discountValue);
                         finalDeliveryFee -= appliedDiscount;
-                        toast({ title: `تم خصم ${formatCurrency(appliedDiscount)} من التوصيل ✅` });
+                        toast({ title: `تم تطبيق خصم ${coupon.isFullDiscount ? 'كامل' : formatCurrency(appliedDiscount)} على التوصيل ✅` });
                     } else {
-                        appliedDiscount = Math.min(finalCartTotal, coupon.discountValue);
+                        appliedDiscount = coupon.isFullDiscount ? finalCartTotal : Math.min(finalCartTotal, coupon.discountValue);
                         finalCartTotal -= appliedDiscount;
-                        toast({ title: `تم خصم ${formatCurrency(appliedDiscount)} من طلبك ✅` });
+                        toast({ title: `تم تطبيق خصم ${coupon.isFullDiscount ? 'كامل' : formatCurrency(appliedDiscount)} على طلبك ✅` });
                     }
                     couponToUpdateId = coupon.id;
                 } else {
@@ -247,7 +244,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
             
-            // تحديث عداد استخدام الكود
             if (couponToUpdateId) {
                 await updateDoc(doc(db, "coupons", couponToUpdateId), {
                     usedCount: increment(1),
