@@ -137,9 +137,9 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                         حذف المحددة ({selectedOrderIds.length})
                     </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent className="rounded-[2.5rem]">
+                <AlertDialogContent className="rounded-[2.5rem] bg-background">
                     <AlertDialogHeader>
-                        <AlertDialogTitle className="text-right font-black">تأكيد الحذف الجماعي؟</AlertDialogTitle>
+                        <AlertDialogTitle className="text-right font-black dark:text-white">تأكيد الحذف الجماعي؟</AlertDialogTitle>
                         <AlertDialogDescription className="text-right font-bold text-muted-foreground">
                             أنت على وشك حذف {selectedOrderIds.length} طلب نهائياً من قاعدة البيانات. لا يمكن التراجع عن هذا الإجراء.
                         </AlertDialogDescription>
@@ -156,9 +156,9 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
       </header>
 
         {allOrders.length > 0 ? (
-          <div className="bg-white rounded-[1.5rem] border shadow-xl overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] border dark:border-slate-800 shadow-xl overflow-hidden">
             <Table>
-                <TableHeader className="bg-muted/50">
+                <TableHeader className="bg-muted/50 dark:bg-slate-800/50">
                 <TableRow>
                     <TableHead className="w-[50px]">
                         <Checkbox 
@@ -166,28 +166,28 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                             onCheckedChange={toggleSelectAll}
                         />
                     </TableHead>
-                    <TableHead className="font-black text-right">رقم الطلب</TableHead>
-                    <TableHead className="font-black text-right">العميل</TableHead>
-                    <TableHead className="font-black text-right">السائق</TableHead>
-                    <TableHead className="font-black text-right">التاريخ</TableHead>
-                    <TableHead className="font-black text-right">المبلغ</TableHead>
-                    <TableHead className="font-black text-right">الحالة</TableHead>
-                    <TableHead className="font-black text-center">إجراءات</TableHead>
+                    <TableHead className="font-black text-right dark:text-slate-200">رقم الطلب</TableHead>
+                    <TableHead className="font-black text-right dark:text-slate-200">العميل</TableHead>
+                    <TableHead className="font-black text-right dark:text-slate-200">السائق</TableHead>
+                    <TableHead className="font-black text-right dark:text-slate-200">التاريخ</TableHead>
+                    <TableHead className="font-black text-right dark:text-slate-200">المبلغ</TableHead>
+                    <TableHead className="font-black text-right dark:text-slate-200">الحالة</TableHead>
+                    <TableHead className="font-black text-center dark:text-slate-200">إجراءات</TableHead>
                 </TableRow>
                 </TableHeader>
                 <TableBody>
                 {allOrders.map((order) => (
-                    <TableRow key={order.id} className={cn("hover:bg-muted/30 transition-colors cursor-pointer", selectedOrderIds.includes(order.id) && "bg-primary/5")} onClick={() => setViewOrder(order)}>
+                    <TableRow key={order.id} className={cn("hover:bg-muted/30 dark:hover:bg-slate-800 transition-colors cursor-pointer", selectedOrderIds.includes(order.id) && "bg-primary/5")} onClick={() => setViewOrder(order)}>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox 
                             checked={selectedOrderIds.includes(order.id)}
                             onCheckedChange={() => toggleSelectOrder(order.id)}
                         />
                     </TableCell>
-                    <TableCell className="font-bold">#{order.orderNumber || order.id.substring(0, 6)}</TableCell>
-                    <TableCell className="font-bold">{order.address.name}</TableCell>
-                    <TableCell className="text-xs font-bold text-muted-foreground">{order.deliveryWorker?.name || 'لم يعين'}</TableCell>
-                    <TableCell className="text-[10px] font-bold">{new Date(order.date).toLocaleString('ar-IQ')}</TableCell>
+                    <TableCell className="font-bold dark:text-white">#{order.orderNumber || order.id.substring(0, 6)}</TableCell>
+                    <TableCell className="font-bold dark:text-white">{order.address.name}</TableCell>
+                    <TableCell className="text-xs font-bold text-muted-foreground dark:text-slate-400">{order.deliveryWorker?.name || 'لم يعين'}</TableCell>
+                    <TableCell className="text-[10px] font-bold text-muted-foreground dark:text-slate-400">{new Date(order.date).toLocaleString('ar-IQ')}</TableCell>
                     <TableCell className="font-black text-primary">{formatCurrency(order.total)}</TableCell>
                     <TableCell>
                         <Badge className={cn("text-white font-black rounded-lg", getStatusVariant(order.status))}>
@@ -199,11 +199,11 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                             <AlertDialog>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                <Button variant="ghost" className="h-8 w-8 p-0 dark:text-slate-200">
                                     <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="rounded-xl font-bold">
+                                <DropdownMenuContent align="end" className="rounded-xl font-bold bg-background">
                                 <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'unassigned')}>بانتظار سائق</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'confirmed')}>بانتظار المندوب</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'preparing')}>تحضير الطلب</DropdownMenuItem>
@@ -220,9 +220,9 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                                 </AlertDialogTrigger>
                                 </DropdownMenuContent>
                             </DropdownMenu>
-                            <AlertDialogContent className="rounded-[2rem]">
+                            <AlertDialogContent className="rounded-[2.5rem] bg-background">
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle className="text-right">تأكيد الحذف</AlertDialogTitle>
+                                    <AlertDialogTitle className="text-right dark:text-white">تأكيد الحذف</AlertDialogTitle>
                                     <AlertDialogDescription className="text-right font-bold">
                                         سيتم حذف هذا الطلب من سجلات الفرع نهائياً. لا يمكن التراجع.
                                     </AlertDialogDescription>
@@ -241,13 +241,13 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
             </Table>
           </div>
         ) : (
-            <div className="p-20 text-center bg-white rounded-[2rem] border-2 border-dashed">
+            <div className="p-20 text-center bg-white dark:bg-slate-900 rounded-[2rem] border-2 border-dashed dark:border-slate-800">
                 <p className="text-muted-foreground font-bold italic">لا توجد طلبات لهذا الفرع حالياً.</p>
             </div>
         )}
 
         <Dialog open={!!viewOrder} onOpenChange={(v) => !v && setViewOrder(null)}>
-            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] p-0 border-none shadow-2xl">
+            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] p-0 border-none shadow-2xl bg-background">
                 {viewOrder && (
                     <div className="flex flex-col text-right">
                         <DialogHeader className="p-6 bg-primary text-white">
@@ -261,30 +261,30 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                         <div className="p-6 space-y-8">
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <h3 className="text-[10px] font-black text-muted-foreground uppercase flex items-center gap-1 justify-end"><Store className="h-3 w-3"/> المتجر المصدر</h3>
-                                    <p className="font-black text-lg text-slate-800">{viewOrder.restaurant?.name || 'غير معروف'}</p>
+                                    <h3 className="text-[10px] font-black text-muted-foreground dark:text-slate-400 uppercase flex items-center gap-1 justify-end"><Store className="h-3 w-3"/> المتجر المصدر</h3>
+                                    <p className="font-black text-lg text-slate-800 dark:text-white">{viewOrder.restaurant?.name || 'غير معروف'}</p>
                                     <Badge variant="secondary" className="font-bold">عمولة النظام: {viewOrder.restaurant?.commissionRate || 10}%</Badge>
                                 </div>
                                 <div className="space-y-2">
-                                    <h3 className="text-[10px] font-black text-muted-foreground uppercase flex items-center gap-1 justify-end"><User className="h-3 w-3"/> العميل المستلم</h3>
-                                    <p className="font-black text-lg text-slate-800">{viewOrder.address.name}</p>
+                                    <h3 className="text-[10px] font-black text-muted-foreground dark:text-slate-400 uppercase flex items-center gap-1 justify-end"><User className="h-3 w-3"/> العميل المستلم</h3>
+                                    <p className="font-black text-lg text-slate-800 dark:text-white">{viewOrder.address.name}</p>
                                     <p className="text-xs font-bold text-primary flex items-center gap-1 justify-end" dir="ltr"><Phone className="h-3 w-3"/> {viewOrder.address.phone}</p>
                                 </div>
                             </div>
 
-                            <Separator className="border-dashed" />
+                            <Separator className="border-dashed dark:border-slate-800" />
 
                             <div className="space-y-4">
-                                <h3 className="font-black text-slate-800 flex items-center gap-2 justify-end"><Receipt className="h-5 w-5 text-primary"/> محتويات القائمة</h3>
+                                <h3 className="font-black text-slate-800 dark:text-white flex items-center gap-2 justify-end"><Receipt className="h-5 w-5 text-primary"/> محتويات القائمة</h3>
                                 <div className="space-y-3">
                                     {viewOrder.items.map((item, idx) => (
-                                        <div key={idx} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <div key={idx} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800">
                                             <div className="font-black text-primary bg-primary/10 px-4 py-1 rounded-xl">x{item.quantity}</div>
                                             <div className="text-right flex-1 px-4">
-                                                <p className="font-black text-sm">{item.product.name}</p>
+                                                <p className="font-black text-sm dark:text-white">{item.product.name}</p>
                                                 {item.selectedSize && <Badge variant="outline" className="text-[8px] font-bold mt-0.5">{item.selectedSize.name}</Badge>}
                                             </div>
-                                            <div className="font-bold text-xs text-slate-600">
+                                            <div className="font-bold text-xs text-slate-600 dark:text-slate-400">
                                                 {formatCurrency((item.selectedSize?.price || item.product.discountPrice || item.product.price) * item.quantity)}
                                             </div>
                                         </div>
@@ -293,19 +293,19 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                             </div>
 
                             <div className="bg-primary/5 p-6 rounded-[2rem] border-2 border-primary/10 space-y-3">
-                                <div className="flex justify-between items-center text-xs font-bold text-slate-500">
+                                <div className="flex justify-between items-center text-xs font-bold text-slate-500 dark:text-slate-400">
                                     <span>{formatCurrency(viewOrder.deliveryFee)}</span>
                                     <span>أجور التوصيل:</span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(viewOrder.total)}</span>
-                                    <span className="font-black text-slate-700">المجموع الكلي:</span>
+                                    <span className="font-black text-slate-700 dark:text-slate-200">المجموع الكلي:</span>
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <h3 className="text-[10px] font-black text-muted-foreground uppercase flex items-center gap-1 justify-end"><MapPin className="h-3 w-3"/> عنوان التوصيل</h3>
-                                <div className="p-4 bg-muted/20 rounded-2xl text-xs font-bold leading-relaxed">
+                                <h3 className="text-[10px] font-black text-muted-foreground dark:text-slate-400 uppercase flex items-center gap-1 justify-end"><MapPin className="h-3 w-3"/> عنوان التوصيل</h3>
+                                <div className="p-4 bg-muted/20 dark:bg-slate-900 rounded-2xl text-xs font-bold leading-relaxed dark:text-slate-300">
                                     <p className="text-primary font-black mb-1">{viewOrder.address.deliveryZone}</p>
                                     <p>{viewOrder.address.details || 'لا توجد ملاحظات إضافية.'}</p>
                                 </div>
@@ -315,7 +315,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                             </div>
                         </div>
 
-                        <DialogFooter className="p-6 bg-slate-50 border-t">
+                        <DialogFooter className="p-6 bg-slate-50 dark:bg-slate-900 border-t dark:border-slate-800">
                             <Button onClick={() => setViewOrder(null)} className="w-full h-14 rounded-2xl font-black text-lg">إغلاق النافذة</Button>
                         </DialogFooter>
                     </div>

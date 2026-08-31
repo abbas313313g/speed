@@ -207,14 +207,14 @@ export default function ProductDetailPage() {
        <div className="absolute top-4 left-4 right-4 z-20 flex justify-between items-center">
           <button 
             onClick={handleBack} 
-            className="p-3 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl text-primary active:scale-75 transition-all"
+            className="p-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-xl text-primary active:scale-75 transition-all"
           >
               <ArrowRight className="h-6 w-6"/>
           </button>
           
           <button 
             onClick={() => setActiveTab(3)}
-            className="p-3 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl relative active:scale-75 transition-all"
+            className="p-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-xl relative active:scale-75 transition-all"
           >
              <ShoppingCart className="h-6 w-6 text-primary"/>
              {cartCount > 0 && (
@@ -247,11 +247,11 @@ export default function ProductDetailPage() {
           </div>
 
           <div className="px-6 -mt-10 relative z-10 pb-10">
-            <div className="bg-white rounded-[2.5rem] p-6 shadow-2xl space-y-6">
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 shadow-2xl space-y-6">
                 <div className="space-y-2 text-right">
                     <div className="flex justify-between items-start flex-row-reverse">
                         <div className="space-y-1">
-                            <h1 className="text-2xl font-black text-slate-800 leading-tight">{product.name}</h1>
+                            <h1 className="text-2xl font-black text-slate-800 dark:text-white leading-tight">{product.name}</h1>
                             {restaurant && (
                                 <button onClick={handleVisitStore} className="flex items-center gap-2 text-primary group active:scale-95 transition-all mt-1 justify-end">
                                     <span className="text-xs font-black border-b border-primary/20">زيارة المتجر: {restaurant.name}</span>
@@ -264,7 +264,7 @@ export default function ProductDetailPage() {
                     </div>
                 </div>
 
-                <p className="text-muted-foreground text-sm font-medium leading-relaxed bg-muted/20 p-4 rounded-2xl border-r-4 border-primary whitespace-pre-wrap text-right">
+                <p className="text-muted-foreground text-sm font-medium leading-relaxed bg-muted/20 dark:bg-slate-800/50 p-4 rounded-2xl border-r-4 border-primary whitespace-pre-wrap text-right">
                     {product.description || "متاجر SPEED SHOP الاحترافية"}
                 </p>
 
@@ -288,7 +288,7 @@ export default function ProductDetailPage() {
 
                 {hasSizes && (
                   <div className="space-y-4">
-                    <Label className="font-black text-lg">اختر الحجم والنوع:</Label>
+                    <Label className="font-black text-lg dark:text-white">اختر الحجم والنوع:</Label>
                     <div className="grid grid-cols-2 gap-3">
                       {activeSizes.map((size) => (
                         <button
@@ -297,7 +297,7 @@ export default function ProductDetailPage() {
                             onClick={() => setSelectedSize(size)}
                             className={cn(
                                 "flex flex-col items-center gap-1 p-4 rounded-[2rem] border-2 transition-all",
-                                selectedSize?.name === size.name ? 'border-primary bg-primary/5 text-primary' : 'border-slate-100 bg-slate-50',
+                                selectedSize?.name === size.name ? 'border-primary bg-primary/5 text-primary' : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100',
                                 !size.isUnlimited && size.stock <= 0 && 'opacity-30 grayscale'
                             )}
                         >
@@ -309,11 +309,11 @@ export default function ProductDetailPage() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between p-2 bg-slate-50 rounded-[2rem] border-2">
-                    <p className="font-black text-sm mr-4">الكمية</p>
-                    <div className="flex items-center gap-4 bg-white p-1 rounded-[1.8rem] shadow-sm">
-                        <button onClick={() => handleQuantityChange(quantity - 1)} className="p-3 bg-slate-100 rounded-2xl active:scale-75 transition-all"><Minus className="h-5 w-5"/></button>
-                        <span className="w-8 text-center font-black text-xl">{isOutOfStock ? 0 : quantity}</span>
+                <div className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border-2 dark:border-slate-700">
+                    <p className="font-black text-sm mr-4 dark:text-white">الكمية</p>
+                    <div className="flex items-center gap-4 bg-white dark:bg-slate-700 p-1 rounded-[1.8rem] shadow-sm">
+                        <button onClick={() => handleQuantityChange(quantity - 1)} className="p-3 bg-slate-100 dark:bg-slate-600 rounded-2xl active:scale-75 transition-all dark:text-white"><Minus className="h-5 w-5"/></button>
+                        <span className="w-8 text-center font-black text-xl dark:text-white">{isOutOfStock ? 0 : quantity}</span>
                         <button onClick={() => handleQuantityChange(quantity + 1)} className="p-3 bg-primary rounded-2xl text-white active:scale-75 transition-all"><Plus className="h-5 w-5"/></button>
                     </div>
                 </div>
@@ -321,12 +321,12 @@ export default function ProductDetailPage() {
           </div>
       </div>
 
-      <div className="p-6 bg-white/80 backdrop-blur-xl border-t shrink-0 rounded-t-[2.5rem] shadow-t-xl">
+      <div className="p-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-t dark:border-slate-800 shrink-0 rounded-t-[2.5rem] shadow-t-xl">
           <Button 
                 size="lg" 
                 className={cn(
                     "w-full h-16 text-xl font-black rounded-3xl shadow-2xl transition-all",
-                    (!selectedSize && hasSizes) ? "bg-slate-200 text-slate-400" : "bg-primary shadow-primary/20"
+                    (!selectedSize && hasSizes) ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600" : "bg-primary shadow-primary/20"
                 )}
                 onClick={handleAddToCart} 
                 disabled={isOutOfStock || (restaurant && !restaurant.isStoreOpen)}

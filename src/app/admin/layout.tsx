@@ -135,11 +135,11 @@ function AdminLayoutContent() {
          <AdminNav onTabChange={setActiveTab} activeTab={activeTab} isBranch={branchParam !== 'main'} />
       </aside>
       <div className="flex flex-1 flex-col relative overflow-hidden">
-         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-4 border-b bg-background px-4 sm:h-16 sm:px-6">
+         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-4 border-b bg-background dark:bg-slate-900 px-4 sm:h-16 sm:px-6">
           <Sheet>
             <SheetTrigger asChild><Button size="icon" variant="outline" className="sm:hidden"><PanelLeft className="h-5 w-5" /></Button></SheetTrigger>
-            <SheetContent side="right" className="sm:max-w-xs p-0 overflow-hidden flex flex-col">
-               <SheetHeader className="p-4 border-b text-right shrink-0"><SheetTitle>لوحة التحكم - {currentBranch.name}</SheetTitle></SheetHeader>
+            <SheetContent side="right" className="sm:max-w-xs p-0 overflow-hidden flex flex-col bg-background">
+               <SheetHeader className="p-4 border-b text-right shrink-0"><SheetTitle className="dark:text-white">لوحة التحكم - {currentBranch.name}</SheetTitle></SheetHeader>
                <div className="flex-1 overflow-hidden"><AdminNav isSheet={true} onTabChange={setActiveTab} activeTab={activeTab} isBranch={branchParam !== 'main'} /></div>
             </SheetContent>
           </Sheet>
@@ -181,12 +181,12 @@ function AdminLayoutContent() {
                 {activeTab === 9 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminDeliveryWorkersPage branchId={branchParam} /></ScrollArea>}
             </div>
             <div className="spa-page-view flex-shrink-0">
-                {activeTab === 10 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminReportsPage /></ScrollArea>}
+                {activeTab === 10 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminReportsPage branchId={branchParam} /></ScrollArea>}
             </div>
             <div className="spa-page-view flex-shrink-0">
                 {activeTab === 11 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSupportTicketsPage branchId={branchParam} /></ScrollArea>}
             </div>
-            <div className="spa-page-view flex-shrink-0"><div className="p-20 text-center font-black">تم إلغاء نظام الإشعارات</div></div>
+            <div className="spa-page-view flex-shrink-0"><div className="p-20 text-center font-black dark:text-white">تم إلغاء نظام الإشعارات</div></div>
             <div className="spa-page-view flex-shrink-0">
                 {activeTab === 13 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSettingsPage /></ScrollArea>}
             </div>

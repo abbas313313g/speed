@@ -127,7 +127,7 @@ export default function CartPage() {
         <div className="p-10 bg-primary/5 rounded-full mb-6">
             <ShoppingBag className="h-24 w-24 text-primary/40" />
         </div>
-        <h2 className="text-3xl font-black text-slate-800">سلّتك تنتظرك!</h2>
+        <h2 className="text-3xl font-black text-slate-800 dark:text-white">سلّتك تنتظرك!</h2>
         <p className="text-muted-foreground font-bold mt-2 px-10">
           ابدأ بإضافة وجباتك المفضلة وسنقوم بتوصيلها لك في أسرع وقت.
         </p>
@@ -143,7 +143,7 @@ export default function CartPage() {
       <header className="flex flex-col gap-1">
         <h1 className="text-3xl font-black text-primary">سلة التسوق</h1>
         {cartRestaurant && (
-            <div className="flex items-center gap-2 text-slate-600">
+            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                 <Store className="h-4 w-4" />
                 <span className="font-bold">الطلب من: {cartRestaurant.name}</span>
             </div>
@@ -155,7 +155,7 @@ export default function CartPage() {
           const itemPrice = selectedSize?.price || product.discountPrice || product.price || 0;
           const imageUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/80x80.png';
           return (
-            <div key={product.id + (selectedSize?.name || '')} className="flex items-center gap-4 bg-white p-3 rounded-2xl border shadow-sm transition-all hover:shadow-md">
+            <div key={product.id + (selectedSize?.name || '')} className="flex items-center gap-4 bg-white dark:bg-slate-900 p-3 rounded-2xl border shadow-sm transition-all hover:shadow-md">
               <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border bg-muted/20">
                 <Image
                   src={imageUrl}
@@ -166,20 +166,20 @@ export default function CartPage() {
                 />
               </div>
               <div className="flex-grow min-w-0 py-1">
-                <h3 className="font-black text-sm text-slate-800 line-clamp-1">{product.name}</h3>
+                <h3 className="font-black text-sm text-slate-800 dark:text-white line-clamp-1">{product.name}</h3>
                 {selectedSize && <Badge variant="secondary" className="text-[9px] font-black h-5 px-2 mt-1">{selectedSize.name}</Badge>}
                 <p className="text-primary font-black text-lg mt-1 tracking-tighter">
                   {formatCurrency(itemPrice)}
                 </p>
                 <div className="flex items-center gap-3 mt-2">
-                  <div className="flex items-center gap-4 bg-slate-100 p-1 rounded-xl">
+                  <div className="flex items-center gap-4 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
                     <button
-                        className="h-8 w-8 rounded-lg bg-white flex items-center justify-center shadow-sm active:scale-75 transition-all text-slate-600"
+                        className="h-8 w-8 rounded-lg bg-white dark:bg-slate-700 flex items-center justify-center shadow-sm active:scale-75 transition-all text-slate-600 dark:text-slate-200"
                         onClick={() => updateCartQuantity(product.id, quantity - 1, selectedSize?.name)}
                     >
                         <Minus className="h-4 w-4" />
                     </button>
-                    <span className="font-black text-lg w-4 text-center text-slate-800">{quantity}</span>
+                    <span className="font-black text-lg w-4 text-center text-slate-800 dark:text-white">{quantity}</span>
                     <button
                         className="h-8 w-8 rounded-lg bg-primary text-white flex items-center justify-center shadow-sm active:scale-75 transition-all"
                         onClick={() => updateCartQuantity(product.id, quantity + 1, selectedSize?.name)}
@@ -203,10 +203,10 @@ export default function CartPage() {
       </div>
       
        <div className="space-y-4">
-          <h2 className="text-lg font-black flex items-center gap-2 px-1 text-slate-800"><MapPin className="h-5 w-5 text-primary"/> اختر عنوان التوصيل</h2>
+          <h2 className="text-lg font-black flex items-center gap-2 px-1 text-slate-800 dark:text-white"><MapPin className="h-5 w-5 text-primary"/> اختر عنوان التوصيل</h2>
           {addresses.length > 0 ? (
              <Select value={selectedAddressId} onValueChange={setSelectedAddressId}>
-                <SelectTrigger className="w-full h-14 rounded-2xl border-2 font-bold bg-white shadow-sm ring-offset-background">
+                <SelectTrigger className="w-full h-14 rounded-2xl border-2 font-bold bg-white dark:bg-slate-900 shadow-sm ring-offset-background">
                     <SelectValue placeholder="اختر من عناوينك المحفوظة..." />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl shadow-2xl border-none">
@@ -216,7 +216,7 @@ export default function CartPage() {
                                 <div className="p-2 bg-primary/10 rounded-lg">
                                     <Home className="h-4 w-4 text-primary"/>
                                 </div>
-                                <span>{address.name}</span>
+                                <span className="dark:text-white">{address.name}</span>
                             </div>
                         </SelectItem>
                     ))}
@@ -232,28 +232,28 @@ export default function CartPage() {
           )}
        </div>
 
-      <div className="space-y-6 bg-white p-6 rounded-[2.5rem] shadow-2xl border border-slate-100 relative overflow-hidden">
+      <div className="space-y-6 bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl" />
-        <h2 className="text-xl font-black flex items-center gap-2 text-slate-800 relative z-10"><ReceiptText className="h-6 w-6 text-primary"/> ملخص الحساب</h2>
+        <h2 className="text-xl font-black flex items-center gap-2 text-slate-800 dark:text-white relative z-10"><ReceiptText className="h-6 w-6 text-primary"/> ملخص الحساب</h2>
         
         <div className="space-y-4 font-bold text-sm relative z-10">
-            <div className="flex justify-between items-center text-slate-500">
+            <div className="flex justify-between items-center text-slate-500 dark:text-slate-400">
                 <span className="font-bold">مجموع المنتجات:</span>
-                <span className="text-slate-800 font-black">{formatCurrency(cartTotal)}</span>
+                <span className="text-slate-800 dark:text-white font-black">{formatCurrency(cartTotal)}</span>
             </div>
-            <div className="flex justify-between items-center text-slate-500">
+            <div className="flex justify-between items-center text-slate-500 dark:text-slate-400">
                 <div className="flex flex-col text-right">
                     <span className="font-bold">أجور التوصيل:</span>
                     {displayDistance && <span className="text-[10px] flex items-center gap-1 justify-end font-black text-primary"><MapPin className="h-3 w-3"/>يبعد عنك {displayDistance}</span>}
                 </div>
-                <span className={cn("text-slate-800 font-black", isDistanceTooFar && "text-destructive")}>{formatCurrency(deliveryFee)}</span>
+                <span className={cn("text-slate-800 dark:text-white font-black", isDistanceTooFar && "text-destructive")}>{formatCurrency(deliveryFee)}</span>
             </div>
             
             <Separator className="my-2 border-dashed" />
             
             <div className="flex justify-between items-end pt-2">
                 <div className="flex flex-col">
-                    <span className="text-lg font-black text-slate-800">المجموع الكلي:</span>
+                    <span className="text-lg font-black text-slate-800 dark:text-white">المجموع الكلي:</span>
                     <p className="text-[10px] text-muted-foreground font-bold italic">شامل الضريبة والتوصيل</p>
                 </div>
                 <div className="text-right">
@@ -263,14 +263,14 @@ export default function CartPage() {
         </div>
 
         <div className="pt-2 relative z-10">
-             <Label className="text-[10px] font-black pr-1 mb-1.5 block text-slate-500 uppercase tracking-widest">هل لديك كود خصم؟</Label>
+             <Label className="text-[10px] font-black pr-1 mb-1.5 block text-slate-500 dark:text-slate-400 uppercase tracking-widest">هل لديك كود خصم؟</Label>
              <div className="relative">
                 <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
                     placeholder="اكتب الكود هنا..." 
                     value={couponCode} 
                     onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                    className="h-14 rounded-2xl text-center font-black bg-slate-50 border-2 border-slate-100 shadow-inner pl-10"
+                    className="h-14 rounded-2xl text-center font-black bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 shadow-inner pl-10"
                 />
              </div>
         </div>
@@ -303,7 +303,7 @@ export default function CartPage() {
           </AlertDialogTrigger>
           <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl">
             <AlertDialogHeader className="text-right">
-              <AlertDialogTitle className="text-2xl font-black text-slate-800">هل أنت متأكد فعلاً؟</AlertDialogTitle>
+              <AlertDialogTitle className="text-2xl font-black text-slate-800 dark:text-white">هل أنت متأكد فعلاً؟</AlertDialogTitle>
               <AlertDialogDescription className="font-bold text-slate-500">
                 سيتم حذف كافة المنتجات التي قمت باختيارها وستعود السلة فارغة تماماً.
               </AlertDialogDescription>
