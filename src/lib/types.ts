@@ -18,6 +18,7 @@ export interface Address {
     longitude?: number;
     details?: string; 
     branchId?: string; 
+    userId: string;
 }
 
 export interface ProductSize {
@@ -65,15 +66,13 @@ export interface Restaurant {
   openTime?: string; 
   closeTime?: string; 
   isStoreOpen?: boolean; 
-  isManualClosed?: boolean; // إغلاق يدوي من الأدمن
+  isManualClosed?: boolean; 
   loginCode: string;
   commissionRate: number;
   branchId: string;
   categoryId: string; 
   menuSections?: string[]; 
   isFeatured?: boolean;
-  discountPercentage?: number; // نسبة الخصم المئوية للمتجر
-  isDiscountActive?: boolean; // هل الخصم مفعل حالياً
 }
 
 export interface Branch {
@@ -118,7 +117,7 @@ export type OrderStatus = 'unassigned' | 'pending_assignment' | 'preparing' | 'c
 
 export interface Order {
     id: string;
-    orderNumber?: number; // الرقم التسلسلي البسيط
+    orderNumber?: number; 
     userId: string;
     items: CartItem[];
     total: number;
@@ -143,8 +142,6 @@ export interface Order {
         latitude?: number | null;
         longitude?: number | null;
         commissionRate?: number;
-        discountPercentage?: number;
-        isDiscountActive?: boolean;
     } | null;
 }
 
@@ -187,6 +184,7 @@ export interface Coupon {
     usedBy: string[]; 
     restaurantId?: string;
     isFirstOrderOnly?: boolean;
+    discountTarget: 'total' | 'delivery';
 }
 
 export interface AppSettings {

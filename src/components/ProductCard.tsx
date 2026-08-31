@@ -3,7 +3,7 @@
 
 import React, { useMemo, useContext } from "react";
 import Image from "next/image";
-import { PlusCircle, ListChecks, Store, Tag } from "lucide-react";
+import { PlusCircle, ListChecks, Store } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -64,11 +64,8 @@ function ProductCardComponent({ product }: ProductCardProps) {
   };
 
   const priceDisplay = useMemo(() => {
-    const isStoreDiscountActive = restaurant?.isDiscountActive && (restaurant?.discountPercentage || 0) > 0;
-    const discountMultiplier = isStoreDiscountActive ? (1 - (restaurant!.discountPercentage! / 100)) : 1;
-
     if (hasSizes) {
-      const prices = activeSizes.map(s => s.price * discountMultiplier).filter(p => p > 0);
+      const prices = activeSizes.map(s => s.price).filter(p => p > 0);
       if (prices.length > 0) {
         const min = Math.min(...prices);
         const max = Math.max(...prices);
@@ -76,14 +73,11 @@ function ProductCardComponent({ product }: ProductCardProps) {
         return `تبدأ من ${formatCurrency(min)}`;
       }
     }
-    
     const basePrice = product.discountPrice || product.price || 0;
-    const finalPrice = basePrice * discountMultiplier;
-    return formatCurrency(finalPrice);
-  }, [product, hasSizes, activeSizes, restaurant]);
+    return formatCurrency(basePrice);
+  }, [product, hasSizes, activeSizes]);
 
-  const isStoreDiscountActive = restaurant?.isDiscountActive && (restaurant?.discountPercentage || 0) > 0;
-  const hasDiscount = (!!product.discountPrice && !hasSizes) || isStoreDiscountActive;
+  const hasIndividualDiscount = !!product.discountPrice && !hasSizes;
 
   return (
     <div 
@@ -110,12 +104,6 @@ function ProductCardComponent({ product }: ProductCardProps) {
             ) : <div className="w-full h-full animate-pulse bg-muted/20" />}
             {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 z-10 text-[10px] font-black">نفد</Badge>}
             {hasSizes && <Badge className="absolute top-2 right-2 bg-primary/80 backdrop-blur-md text-[9px] font-black z-10">خيارات</Badge>}
-            {hasDiscount && (
-                <div className="absolute top-2 right-2 bg-red-600 text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-lg z-10 flex items-center gap-1">
-                    <Tag className="h-2 w-2" />
-                    خصم {isStoreDiscountActive ? `${restaurant.discountPercentage}%` : '%'}
-                </div>
-            )}
           </div>
           <div className="p-3 text-right flex-1 flex flex-col justify-between bg-white">
             <div>
@@ -129,7 +117,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
             </div>
             <div className="mt-2 flex items-center justify-between">
               <div className="flex flex-col text-right">
-                  {!hasSizes && hasDiscount && <p className="text-[9px] text-muted-foreground line-through decoration-destructive/50 font-bold">{formatCurrency(product.price)}</p>}
+                  {hasIndividualDiscount && <p className="text-[9px] text-muted-foreground line-through decoration-destructive/50 font-bold">{formatCurrency(product.price)}</p>}
                   <p className={cn("font-black text-primary leading-none", hasSizes ? "text-[10px]" : "text-sm")}>{priceDisplay}</p>
               </div>
               <Button size="icon" variant="ghost" className={cn("h-9 w-9 rounded-xl shadow-sm active:scale-75", hasSizes ? "bg-secondary text-primary" : "bg-primary text-white")} onClick={handleAddToCart} disabled={isOutOfStock || (restaurant && !restaurant.isStoreOpen)}>

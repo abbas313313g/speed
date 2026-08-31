@@ -25,10 +25,6 @@ function isStoreActuallyOpen(r: Restaurant): boolean {
     return currentTime >= openTime && currentTime < closeTime;
 }
 
-/**
- * Hook لإدارة المنتجات بذكاء وسرعة.
- * يدعم التحميل الصارم لكل متجر والبحث السحابي الحي والترتيب الذكي.
- */
 export const useProducts = (
     branchId?: string, 
     restaurantId?: string, 
@@ -43,7 +39,6 @@ export const useProducts = (
     const [hasMore, setHasMore] = useState(true);
     const { toast } = useToast();
 
-    // جلب معلومات المتاجر للترتيب بناءً على حالة الفتح
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'restaurants'), (snap) => {
             setRestaurants(snap.docs.map(d => ({id: d.id, ...d.data()})) as Restaurant[]);
@@ -52,7 +47,6 @@ export const useProducts = (
     }, []);
 
     const products = useMemo(() => {
-        // ترتيب المنتجات: المتوفر والمتجر المفتوح أولاً، النافذ والمغلق آخراً
         return [...rawProducts].sort((a, b) => {
             const restA = restaurants.find(r => r.id === a.restaurantId);
             const restB = restaurants.find(r => r.id === b.restaurantId);
@@ -63,7 +57,6 @@ export const useProducts = (
             const isAOut = (a.stock ?? 0) <= 0 && !a.isUnlimitedStock;
             const isBOut = (b.stock ?? 0) <= 0 && !b.isUnlimitedStock;
 
-            // Score: 0=Open&InStock, 1=Open&OutStock, 2=Closed&InStock, 3=Closed&OutStock
             const scoreA = (!isAOpen ? 2 : 0) + (isAOut ? 1 : 0);
             const scoreB = (!isBOpen ? 2 : 0) + (isBOut ? 1 : 0);
 
@@ -73,7 +66,6 @@ export const useProducts = (
 
     useEffect(() => {
         setIsLoading(true);
-        // تصفير فوري لمنع Stale Data
         setProducts([]);
         
         let unsub = () => {};
@@ -92,9 +84,7 @@ export const useProducts = (
             }
 
             const ref = collection(db, 'products');
-            let q;
 
-            // إذا كان هناك بحث، نقوم بجلب حي من السيرفر
             if (searchTerm.trim() !== '') {
                 const searchLimit = isAdmin ? 500 : 200;
                 const qSearch = isAdmin 
@@ -113,7 +103,7 @@ export const useProducts = (
                 return;
             }
 
-            // إذا كان المطلوب متجر معين
+            let q;
             if (restaurantId && restaurantId !== 'none') {
                 const storeLimit = isAdmin ? 1000 : 500;
                 q = isAdmin 

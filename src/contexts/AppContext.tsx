@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, doc, arrayUnion, updateDoc, getDocs, query, where, onSnapshot, addDoc, limit, orderBy } from 'firebase/firestore';
+import { collection, doc, arrayUnion, updateDoc, getDocs, query, where, onSnapshot, addDoc, limit, orderBy, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
@@ -156,21 +156,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     
     const cartTotal = useMemo(() => {
         return cart.reduce((total, item) => {
-            const rest = restaurants.find(r => r.id === item.product.restaurantId);
-            const isStoreDiscountActive = rest?.isDiscountActive && (rest?.discountPercentage || 0) > 0;
-            const discountMultiplier = isStoreDiscountActive ? (1 - (rest!.discountPercentage! / 100)) : 1;
-
             const basePrice = item.selectedSize?.price || item.product.discountPrice || item.product.price || 0;
-            const discountedPrice = basePrice * discountMultiplier;
-            
-            return total + (discountedPrice * item.quantity);
+            return total + (basePrice * item.quantity);
         }, 0);
-    }, [cart, restaurants]);
+    }, [cart]);
 
-    const placeOrder = useCallback(async (addr: Address, dFee: number, coup?: string): Promise<string | null> => {
+    const placeOrder = useCallback(async (addr: Address, dFee: number, coupCode?: string): Promise<string | null> => {
         if (!userId || cart.length === 0) return null;
         try {
-            // جلب الرقم التسلسلي القادم
             const qLast = query(collection(db, "orders"), orderBy("date", "desc"), limit(1));
             const lastSnap = await getDocs(qLast);
             let nextNumber = 1;
@@ -179,39 +172,54 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 nextNumber = (lastOrder.orderNumber || 0) + 1;
             }
 
-            let disc = 0;
-            if (coup?.trim()) {
-                const found = coupons.find(c => c.code === coup.trim().toUpperCase());
-                if (found) disc = found.discountValue;
+            let finalDeliveryFee = dFee;
+            let finalCartTotal = cartTotal;
+            let appliedDiscount = 0;
+            let couponToUpdateId = null;
+
+            if (coupCode?.trim()) {
+                const coupon = coupons.find(c => c.code === coupCode.trim().toUpperCase());
+                if (coupon) {
+                    // فحص عدد الاستخدام
+                    if (coupon.usedCount >= coupon.maxUses) {
+                        toast({ title: "هذا الكود انتهى استخدامه", variant: "destructive" });
+                        return null;
+                    }
+
+                    // فحص "الطلب الأول فقط"
+                    if (coupon.isFirstOrderOnly) {
+                        const qOrders = query(collection(db, "orders"), where("userId", "==", userId), limit(1));
+                        const orderSnap = await getDocs(qOrders);
+                        if (!orderSnap.empty) {
+                            toast({ title: "عذراً، هذا الكود للزبائن الجدد فقط", variant: "destructive" });
+                            return null;
+                        }
+                    }
+
+                    // تطبيق الخصم حسب الهدف
+                    if (coupon.discountTarget === 'delivery') {
+                        appliedDiscount = Math.min(finalDeliveryFee, coupon.discountValue);
+                        finalDeliveryFee -= appliedDiscount;
+                        toast({ title: `تم خصم ${formatCurrency(appliedDiscount)} من التوصيل ✅` });
+                    } else {
+                        appliedDiscount = Math.min(finalCartTotal, coupon.discountValue);
+                        finalCartTotal -= appliedDiscount;
+                        toast({ title: `تم خصم ${formatCurrency(appliedDiscount)} من طلبك ✅` });
+                    }
+                    couponToUpdateId = coupon.id;
+                } else {
+                    toast({ title: "كود الخصم غير صحيح", variant: "destructive" });
+                    return null;
+                }
             }
             
             const rest = restaurants.find(r => r.id === cart[0].product.restaurantId);
-            const isStoreDiscountActive = rest?.isDiscountActive && (rest?.discountPercentage || 0) > 0;
-            const discountMultiplier = isStoreDiscountActive ? (1 - (rest!.discountPercentage! / 100)) : 1;
 
-            const sanitizedItems = cart.map(item => {
-                const basePrice = item.selectedSize?.price || item.product.discountPrice || item.product.price || 0;
-                const finalItemPrice = basePrice * discountMultiplier;
-
-                return {
-                    quantity: item.quantity,
-                    selectedSize: item.selectedSize ? { name: item.selectedSize.name, price: item.selectedSize.price * discountMultiplier } : null,
-                    product: {
-                        id: item.product.id,
-                        name: item.product.name,
-                        price: item.product.price,
-                        discountPrice: (item.product.discountPrice || item.product.price) * discountMultiplier,
-                        image: item.product.image,
-                        restaurantId: item.product.restaurantId
-                    }
-                };
-            });
-            
             const orderData = {
                 orderNumber: nextNumber, 
                 userId, 
-                items: sanitizedItems, 
-                total: Math.max(0, cartTotal - disc) + dFee,
+                items: cart, 
+                total: finalCartTotal + finalDeliveryFee,
                 date: new Date().toISOString(), 
                 status: 'unassigned' as const, 
                 address: {
@@ -222,24 +230,31 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     latitude: addr.latitude || 0,
                     longitude: addr.longitude || 0
                 }, 
-                deliveryFee: dFee,
+                deliveryFee: finalDeliveryFee,
                 restaurant: rest ? { 
                     id: rest.id, 
                     name: rest.name, 
                     latitude: rest.latitude || 0, 
                     longitude: rest.longitude || 0, 
-                    commissionRate: rest.commissionRate || 10,
-                    discountPercentage: rest.discountPercentage || 0,
-                    isDiscountActive: rest.isDiscountActive || false
+                    commissionRate: rest.commissionRate || 10
                 } : null,
                 branchId: rest?.branchId || 'main',
                 isPaid: false, 
                 isFeePaid: false, 
                 isOrderPaidToOffice: false,
-                appliedCoupon: coup ? { code: coup, discountAmount: disc } : null
+                appliedCoupon: couponToUpdateId ? { code: coupCode?.toUpperCase() || '', discountAmount: appliedDiscount } : null
             };
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
+            
+            // تحديث عداد استخدام الكود
+            if (couponToUpdateId) {
+                await updateDoc(doc(db, "coupons", couponToUpdateId), {
+                    usedCount: increment(1),
+                    usedBy: arrayUnion(userId)
+                });
+            }
+
             clearCart();
             return docRef.id;
         } catch (e) {
@@ -262,3 +277,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     return <AppContext.Provider value={value as any}>{children}</AppContext.Provider>;
 };
+
+function formatCurrency(amount: number) {
+    return new Intl.NumberFormat('ar-IQ', { style: 'currency', currency: 'IQD', maximumFractionDigits: 0 }).format(amount).replace('د.ع.‏', 'د.ع');
+}

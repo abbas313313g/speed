@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trash2, Loader2, Store, UserPlus } from 'lucide-react';
+import { Trash2, Loader2, Store, UserPlus, Bike, Wallet } from 'lucide-react';
 import type { Coupon } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -40,6 +40,7 @@ import { useCoupons } from '@/hooks/useCoupons';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const EMPTY_COUPON: Omit<Coupon, 'id' | 'usedCount' | 'usedBy'> = {
     code: '',
@@ -47,7 +48,8 @@ const EMPTY_COUPON: Omit<Coupon, 'id' | 'usedCount' | 'usedBy'> = {
     discountValue: 0,
     maxUses: 100,
     restaurantId: '',
-    isFirstOrderOnly: false
+    isFirstOrderOnly: false,
+    discountTarget: 'total'
 };
 
 export default function AdminCouponsPage() {
@@ -75,11 +77,11 @@ export default function AdminCouponsPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 text-right">
       <header className="flex justify-between items-center">
         <div>
             <h1 className="text-3xl font-black text-primary">إدارة أكواد الخصم</h1>
-            <p className="text-muted-foreground font-bold">إنشاء أكواد مخصصة لمتاجر معينة أو للطلب الأول.</p>
+            <p className="text-muted-foreground font-bold">تحكم كامل بخصومات الوجبات وأجور التوصيل.</p>
         </div>
         <Button onClick={() => setOpen(true)} className="rounded-xl h-12 px-6">إنشاء كود جديد</Button>
       </header>
@@ -88,11 +90,12 @@ export default function AdminCouponsPage() {
         <Table>
             <TableHeader className="bg-muted/50">
             <TableRow>
-                <TableHead className="font-black">الكود</TableHead>
-                <TableHead className="font-black">الخصم</TableHead>
-                <TableHead className="font-black">التخصيص</TableHead>
-                <TableHead className="font-black">الاستخدام</TableHead>
-                <TableHead className="font-black">إجراءات</TableHead>
+                <TableHead className="font-black text-right">الكود</TableHead>
+                <TableHead className="font-black text-right">الخصم</TableHead>
+                <TableHead className="font-black text-right">الهدف</TableHead>
+                <TableHead className="font-black text-right">التخصيص</TableHead>
+                <TableHead className="font-black text-right">الاستخدام</TableHead>
+                <TableHead className="font-black text-center">إجراءات</TableHead>
             </TableRow>
             </TableHeader>
             <TableBody>
@@ -100,24 +103,37 @@ export default function AdminCouponsPage() {
                 <TableRow key={coupon.id}>
                 <TableCell><Badge variant="outline" className="font-black text-lg px-4 py-1">{coupon.code}</Badge></TableCell>
                 <TableCell className="font-black text-primary">{formatCurrency(coupon.discountValue)}</TableCell>
+                <TableCell>
+                    {coupon.discountTarget === 'delivery' ? (
+                        <Badge className="bg-blue-100 text-blue-700 border-none gap-1 font-black">
+                            <Bike className="h-3 w-3"/> توصيل
+                        </Badge>
+                    ) : (
+                        <Badge className="bg-green-100 text-green-700 border-none gap-1 font-black">
+                            <Wallet className="h-3 w-3"/> الإجمالي
+                        </Badge>
+                    )}
+                </TableCell>
                 <TableCell className="space-y-1">
                     {coupon.restaurantId ? (
-                        <div className="flex items-center gap-1 text-xs font-bold text-orange-600"><Store className="h-3 w-3"/>{restaurants.find(r=>r.id === coupon.restaurantId)?.name}</div>
+                        <div className="flex items-center gap-1 text-xs font-bold text-orange-600 justify-end"><Store className="h-3 w-3"/>{restaurants.find(r=>r.id === coupon.restaurantId)?.name}</div>
                     ) : <Badge variant="secondary" className="text-[10px]">عام</Badge>}
-                    {coupon.isFirstOrderOnly && <div className="flex items-center gap-1 text-[10px] font-black text-blue-600"><UserPlus className="h-3 w-3"/>الطلب الأول</div>}
+                    {coupon.isFirstOrderOnly && <div className="flex items-center gap-1 text-[10px] font-black text-blue-600 justify-end"><UserPlus className="h-3 w-3"/>الطلب الأول فقط</div>}
                 </TableCell>
                 <TableCell className="font-bold">{coupon.usedCount} / {coupon.maxUses}</TableCell>
                 <TableCell>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                        <AlertDialogContent className="rounded-[2rem]">
-                            <AlertDialogHeader><AlertDialogTitle>حذف الكود؟</AlertDialogTitle></AlertDialogHeader>
-                            <AlertDialogFooter className="flex-row gap-2">
-                                <AlertDialogCancel className="flex-1 rounded-xl">إلغاء</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteCoupon(coupon.id)} className="flex-1 bg-destructive hover:bg-destructive/90 rounded-xl">حذف</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                    <div className="flex justify-center">
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                            <AlertDialogContent className="rounded-[2rem]">
+                                <AlertDialogHeader><AlertDialogTitle className="text-right font-black">حذف الكود؟</AlertDialogTitle></AlertDialogHeader>
+                                <AlertDialogFooter className="flex-row gap-2">
+                                    <AlertDialogCancel className="flex-1 rounded-xl">إلغاء</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteCoupon(coupon.id)} className="flex-1 bg-destructive hover:bg-destructive/90 rounded-xl">حذف</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
                 </TableCell>
                 </TableRow>
             ))}
@@ -128,13 +144,32 @@ export default function AdminCouponsPage() {
       <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent className="sm:max-w-md rounded-[2.5rem]">
                 <DialogHeader>
-                    <DialogTitle className="text-2xl font-black">إنشاء كود خصم مطور</DialogTitle>
+                    <DialogTitle className="text-2xl font-black text-right">إنشاء كود خصم مطور</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-4 text-right">
                     <div className="space-y-1">
                         <Label className="font-bold">كود الخصم (نص)</Label>
                         <Input value={currentCoupon.code} onChange={(e) => setCurrentCoupon({...currentCoupon, code: e.target.value.toUpperCase()})} className="h-12 rounded-xl text-center text-xl font-black" placeholder="SPEED2024" />
                     </div>
+
+                    <div className="space-y-3">
+                        <Label className="font-bold">هدف الخصم</Label>
+                        <RadioGroup 
+                            value={currentCoupon.discountTarget} 
+                            onValueChange={(val: 'total' | 'delivery') => setCurrentCoupon({...currentCoupon, discountTarget: val})}
+                            className="flex flex-row gap-4"
+                        >
+                            <div className={cn("flex-1 flex items-center justify-center gap-2 p-3 border-2 rounded-2xl cursor-pointer transition-all", currentCoupon.discountTarget === 'total' ? "border-primary bg-primary/5" : "border-muted")} onClick={() => setCurrentCoupon({...currentCoupon, discountTarget: 'total'})}>
+                                <RadioGroupItem value="total" id="r1" />
+                                <Label htmlFor="r1" className="cursor-pointer font-black">إجمالي الوجبات</Label>
+                            </div>
+                            <div className={cn("flex-1 flex items-center justify-center gap-2 p-3 border-2 rounded-2xl cursor-pointer transition-all", currentCoupon.discountTarget === 'delivery' ? "border-blue-500 bg-blue-50" : "border-muted")} onClick={() => setCurrentCoupon({...currentCoupon, discountTarget: 'delivery'})}>
+                                <RadioGroupItem value="delivery" id="r2" />
+                                <Label htmlFor="r2" className="cursor-pointer font-black text-blue-700">سعر التوصيل فقط</Label>
+                            </div>
+                        </RadioGroup>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                             <Label className="font-bold">قيمة الخصم (IQD)</Label>
@@ -163,9 +198,9 @@ export default function AdminCouponsPage() {
                     </div>
 
                     <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border">
-                        <div className="flex flex-col">
+                        <div className="flex flex-col text-right">
                             <span className="font-bold text-sm">للطلب الأول فقط</span>
-                            <span className="text-[10px] text-muted-foreground">يعمل فقط للحسابات التي لم تطلب سابقاً</span>
+                            <span className="text-[10px] text-muted-foreground font-bold">يعمل فقط للحسابات التي تطلب لأول مرة</span>
                         </div>
                         <Switch checked={currentCoupon.isFirstOrderOnly} onCheckedChange={(val) => setCurrentCoupon({...currentCoupon, isFirstOrderOnly: val})} />
                     </div>

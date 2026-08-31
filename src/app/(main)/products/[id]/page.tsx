@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect, useContext } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
-import { Minus, Plus, ShoppingCart, ArrowRight, Tag, Store, Maximize2, X } from 'lucide-react';
+import { Minus, Plus, ShoppingCart, ArrowRight, Store, Maximize2, X } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
@@ -21,7 +21,6 @@ export default function ProductDetailPage() {
   if (!context) return null;
   const { selectedProductId, setActiveTab, activeTab, previousTab, setSelectedRestaurantId } = context;
 
-  // جلب المنتج المطلوب بشكل معزول ومباشر لضمان السرعة القصوى وعدم انتظار القوائم الأخرى
   const { products, isLoading } = useProducts(undefined, undefined, 1, selectedProductId || undefined);
   const { restaurants } = useRestaurants();
   const { addToCart, cart } = useCart();
@@ -32,7 +31,6 @@ export default function ProductDetailPage() {
   const [isZoomed, setIsZoomed] = useState(false);
   const [imgError, setImgError] = useState(false);
 
-  // حالات التكبير والتحريك (Pinch to Zoom)
   const [zoomScale, setZoomScale] = useState(1);
   const [zoomOffset, setZoomOffset] = useState({ x: 0, y: 0 });
   const [initialDistance, setInitialDistance] = useState<number | null>(null);
@@ -40,12 +38,8 @@ export default function ProductDetailPage() {
 
   const isCurrentlyVisible = activeTab === 9;
 
-  // استخراج المنتج من نتيجة الجلب المباشرة
   const product = useMemo(() => products[0] || null, [products]);
   const restaurant = useMemo(() => product ? restaurants.find(r => r.id === product.restaurantId) : null, [product, restaurants]);
-
-  const isStoreDiscountActive = restaurant?.isDiscountActive && (restaurant?.discountPercentage || 0) > 0;
-  const discountMultiplier = isStoreDiscountActive ? (1 - (restaurant!.discountPercentage! / 100)) : 1;
 
   const activeSizes = useMemo(() => {
       return product?.sizes?.filter(s => s.isActive !== false) || [];
@@ -54,17 +48,17 @@ export default function ProductDetailPage() {
   const hasSizes = activeSizes.length > 0;
 
   const priceDisplay = useMemo(() => {
-    if (selectedSize) return formatCurrency(selectedSize.price * discountMultiplier);
+    if (selectedSize) return formatCurrency(selectedSize.price);
     if (hasSizes) {
-      const prices = activeSizes.map(s => s.price * discountMultiplier);
+      const prices = activeSizes.map(s => s.price);
       const min = Math.min(...prices);
       const max = Math.max(...prices);
       if (min === max) return formatCurrency(min);
       return `${formatCurrency(min)} - ${formatCurrency(max)}`;
     }
     const basePrice = product?.discountPrice || product?.price || 0;
-    return formatCurrency(basePrice * discountMultiplier);
-  }, [selectedSize, product, hasSizes, activeSizes, discountMultiplier]);
+    return formatCurrency(basePrice);
+  }, [selectedSize, product, hasSizes, activeSizes]);
 
   const cartCount = useMemo(() => cart.reduce((acc, item) => acc + item.quantity, 0), [cart]);
 
@@ -81,13 +75,13 @@ export default function ProductDetailPage() {
 
   const availableStock = useMemo(() => {
     if (selectedSize) return selectedSize.stock;
-    if (hasSizes) return 0; // إذا لم يختر حجماً بعد وهو متاح بأحجام، نعتبر الكمية العامة لا معنى لها
+    if (hasSizes) return 0; 
     return product?.stock ?? 0;
   }, [selectedSize, product, hasSizes]);
 
   const isOutOfStock = useMemo(() => {
       if (hasSizes) {
-          if (!selectedSize) return false; // نترك الزبون يرى الأنواع أولاً
+          if (!selectedSize) return false; 
           return !selectedSize.isUnlimited && selectedSize.stock <= 0;
       }
       return !product?.isUnlimitedStock && (product?.stock ?? 0) <= 0;
@@ -160,13 +154,11 @@ export default function ProductDetailPage() {
   };
 
   const hasIndividualDiscount = !!product.discountPrice && !hasSizes;
-  const hasDiscount = hasIndividualDiscount || isStoreDiscountActive;
   
   const imageUrl = imgError 
     ? 'https://placehold.co/600x600/00b358/white?text=Speed+Shop' 
     : (product.image && (product.image.startsWith('http') || product.image.startsWith('data:')) ? product.image : 'https://placehold.co/600x600/00b358/white?text=Speed+Shop');
 
-  // محرك اللمس المتعدد للتكبير بالأصابع
   const onTouchStart = (e: React.TouchEvent) => {
       if (e.touches.length === 2) {
           const dist = Math.hypot(
@@ -252,41 +244,35 @@ export default function ProductDetailPage() {
             <div className="absolute bottom-16 right-6 p-2 bg-black/30 backdrop-blur-md rounded-full">
                 <Maximize2 className="h-5 w-5 text-white" />
             </div>
-            {hasDiscount && (
-                <div className="absolute bottom-12 right-6 bg-red-600 text-white font-black px-4 py-2 rounded-2xl shadow-2xl animate-bounce flex items-center gap-2">
-                    <Tag className="h-4 w-4" />
-                    {isStoreDiscountActive ? `خصم المتجر ${restaurant.discountPercentage}%` : 'عرض خاص!'}
-                </div>
-            )}
           </div>
 
           <div className="px-6 -mt-10 relative z-10 pb-10">
             <div className="bg-white rounded-[2.5rem] p-6 shadow-2xl space-y-6">
-                <div className="space-y-2">
-                    <div className="flex justify-between items-start">
+                <div className="space-y-2 text-right">
+                    <div className="flex justify-between items-start flex-row-reverse">
                         <div className="space-y-1">
                             <h1 className="text-2xl font-black text-slate-800 leading-tight">{product.name}</h1>
                             {restaurant && (
-                                <button onClick={handleVisitStore} className="flex items-center gap-2 text-primary group active:scale-95 transition-all mt-1">
+                                <button onClick={handleVisitStore} className="flex items-center gap-2 text-primary group active:scale-95 transition-all mt-1 justify-end">
+                                    <span className="text-xs font-black border-b border-primary/20">زيارة المتجر: {restaurant.name}</span>
                                     <div className="p-1.5 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
                                         <Store className="h-3.5 w-3.5" />
                                     </div>
-                                    <span className="text-xs font-black border-b border-primary/20">زيارة المتجر: {restaurant.name}</span>
                                 </button>
                             )}
                         </div>
                     </div>
                 </div>
 
-                <p className="text-muted-foreground text-sm font-medium leading-relaxed bg-muted/20 p-4 rounded-2xl border-r-4 border-primary whitespace-pre-wrap">
+                <p className="text-muted-foreground text-sm font-medium leading-relaxed bg-muted/20 p-4 rounded-2xl border-r-4 border-primary whitespace-pre-wrap text-right">
                     {product.description || "متاجر SPEED SHOP الاحترافية"}
                 </p>
 
                 <div className="flex items-end justify-between">
-                    <div className="space-y-1">
+                    <div className="space-y-1 text-right">
                         <span className="text-[10px] font-black text-muted-foreground uppercase">السعر الحالي</span>
-                        <div className="flex items-center gap-3">
-                             {hasDiscount && <p className="text-base font-bold text-muted-foreground line-through decoration-destructive/40">{formatCurrency(product.price)}</p>}
+                        <div className="flex items-center gap-3 justify-end">
+                             {hasIndividualDiscount && <p className="text-base font-bold text-muted-foreground line-through decoration-destructive/40">{formatCurrency(product.price)}</p>}
                              <p className={cn("font-black text-primary tracking-tighter", hasSizes && !selectedSize ? "text-xl" : "text-3xl")}>
                                 {priceDisplay}
                              </p>
@@ -316,7 +302,7 @@ export default function ProductDetailPage() {
                             )}
                         >
                             <span className="font-black text-sm">{size.name}</span>
-                            <span className="font-black text-xs opacity-80">{formatCurrency(size.price * discountMultiplier)}</span>
+                            <span className="font-black text-xs opacity-80">{formatCurrency(size.price)}</span>
                         </button>
                       ))}
                     </div>
