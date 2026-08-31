@@ -33,7 +33,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Trash2, Loader2, Store, UserPlus, Bike, Wallet } from 'lucide-react';
 import type { Coupon } from '@/lib/types';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useCoupons } from '@/hooks/useCoupons';
@@ -62,7 +62,7 @@ export default function AdminCouponsPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const isLoading = couponsLoading || storesLoading;
-  if (isLoading) return <div className="p-8 text-center animate-pulse font-bold">جارِ تحميل الأكواد...</div>;
+  if (isLoading) return <div className="p-8 text-center animate-pulse font-bold text-primary">جارِ تحميل الأكواد...</div>;
   
   const handleSave = async () => {
     if (!currentCoupon.code || currentCoupon.discountValue <= 0) {
