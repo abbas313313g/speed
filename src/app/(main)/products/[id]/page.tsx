@@ -326,7 +326,7 @@ export default function ProductDetailPage() {
                 <div className="flex items-center justify-between p-2 bg-slate-50 rounded-[2rem] border-2">
                     <p className="font-black text-sm mr-4">الكمية</p>
                     <div className="flex items-center gap-4 bg-white p-1 rounded-[1.8rem] shadow-sm">
-                        <button onClick={() => handleQuantityChange(quantity - 1)} className="p-3 bg-slate-100 rounded-2xl active:scale-75 transition-all"><Option/></button>
+                        <button onClick={() => handleQuantityChange(quantity - 1)} className="p-3 bg-slate-100 rounded-2xl active:scale-75 transition-all"><Minus className="h-5 w-5"/></button>
                         <span className="w-8 text-center font-black text-xl">{isOutOfStock ? 0 : quantity}</span>
                         <button onClick={() => handleQuantityChange(quantity + 1)} className="p-3 bg-primary rounded-2xl text-white active:scale-75 transition-all"><Plus className="h-5 w-5"/></button>
                     </div>
