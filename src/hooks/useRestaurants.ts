@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where, limit } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where, limit, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -72,7 +72,8 @@ export const useRestaurants = (branchId?: string) => {
                 commissionRate: Number(restaurantData.commissionRate) || 10,
                 latitude: Number(restaurantData.latitude) || 0,
                 longitude: Number(restaurantData.longitude) || 0,
-                isManualClosed: false
+                isManualClosed: false,
+                balanceAdjustment: 0
             };
             const docRef = await addDoc(collection(db, "restaurants"), finalData);
             toast({ title: "تمت إضافة المتجر بنجاح" });
@@ -103,5 +104,21 @@ export const useRestaurants = (branchId?: string) => {
         }
     }, [toast]);
 
-    return { restaurants, isLoading, addRestaurant, updateRestaurant, deleteRestaurant };
+    const adjustRestaurantBalance = useCallback(async (restaurantId: string, amount: number) => {
+        try {
+            await updateDoc(doc(db, "restaurants", restaurantId), {
+                balanceAdjustment: increment(-amount)
+            });
+            toast({ title: "تم خصم المبلغ من رصيد المتجر بنجاح" });
+            return true;
+        } catch (e) {
+            toast({ title: "فشل التعديل المالي", variant: "destructive" });
+            return false;
+        }
+    }, [toast]);
+
+    return { 
+        restaurants, isLoading, addRestaurant, updateRestaurant, 
+        deleteRestaurant, adjustRestaurantBalance 
+    };
 };

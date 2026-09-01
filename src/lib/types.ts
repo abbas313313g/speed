@@ -73,6 +73,7 @@ export interface Restaurant {
   categoryId: string; 
   menuSections?: string[]; 
   isFeatured?: boolean;
+  balanceAdjustment?: number; // لخصم مبالغ من الأرباح
 }
 
 export interface Branch {
@@ -113,6 +114,8 @@ export interface DeliveryWorker {
     idleCount?: number; 
     latitude?: number;
     longitude?: number;
+    balanceAdjustment?: number; // خصم من أرباحه
+    debtAdjustment?: number;    // خصم من المبالغ التي بذمته
 }
 
 export type OrderStatus = 'unassigned' | 'pending_assignment' | 'preparing' | 'confirmed' | 'ready_for_pickup' | 'on_the_way' | 'delivered' | 'cancelled';

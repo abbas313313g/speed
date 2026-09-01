@@ -20,7 +20,7 @@ export default function AddAddressPage() {
   const context = useContext(AppContext);
   const { addAddress } = useAddresses();
   
-  const [address, setAddress] = useState<Omit<Address, "id">>({
+  const [address, setAddress] = useState<Omit<Address, "id" | "userId">>({
     name: "",
     phone: "",
     deliveryZone: "عام",
@@ -65,6 +65,18 @@ export default function AddAddressPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // التحقق من رقم الهاتف العراقي
+    const phoneRegex = /^07[78]\d{8}$/;
+    if (!phoneRegex.test(address.phone)) {
+        toast({ 
+            title: "رقم هاتف غير صحيح", 
+            description: "يجب أن يبدأ الرقم بـ 077 أو 078 ويتكون من 11 رقماً.", 
+            variant: "destructive" 
+        });
+        return;
+    }
+
     if (!address.name || !address.phone) {
       toast({ title: "بيانات غير مكتملة", variant: "destructive" });
       return;
@@ -76,7 +88,7 @@ export default function AddAddressPage() {
     
     setIsSaving(true);
     try {
-        await addAddress(address);
+        await addAddress(address as any);
         router.back();
     } catch (e) {
         toast({ title: "فشل الحفظ السحابي", variant: "destructive" });
@@ -128,6 +140,7 @@ export default function AddAddressPage() {
                     />
                 </div>
             </div>
+            <p className="text-[9px] font-bold text-orange-600 px-1 italic">* نقبل فقط الأرقام التي تبدأ بـ 077 أو 078</p>
         </div>
 
         <Separator className="opacity-50" />

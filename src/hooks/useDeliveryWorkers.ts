@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, query, where, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { DeliveryWorker } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -42,7 +42,9 @@ export const useDeliveryWorkers = (branchId?: string) => {
                 password: workerData.password,
                 isOnline: false,
                 isActive: true,
-                branchId: branchId || 'main'
+                branchId: branchId || 'main',
+                balanceAdjustment: 0,
+                debtAdjustment: 0
             };
             await setDoc(workerDocRef, completeWorkerData);
             toast({ title: "تم تسجيل الكابتن بنجاح ✅" });
@@ -84,5 +86,21 @@ export const useDeliveryWorkers = (branchId?: string) => {
         }
     }, [toast]);
 
-    return { deliveryWorkers, isLoading, addDeliveryWorker, updateWorkerStatus, deleteWorker, updateWorkerDetails };
+    const adjustWorkerBalance = useCallback(async (workerId: string, amount: number, field: 'balanceAdjustment' | 'debtAdjustment') => {
+        try {
+            await updateDoc(doc(db, "deliveryWorkers", workerId), {
+                [field]: increment(-amount) // الخصم يعني طرح القيمة
+            });
+            toast({ title: "تم إجراء الخصم المالي بنجاح" });
+            return true;
+        } catch (e) {
+            toast({ title: "فشل تحديث الرصيد", variant: "destructive" });
+            return false;
+        }
+    }, [toast]);
+
+    return { 
+        deliveryWorkers, isLoading, addDeliveryWorker, updateWorkerStatus, 
+        deleteWorker, updateWorkerDetails, adjustWorkerBalance 
+    };
 };

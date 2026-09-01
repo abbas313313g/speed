@@ -43,16 +43,21 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
     if (!w) return { stats: { totalEarnings: 0, deliveredOrders: 0, unpaidEarnings: 0, moneyOwedToOffice: 0 }, worker: null, level: null, isFrozen: false, pendingRequest: null };
     
     const myD = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered');
-    const totalEarnings = myD.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
-    const unpaidEarnings = myD.filter(o => !o.isFeePaid).reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
-    const moneyOwedToOffice = myD.filter(o => !o.isOrderPaidToOffice).reduce((acc, o) => acc + (o.total || 0), 0);
+    
+    // احتساب الأرباح مع مراعاة الخصومات اليدوية من الأدمن
+    const baseEarnings = myD.filter(o => !o.isFeePaid).reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
+    const unpaidEarnings = Math.max(0, baseEarnings + (w.balanceAdjustment || 0));
+
+    // احتساب الذمة مع مراعاة الخصومات اليدوية من الأدمن
+    const baseDebt = myD.filter(o => !o.isOrderPaidToOffice).reduce((acc, o) => acc + (o.total || 0), 0);
+    const moneyOwedToOffice = Math.max(0, baseDebt + (w.debtAdjustment || 0));
     
     const isActuallyFrozen = moneyOwedToOffice >= 100000;
     const pRequest = requests.find(r => r.targetId === workerId && r.status === 'pending');
     
     const levelD = getWorkerLevel(w, myD.length, new Date());
     return { 
-        stats: { totalEarnings, deliveredOrders: myD.length, unpaidEarnings, moneyOwedToOffice }, 
+        stats: { totalEarnings: baseEarnings, deliveredOrders: myD.length, unpaidEarnings, moneyOwedToOffice }, 
         worker: w, 
         level: levelD.level, 
         isFrozen: isActuallyFrozen,

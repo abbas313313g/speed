@@ -31,9 +31,7 @@ export const useOrders = (branchId?: string) => {
                     idleCount: 0 
                 });
 
-                // فحص هوية المستخدم الحالي لضمان عدم ظهور التنبيه للزبائن أو المطاعم
                 const currentLocalWorkerId = typeof window !== 'undefined' ? localStorage.getItem('deliveryWorkerId') : null;
-                
                 if (currentLocalWorkerId === workerId) {
                     toast({ 
                         title: "تم إيقاف نشاطك تلقائياً", 
@@ -54,9 +52,7 @@ export const useOrders = (branchId?: string) => {
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         if (isAssigningRef.current) return;
         
-        // البحث عن طلبات وافق عليها المتجر وتنتظر مندوباً
         const pendingOrders = orders.filter(o => o.status === 'pending_assignment');
-        
         if (pendingOrders.length === 0) return;
 
         isAssigningRef.current = true;
@@ -69,12 +65,27 @@ export const useOrders = (branchId?: string) => {
                 limit(50)
             );
             const workersSnap = await getDocs(wQuery);
-            const onlineWorkers = workersSnap.docs.map(d => ({ id: d.id, ...d.data() })) as DeliveryWorker[];
+            let onlineWorkers = workersSnap.docs.map(d => ({ id: d.id, ...d.data() })) as DeliveryWorker[];
 
-            if (onlineWorkers.length > 0) {
+            // توزيع عادل: استبعاد المناديب الذين لديهم أكثر من 3 طلبات نشطة حالياً
+            const activeWorkersIds = orders
+                .filter(o => ['preparing', 'confirmed', 'ready_for_pickup', 'on_the_way'].includes(o.status))
+                .map(o => o.deliveryWorkerId);
+            
+            const workerLoadMap = new Map();
+            activeWorkersIds.forEach(id => {
+                if(id) workerLoadMap.set(id, (workerLoadMap.get(id) || 0) + 1);
+            });
+
+            // فلترة المناديب حسب لود العمل
+            const availableWorkers = onlineWorkers.filter(w => (workerLoadMap.get(w.id) || 0) < 3);
+            const targetWorkers = availableWorkers.length > 0 ? availableWorkers : onlineWorkers;
+
+            if (targetWorkers.length > 0) {
                 for (const order of pendingOrders) {
-                    // اختيار مندوب عشوائي من المتصلين
-                    const worker = onlineWorkers[Math.floor(Math.random() * onlineWorkers.length)];
+                    // اختيار عشوائي تماماً من القائمة المفلترة لضمان عدم التكرار على شخص واحد
+                    const shuffled = [...targetWorkers].sort(() => Math.random() - 0.5);
+                    const worker = shuffled[0];
                     
                     await updateDoc(doc(db, "orders", order.id), {
                         deliveryWorkerId: worker.id,
@@ -97,7 +108,6 @@ export const useOrders = (branchId?: string) => {
         const interval = setInterval(() => {
             const now = new Date().getTime();
             allOrders.forEach(async (order) => {
-                // سحب الطلب من المندوب إذا لم يستجب خلال 20 ثانية وإرجاعه لحالة "بانتظار تعيين"
                 if (order.status === 'confirmed' && order.deliveryWorkerId && order.confirmedAt) {
                     const confirmedTime = new Date(order.confirmedAt).getTime();
                     if (now - confirmedTime > ASSIGNMENT_TIMEOUT_MS) {
@@ -148,7 +158,6 @@ export const useOrders = (branchId?: string) => {
                 updateData.confirmedAt = null; 
             }
 
-            // في حال الرفض أو الانسحاب، يعود الطلب لحالة البحث عن مندوب جديد
             if (status === 'unassigned') {
                 updateData.deliveryWorkerId = null;
                 updateData.deliveryWorker = null;

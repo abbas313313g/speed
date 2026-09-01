@@ -32,6 +32,7 @@ import AdminAccessPage from './access-requests/page';
 import AdminBranchesPage from './branches/page';
 import HomeSettingsPage from './home-settings/page';
 import AdminWithdrawalsPage from './withdrawals/page';
+import AdminAdjustmentsPage from './adjustments/page';
 
 const ADMIN_PIN = "31344313";
 
@@ -186,7 +187,9 @@ function AdminLayoutContent() {
             <div className="spa-page-view flex-shrink-0">
                 {activeTab === 11 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSupportTicketsPage branchId={branchParam} /></ScrollArea>}
             </div>
-            <div className="spa-page-view flex-shrink-0"><div className="p-20 text-center font-black dark:text-white">تم إلغاء نظام الإشعارات</div></div>
+            <div className="spa-page-view flex-shrink-0">
+                {activeTab === 19 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminAdjustmentsPage branchId={branchParam} /></ScrollArea>}
+            </div>
             <div className="spa-page-view flex-shrink-0">
                 {activeTab === 13 && <ScrollArea className="h-full w-full px-4 py-6 sm:px-8"><AdminSettingsPage /></ScrollArea>}
             </div>

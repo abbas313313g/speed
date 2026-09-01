@@ -51,15 +51,11 @@ export default function MainAppLayout() {
     });
   }, [activeTab]);
 
-  // التحكم في السبلاش بناءً على جاهزية بيانات الواجهة الرئيسية حصراً
   useEffect(() => {
     if (isMainDataReady) {
-        // تأخير بسيط جداً لضمان سلاسة الانتقال البصري
         const timer = setTimeout(() => setShowSplash(false), 500);
         return () => clearTimeout(timer);
     }
-    
-    // مؤقت أمان في حال فشل التحميل أو تأخر الإنترنت بشكل كبير (3 ثوانٍ)
     const fallbackTimer = setTimeout(() => setShowSplash(false), 3000);
     return () => clearTimeout(fallbackTimer);
   }, [isMainDataReady]);
@@ -100,6 +96,17 @@ export default function MainAppLayout() {
   };
 
   const handleSaveAddress = async () => {
+    // التحقق من الرقم عند أول تسجيل دخول
+    const phoneRegex = /^07[78]\d{8}$/;
+    if (!phoneRegex.test(newAddr.phone)) {
+        toast({ 
+            title: "رقم هاتف غير مدعوم", 
+            description: "نحن ندعم حالياً فقط الأرقام التي تبدأ بـ 077 أو 078 (آسيا سيل أو زين).", 
+            variant: "destructive" 
+        });
+        return;
+    }
+
     if (!newAddr.name || !newAddr.phone || newAddr.lat === 0) {
         toast({ title: "يرجى إكمال البيانات وتحديد الموقع", variant: "destructive" });
         return;
@@ -201,6 +208,7 @@ export default function MainAppLayout() {
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black pr-1 uppercase text-slate-400">رقم الهاتف</label>
                                 <Input value={newAddr.phone} onChange={(e)=>setNewAddr({...newAddr, phone: e.target.value})} placeholder="07XXXXXXXX" type="tel" className="h-14 rounded-2xl bg-muted/30 border-none text-center text-xl font-black tracking-widest" dir="ltr" />
+                                <p className="text-[8px] font-bold text-primary mt-1 text-center italic">* الرقم يجب أن يبدأ بـ 077 أو 078 حصراً</p>
                             </div>
                         </div>
 
