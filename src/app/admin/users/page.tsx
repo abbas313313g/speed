@@ -29,7 +29,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Trash2, PlusCircle, Loader2, Phone, User, KeyRound, Edit, Power, PowerOff } from 'lucide-react';
+import { Trash2, PlusCircle, Loader2, Phone, User, KeyRound, Edit, Power, PowerOff, Wifi, WifiOff } from 'lucide-react';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -115,22 +115,27 @@ export default function AdminUsersPage({ branchId }: { branchId: string }) {
         <Table>
             <TableHeader className="bg-muted/50">
                 <TableRow>
-                    <TableHead className="font-black">الكابتن</TableHead>
-                    <TableHead className="font-black text-center">الحالة</TableHead>
+                    <TableHead className="font-black text-right">الكابتن</TableHead>
+                    <TableHead className="font-black text-center">الربط والنشاط</TableHead>
                     <TableHead className="font-black text-center">إجراءات التحكم</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
             {deliveryWorkers.length > 0 ? deliveryWorkers.map((worker) => (
                 <TableRow key={worker.id}>
-                    <TableCell className="font-bold">
+                    <TableCell className="font-bold text-right">
                         <div>{worker.name}</div>
                         <div className="text-[10px] font-mono text-muted-foreground" dir="ltr">{worker.id}</div>
                     </TableCell>
                     <TableCell className="text-center">
-                        <Badge variant="outline" className={cn("gap-1 font-black", (worker.isActive !== false) ? "text-green-600 border-green-200" : "text-destructive border-destructive/20")}>
-                            {(worker.isActive !== false) ? <><Power className="h-3 w-3"/> نشط</> : <><PowerOff className="h-3 w-3"/> موقوف</>}
-                        </Badge>
+                        <div className="flex flex-col items-center gap-1.5">
+                            <Badge variant="outline" className={cn("gap-1 font-black", (worker.isActive !== false) ? "text-green-600 border-green-200" : "text-destructive border-destructive/20")}>
+                                {(worker.isActive !== false) ? <><Power className="h-3 w-3"/> حساب مفعل</> : <><PowerOff className="h-3 w-3"/> حساب محظور</>}
+                            </Badge>
+                            <Badge className={cn("text-[9px] gap-1 font-black px-3", worker.isOnline ? "bg-green-600 text-white" : "bg-slate-200 text-slate-500")}>
+                                {worker.isOnline ? <><Wifi className="h-3 w-3 animate-pulse"/> متصل (أونلاين)</> : <><WifiOff className="h-3 w-3"/> غير متصل (أوفلاين)</>}
+                            </Badge>
+                        </div>
                     </TableCell>
                     <TableCell>
                         <div className="flex justify-center gap-2">
@@ -140,7 +145,7 @@ export default function AdminUsersPage({ branchId }: { branchId: string }) {
                                 className="h-9 rounded-xl font-bold"
                                 onClick={() => toggleWorkerActive(worker.id, worker.isActive !== false)}
                             >
-                                {worker.isActive !== false ? "إيقاف العمل" : "تفعيل العمل"}
+                                {worker.isActive !== false ? "حظر الكابتن" : "فك الحظر"}
                             </Button>
                             <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl" onClick={() => handleOpen(worker)}><Edit className="h-4 w-4"/></Button>
                             <AlertDialog>

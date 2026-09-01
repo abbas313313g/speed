@@ -30,14 +30,14 @@ export const useDeliveryWorkers = (branchId?: string) => {
 
     const addDeliveryWorker = useCallback(async (workerData: {id: string, name: string, password: string}) => {
         try {
-            const workerDocRef = doc(db, "deliveryWorkers", workerData.id);
+            const workerDocRef = doc(db, "deliveryWorkers", workerData.id.trim());
             const docSnap = await getDoc(workerDocRef);
             if (docSnap.exists()) {
                 toast({ title: "عذراً، هذا الرقم مسجل مسبقاً", variant: "destructive" });
                 return false;
             }
             const completeWorkerData: DeliveryWorker = {
-                id: workerData.id,
+                id: workerData.id.trim(),
                 name: workerData.name,
                 password: workerData.password,
                 isOnline: false,
@@ -57,18 +57,24 @@ export const useDeliveryWorkers = (branchId?: string) => {
     
     const updateWorkerStatus = useCallback(async (workerId: string, isOnline: boolean, location?: { latitude: number; longitude: number }) => {
         try { 
-            const payload: any = { isOnline };
+            const payload: any = { 
+                isOnline,
+                lastStatusUpdate: new Date().toISOString() 
+            };
             if (location?.latitude && location?.longitude) {
                 payload.latitude = location.latitude;
                 payload.longitude = location.longitude;
             }
-            await updateDoc(doc(db, "deliveryWorkers", workerId), payload); 
-        } catch (e) {}
+            await updateDoc(doc(db, "deliveryWorkers", workerId.trim()), payload); 
+            return true;
+        } catch (e) {
+            return false;
+        }
     }, []);
 
     const updateWorkerDetails = useCallback(async (workerId: string, details: Partial<DeliveryWorker>) => {
         try {
-            await updateDoc(doc(db, 'deliveryWorkers', workerId), details);
+            await updateDoc(doc(db, 'deliveryWorkers', workerId.trim()), details);
             toast({ title: 'تم تحديث بيانات الكابتن بنجاح' });
             return true;
         } catch (e) {
@@ -79,7 +85,7 @@ export const useDeliveryWorkers = (branchId?: string) => {
     
     const deleteWorker = useCallback(async (workerId: string) => {
         try {
-            await deleteDoc(doc(db, "deliveryWorkers", workerId));
+            await deleteDoc(doc(db, "deliveryWorkers", workerId.trim()));
             toast({ title: "تم حذف الحساب نهائياً" });
         } catch(e) {
             toast({ title: "فشل الحذف، حاول مرة أخرى", variant: "destructive"});
@@ -88,8 +94,8 @@ export const useDeliveryWorkers = (branchId?: string) => {
 
     const adjustWorkerBalance = useCallback(async (workerId: string, amount: number, field: 'balanceAdjustment' | 'debtAdjustment') => {
         try {
-            await updateDoc(doc(db, "deliveryWorkers", workerId), {
-                [field]: increment(-amount) // الخصم يعني طرح القيمة
+            await updateDoc(doc(db, "deliveryWorkers", workerId.trim()), {
+                [field]: increment(-amount) 
             });
             toast({ title: "تم إجراء الخصم المالي بنجاح" });
             return true;

@@ -127,6 +127,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     const { toast } = useToast();
     const [workerId, setWorkerId] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
     const { allOrders, isLoading: ordersLoading, updateOrderStatus } = useOrders();
     const { deliveryWorkers, isLoading: workersLoading, updateWorkerStatus } = useDeliveryWorkers();
@@ -163,13 +164,11 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         return deliveryWorkers.find(w => w.id === workerId) || null;
     }, [workerId, deliveryWorkers]);
 
-    // الطلبات التي بانتظار موافقة هذا المندوب حصراً
     const myAssignedOrders = useMemo(() => {
         if (!workerId || !allOrders) return [];
         return allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'confirmed');
     }, [workerId, allOrders]);
 
-    // الطلبات التي قبلها المندوب وجاري العمل عليها
     const myActiveOrders = useMemo(() => {
         if (!workerId || !allOrders) return [];
         return allOrders.filter(o => 
@@ -202,7 +201,6 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     const handleRejectOrder = async (orderId: string) => {
         setIsProcessing(true);
         try {
-            // إعادة الطلب لدوامة البحث عن مندوب آخر
             await updateOrderStatus(orderId, 'unassigned');
             toast({ title: "تم الرفض، سيتم توجيه الطلب لمندوب آخر" });
         } catch (e) {} finally {
@@ -216,25 +214,34 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         window.location.reload();
     };
     
-    const handleToggleOnlineStatus = () => {
-        if (workerId && worker) {
+    const handleToggleOnlineStatus = async () => {
+        if (workerId && worker && !isUpdatingStatus) {
+            setIsUpdatingStatus(true);
             const newStatus = !worker.isOnline;
-            if (newStatus && typeof navigator !== 'undefined' && navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const { latitude, longitude } = position.coords;
-                        updateWorkerStatus(workerId, true, { latitude, longitude });
-                        toast({ title: "أنت متصل وجاهز للطلبات 🟢" });
-                    },
-                    () => {
-                        updateWorkerStatus(workerId, true);
-                        toast({ title: "أنت متصل وجاهز للطلبات 🟢" });
-                    },
-                    { enableHighAccuracy: true, timeout: 10000 }
-                );
-            } else {
-                updateWorkerStatus(workerId, newStatus);
-                toast({ title: newStatus ? "أنت متصل وجاهز للطلبات 🟢" : "أنت في استراحة الآن ⚪" });
+            
+            try {
+                if (newStatus && typeof navigator !== 'undefined' && navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        async (position) => {
+                            const { latitude, longitude } = position.coords;
+                            await updateWorkerStatus(workerId, true, { latitude, longitude });
+                            toast({ title: "أنت متصل وجاهز للطلبات 🟢" });
+                            setIsUpdatingStatus(false);
+                        },
+                        async () => {
+                            await updateWorkerStatus(workerId, true);
+                            toast({ title: "أنت متصل وجاهز للطلبات 🟢" });
+                            setIsUpdatingStatus(false);
+                        },
+                        { enableHighAccuracy: true, timeout: 5000 }
+                    );
+                } else {
+                    await updateWorkerStatus(workerId, newStatus);
+                    toast({ title: newStatus ? "أنت متصل وجاهز للطلبات 🟢" : "أنت في استراحة الآن ⚪" });
+                    setIsUpdatingStatus(false);
+                }
+            } catch (e) {
+                setIsUpdatingStatus(false);
             }
         }
     };
@@ -251,12 +258,14 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                  <div className="flex items-center gap-3">
                     <Button 
                         onClick={handleToggleOnlineStatus}
+                        disabled={isUpdatingStatus}
                         className={cn(
                             "h-12 rounded-2xl px-6 font-black gap-2 transition-all active:scale-90 shadow-lg",
-                            worker?.isOnline ? "bg-green-600 hover:bg-green-700" : "bg-slate-400 hover:bg-slate-500"
+                            worker?.isOnline ? "bg-green-600 hover:bg-green-700" : "bg-slate-400 hover:bg-slate-500",
+                            isUpdatingStatus && "opacity-50"
                         )}
                     >
-                        {worker?.isOnline ? <><Power className="h-5 w-5"/> متاح</> : <><PowerOff className="h-5 w-5"/> مشغول</>}
+                        {isUpdatingStatus ? <Loader2 className="animate-spin h-5 w-5"/> : worker?.isOnline ? <><Power className="h-5 w-5"/> متاح</> : <><PowerOff className="h-5 w-5"/> مشغول</>}
                     </Button>
 
                     <Button variant="secondary" size="icon" className="rounded-2xl h-12 w-12 border-2 border-primary/20 bg-white" onClick={() => onNavigate(2)}>
@@ -278,8 +287,8 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                             <h2 className="text-3xl font-black text-slate-800">أنت في استراحة</h2>
                             <p className="text-muted-foreground font-bold mt-2 px-10 leading-relaxed">لن تصلك أي طلبات جديدة حتى تقوم بتفعيل حالة "متاح" من الأعلى.</p>
                         </div>
-                        <Button size="lg" className="w-full h-20 rounded-[2.5rem] text-2xl font-black shadow-2xl shadow-primary/30 transition-all active:scale-95" onClick={handleToggleOnlineStatus}>
-                           تفعيل الحالة الآن
+                        <Button size="lg" className="w-full h-20 rounded-[2.5rem] text-2xl font-black shadow-2xl shadow-primary/30 transition-all active:scale-95" onClick={handleToggleOnlineStatus} disabled={isUpdatingStatus}>
+                           {isUpdatingStatus ? "جاري التفعيل..." : "تفعيل الحالة الآن"}
                         </Button>
                     </div>
                 ) : (
