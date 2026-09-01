@@ -9,12 +9,6 @@ import RestaurantHistoryPage from './history/page';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
-declare global {
-  interface Window {
-    OneSignal: any;
-  }
-}
-
 function RestaurantLayoutContent() {
   const [activeTab, setActiveTabState] = useState(-1); // -1: Checking Auth, 0: Login, 1: Dashboard...
   const context = useContext(RestaurantContext);
@@ -24,36 +18,6 @@ function RestaurantLayoutContent() {
 
     if (context.restaurant) {
       if (activeTab <= 0) setActiveTabState(1);
-      
-      // تهيئة OneSignal للمطعم بشكل آمن تماماً
-      const id = context.restaurant.id;
-      if (typeof window !== 'undefined') {
-          try {
-            window.OneSignal = window.OneSignal || [];
-            if (!document.getElementById('onesignal-sdk')) {
-                const script = document.createElement('script');
-                script.id = 'onesignal-sdk';
-                script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
-                script.async = true;
-                document.head.appendChild(script);
-            }
-
-            window.OneSignal.push(() => {
-                window.OneSignal.init({
-                    appId: "48becd5d-aae6-4e25-8f8d-451b8ec5ef8a",
-                    allowLocalhostAsSecureOrigin: true,
-                    notifyButton: { enable: false }, // قمنا بإيقاف زر التنبيه المزعج
-                }).catch(() => {
-                    // فشل التهيئة، نتجاهل الخطأ تماماً
-                });
-                window.OneSignal.login(id).catch(() => {});
-            });
-          } catch (e) {
-              // أي خطأ في سكربت خارجي لا يجب أن يوقف التطبيق
-              console.warn("OneSignal failed to initialize, continuing normally.");
-          }
-      }
-
     } else {
       setActiveTabState(0);
     }

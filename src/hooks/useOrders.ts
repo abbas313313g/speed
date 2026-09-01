@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -6,7 +5,6 @@ import { collection, onSnapshot, doc, updateDoc, query, where, getDocs, limit, d
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
-import { sendOrderNotification } from '@/services/onesignal-service';
 
 const ASSIGNMENT_TIMEOUT_MS = 20000; // 20 ثانية لموافقة المندوب
 
@@ -90,7 +88,6 @@ export const useOrders = (branchId?: string) => {
                             status: 'confirmed', // إرسال عرض للمندوب
                             confirmedAt: new Date().toISOString()
                         });
-                        sendOrderNotification(worker.id);
                     }
                 }
             }

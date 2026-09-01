@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -15,7 +14,6 @@ import { useSupportTickets } from '@/hooks/useSupportTickets';
 import { useCoupons } from '@/hooks/useCoupons';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useBanners } from '@/hooks/useBanners';
-import { sendNewOrderToRestaurant } from '@/services/onesignal-service';
 
 interface AppContextType {
     isLoading: boolean;
@@ -179,7 +177,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             let couponToUpdateId = null;
 
             if (coupCode?.trim()) {
-                const coupon = coupons.find(c => c.code === coupCode.trim().toUpperCase());
+                const coupon = coupons.find(c => c.code === couponCode.trim().toUpperCase());
                 if (coupon) {
                     if (coupon.usedCount >= coupon.maxUses) {
                         toast({ title: "هذا الكود انتهى استخدامه", variant: "destructive" });
@@ -215,22 +213,29 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 orderNumber: nextNumber, 
                 userId, 
                 items: cart.map(i => ({
-                    product: { id: i.product.id, name: i.product.name, price: i.product.price, discountPrice: i.product.discountPrice || 0, image: i.product.image || '', restaurantId: i.product.restaurantId },
-                    quantity: i.quantity,
-                    selectedSize: i.selectedSize ? { name: i.selectedSize.name, price: i.selectedSize.price } : null
+                    product: { 
+                      id: i.product.id || '', 
+                      name: i.product.name || '', 
+                      price: i.product.price || 0, 
+                      discountPrice: i.product.discountPrice || 0, 
+                      image: i.product.image || '', 
+                      restaurantId: i.product.restaurantId || '' 
+                    },
+                    quantity: i.quantity || 1,
+                    selectedSize: i.selectedSize ? { name: i.selectedSize.name || '', price: i.selectedSize.price || 0 } : null
                 })), 
-                total: finalCartTotal + customerDeliveryFee,
+                total: Math.max(0, finalCartTotal + customerDeliveryFee),
                 date: new Date().toISOString(), 
                 status: 'unassigned' as OrderStatus, 
                 address: {
-                    name: addr.name,
-                    phone: addr.phone,
+                    name: addr.name || '',
+                    phone: addr.phone || '',
                     details: addr.details || '',
                     deliveryZone: addr.deliveryZone || 'عام',
                     latitude: addr.latitude || 0,
                     longitude: addr.longitude || 0
                 }, 
-                deliveryFee: dFee, 
+                deliveryFee: dFee || 0, 
                 restaurant: rest ? { 
                     id: rest.id, 
                     name: rest.name, 
@@ -254,11 +259,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 });
             }
 
-            // إرسال إشعار فوري للمطعم
-            if (rest) {
-                sendNewOrderToRestaurant(rest.id);
-            }
-
             clearCart();
             return docRef.id;
         } catch (e) {
@@ -266,7 +266,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             toast({ title: "عذراً، حدث خطأ في معالجة طلبك.", variant: "destructive" });
             return null;
         }
-    }, [userId, cart, coupons, restaurants, cartTotal, toast]);
+    }, [userId, cart, coupons, restaurants, cartTotal, toast, clearCart]);
 
     const value = {
         isLoading: bannersLoading, isMainDataReady, placeOrder, createSupportTicket: createTicketHook, addMessageToTicket: (tid: string, m: Message) => updateDoc(doc(db, "supportTickets", tid), { history: arrayUnion(m) }),

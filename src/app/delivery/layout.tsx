@@ -8,12 +8,6 @@ import DeliveryOrderDetailPage from './order/[id]/page';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
-declare global {
-  interface Window {
-    OneSignal: any;
-  }
-}
-
 export default function DeliveryLayout() {
   const [activeTab, setActiveTab] = useState(-1); // -1: Checking Auth, 0: Login, 1: Dashboard...
   const [isAuth, setIsAuth] = useState(false);
@@ -31,39 +25,6 @@ export default function DeliveryLayout() {
     } else {
         setActiveTab(0);
     }
-
-    const initOneSignal = () => {
-        try {
-            const script = document.createElement('script');
-            script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
-            script.async = true;
-            document.head.appendChild(script);
-
-            window.OneSignal = window.OneSignal || [];
-            window.OneSignal.push(() => {
-                window.OneSignal.init({
-                    appId: "48becd5d-aae6-4e25-8f8d-451b8ec5ef8a",
-                    allowLocalhostAsSecureOrigin: true,
-                    notifyButton: { enable: false },
-                    welcomeNotification: { title: "سبيد شوب", message: "تم تفعيل إشعارات المهام بنجاح! 🚀" }
-                }).catch(() => {});
-                
-                if (id) {
-                    window.OneSignal.login(id).catch(() => {});
-                }
-            });
-        } catch (e) {
-            console.warn("OneSignal safe skip: ", e);
-        }
-    };
-
-    initOneSignal();
-
-    return () => {
-        if (window.OneSignal) {
-            try { window.OneSignal.logout().catch(() => {}); } catch(e) {}
-        }
-    };
   }, []);
 
   const handleNavigateToOrder = (orderId: string) => {
@@ -86,8 +47,6 @@ export default function DeliveryLayout() {
              <DeliveryLoginPage onLogin={() => { 
                  setIsAuth(true); 
                  setActiveTab(1); 
-                 const id = localStorage.getItem('deliveryWorkerId');
-                 if (id && window.OneSignal) window.OneSignal.login(id).catch(() => {});
              }} />
           </div>
           <div className="spa-page-view">
