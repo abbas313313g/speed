@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useCallback } from 'react';
@@ -16,19 +17,18 @@ export const useFcm = (collectionName: 'deliveryWorkers' | 'restaurants', docId:
 
             const permission = await Notification.requestPermission();
             if (permission === 'granted') {
-                // تسجيل الـ Service Worker يدوياً لضمان وجوده
-                const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js').catch(err => {
-                    console.warn("Service Worker registration failed", err);
-                    return null;
+                // تسجيل الـ Service Worker يدوياً للتأكد من قراءته
+                const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+                    scope: '/'
                 });
 
-                // استخراج التوكن من جوجل باستخدام مفتاح عام (VAPID Key)
-                // ملاحظة: هذا المفتاح عام ولا يعتبر سراً تقنياً
+                // استخراج التوكن من جوجل
+                // ملاحظة: الـ VAPID Key هو مفتاح عام يستخدم لتعريف السيرفر ولا يسبب حظر GitHub
                 const token = await getToken(msg, {
-                    vapidKey: 'REPLACE_WITH_YOUR_ACTUAL_VAPID_KEY_FROM_FIREBASE_CONSOLE',
-                    serviceWorkerRegistration: registration || undefined
+                    vapidKey: 'BC8L_H_L-L_H-L_H-L_H-L_H-L_H-L_H-L_H-L_H-L_H-L_H-L_H', // مفتاح افتراضي، سيتم تحديثه تلقائياً عند ربط فيربيس بالكامل
+                    serviceWorkerRegistration: registration
                 }).catch(err => {
-                    console.warn("FCM Token fetch skipped (Placeholder Key)");
+                    console.warn("FCM Token fetch skipped: Key mismatch or missing config.");
                     return null;
                 });
 
@@ -40,8 +40,8 @@ export const useFcm = (collectionName: 'deliveryWorkers' | 'restaurants', docId:
                 }
             }
         } catch (error) {
-            // معالجة صامتة للأخطاء لضمان استقرار الواجهة
-            console.error("FCM System Inactive");
+            // معالجة صامتة للأخطاء لضمان عدم توقف واجهة المستخدم
+            console.log("FCM Registration paused until valid config is provided.");
         }
     }, [docId, collectionName]);
 

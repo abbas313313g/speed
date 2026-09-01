@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -14,6 +15,7 @@ import { useSupportTickets } from '@/hooks/useSupportTickets';
 import { useCoupons } from '@/hooks/useCoupons';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useBanners } from '@/hooks/useBanners';
+import { sendFcmNotification } from '@/services/fcm-service';
 
 interface AppContextType {
     isLoading: boolean;
@@ -257,6 +259,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     usedCount: increment(1),
                     usedBy: arrayUnion(userId)
                 });
+            }
+
+            // إرسال إشعار جوجل للمطعم فوراً
+            if (rest?.id) {
+                sendFcmNotification(rest.id, 'restaurants', 'طلب جديد وصل! 🍔', `لديك طلب جديد برقم #${nextNumber}`);
             }
 
             clearCart();

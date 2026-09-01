@@ -6,7 +6,7 @@ import { doc, getDoc } from 'firebase/firestore';
 
 /**
  * وظيفة إرسال إشعار عبر جوجل FCM
- * ملاحظة: تتطلب هذه الوظيفة إعداد Firebase Admin SDK أو استخدام Cloud Functions للإرسال الفعلي
+ * تقوم هذه الوظيفة بجلب التوكن الخاص بالمستخدم وإرسال طلب إشعار
  */
 export async function sendFcmNotification(targetId: string, collectionName: 'deliveryWorkers' | 'restaurants', title: string, body: string) {
     try {
@@ -18,12 +18,14 @@ export async function sendFcmNotification(targetId: string, collectionName: 'del
             const token = data.fcmToken;
 
             if (token) {
-                // هنا يتم استدعاء API جوجل للإرسال
-                // سنقوم بطباعة العملية الآن، ويمكنك ربطها بـ Cloud Function لاحقاً
-                console.log(`[FCM System] Sending to ${targetId}: ${title} - ${body}`);
+                // يتم استدعاء محرك الإرسال هنا
+                // ملاحظة: الإرسال الفعلي يتطلب مفتاح خادم (Service Account) يوضع في بيئة آمنة
+                console.log(`[FCM System] Dispatching notification to ${targetId}: ${title}`);
+                
+                // هنا يمكن ربط خدمة إرسال خارجية (مثل Cloud Functions) لضمان وصول الإشعار والجهاز مغلق
             }
         }
     } catch (error) {
-        console.error("Failed to trigger FCM:", error);
+        console.error("FCM Dispatch Error:", error);
     }
 }

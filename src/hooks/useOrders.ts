@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -5,6 +6,7 @@ import { collection, onSnapshot, doc, updateDoc, query, where, getDocs, limit, d
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
+import { sendFcmNotification } from '@/services/fcm-service';
 
 const ASSIGNMENT_TIMEOUT_MS = 20000; // 20 ثانية لموافقة المندوب
 
@@ -14,7 +16,6 @@ export const useOrders = (branchId?: string) => {
     const { toast } = useToast();
     const isAssigningRef = useRef(false);
 
-    // عقوبة المندوب عند تجاهل 3 طلبات
     const penalizeWorker = useCallback(async (workerId: string) => {
         try {
             const workerRef = doc(db, "deliveryWorkers", workerId);
@@ -26,7 +27,6 @@ export const useOrders = (branchId?: string) => {
             
             if (currentIdle >= 3) {
                 await updateDoc(workerRef, { isOnline: false, idleCount: 0 });
-                // التنبيه يظهر فقط للمندوب المعني إذا كان فاتح التطبيق
                 if (typeof window !== 'undefined' && localStorage.getItem('deliveryWorkerId') === workerId) {
                     toast({ 
                         title: "تم إيقاف نشاطك تلقائياً", 
@@ -42,7 +42,6 @@ export const useOrders = (branchId?: string) => {
         }
     }, [toast]);
 
-    // نظام التوزيع الآلي: يبدأ فقط بعد موافقة المتجر (حالة pending_assignment)
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         if (isAssigningRef.current) return;
         
@@ -52,7 +51,6 @@ export const useOrders = (branchId?: string) => {
         isAssigningRef.current = true;
         try {
             const workersRef = collection(db, "deliveryWorkers");
-            // جلب المناديب المتصلين والنشطين فقط
             const wQuery = query(
                 workersRef, 
                 where("isOnline", "==", true), 
@@ -64,7 +62,6 @@ export const useOrders = (branchId?: string) => {
 
             if (onlineWorkers.length > 0) {
                 for (const order of pendingOrders) {
-                    // فرز المناديب حسب ضغط العمل (توزيع عادل)
                     const activeWorkersIds = orders
                         .filter(o => ['preparing', 'confirmed', 'ready_for_pickup', 'on_the_way'].includes(o.status))
                         .map(o => o.deliveryWorkerId);
@@ -74,7 +71,6 @@ export const useOrders = (branchId?: string) => {
                         if(id) workerLoadMap.set(id, (workerLoadMap.get(id) || 0) + 1);
                     });
 
-                    // اختيار من لديهم أقل من 3 طلبات نشطة
                     const targetWorkers = onlineWorkers.filter(w => (workerLoadMap.get(w.id) || 0) < 3);
                     const finalPool = targetWorkers.length > 0 ? targetWorkers : onlineWorkers;
                     
@@ -85,9 +81,12 @@ export const useOrders = (branchId?: string) => {
                         await updateDoc(doc(db, "orders", order.id), {
                             deliveryWorkerId: worker.id,
                             deliveryWorker: { id: worker.id, name: worker.name },
-                            status: 'confirmed', // إرسال عرض للمندوب
+                            status: 'confirmed',
                             confirmedAt: new Date().toISOString()
                         });
+                        
+                        // إرسال إشعار جوجل للمندوب فوراً
+                        sendFcmNotification(worker.id, 'deliveryWorkers', 'لديك طلب جديد! 🚀', `وصلك طلب من ${order.restaurant?.name || 'متجر جديد'}`);
                     }
                 }
             }
@@ -98,7 +97,6 @@ export const useOrders = (branchId?: string) => {
         }
     }, []);
 
-    // مراقبة توقيت موافقة المندوب
     useEffect(() => {
         const interval = setInterval(() => {
             const now = new Date().getTime();
@@ -107,7 +105,6 @@ export const useOrders = (branchId?: string) => {
                     const confirmedTime = new Date(order.confirmedAt).getTime();
                     if (now - confirmedTime > ASSIGNMENT_TIMEOUT_MS) {
                         const wId = order.deliveryWorkerId;
-                        // إعادة الطلب لدوامة البحث
                         await updateDoc(doc(db, "orders", order.id), {
                             deliveryWorkerId: null,
                             deliveryWorker: null,
@@ -122,7 +119,6 @@ export const useOrders = (branchId?: string) => {
         return () => clearInterval(interval);
     }, [allOrders, penalizeWorker]);
 
-    // جلب الطلبات حسب الفرع
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
         let q = query(ordersRef, limit(150));
@@ -143,13 +139,11 @@ export const useOrders = (branchId?: string) => {
         return () => unsub();
     }, [branchId, autoAssignOrders]);
     
-    // تحديث حالة الطلب
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
             const orderRef = doc(db, "orders", orderId);
             const updateData: any = { status };
             
-            // المندوب قبل الطلب
             if (status === 'preparing' && workerId) {
                 const workerRef = doc(db, "deliveryWorkers", workerId);
                 await updateDoc(workerRef, { idleCount: 0 });
@@ -157,12 +151,11 @@ export const useOrders = (branchId?: string) => {
                 updateData.confirmedAt = null; 
             }
 
-            // إعادة تعيين الطلب (من الأدمن أو عند رفض المندوب)
             if (status === 'unassigned') {
                 updateData.deliveryWorkerId = null;
                 updateData.deliveryWorker = null;
                 updateData.confirmedAt = null;
-                updateData.status = 'pending_assignment'; // يعود فوراً للبحث عن مندوب جديد
+                updateData.status = 'pending_assignment';
             }
 
             await updateDoc(orderRef, updateData);
