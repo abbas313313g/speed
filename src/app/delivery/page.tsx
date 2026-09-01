@@ -54,7 +54,7 @@ function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order
             </CardHeader>
             <CardContent className="space-y-4 pt-2">
                 <div className="flex justify-between items-center p-4 bg-primary/5 rounded-2xl border-2 border-primary/10">
-                    <span className="font-black text-sm text-slate-600">أرباحك:</span>
+                    <span className="font-black text-sm text-slate-600">أرباحك الصافية:</span>
                     <span className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(order.deliveryFee)}</span>
                 </div>
                  <div className="grid grid-cols-2 gap-3 text-xs font-bold text-right">
@@ -70,10 +70,10 @@ function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order
 
                 <div className="grid grid-cols-2 gap-3 pt-2">
                     <Button variant="outline" className="h-16 rounded-2xl text-destructive font-black border-2 border-destructive/10 bg-destructive/5" onClick={() => onReject(order.id)} disabled={isProcessing}>
-                         {isProcessing ? <Loader2 className="animate-spin h-5 w-5"/> : "تجاهل"}
+                         تجاهل
                     </Button>
                     <Button size="lg" className="h-16 rounded-2xl text-xl font-black bg-green-600 hover:bg-green-700 shadow-xl" onClick={() => onAccept(order.id)} disabled={isProcessing}>
-                        {isProcessing ? <Loader2 className="h-6 w-6 animate-spin"/> : "قبول الطلب"}
+                        {isProcessing ? <Loader2 className="h-6 w-6 animate-spin"/> : "قبول المهمة"}
                     </Button>
                 </div>
             </CardContent>
@@ -127,7 +127,6 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     const { toast } = useToast();
     const [workerId, setWorkerId] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [audioUnlocked, setAudioUnlocked] = useState(false);
 
     const { allOrders, isLoading: ordersLoading, updateOrderStatus } = useOrders();
     const { deliveryWorkers, isLoading: workersLoading, updateWorkerStatus } = useDeliveryWorkers();
@@ -164,26 +163,13 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         return deliveryWorkers.find(w => w.id === workerId) || null;
     }, [workerId, deliveryWorkers]);
 
-    // عزل الطلبات المخصصة لهذا المندوب بدقة لمنع التكرار الوهمي
+    // الطلبات التي بانتظار موافقة هذا المندوب حصراً
     const myAssignedOrders = useMemo(() => {
         if (!workerId || !allOrders) return [];
-        const filtered = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'confirmed');
-        const workerLat = worker?.latitude;
-        const workerLng = worker?.longitude;
-        if (typeof workerLat === 'number' && typeof workerLng === 'number') {
-            return filtered.sort((a, b) => {
-                const distA = a.restaurant?.latitude && a.restaurant?.longitude 
-                    ? calculateDistance(worker.latitude!, worker.longitude!, a.restaurant.latitude, a.restaurant.longitude) 
-                    : 999;
-                const distB = b.restaurant?.latitude && b.restaurant?.longitude 
-                ? calculateDistance(workerLat, workerLng, b.restaurant.latitude, b.restaurant.longitude) 
-                    : 999;
-                return distA - distB;
-            });
-        }
-        return filtered;
-    }, [workerId, allOrders, worker]);
+        return allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'confirmed');
+    }, [workerId, allOrders]);
 
+    // الطلبات التي قبلها المندوب وجاري العمل عليها
     const myActiveOrders = useMemo(() => {
         if (!workerId || !allOrders) return [];
         return allOrders.filter(o => 
@@ -199,12 +185,13 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
             audioRef.current.pause();
         }
     }, [myAssignedOrders.length]);
+
     const handleAcceptOrder = async (orderId: string) => {
         if (!workerId) return;
         setIsProcessing(true);
         try {
             await updateOrderStatus(orderId, 'preparing', workerId);
-            toast({ title: "تم قبول العمل! انطلق الآن 🚀" });
+            toast({ title: "تم قبول المهمة! انطلق الآن 🚀" });
         } catch (error) {
              toast({ title: "عذراً، حدث خطأ", variant: "destructive" });
         } finally {
@@ -215,8 +202,9 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     const handleRejectOrder = async (orderId: string) => {
         setIsProcessing(true);
         try {
+            // إعادة الطلب لدوامة البحث عن مندوب آخر
             await updateOrderStatus(orderId, 'unassigned');
-            toast({ title: "تم الرفض بنجاح" });
+            toast({ title: "تم الرفض، سيتم توجيه الطلب لمندوب آخر" });
         } catch (e) {} finally {
             setIsProcessing(false);
         }
@@ -279,8 +267,6 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                     </Button>
                  </div>
             </header>
-
-           
 
             <div className="p-4 space-y-8 mt-4">
                 {!worker?.isOnline ? (
