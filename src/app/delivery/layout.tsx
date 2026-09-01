@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -45,15 +44,16 @@ export default function DeliveryLayout() {
                 window.OneSignal.init({
                     appId: "48becd5d-aae6-4e25-8f8d-451b8ec5ef8a",
                     allowLocalhostAsSecureOrigin: true,
-                    notifyButton: { enable: true, position: 'bottom-left' },
+                    notifyButton: { enable: false },
                     welcomeNotification: { title: "سبيد شوب", message: "تم تفعيل إشعارات المهام بنجاح! 🚀" }
-                });
+                }).catch(() => {});
+                
                 if (id) {
-                    window.OneSignal.login(id);
+                    window.OneSignal.login(id).catch(() => {});
                 }
             });
         } catch (e) {
-            console.error("OneSignal Init Error:", e);
+            console.warn("OneSignal safe skip: ", e);
         }
     };
 
@@ -61,7 +61,7 @@ export default function DeliveryLayout() {
 
     return () => {
         if (window.OneSignal) {
-            try { window.OneSignal.logout(); } catch(e) {}
+            try { window.OneSignal.logout().catch(() => {}); } catch(e) {}
         }
     };
   }, []);
@@ -87,7 +87,7 @@ export default function DeliveryLayout() {
                  setIsAuth(true); 
                  setActiveTab(1); 
                  const id = localStorage.getItem('deliveryWorkerId');
-                 if (id && window.OneSignal) window.OneSignal.login(id);
+                 if (id && window.OneSignal) window.OneSignal.login(id).catch(() => {});
              }} />
           </div>
           <div className="spa-page-view">
