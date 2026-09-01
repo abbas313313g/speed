@@ -15,6 +15,7 @@ import { useSupportTickets } from '@/hooks/useSupportTickets';
 import { useCoupons } from '@/hooks/useCoupons';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useBanners } from '@/hooks/useBanners';
+import { sendNewOrderToRestaurant } from '@/services/onesignal-service';
 
 interface AppContextType {
     isLoading: boolean;
@@ -64,7 +65,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
     const [isDarkMode, setIsDarkMode] = useState(false);
 
-    // الرابط المباشر بجاهزية بيانات الرئيسية (البنرات هي المؤشر الأساسي)
     const isMainDataReady = useMemo(() => !bannersLoading, [bannersLoading]);
 
     useEffect(() => {
@@ -198,11 +198,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     if (coupon.discountTarget === 'delivery') {
                         appliedDiscount = coupon.isFullDiscount ? customerDeliveryFee : Math.min(customerDeliveryFee, coupon.discountValue);
                         customerDeliveryFee -= appliedDiscount;
-                        toast({ title: `تم تطبيق خصم ${coupon.isFullDiscount ? 'كامل' : formatCurrency(appliedDiscount)} على التوصيل ✅` });
                     } else {
                         appliedDiscount = coupon.isFullDiscount ? finalCartTotal : Math.min(finalCartTotal, coupon.discountValue);
                         finalCartTotal -= appliedDiscount;
-                        toast({ title: `تم تطبيق خصم ${coupon.isFullDiscount ? 'كامل' : formatCurrency(appliedDiscount)} على طلبك ✅` });
                     }
                     couponToUpdateId = coupon.id;
                 } else {
@@ -213,13 +211,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             
             const rest = restaurants.find(r => r.id === cart[0].product.restaurantId);
 
-            const orderData = JSON.parse(JSON.stringify({
+            const orderData = {
                 orderNumber: nextNumber, 
                 userId, 
-                items: cart, 
+                items: cart.map(i => ({
+                    product: { id: i.product.id, name: i.product.name, price: i.product.price, discountPrice: i.product.discountPrice || 0, image: i.product.image || '', restaurantId: i.product.restaurantId },
+                    quantity: i.quantity,
+                    selectedSize: i.selectedSize ? { name: i.selectedSize.name, price: i.selectedSize.price } : null
+                })), 
                 total: finalCartTotal + customerDeliveryFee,
                 date: new Date().toISOString(), 
-                status: 'unassigned', 
+                status: 'unassigned' as OrderStatus, 
                 address: {
                     name: addr.name,
                     phone: addr.phone,
@@ -241,7 +243,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 isFeePaid: false, 
                 isOrderPaidToOffice: false,
                 appliedCoupon: couponToUpdateId ? { code: coupCode?.toUpperCase() || '', discountAmount: appliedDiscount } : null
-            }));
+            };
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
             
@@ -250,6 +252,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     usedCount: increment(1),
                     usedBy: arrayUnion(userId)
                 });
+            }
+
+            // إرسال إشعار فوري للمطعم
+            if (rest) {
+                sendNewOrderToRestaurant(rest.id);
             }
 
             clearCart();
@@ -274,7 +281,3 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     return <AppContext.Provider value={value as any}>{children}</AppContext.Provider>;
 };
-
-function formatCurrency(amount: number) {
-    return new Intl.NumberFormat('ar-IQ', { style: 'currency', currency: 'IQD', maximumFractionDigits: 0 }).format(amount).replace('د.ع.‏', 'د.ع');
-}

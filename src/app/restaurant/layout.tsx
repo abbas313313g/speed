@@ -10,6 +10,12 @@ import RestaurantHistoryPage from './history/page';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
+declare global {
+  interface Window {
+    OneSignal: any;
+  }
+}
+
 function RestaurantLayoutContent() {
   const [activeTab, setActiveTabState] = useState(-1); // -1: Checking Auth, 0: Login, 1: Dashboard...
   const context = useContext(RestaurantContext);
@@ -19,12 +25,34 @@ function RestaurantLayoutContent() {
 
     if (context.restaurant) {
       if (activeTab <= 0) setActiveTabState(1);
+      
+      // تهيئة OneSignal للمطعم
+      const id = context.restaurant.id;
+      if (typeof window !== 'undefined') {
+          window.OneSignal = window.OneSignal || [];
+          if (!document.getElementById('onesignal-sdk')) {
+              const script = document.createElement('script');
+              script.id = 'onesignal-sdk';
+              script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
+              script.async = true;
+              document.head.appendChild(script);
+          }
+
+          window.OneSignal.push(() => {
+              window.OneSignal.init({
+                  appId: "48becd5d-aae6-4e25-8f8d-451b8ec5ef8a",
+                  allowLocalhostAsSecureOrigin: true,
+                  notifyButton: { enable: true, position: 'bottom-left' },
+              });
+              window.OneSignal.login(id);
+          });
+      }
+
     } else {
       setActiveTabState(0);
     }
   }, [context?.restaurant, context?.isInitialCheckDone]);
 
-  // دعم زر الرجوع لنسخة المطعم
   useEffect(() => {
     if (typeof window !== 'undefined') {
         if (window.history.state === null) {

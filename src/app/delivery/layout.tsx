@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -32,7 +33,6 @@ export default function DeliveryLayout() {
         setActiveTab(0);
     }
 
-    // تفعيل الإشعارات حصراً في صفحة المندوب
     const initOneSignal = () => {
         try {
             const script = document.createElement('script');
@@ -43,14 +43,13 @@ export default function DeliveryLayout() {
             window.OneSignal = window.OneSignal || [];
             window.OneSignal.push(() => {
                 window.OneSignal.init({
-                    appId: "fbb7ab81-ec87-4f8c-aaa8-de12522e62b3",
+                    appId: "48becd5d-aae6-4e25-8f8d-451b8ec5ef8a",
                     allowLocalhostAsSecureOrigin: true,
                     notifyButton: { enable: true, position: 'bottom-left' },
                     welcomeNotification: { title: "سبيد شوب", message: "تم تفعيل إشعارات المهام بنجاح! 🚀" }
                 });
                 if (id) {
                     window.OneSignal.login(id);
-                    console.log("OneSignal linked to worker:", id);
                 }
             });
         } catch (e) {
@@ -61,7 +60,6 @@ export default function DeliveryLayout() {
     initOneSignal();
 
     return () => {
-        // تنظيف عند الخروج لضمان عدم بقاء الإشعارات فعالة لغير المندوب
         if (window.OneSignal) {
             try { window.OneSignal.logout(); } catch(e) {}
         }
@@ -88,7 +86,6 @@ export default function DeliveryLayout() {
              <DeliveryLoginPage onLogin={() => { 
                  setIsAuth(true); 
                  setActiveTab(1); 
-                 // إعادة ربط الإشعارات عند تسجيل الدخول
                  const id = localStorage.getItem('deliveryWorkerId');
                  if (id && window.OneSignal) window.OneSignal.login(id);
              }} />
