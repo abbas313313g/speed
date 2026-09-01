@@ -48,10 +48,8 @@ export const useOrders = (branchId?: string) => {
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         if (isAssigningRef.current) return;
         
-        // الطلبات التي تبحث عن مندوب: سواء جديدة أو بدأ تحضيرها ولم يقبلها أحد بعد
-        const pendingOrders = orders.filter(o => 
-            (o.status === 'unassigned' || (o.status === 'pending_assignment'))
-        );
+        // البحث عن طلبات وافق عليها المتجر وتنتظر مندوباً
+        const pendingOrders = orders.filter(o => o.status === 'pending_assignment');
         
         if (pendingOrders.length === 0) return;
 
@@ -93,7 +91,7 @@ export const useOrders = (branchId?: string) => {
         const interval = setInterval(() => {
             const now = new Date().getTime();
             allOrders.forEach(async (order) => {
-                // سحب الطلب من المندوب إذا لم يستجب خلال 20 ثانية (تكرار ذكي)
+                // سحب الطلب من المندوب إذا لم يستجب خلال 20 ثانية وإرجاعه لحالة "بانتظار تعيين"
                 if (order.status === 'confirmed' && order.deliveryWorkerId && order.confirmedAt) {
                     const confirmedTime = new Date(order.confirmedAt).getTime();
                     if (now - confirmedTime > ASSIGNMENT_TIMEOUT_MS) {
@@ -101,7 +99,7 @@ export const useOrders = (branchId?: string) => {
                         await updateDoc(doc(db, "orders", order.id), {
                             deliveryWorkerId: null,
                             deliveryWorker: null,
-                            status: 'unassigned',
+                            status: 'pending_assignment',
                             confirmedAt: null
                         });
                         await penalizeWorker(wId);
@@ -137,7 +135,6 @@ export const useOrders = (branchId?: string) => {
             const orderRef = doc(db, "orders", orderId);
             const updateData: any = { status };
             
-            // المندوب يوافق على الطلب
             if (status === 'preparing' && workerId) {
                 const workerRef = doc(db, "deliveryWorkers", workerId);
                 await updateDoc(workerRef, { idleCount: 0 });
@@ -145,11 +142,12 @@ export const useOrders = (branchId?: string) => {
                 updateData.confirmedAt = null; 
             }
 
-            // المندوب يرفض أو النظام يسحب الطلب ليعاد تقديمه للآخرين
+            // في حال الرفض أو الانسحاب، يعود الطلب لحالة البحث عن مندوب جديد
             if (status === 'unassigned') {
                 updateData.deliveryWorkerId = null;
                 updateData.deliveryWorker = null;
                 updateData.confirmedAt = null;
+                updateData.status = 'pending_assignment';
             }
 
             await updateDoc(orderRef, updateData);

@@ -30,10 +30,8 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     const myOrders = useMemo(() => {
         if (!context?.restaurant || !allOrders) return [];
         
-        // أولاً: تصفية الطلبات الخاصة بهذا المتجر فقط
         const filtered = allOrders.filter(o => o.restaurant?.id === context.restaurant?.id);
         
-        // ثانياً: منع التكرار الوهمي باستخدام معرف الطلب
         const uniqueOrdersMap = new Map();
         filtered.forEach(order => {
             if (!uniqueOrdersMap.has(order.id)) {
@@ -44,8 +42,12 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         return Array.from(uniqueOrdersMap.values());
     }, [context?.restaurant, allOrders]);
 
-    const newOrders = myOrders.filter(o => ['unassigned', 'pending_assignment', 'confirmed'].includes(o.status));
-    const preparingOrders = myOrders.filter(o => o.status === 'preparing');
+    // الطلبات الجديدة هي فقط التي لم يقبلها المتجر بعد
+    const newOrders = myOrders.filter(o => o.status === 'unassigned');
+    
+    // الطلبات قيد التحضير تشمل: انتظار التعيين، انتظار المندوب، والتحضير الفعلي
+    const preparingOrders = myOrders.filter(o => ['pending_assignment', 'confirmed', 'preparing'].includes(o.status));
+    
     const activeAndHistoryOrders = myOrders.filter(o => ['ready_for_pickup', 'on_the_way', 'delivered', 'cancelled'].includes(o.status));
 
     useEffect(() => {
@@ -77,7 +79,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         setProcessingOrderId(orderId);
         try {
             await updateOrderStatus(orderId, status);
-            toast({ title: status === 'cancelled' ? "تم رفض الطلب ❌" : "تم قبول الطلب وبدء التحضير ✅" });
+            toast({ title: status === 'cancelled' ? "تم رفض الطلب ❌" : (status === 'pending_assignment' ? "تم قبول الطلب، جاري البحث عن مندوب..." : "تم تحديث الحالة بنجاح") });
             setSelectedOrder(null);
         } catch (e) {
             toast({ title: "فشل التحديث، حاول لاحقاً", variant: "destructive" });
@@ -92,8 +94,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
             <p className="mt-4 font-black text-primary">جارِ فتح لوحة التحكم...</p>
         </div>
     );
-
-    const isNewOrder = (status: OrderStatus) => ['unassigned', 'pending_assignment', 'confirmed'].includes(status);
 
     return (
         <div className="flex flex-col min-h-full bg-slate-50 pb-40 text-right">
@@ -178,9 +178,11 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                             className="rounded-[2rem] p-5 border-none shadow-md bg-white border-r-8 border-r-orange-500 cursor-pointer active:scale-95 transition-all"
                         >
                              <div className="space-y-3">
-                                <div className="flex justify-between">
+                                <div className="flex justify-between items-center">
                                     <p className="font-black text-sm">#{order.orderNumber || '...'}</p>
-                                    {!order.deliveryWorkerId && <span className="text-[8px] font-black text-orange-600 flex items-center gap-1"><Loader2 className="h-2 w-2 animate-spin"/> بانتظار سائق</span>}
+                                    {order.status === 'pending_assignment' && <Badge variant="secondary" className="text-[8px] font-black bg-blue-50 text-blue-600 animate-pulse">جاري البحث عن مندوب...</Badge>}
+                                    {order.status === 'confirmed' && <Badge variant="secondary" className="text-[8px] font-black bg-purple-50 text-purple-600">بانتظار قبول المندوب</Badge>}
+                                    {order.status === 'preparing' && <Badge variant="secondary" className="text-[8px] font-black bg-green-50 text-green-600">المندوب استلم المهمة</Badge>}
                                 </div>
                                 <div className="space-y-1">
                                     {order.items?.map((item, idx) => (
@@ -266,7 +268,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                 </div>
                             </div>
 
-                            {isNewOrder(selectedOrder.status) ? (
+                            {selectedOrder.status === 'unassigned' ? (
                                 <DialogFooter className="p-6 bg-slate-50 border-t sticky bottom-0 flex-row gap-3">
                                     <Button 
                                         variant="outline" 
@@ -278,7 +280,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                     </Button>
                                     <Button 
                                         disabled={!!processingOrderId}
-                                        onClick={() => handleUpdateStatus(selectedOrder.id, 'preparing')}
+                                        onClick={() => handleUpdateStatus(selectedOrder.id, 'pending_assignment')}
                                         className="flex-[2] h-16 rounded-2xl font-black text-xl bg-green-600 hover:bg-green-700 shadow-xl shadow-green-100"
                                     >
                                         {processingOrderId === selectedOrder.id ? <Loader2 className="animate-spin h-6 w-6"/> : "قبول وتحضير"}
