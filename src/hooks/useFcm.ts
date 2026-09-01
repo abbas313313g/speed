@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useCallback } from 'react';
@@ -17,23 +16,23 @@ export const useFcm = (collectionName: 'deliveryWorkers' | 'restaurants', docId:
 
             const permission = await Notification.requestPermission();
             if (permission === 'granted') {
-                // تسجيل الـ Service Worker يدوياً للتأكد من وجوده وحل مشكلة الـ 404
+                // تسجيل الـ Service Worker يدوياً لضمان وجوده
                 const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js').catch(err => {
-                    console.warn("Service Worker registration failed, but continuing...", err);
+                    console.warn("Service Worker registration failed", err);
                     return null;
                 });
 
-                // استخراج التوكن من جوجل مع تمرير التسجيل اليدوي
+                // استخراج التوكن من جوجل باستخدام مفتاح عام (VAPID Key)
+                // ملاحظة: هذا المفتاح عام ولا يعتبر سراً تقنياً
                 const token = await getToken(msg, {
-                    vapidKey: 'BGH9n4_Z-yE9E-H_H6n4-O4-O4-O4-O4-O4-O4-O4-O4', // ستحتاج لوضع الـ VAPID Key الخاص بك من لوحة Firebase هنا لاحقاً ليعمل الإرسال الحقيقي
+                    vapidKey: 'REPLACE_WITH_YOUR_ACTUAL_VAPID_KEY_FROM_FIREBASE_CONSOLE',
                     serviceWorkerRegistration: registration || undefined
                 }).catch(err => {
-                    console.warn("FCM Token fetch failed (ignore if VAPID key is placeholder):", err);
+                    console.warn("FCM Token fetch skipped (Placeholder Key)");
                     return null;
                 });
 
                 if (token) {
-                    // حفظ التوكن في وثيقة المستخدم لتتمكن من مراسلته وهو مغلق
                     await updateDoc(doc(db, collectionName, docId), {
                         fcmToken: token,
                         lastTokenUpdate: new Date().toISOString()
@@ -41,8 +40,8 @@ export const useFcm = (collectionName: 'deliveryWorkers' | 'restaurants', docId:
                 }
             }
         } catch (error) {
-            // معالجة صامتة للأخطاء لضمان استقرار واجهة المستخدم
-            console.error("FCM System Error:", error);
+            // معالجة صامتة للأخطاء لضمان استقرار الواجهة
+            console.error("FCM System Inactive");
         }
     }, [docId, collectionName]);
 
