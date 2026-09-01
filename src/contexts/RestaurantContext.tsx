@@ -12,6 +12,7 @@ interface RestaurantContextType {
     logout: () => void;
     updateRestaurantOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
     isProcessing: boolean;
+    isInitialCheckDone: boolean;
 }
 
 export const RestaurantContext = createContext<RestaurantContextType | null>(null);
@@ -27,7 +28,7 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
         if (restaurantsLoading) return;
         
         // جلب معرف المتجر من التخزين الدائم لضمان استمرارية الدخول
-        const storedId = localStorage.getItem('speedShopRestaurantId');
+        const storedId = typeof window !== 'undefined' ? localStorage.getItem('speedShopRestaurantId') : null;
 
         if (storedId) {
             const found = restaurants.find(r => r.id === storedId);
@@ -74,6 +75,7 @@ export const RestaurantProvider = ({ children }: { children: React.ReactNode }) 
         logout,
         updateRestaurantOrderStatus,
         isProcessing: isProcessing || restaurantsLoading || ordersLoading || !isInitialCheckDone,
+        isInitialCheckDone
     };
 
     return <RestaurantContext.Provider value={value}>{children}</RestaurantContext.Provider>;

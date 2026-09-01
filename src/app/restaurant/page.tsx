@@ -26,9 +26,22 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
+    // نظام منع تكرار الطلبات (Deduplication System)
     const myOrders = useMemo(() => {
         if (!context?.restaurant || !allOrders) return [];
-        return allOrders.filter(o => o.restaurant?.id === context.restaurant?.id);
+        
+        // أولاً: تصفية الطلبات الخاصة بهذا المتجر فقط
+        const filtered = allOrders.filter(o => o.restaurant?.id === context.restaurant?.id);
+        
+        // ثانياً: منع التكرار الوهمي باستخدام معرف الطلب
+        const uniqueOrdersMap = new Map();
+        filtered.forEach(order => {
+            if (!uniqueOrdersMap.has(order.id)) {
+                uniqueOrdersMap.set(order.id, order);
+            }
+        });
+        
+        return Array.from(uniqueOrdersMap.values());
     }, [context?.restaurant, allOrders]);
 
     const newOrders = myOrders.filter(o => ['unassigned', 'pending_assignment', 'confirmed'].includes(o.status));
