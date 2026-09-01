@@ -3,9 +3,8 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getMessaging, isSupported } from "firebase/messaging";
 
-// Your web app's Firebase configuration
-// IMPORTANT: This is the updated Firebase config
 export const firebaseConfig = {
   "projectId": "speed-shop-8tchr",
   "appId": "1:631051036670:web:65982c072092bbcc79c2af",
@@ -15,11 +14,13 @@ export const firebaseConfig = {
   "messagingSenderId": "631051036670"
 };
 
-// Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 
-    
+// تهيئة Messaging فقط إذا كان المتصفح يدعمها (تجنب أخطاء SSR)
+export const messaging = typeof window !== "undefined" ? 
+    isSupported().then(yes => yes ? getMessaging(app) : null).catch(() => null) 
+    : null;

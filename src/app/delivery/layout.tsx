@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -7,10 +8,12 @@ import DeliveryStatsPage from './stats/page';
 import DeliveryOrderDetailPage from './order/[id]/page';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
+import { useFcm } from '@/hooks/useFcm';
 
 export default function DeliveryLayout() {
-  const [activeTab, setActiveTab] = useState(-1); // -1: Checking Auth, 0: Login, 1: Dashboard...
+  const [activeTab, setActiveTab] = useState(-1); 
   const [isAuth, setIsAuth] = useState(false);
+  const [workerId, setWorkerId] = useState<string | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -20,12 +23,16 @@ export default function DeliveryLayout() {
     } catch (e) {}
 
     if (id) {
+        setWorkerId(id);
         setIsAuth(true);
         setActiveTab(1);
     } else {
         setActiveTab(0);
     }
   }, []);
+
+  // تفعيل إشعارات جوجل للمندوب
+  useFcm('deliveryWorkers', workerId);
 
   const handleNavigateToOrder = (orderId: string) => {
       setSelectedOrderId(orderId);
@@ -45,6 +52,8 @@ export default function DeliveryLayout() {
         >
           <div className="spa-page-view">
              <DeliveryLoginPage onLogin={() => { 
+                 const id = localStorage.getItem('deliveryWorkerId');
+                 setWorkerId(id);
                  setIsAuth(true); 
                  setActiveTab(1); 
              }} />

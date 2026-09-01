@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useContext } from 'react';
@@ -8,10 +9,14 @@ import RestaurantProductsPage from './products-view';
 import RestaurantHistoryPage from './history/page';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
+import { useFcm } from '@/hooks/useFcm';
 
 function RestaurantLayoutContent() {
-  const [activeTab, setActiveTabState] = useState(-1); // -1: Checking Auth, 0: Login, 1: Dashboard...
+  const [activeTab, setActiveTabState] = useState(-1); 
   const context = useContext(RestaurantContext);
+
+  // تفعيل إشعارات جوجل للمطعم
+  useFcm('restaurants', context?.restaurant?.id || null);
 
   useEffect(() => {
     if (!context?.isInitialCheckDone) return;
