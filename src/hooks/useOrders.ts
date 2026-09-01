@@ -67,24 +67,23 @@ export const useOrders = (branchId?: string) => {
             const workersSnap = await getDocs(wQuery);
             let onlineWorkers = workersSnap.docs.map(d => ({ id: d.id, ...d.data() })) as DeliveryWorker[];
 
-            // توزيع عادل: استبعاد المناديب الذين لديهم أكثر من 3 طلبات نشطة حالياً
-            const activeWorkersIds = orders
-                .filter(o => ['preparing', 'confirmed', 'ready_for_pickup', 'on_the_way'].includes(o.status))
-                .map(o => o.deliveryWorkerId);
-            
-            const workerLoadMap = new Map();
-            activeWorkersIds.forEach(id => {
-                if(id) workerLoadMap.set(id, (workerLoadMap.get(id) || 0) + 1);
-            });
-
-            // فلترة المناديب حسب لود العمل
-            const availableWorkers = onlineWorkers.filter(w => (workerLoadMap.get(w.id) || 0) < 3);
-            const targetWorkers = availableWorkers.length > 0 ? availableWorkers : onlineWorkers;
-
-            if (targetWorkers.length > 0) {
+            if (onlineWorkers.length > 0) {
                 for (const order of pendingOrders) {
-                    // اختيار عشوائي تماماً من القائمة المفلترة لضمان عدم التكرار على شخص واحد
-                    const shuffled = [...targetWorkers].sort(() => Math.random() - 0.5);
+                    // توزيع عادل: فرز المناديب حسب لود العمل الحالي (عشوائي من بين الأقل لود)
+                    const activeWorkersIds = orders
+                        .filter(o => ['preparing', 'confirmed', 'ready_for_pickup', 'on_the_way'].includes(o.status))
+                        .map(o => o.deliveryWorkerId);
+                    
+                    const workerLoadMap = new Map();
+                    activeWorkersIds.forEach(id => {
+                        if(id) workerLoadMap.set(id, (workerLoadMap.get(id) || 0) + 1);
+                    });
+
+                    // اختيار عشوائي من المناديب الذين لديهم أقل من 3 طلبات
+                    const targetWorkers = onlineWorkers.filter(w => (workerLoadMap.get(w.id) || 0) < 3);
+                    const finalPool = targetWorkers.length > 0 ? targetWorkers : onlineWorkers;
+                    
+                    const shuffled = [...finalPool].sort(() => Math.random() - 0.5);
                     const worker = shuffled[0];
                     
                     await updateDoc(doc(db, "orders", order.id), {
