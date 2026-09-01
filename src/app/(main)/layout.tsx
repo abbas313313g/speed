@@ -50,12 +50,17 @@ export default function MainAppLayout() {
         return next;
     });
   }, [activeTab]);
-  // السبلَاش يختفي فور جاهزية بيانات الرئيسية مع مؤقت أمان سريع جداً
+
+  // التحكم في السبلاش بناءً على جاهزية بيانات الواجهة الرئيسية حصراً
   useEffect(() => {
-    const fallbackTimer = setTimeout(() => setShowSplash(false), 1000);
     if (isMainDataReady) {
-        setShowSplash(false);
+        // تأخير بسيط جداً لضمان سلاسة الانتقال البصري
+        const timer = setTimeout(() => setShowSplash(false), 500);
+        return () => clearTimeout(timer);
     }
+    
+    // مؤقت أمان في حال فشل التحميل أو تأخر الإنترنت بشكل كبير (3 ثوانٍ)
+    const fallbackTimer = setTimeout(() => setShowSplash(false), 3000);
     return () => clearTimeout(fallbackTimer);
   }, [isMainDataReady]);
 

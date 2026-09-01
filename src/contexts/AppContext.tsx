@@ -64,7 +64,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
     const [isDarkMode, setIsDarkMode] = useState(false);
 
-    const isMainDataReady = useMemo(() => !bannersLoading && banners.length > 0, [bannersLoading, banners.length]);
+    // الرابط المباشر بجاهزية بيانات الرئيسية (البنرات هي المؤشر الأساسي)
+    const isMainDataReady = useMemo(() => !bannersLoading, [bannersLoading]);
 
     useEffect(() => {
         try {
@@ -212,7 +213,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             
             const rest = restaurants.find(r => r.id === cart[0].product.restaurantId);
 
-            // تصفية البيانات من أي قيم undefined لمنع أخطاء Firebase
             const orderData = JSON.parse(JSON.stringify({
                 orderNumber: nextNumber, 
                 userId, 
@@ -228,7 +228,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     latitude: addr.latitude || 0,
                     longitude: addr.longitude || 0
                 }, 
-                deliveryFee: dFee, // المندوب يحصل دائماً على الأجرة الأصلية حسب المسافة
+                deliveryFee: dFee, 
                 restaurant: rest ? { 
                     id: rest.id, 
                     name: rest.name, 
