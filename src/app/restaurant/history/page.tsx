@@ -27,6 +27,7 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
     const { totalIncome, pendingSettleCount, pendingRequest } = useMemo(() => {
         if (!restaurant || !allOrders) return { totalIncome: 0, pendingSettleCount: 0, pendingRequest: null };
         
+        // جلب الطلبات المكتملة التي لم تتم تسويتها مالياً بعد
         const filtered = allOrders.filter(order => 
             order.restaurant?.id === restaurant.id && 
             order.status === 'delivered' &&
@@ -34,7 +35,13 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
         );
 
         const income = filtered.reduce((acc, order) => {
-            const itemsPrice = order.items.reduce((sum, i) => sum + ((i.selectedSize?.price ?? i.product.discountPrice ?? i.product.price) * i.quantity), 0);
+            // احتساب ثمن الوجبات فقط واستبعاد أجور التوصيل تماماً
+            const itemsPrice = order.items.reduce((sum, i) => {
+                const price = i.selectedSize?.price ?? i.product.discountPrice ?? i.product.price ?? 0;
+                return sum + (price * i.quantity);
+            }, 0);
+            
+            // خصم عمولة المنصة من ثمن الوجبات
             const commission = (itemsPrice * (restaurant.commissionRate / 100));
             return acc + (itemsPrice - commission);
         }, 0);
@@ -51,15 +58,17 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
         }
         setIsSubmitting(true);
         
-        const commissionAmount = (totalIncome / (1 - (restaurant.commissionRate/100))) * (restaurant.commissionRate/100);
+        // حساب إجمالي المبيعات قبل العمولة لإرسالها كبيانات توضيحية للأدمن
+        const totalSalesBeforeCommission = totalIncome / (1 - (restaurant.commissionRate / 100));
+        const commissionAmount = totalSalesBeforeCommission * (restaurant.commissionRate / 100);
         
         const success = await requestWithdraw({
             type: 'restaurant',
             targetId: restaurant.id,
             targetName: restaurant.name,
-            amount: totalIncome + commissionAmount,
-            commissionAmount: commissionAmount,
-            netAmount: totalIncome,
+            amount: totalSalesBeforeCommission, // إجمالي ثمن الوجبات
+            commissionAmount: commissionAmount, // عمولة الشركة
+            netAmount: totalIncome, // الصافي الذي سيستلمه المتجر
             branchId: restaurant.branchId
         });
         
@@ -89,7 +98,7 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
             <Card className="rounded-[2.5rem] border-none shadow-2xl bg-primary text-white overflow-hidden relative">
                 <div className="absolute right-[-20px] top-[-20px] opacity-10"><Wallet className="h-32 w-32" /></div>
                 <CardHeader className="pb-2">
-                    <CardTitle className="text-white/80 text-[10px] font-black uppercase tracking-widest">صافي رصيدك المتاح حالياً</CardTitle>
+                    <CardTitle className="text-white/80 text-[10px] font-black uppercase tracking-widest">صافي رصيد الوجبات المتاح</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="text-4xl font-black tracking-tighter drop-shadow-lg">{formatCurrency(displayBalance)}</div>
@@ -102,7 +111,7 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
                     ) : (
                         <>
                             <div className="p-3 bg-white/10 rounded-2xl border border-white/20 text-[10px] font-bold">
-                                هذا المبلغ يمثل أرباحك الصافية لـ {pendingSettleCount} طلب مكتمل بعد خصم عمولة النظام.
+                                هذا المبلغ يمثل أرباحك الصافية لـ {pendingSettleCount} طلب مكتمل (ثمن الوجبات فقط ناقص العمولة).
                             </div>
                             <Button 
                                 onClick={handleWithdraw} 

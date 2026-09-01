@@ -26,7 +26,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
-    // نظام منع تكرار الطلبات (Deduplication System)
     const myOrders = useMemo(() => {
         if (!context?.restaurant || !allOrders) return [];
         
@@ -42,12 +41,8 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         return Array.from(uniqueOrdersMap.values());
     }, [context?.restaurant, allOrders]);
 
-    // الطلبات الجديدة هي فقط التي لم يقبلها المتجر بعد
     const newOrders = myOrders.filter(o => o.status === 'unassigned');
-    
-    // الطلبات قيد التحضير تشمل: انتظار التعيين، انتظار المندوب، والتحضير الفعلي
     const preparingOrders = myOrders.filter(o => ['pending_assignment', 'confirmed', 'preparing'].includes(o.status));
-    
     const activeAndHistoryOrders = myOrders.filter(o => ['ready_for_pickup', 'on_the_way', 'delivered', 'cancelled'].includes(o.status));
 
     useEffect(() => {
@@ -86,6 +81,16 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         } finally {
             setProcessingOrderId(null);
         }
+    };
+
+    const calculateStoreNetProfit = (order: Order) => {
+        if (!context?.restaurant) return 0;
+        const itemsTotal = order.items.reduce((sum, item) => {
+            const price = item.selectedSize?.price || item.product.discountPrice || item.product.price || 0;
+            return sum + (price * item.quantity);
+        }, 0);
+        const commission = (itemsTotal * (context.restaurant.commissionRate / 100));
+        return itemsTotal - commission;
     };
 
     if (!context?.restaurant || oLoading) return (
@@ -224,7 +229,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                              order.status === 'delivered' ? 'تم التوصيل ✅' : 'ملغي ❌'}
                                         </p>
                                     </div>
-                                    <Badge variant="secondary" className="font-black">{formatCurrency(order.total - order.deliveryFee)}</Badge>
+                                    <Badge variant="secondary" className="font-black">{formatCurrency(calculateStoreNetProfit(order))}</Badge>
                                 </div>
                             ))}
                         </div>
@@ -264,8 +269,9 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
 
                                 <div className="p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 flex justify-between items-center">
                                     <span className="font-black text-slate-600">صافي ربح المتجر:</span>
-                                    <span className="text-2xl font-black text-slate-900">{formatCurrency(selectedOrder.total - selectedOrder.deliveryFee)}</span>
+                                    <span className="text-2xl font-black text-slate-900">{formatCurrency(calculateStoreNetProfit(selectedOrder))}</span>
                                 </div>
+                                <p className="text-[9px] text-center text-muted-foreground font-bold italic">ملاحظة: هذا المبلغ لا يشمل أجور التوصيل، فهو يمثل ثمن الوجبات ناقصاً عمولة المنصة.</p>
                             </div>
 
                             {selectedOrder.status === 'unassigned' ? (
