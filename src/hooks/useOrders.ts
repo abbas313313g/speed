@@ -30,11 +30,17 @@ export const useOrders = (branchId?: string) => {
                     isOnline: false, 
                     idleCount: 0 
                 });
-                toast({ 
-                    title: "تم إيقاف نشاطك تلقائياً", 
-                    description: "بسبب تجاهل 3 طلبات متتالية. يرجى تفعيل الحالة عند استعدادك للعمل.", 
-                    variant: "destructive" 
-                });
+
+                // فحص هوية المستخدم الحالي لضمان عدم ظهور التنبيه للزبائن أو المطاعم
+                const currentLocalWorkerId = typeof window !== 'undefined' ? localStorage.getItem('deliveryWorkerId') : null;
+                
+                if (currentLocalWorkerId === workerId) {
+                    toast({ 
+                        title: "تم إيقاف نشاطك تلقائياً", 
+                        description: "بسبب تجاهل 3 طلبات متتالية. يرجى تفعيل الحالة عند استعدادك للعمل.", 
+                        variant: "destructive" 
+                    });
+                }
             } else {
                 await updateDoc(workerRef, { 
                     idleCount: increment(1) 
