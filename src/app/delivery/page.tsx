@@ -142,6 +142,20 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
             const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3');
             audio.loop = true;
             audioRef.current = audio;
+
+            const unlockAudio = () => {
+                if (audioRef.current) {
+                    audioRef.current.play().then(() => {
+                        audioRef.current?.pause();
+                    }).catch(() => {});
+                }
+                window.removeEventListener('pointerdown', unlockAudio);
+                window.removeEventListener('touchstart', unlockAudio);
+                window.removeEventListener('click', unlockAudio);
+            };
+            window.addEventListener('pointerdown', unlockAudio, { once: true });
+            window.addEventListener('touchstart', unlockAudio, { once: true });
+            window.addEventListener('click', unlockAudio, { once: true });
         }
     }, []);
     
@@ -153,8 +167,22 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     // عزل الطلبات المخصصة لهذا المندوب بدقة لمنع التكرار الوهمي
     const myAssignedOrders = useMemo(() => {
         if (!workerId || !allOrders) return [];
-        return allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'confirmed');
-    }, [workerId, allOrders]);
+        const filtered = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'confirmed');
+        const workerLat = worker?.latitude;
+        const workerLng = worker?.longitude;
+        if (typeof workerLat === 'number' && typeof workerLng === 'number') {
+            return filtered.sort((a, b) => {
+                const distA = a.restaurant?.latitude && a.restaurant?.longitude 
+                    ? calculateDistance(worker.latitude!, worker.longitude!, a.restaurant.latitude, a.restaurant.longitude) 
+                    : 999;
+                const distB = b.restaurant?.latitude && b.restaurant?.longitude 
+                ? calculateDistance(workerLat, workerLng, b.restaurant.latitude, b.restaurant.longitude) 
+                    : 999;
+                return distA - distB;
+            });
+        }
+        return filtered;
+    }, [workerId, allOrders, worker]);
 
     const myActiveOrders = useMemo(() => {
         if (!workerId || !allOrders) return [];
@@ -165,13 +193,12 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     }, [workerId, allOrders]);
     
     useEffect(() => {
-        if (myAssignedOrders.length > 0 && audioUnlocked && audioRef.current) {
+        if (myAssignedOrders.length > 0 && audioRef.current) {
             audioRef.current.play().catch(() => {});
         } else if (audioRef.current) {
             audioRef.current.pause();
         }
-    }, [myAssignedOrders.length, audioUnlocked]);
-
+    }, [myAssignedOrders.length]);
     const handleAcceptOrder = async (orderId: string) => {
         if (!workerId) return;
         setIsProcessing(true);
@@ -204,8 +231,23 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     const handleToggleOnlineStatus = () => {
         if (workerId && worker) {
             const newStatus = !worker.isOnline;
-            updateWorkerStatus(workerId, newStatus);
-            toast({ title: newStatus ? "أنت متصل وجاهز للطلبات 🟢" : "أنت في استراحة الآن ⚪" });
+            if (newStatus && typeof navigator !== 'undefined' && navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const { latitude, longitude } = position.coords;
+                        updateWorkerStatus(workerId, true, { latitude, longitude });
+                        toast({ title: "أنت متصل وجاهز للطلبات 🟢" });
+                    },
+                    () => {
+                        updateWorkerStatus(workerId, true);
+                        toast({ title: "أنت متصل وجاهز للطلبات 🟢" });
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            } else {
+                updateWorkerStatus(workerId, newStatus);
+                toast({ title: newStatus ? "أنت متصل وجاهز للطلبات 🟢" : "أنت في استراحة الآن ⚪" });
+            }
         }
     };
 
@@ -238,11 +280,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
                  </div>
             </header>
 
-            {!audioUnlocked && worker?.isOnline && (
-                <div className="mx-4 mt-4 p-4 bg-orange-500 rounded-2xl text-white text-center font-black text-sm flex items-center justify-center gap-3 cursor-pointer shadow-lg animate-in slide-in-from-top" onClick={() => { audioRef.current?.play().then(() => { audioRef.current?.pause(); setAudioUnlocked(true); }) }}>
-                    <PlayCircle className="h-6 w-6 animate-bounce" /> اضغط هنا لتفعيل صوت تنبيه المهام الجديدة
-                </div>
-            )}
+           
 
             <div className="p-4 space-y-8 mt-4">
                 {!worker?.isOnline ? (

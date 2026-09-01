@@ -212,13 +212,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             
             const rest = restaurants.find(r => r.id === cart[0].product.restaurantId);
 
-            const orderData = {
+            // تصفية البيانات من أي قيم undefined لمنع أخطاء Firebase
+            const orderData = JSON.parse(JSON.stringify({
                 orderNumber: nextNumber, 
                 userId, 
                 items: cart, 
                 total: finalCartTotal + finalDeliveryFee,
                 date: new Date().toISOString(), 
-                status: 'unassigned' as const, 
+                status: 'unassigned', 
                 address: {
                     name: addr.name,
                     phone: addr.phone,
@@ -240,7 +241,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 isFeePaid: false, 
                 isOrderPaidToOffice: false,
                 appliedCoupon: couponToUpdateId ? { code: coupCode?.toUpperCase() || '', discountAmount: appliedDiscount } : null
-            };
+            }));
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
             

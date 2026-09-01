@@ -37,16 +37,26 @@ export default function MainAppLayout() {
   const [islocLoading, setIslocLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([0]));
 
   if (!context) return null;
   const { activeTab, syncUserByPhone, isMainDataReady } = context;
 
-  // السبلَاش يختفي فور جاهزية بيانات الرئيسية فقط لضمان السرعة
   useEffect(() => {
+    setVisitedTabs(prev => {
+        if (prev.has(activeTab)) return prev;
+        const next = new Set(prev);
+        next.add(activeTab);
+        return next;
+    });
+  }, [activeTab]);
+  // السبلَاش يختفي فور جاهزية بيانات الرئيسية مع مؤقت أمان سريع جداً
+  useEffect(() => {
+    const fallbackTimer = setTimeout(() => setShowSplash(false), 1000);
     if (isMainDataReady) {
-        const timer = setTimeout(() => setShowSplash(false), 300);
-        return () => clearTimeout(timer);
+        setShowSplash(false);
     }
+    return () => clearTimeout(fallbackTimer);
   }, [isMainDataReady]);
 
   useEffect(() => {
@@ -114,16 +124,16 @@ export default function MainAppLayout() {
       <main className="flex-1 relative z-0 overflow-hidden">
         <div className="spa-stack-container" style={{ transform: `translateX(${activeTab * 100}%)` }}>
           <div className="spa-page-view"><HomePage /></div>
-          <div className="spa-page-view"><RestaurantsPage /></div>
-          <div className="spa-page-view"><ProductsPage /></div>
-          <div className="spa-page-view"><CartPage /></div>
-          <div className="spa-page-view"><OrdersPage /></div>
-          <div className="spa-page-view"><AccountPage /></div>
-          <div className="spa-page-view"><AddAddressPage /></div>
-          <div className="spa-page-view"><SupportPage /></div>
-          <div className="spa-page-view"><PrivacyPolicyPage /></div>
-          <div className="spa-page-view"><ProductDetailPage /></div>
-          <div className="spa-page-view"><RestaurantProductsPage /></div>
+          <div className="spa-page-view">{visitedTabs.has(1) ? <RestaurantsPage /> : null}</div>
+          <div className="spa-page-view">{visitedTabs.has(2) ? <ProductsPage /> : null}</div>
+          <div className="spa-page-view">{visitedTabs.has(3) ? <CartPage /> : null}</div>
+          <div className="spa-page-view">{visitedTabs.has(4) ? <OrdersPage /> : null}</div>
+          <div className="spa-page-view">{visitedTabs.has(5) ? <AccountPage /> : null}</div>
+          <div className="spa-page-view">{visitedTabs.has(6) ? <AddAddressPage /> : null}</div>
+          <div className="spa-page-view">{visitedTabs.has(7) ? <SupportPage /> : null}</div>
+          <div className="spa-page-view">{visitedTabs.has(8) ? <PrivacyPolicyPage /> : null}</div>
+          <div className="spa-page-view">{visitedTabs.has(9) ? <ProductDetailPage /> : null}</div>
+          <div className="spa-page-view">{visitedTabs.has(10) ? <RestaurantProductsPage /> : null}</div>
         </div>
       </main>
       <BottomNav />

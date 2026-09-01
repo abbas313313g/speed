@@ -111,6 +111,8 @@ export interface DeliveryWorker {
     isActive?: boolean; 
     branchId: string;
     idleCount?: number; 
+    latitude?: number;
+    longitude?: number;
 }
 
 export type OrderStatus = 'unassigned' | 'pending_assignment' | 'preparing' | 'confirmed' | 'ready_for_pickup' | 'on_the_way' | 'delivered' | 'cancelled';

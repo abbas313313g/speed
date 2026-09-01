@@ -53,8 +53,15 @@ export const useDeliveryWorkers = (branchId?: string) => {
         }
     }, [toast, branchId]);
     
-    const updateWorkerStatus = useCallback(async (workerId: string, isOnline: boolean) => {
-        try { await updateDoc(doc(db, "deliveryWorkers", workerId), { isOnline }); } catch (e) {}
+    const updateWorkerStatus = useCallback(async (workerId: string, isOnline: boolean, location?: { latitude: number; longitude: number }) => {
+        try { 
+            const payload: any = { isOnline };
+            if (location?.latitude && location?.longitude) {
+                payload.latitude = location.latitude;
+                payload.longitude = location.longitude;
+            }
+            await updateDoc(doc(db, "deliveryWorkers", workerId), payload); 
+        } catch (e) {}
     }, []);
 
     const updateWorkerDetails = useCallback(async (workerId: string, details: Partial<DeliveryWorker>) => {

@@ -40,37 +40,38 @@ function ProductsPageContent() {
       if (activeTab !== 'all') prods = prods.filter(p => p.categoryId === activeTab);
       return prods;
   }, [products, activeTab]);
-
-  // محرك التحميل اللحظي
+  const displayedIdsRef = useRef(new Set<string>());
+  // محرك التحميل المتسلسل السريع جداً (منتج منتج)
   useEffect(() => {
-    const newItems = filteredProducts.filter(p => !displayedProducts.some(dp => dp.id === p.id));
-    
+    const newItems = filteredProducts.filter(p => !displayedIdsRef.current.has(p.id));   
     if (newItems.length > 0) {
-        queueRef.current = [...queueRef.current, ...newItems];
+      newItems.forEach(item => {
+        if (!queueRef.current.some(q => q.id === item.id)) {
+            queueRef.current.push(item);
+        }
+    });
         
         if (!isProcessingQueue.current) {
             isProcessingQueue.current = true;
             const interval = setInterval(() => {
                 if (queueRef.current.length > 0) {
                     const itemToAdd = queueRef.current.shift();
-                    if (itemToAdd) {
-                        setDisplayedProducts(prev => {
-                            if (prev.some(p => p.id === itemToAdd.id)) return prev;
-                            return [...prev, itemToAdd];
-                        });
+                    if (itemToAdd && !displayedIdsRef.current.has(itemToAdd.id)) {
+                      displayedIdsRef.current.add(itemToAdd.id);
+                      setDisplayedProducts(prev => [...prev, itemToAdd]);
                     }
                 } else {
                     isProcessingQueue.current = false;
                     clearInterval(interval);
                 }
-            }, 70);
+            }, 25);
         }
     }
-  }, [filteredProducts, displayedProducts.length]);
-
+  }, [filteredProducts]);
   // تصفير القائمة عند البحث لبدء "بحث حي"
   useEffect(() => {
       setDisplayedProducts([]);
+      displayedIdsRef.current.clear();
       queueRef.current = [];
       if (searchTerm) setCurrentLimit(10);
   }, [searchTerm, activeTab]);

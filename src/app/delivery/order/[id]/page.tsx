@@ -106,7 +106,6 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
       if (app === 'google') {
           window.open(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`, '_blank');
       } else {
-          // ويز يستخدم تنسيق خاص للروابط
           window.open(`https://waze.com/ul?ll=${latitude},${longitude}&navigate=yes`, '_blank');
       }
   };
@@ -124,7 +123,6 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
         </header>
 
         <div className="p-4 space-y-6">
-            {/* خيارات الملاحة الجمالية */}
             <div className="space-y-4">
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -152,7 +150,6 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                 </DropdownMenu>
             </div>
 
-            {/* بطاقات البيانات المزدوجة - وضوح كامل في المظلم */}
             <div className="grid grid-cols-1 gap-4">
                 <Card className="rounded-[2rem] border-none shadow-md overflow-hidden bg-white dark:bg-slate-900">
                     <CardHeader className="p-4 pb-2 border-b dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
@@ -169,7 +166,7 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                          <Separator className="opacity-50" />
                          <div className="space-y-1">
                             <p className="text-[10px] font-black text-primary uppercase">رقم الهاتف (واضح للآيفون)</p>
-                            <p className="text-2xl font-black text-slate-900 dark:text-white tracking-widest font-mono" dir="ltr">
+                            <p className="text-2xl font-black text-slate-900 dark:text-white tracking-widest font-mono select-all" dir="ltr">
                                 {order.address.phone}
                             </p>
                          </div>
@@ -204,7 +201,6 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                 </Card>
             </div>
 
-            {/* تفاصيل الفاتورة - وضوح الألوان */}
             <Card className="rounded-[2.5rem] border-none shadow-lg overflow-hidden bg-white dark:bg-slate-900 border dark:border-slate-800">
                 <button 
                     onClick={() => setShowBill(!showBill)}
@@ -246,7 +242,6 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                 </div>
             </Card>
             
-            {/* أزرار التحكم في الحالة */}
             {nextStatus[order.status] && (
                 <div className="flex flex-col gap-4">
                     <Button 

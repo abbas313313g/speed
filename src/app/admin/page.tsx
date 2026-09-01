@@ -11,7 +11,7 @@ import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export default function AdminDashboard({ branchId }: { branchId: string }) {
@@ -29,7 +29,8 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
   useEffect(() => {
       if (isMain) {
           setIsGlobalLoading(true);
-          getDocs(collection(db, "orders")).then(snap => {
+          const qOrders = query(collection(db, "orders"), orderBy("date", "desc"), limit(500));
+          getDocs(qOrders).then(snap => {
               const orders = snap.docs.map(d => d.data());
               const delivered = orders.filter(o => o.status === 'delivered');
               setGlobalStats({
@@ -37,8 +38,7 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
                   totalOrders: orders.length,
                   totalProfit: delivered.reduce((acc, o) => acc + (o.profit || 0), 0)
               });
-              setIsGlobalLoading(false);
-          });
+            }).catch(() => {}).finally(() => setIsGlobalLoading(false));
       }
   }, [isMain]);
 
@@ -53,8 +53,8 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
     }
   }, [allOrders, products]);
 
-  if (pLoading || oLoading || bLoading || (isMain && isGlobalLoading)) return <div className="p-8 text-center animate-pulse font-black text-primary">جاري قراءة إحصائيات النظام...</div>;
-
+  if (pLoading && oLoading) return <div className="p-8 text-center animate-pulse font-black text-primary">جاري قراءة إحصائيات النظام...</div>;
+  
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <header>
