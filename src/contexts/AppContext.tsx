@@ -172,7 +172,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 nextNumber = (lastOrder.orderNumber || 0) + 1;
             }
 
-            let finalDeliveryFee = dFee;
+            let customerDeliveryFee = dFee;
             let finalCartTotal = cartTotal;
             let appliedDiscount = 0;
             let couponToUpdateId = null;
@@ -195,8 +195,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     }
 
                     if (coupon.discountTarget === 'delivery') {
-                        appliedDiscount = coupon.isFullDiscount ? finalDeliveryFee : Math.min(finalDeliveryFee, coupon.discountValue);
-                        finalDeliveryFee -= appliedDiscount;
+                        appliedDiscount = coupon.isFullDiscount ? customerDeliveryFee : Math.min(customerDeliveryFee, coupon.discountValue);
+                        customerDeliveryFee -= appliedDiscount;
                         toast({ title: `تم تطبيق خصم ${coupon.isFullDiscount ? 'كامل' : formatCurrency(appliedDiscount)} على التوصيل ✅` });
                     } else {
                         appliedDiscount = coupon.isFullDiscount ? finalCartTotal : Math.min(finalCartTotal, coupon.discountValue);
@@ -217,7 +217,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 orderNumber: nextNumber, 
                 userId, 
                 items: cart, 
-                total: finalCartTotal + finalDeliveryFee,
+                total: finalCartTotal + customerDeliveryFee,
                 date: new Date().toISOString(), 
                 status: 'unassigned', 
                 address: {
@@ -228,7 +228,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     latitude: addr.latitude || 0,
                     longitude: addr.longitude || 0
                 }, 
-                deliveryFee: finalDeliveryFee,
+                deliveryFee: dFee, // المندوب يحصل دائماً على الأجرة الأصلية حسب المسافة
                 restaurant: rest ? { 
                     id: rest.id, 
                     name: rest.name, 

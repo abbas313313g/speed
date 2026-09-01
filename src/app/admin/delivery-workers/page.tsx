@@ -25,7 +25,7 @@ import { Wallet, Banknote, UserCheck } from 'lucide-react';
 interface WorkerWallet {
     worker: DeliveryWorker;
     deliveryEarnings: number; // أجرته (ما يدفعه المكتب له)
-    cashToOffice: number; // ذمة المكتب (ما يسلمه المندوب للمكتب)
+    cashToOffice: number; // ذمة المكتب (إجمالي الكاش الذي استلمه المندوب من الزبائن)
     unpaidFeeIds: string[];
     unpaidCashIds: string[];
 }
@@ -44,7 +44,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
         return {
             worker: w,
             deliveryEarnings: unpaidFees.reduce((acc, o) => acc + (o.deliveryFee || 0), 0),
-            cashToOffice: unpaidCash.reduce((acc, o) => acc + (o.total - (o.deliveryFee || 0)), 0),
+            cashToOffice: unpaidCash.reduce((acc, o) => acc + (o.total || 0), 0),
             unpaidFeeIds: unpaidFees.map(o => o.id),
             unpaidCashIds: unpaidCash.map(o => o.id),
         };
@@ -120,7 +120,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
                                     <span className="text-xs font-black uppercase">ذمة المكتب (على المندوب)</span>
                                 </div>
                                 <div className="text-4xl font-black tracking-tighter text-destructive">{formatCurrency(w.cashToOffice)}</div>
-                                <p className="text-[10px] font-bold text-muted-foreground">كاش الطلبات المستلم من الزبائن لـ {w.unpaidCashIds.length} طلب.</p>
+                                <p className="text-[10px] font-bold text-muted-foreground">إجمالي الكاش المستلم من الزبائن لـ {w.unpaidCashIds.length} طلب.</p>
                                 <Button 
                                     variant="outline"
                                     className="w-full h-12 rounded-2xl font-black text-lg border-destructive text-destructive hover:bg-destructive/5"

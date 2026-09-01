@@ -45,7 +45,7 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
     const myD = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered');
     const totalEarnings = myD.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
     const unpaidEarnings = myD.filter(o => !o.isFeePaid).reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
-    const moneyOwedToOffice = myD.filter(o => !o.isOrderPaidToOffice).reduce((acc, o) => acc + (o.total - o.deliveryFee), 0);
+    const moneyOwedToOffice = myD.filter(o => !o.isOrderPaidToOffice).reduce((acc, o) => acc + (o.total || 0), 0);
     
     const isActuallyFrozen = moneyOwedToOffice >= 100000;
     const pRequest = requests.find(r => r.targetId === workerId && r.status === 'pending');
