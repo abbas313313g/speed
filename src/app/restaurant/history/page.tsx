@@ -35,13 +35,13 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
         );
 
         const income = filtered.reduce((acc, order) => {
-            // احتساب ثمن الوجبات فقط واستبعاد أجور التوصيل تماماً
+            // احتساب ثمن الوجبات فقط واستبعاد أجور التوصيل تماماً من محفظة المتجر
             const itemsPrice = order.items.reduce((sum, i) => {
                 const price = i.selectedSize?.price ?? i.product.discountPrice ?? i.product.price ?? 0;
                 return sum + (price * i.quantity);
             }, 0);
             
-            // خصم عمولة المنصة من ثمن الوجبات
+            // خصم عمولة المنصة من ثمن الوجبات فقط
             const commission = (itemsPrice * (restaurant.commissionRate / 100));
             return acc + (itemsPrice - commission);
         }, 0);
@@ -66,13 +66,13 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
             type: 'restaurant',
             targetId: restaurant.id,
             targetName: restaurant.name,
-            amount: totalSalesBeforeCommission, // إجمالي ثمن الوجبات
+            amount: totalSalesBeforeCommission, // إجمالي ثمن الوجبات فقط
             commissionAmount: commissionAmount, // عمولة الشركة
             netAmount: totalIncome, // الصافي الذي سيستلمه المتجر
             branchId: restaurant.branchId
         });
         
-        if (success) toast({ title: "تم إرسال طلبك للإدارة، سيتم التواصل معك قريباً." });
+        if (success) toast({ title: "تم إرسال طلبك للإدارة بنجاح." });
         setIsSubmitting(false);
     };
 
@@ -89,7 +89,7 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
                     <Button variant="outline" size="icon" onClick={onBack} className="rounded-xl h-10 w-10 border-2 shadow-sm"><ArrowRight className="h-5 w-5 text-primary"/></Button>
                     <div>
                         <h1 className="text-xl font-black text-slate-800">حساباتي المالية</h1>
-                        <p className="text-[10px] font-bold text-muted-foreground">عرض صافي أرباحك وطلبات السحب</p>
+                        <p className="text-[10px] font-bold text-muted-foreground">أرباح الوجبات فقط (بدون توصيل)</p>
                     </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={logout} className="text-destructive"><LogOut className="h-5 w-5"/></Button>
@@ -98,7 +98,7 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
             <Card className="rounded-[2.5rem] border-none shadow-2xl bg-primary text-white overflow-hidden relative">
                 <div className="absolute right-[-20px] top-[-20px] opacity-10"><Wallet className="h-32 w-32" /></div>
                 <CardHeader className="pb-2">
-                    <CardTitle className="text-white/80 text-[10px] font-black uppercase tracking-widest">صافي رصيد الوجبات المتاح</CardTitle>
+                    <CardTitle className="text-white/80 text-[10px] font-black uppercase tracking-widest">صافي أرباح الوجبات المتاح</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="text-4xl font-black tracking-tighter drop-shadow-lg">{formatCurrency(displayBalance)}</div>
@@ -106,12 +106,12 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
                     {pendingRequest ? (
                         <div className="p-4 bg-white/10 rounded-2xl border border-white/20 flex flex-col items-center gap-2 animate-pulse">
                             <Hourglass className="h-6 w-6 text-white" />
-                            <p className="font-black text-white text-sm">طلب سحب {formatCurrency(pendingRequest.netAmount)} قيد المراجعة</p>
+                            <p className="font-black text-white text-sm">طلب السحب قيد التدقيق الآن</p>
                         </div>
                     ) : (
                         <>
                             <div className="p-3 bg-white/10 rounded-2xl border border-white/20 text-[10px] font-bold">
-                                هذا المبلغ يمثل أرباحك الصافية لـ {pendingSettleCount} طلب مكتمل (ثمن الوجبات فقط ناقص العمولة).
+                                هذا المبلغ يمثل أرباحك الصافية لـ {pendingSettleCount} طلب (الوجبات فقط).
                             </div>
                             <Button 
                                 onClick={handleWithdraw} 
@@ -119,7 +119,7 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
                                 className="w-full h-16 rounded-[1.8rem] bg-white text-primary hover:bg-white/95 font-black text-xl gap-3 shadow-xl active:scale-95 transition-all"
                             >
                                 {isSubmitting ? <Loader2 className="animate-spin h-6 w-6"/> : <SendHorizontal className="h-6 w-6"/>}
-                                طلب سحب الرصيد كاش
+                                طلب سحب الأرباح كاش
                             </Button>
                         </>
                     )}
@@ -139,11 +139,10 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
                                 req.status === 'completed' ? "bg-green-100 text-green-700 border-none" : 
                                 req.status === 'rejected' ? "bg-red-100 text-red-700 border-none" : "bg-orange-100 text-orange-700 border-none"
                             )}>
-                                {req.status === 'completed' ? 'تم التسليم ✅' : req.status === 'rejected' ? 'تم الرفض ❌' : 'قيد التدقيق ⏳'}
+                                {req.status === 'completed' ? 'تمت ✅' : req.status === 'rejected' ? 'مرفوض ❌' : 'قيد المراجعة'}
                             </Badge>
                         </Card>
                     ))}
-                    {requests.length === 0 && <div className="p-16 text-center text-muted-foreground font-black italic border-2 border-dashed rounded-[2.5rem] text-[10px]">لا توجد طلبات سحب سابقة لعرضها.</div>}
                 </div>
             </div>
         </div>

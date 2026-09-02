@@ -2,13 +2,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { collection, onSnapshot, doc, updateDoc, query, where, getDocs, limit, deleteDoc, increment } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, query, where, getDocs, limit, deleteDoc, increment, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
 import { sendFcmNotification } from '@/services/fcm-service';
 
-const ASSIGNMENT_TIMEOUT_MS = 20000; // 20 ثانية لموافقة المندوب
+const ASSIGNMENT_TIMEOUT_MS = 20000; 
 
 export const useOrders = (branchId?: string) => {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
@@ -27,20 +27,11 @@ export const useOrders = (branchId?: string) => {
             
             if (currentIdle >= 3) {
                 await updateDoc(workerRef, { isOnline: false, idleCount: 0 });
-                if (typeof window !== 'undefined' && localStorage.getItem('deliveryWorkerId') === workerId) {
-                    toast({ 
-                        title: "تم إيقاف نشاطك تلقائياً", 
-                        description: "بسبب تجاهل 3 طلبات متتالية. يرجى تفعيل الحالة عند الاستعداد.", 
-                        variant: "destructive" 
-                    });
-                }
             } else {
                 await updateDoc(workerRef, { idleCount: increment(1) });
             }
-        } catch (e) {
-            console.error("Penalize error:", e);
-        }
-    }, [toast]);
+        } catch (e) {}
+    }, []);
 
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         if (isAssigningRef.current) return;
@@ -50,12 +41,13 @@ export const useOrders = (branchId?: string) => {
 
         isAssigningRef.current = true;
         try {
+            // توزيع الطلبات عالمياً: نبحث عن المناديب المتصلين في كل الأفرع
             const workersRef = collection(db, "deliveryWorkers");
             const wQuery = query(
                 workersRef, 
                 where("isOnline", "==", true), 
                 where("isActive", "==", true),
-                limit(50)
+                limit(100)
             );
             const workersSnap = await getDocs(wQuery);
             let onlineWorkers = workersSnap.docs.map(d => ({ id: d.id, ...d.data() })) as DeliveryWorker[];
@@ -71,6 +63,7 @@ export const useOrders = (branchId?: string) => {
                         if(id) workerLoadMap.set(id, (workerLoadMap.get(id) || 0) + 1);
                     });
 
+                    // اختيار مندوب عشوائي لديه ضغط عمل أقل من 3 طلبات
                     const targetWorkers = onlineWorkers.filter(w => (workerLoadMap.get(w.id) || 0) < 3);
                     const finalPool = targetWorkers.length > 0 ? targetWorkers : onlineWorkers;
                     
@@ -85,7 +78,6 @@ export const useOrders = (branchId?: string) => {
                             confirmedAt: new Date().toISOString()
                         });
                         
-                        // إرسال إشعار جوجل للمندوب فوراً
                         sendFcmNotification(worker.id, 'deliveryWorkers', 'لديك طلب جديد! 🚀', `وصلك طلب من ${order.restaurant?.name || 'متجر جديد'}`);
                     }
                 }
@@ -93,44 +85,22 @@ export const useOrders = (branchId?: string) => {
         } catch (e) {
             console.error("Auto-assign failed:", e);
         } finally {
-            setTimeout(() => { isAssigningRef.current = false; }, 3000);
+            setTimeout(() => { isAssigningRef.current = false; }, 4000);
         }
     }, []);
 
     useEffect(() => {
-        const interval = setInterval(() => {
-            const now = new Date().getTime();
-            allOrders.forEach(async (order) => {
-                if (order.status === 'confirmed' && order.deliveryWorkerId && order.confirmedAt) {
-                    const confirmedTime = new Date(order.confirmedAt).getTime();
-                    if (now - confirmedTime > ASSIGNMENT_TIMEOUT_MS) {
-                        const wId = order.deliveryWorkerId;
-                        await updateDoc(doc(db, "orders", order.id), {
-                            deliveryWorkerId: null,
-                            deliveryWorker: null,
-                            status: 'pending_assignment',
-                            confirmedAt: null
-                        });
-                        await penalizeWorker(wId);
-                    }
-                }
-            });
-        }, 5000);
-        return () => clearInterval(interval);
-    }, [allOrders, penalizeWorker]);
-
-    useEffect(() => {
         const ordersRef = collection(db, 'orders');
-        let q = query(ordersRef, limit(150));
+        // تحسين أداء جلب الطلبات عبر الفروع
+        let q = query(ordersRef, orderBy("date", "desc"), limit(100));
         
-        if (branchId && branchId !== 'all') {
-            q = query(ordersRef, where('branchId', '==', branchId), limit(150));
+        if (branchId && branchId !== 'all' && branchId !== 'main') {
+            q = query(ordersRef, where('branchId', '==', branchId), orderBy("date", "desc"), limit(100));
         }
 
         const unsub = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
-            const sortedData = data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            setAllOrders(sortedData);
+            setAllOrders(data);
             setIsLoading(false);
             autoAssignOrders(data);
         }, (error) => {
