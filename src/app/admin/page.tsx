@@ -9,6 +9,7 @@ import { useOrders } from '@/hooks/useOrders';
 import { useBranches } from '@/hooks/useBranches';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
