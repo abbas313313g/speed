@@ -30,6 +30,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -298,6 +299,16 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                             <Label className="font-bold">اسم الوجبة</Label>
                             <Input value={currentProduct.name ?? ''} onChange={(e) => setCurrentProduct({...currentProduct, name: e.target.value})} className="rounded-xl h-12 font-bold" />
                         </div>
+
+                        <div className="space-y-1 col-span-2">
+                            <Label className="font-bold text-slate-800">وصف الوجبة (المكونات أو التفاصيل)</Label>
+                            <Textarea 
+                                value={currentProduct.description ?? ''} 
+                                onChange={(e) => setCurrentProduct({...currentProduct, description: e.target.value})} 
+                                className="rounded-xl min-h-[100px] text-right font-medium text-sm leading-relaxed" 
+                                placeholder="اكتب تفاصيل الوجبة هنا لكي يراها الزبون..."
+                            />
+                        </div>
                         
                         <div className="space-y-1">
                             <Label className="font-bold">السعر العام (إذا لا توجد أنواع)</Label>
@@ -401,7 +412,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                     </Button>
                 </DialogFooter>
             </DialogContent>
-        </Dialog>
+      </Dialog>
 
         <div className="bg-white rounded-[2rem] border-none shadow-xl overflow-hidden">
           <Table>
@@ -466,7 +477,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
               )}
             </TableBody>
           </Table>
-      </div>
+        </div>
     </div>
   );
 }

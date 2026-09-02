@@ -127,12 +127,37 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             const q = query(collection(db, "addresses"), where("phone", "==", phone), limit(1));
             const snap = await getDocs(q);
-            const targetId = !snap.empty ? snap.docs[0].data().userId : uuidv4();
+            let targetId: string;
+            if (!snap.empty) {
+                targetId = snap.docs[0].data().userId;
+            } else {
+                targetId = uuidv4();
+            }
             setUserId(targetId);
             safeStorage.set('speedShopUserId', targetId);
             return targetId;
         } catch (e) { return null; }
     }, []);
+
+    const addAddress = useCallback(async (a: Omit<Address, 'id' | 'userId'>) => {
+        try {
+            // نضمن الحصول على المعرف الحالي أو المزامنة فوراً
+            let currentUid = userId;
+            if (!currentUid) {
+                currentUid = await syncUserByPhone(a.phone);
+            }
+
+            if (!currentUid) throw new Error("Could not sync user ID");
+
+            await addDoc(collection(db, "addresses"), { 
+                ...a, 
+                userId: currentUid 
+            });
+        } catch (e) {
+            console.error("AppContext Add Address Error:", e);
+            throw e;
+        }
+    }, [userId, syncUserByPhone]);
 
     const addToCart = useCallback((product: Product, quantity: number, selectedSize?: ProductSize): boolean => {
         if (cart.length > 0 && cart[0].product.restaurantId !== product.restaurantId) {
@@ -261,7 +286,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 });
             }
 
-            // إرسال إشعار جوجل للمطعم فوراً
             if (rest?.id) {
                 sendFcmNotification(rest.id, 'restaurants', 'طلب جديد وصل! 🍔', `لديك طلب جديد برقم #${nextNumber}`);
             }
@@ -278,7 +302,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const value = {
         isLoading: bannersLoading, isMainDataReady, placeOrder, createSupportTicket: createTicketHook, addMessageToTicket: (tid: string, m: Message) => updateDoc(doc(db, "supportTickets", tid), { history: arrayUnion(m) }),
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, userId, addresses, 
-        addAddress: async (a: any) => { await addDoc(collection(db, "addresses"), { ...a, userId: userId || await syncUserByPhone(a.phone) }); },
+        addAddress,
         deleteAddress: (id: string) => updateDoc(doc(db, "addresses", id), { userId: 'deleted' }),
         mySupportTicket: useMemo(() => supportTickets.find(t => t.userId === userId && !t.isResolved), [userId, supportTickets]),
         startNewTicketClient: () => {},

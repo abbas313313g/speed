@@ -28,7 +28,7 @@ import RestaurantProductsPage from './restaurants/[id]/page';
 export default function MainAppLayout() {
   const context = useContext(AppContext);
   const { settings } = useAppSettings();
-  const { addresses, addAddress } = useAddresses();
+  const { addresses } = useAddresses();
   const { toast } = useToast();
   
   const [showAddressPrompt, setShowAddressPrompt] = useState(false);
@@ -40,7 +40,7 @@ export default function MainAppLayout() {
   const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([0]));
 
   if (!context) return null;
-  const { activeTab, syncUserByPhone, isMainDataReady } = context;
+  const { activeTab, syncUserByPhone, isMainDataReady, addAddress } = context;
 
   useEffect(() => {
     setVisitedTabs(prev => {
@@ -96,7 +96,6 @@ export default function MainAppLayout() {
   };
 
   const handleSaveAddress = async () => {
-    // التحقق من الرقم عند أول تسجيل دخول
     const phoneRegex = /^07[78]\d{8}$/;
     if (!phoneRegex.test(newAddr.phone)) {
         toast({ 
@@ -113,19 +112,26 @@ export default function MainAppLayout() {
     }
     setIsSaving(true);
     try {
-        await syncUserByPhone(newAddr.phone);
+        // نضمن مزامنة الـ UserID أولاً وبدقة
+        const syncedUserId = await syncUserByPhone(newAddr.phone);
+        
+        // نمرر البيانات للـ Hook مع التأكد من إرسالها لـ Firestore
         await addAddress({ 
-            ...newAddr, 
+            name: newAddr.name,
+            phone: newAddr.phone,
+            details: newAddr.details,
             latitude: newAddr.lat, 
             longitude: newAddr.lng, 
             deliveryZone: "عام", 
             branchId: "main" 
         } as any);
+
         safeStorage.set('speedShopSetupDone', 'true');
         setShowAddressPrompt(false);
         toast({ title: "مرحباً بك في سبيد شوب! 🎉" });
     } catch (e) { 
-        toast({ title: "خطأ في المزامنة", variant: "destructive" }); 
+        console.error("Layout Save Address Error:", e);
+        toast({ title: "خطأ في المزامنة سحابياً", variant: "destructive" }); 
     } finally { 
         setIsSaving(false); 
     }

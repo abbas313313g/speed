@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { formatCurrency, cn, compressImage } from '@/lib/utils';
@@ -161,6 +162,16 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                             <div className="space-y-1 col-span-2">
                                 <Label className="font-bold">اسم الوجبة</Label>
                                 <Input value={currentP.name} onChange={(e)=>setCurrentP({...currentP, name: e.target.value})} className="h-12 rounded-xl font-bold" />
+                            </div>
+
+                            <div className="space-y-1 col-span-2">
+                                <Label className="font-bold text-slate-800">وصف الوجبة</Label>
+                                <Textarea 
+                                    value={currentP.description} 
+                                    onChange={(e)=>setCurrentP({...currentP, description: e.target.value})} 
+                                    className="rounded-xl min-h-[80px] text-right font-medium text-sm" 
+                                    placeholder="اكتب المكونات أو تفاصيل الوجبة..."
+                                />
                             </div>
                             
                             <div className="space-y-1">
