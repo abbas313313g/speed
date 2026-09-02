@@ -28,7 +28,7 @@ function isStoreActuallyOpen(r: Restaurant): boolean {
 export const useProducts = (
     branchId?: string, 
     restaurantId?: string, 
-    loadLimit: number = 10, 
+    loadLimit: number = 20, 
     productId?: string, 
     searchTerm: string = '',
     isAdmin: boolean = false
@@ -66,7 +66,6 @@ export const useProducts = (
 
     useEffect(() => {
         setIsLoading(true);
-        setProducts([]);
         
         let unsub = () => {};
 
@@ -75,8 +74,6 @@ export const useProducts = (
                 unsub = onSnapshot(doc(db, 'products', productId), (docSnap) => {
                     if (docSnap.exists()) {
                         setProducts([{ id: docSnap.id, ...docSnap.data() } as Product]);
-                    } else {
-                        setProducts([]);
                     }
                     setIsLoading(false);
                 });
@@ -84,24 +81,6 @@ export const useProducts = (
             }
 
             const ref = collection(db, 'products');
-
-            if (searchTerm.trim() !== '') {
-                const searchLimit = isAdmin ? 500 : 200;
-                const qSearch = isAdmin 
-                    ? query(ref, limit(searchLimit))
-                    : query(ref, where('status', '==', 'approved'), limit(searchLimit));
-                
-                getDocs(qSearch).then(snap => {
-                    const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Product));
-                    const filtered = data.filter(p => 
-                        p.name.toLowerCase().includes(searchTerm.toLowerCase())
-                    );
-                    setProducts(filtered);
-                    setHasMore(false);
-                    setIsLoading(false);
-                }).catch(() => setIsLoading(false));
-                return;
-            }
 
             let q;
             if (restaurantId && restaurantId !== 'none') {
@@ -122,6 +101,7 @@ export const useProducts = (
             unsub = onSnapshot(q, (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
                 setProducts(data);
+                // إذا العدد المرجوع أقل من الليميت المطلوب، يعني خلصت المنتجات
                 setHasMore(data.length >= loadLimit);
                 setIsLoading(false);
             }, (error) => {
@@ -133,7 +113,7 @@ export const useProducts = (
         }
 
         return () => unsub();
-    }, [branchId, restaurantId, loadLimit, productId, searchTerm, isAdmin]);
+    }, [branchId, restaurantId, loadLimit, productId, isAdmin]);
 
     const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
         try {

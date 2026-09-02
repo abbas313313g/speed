@@ -26,22 +26,21 @@ function ProductsPageContent() {
   const { products, isLoading, hasMore } = useProducts(
       undefined, 
       undefined, 
-      searchTerm ? 200 : currentLimit, 
+      searchTerm ? 500 : currentLimit, // زيادة الليميت عند البحث
       undefined, 
-      '' // البحث محلي الآن للأداء
+      '' 
   );
   
   const { categories } = useCategories();
 
-  // فلترة الأقسام والبحث محلياً لضمان السرعة القصوى وعدم تعليق الجهاز
   const filteredProducts = useMemo(() => {
       let prods = products.filter(p => p.isActive !== false);
-      if (activeTab !== 'all') prods = prods.filter(p => p.categoryId === activeTab);
+      if (activeTab !== 'all') prods = prods.filter(p => p.categoryId === initialCategory || p.categoryId === activeTab);
       if (searchTerm.trim() !== '') {
           prods = prods.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
       }
       return prods;
-  }, [products, activeTab, searchTerm]);
+  }, [products, activeTab, searchTerm, initialCategory]);
 
   const displayedIdsRef = useRef(new Set<string>());
 
@@ -52,7 +51,7 @@ function ProductsPageContent() {
         if (!queueRef.current.some(q => q.id === item.id)) {
             queueRef.current.push(item);
         }
-    });
+      });
         
         if (!isProcessingQueue.current) {
             isProcessingQueue.current = true;
@@ -67,7 +66,7 @@ function ProductsPageContent() {
                     isProcessingQueue.current = false;
                     clearInterval(interval);
                 }
-            }, 15);
+            }, 10);
         }
     }
   }, [filteredProducts]);
@@ -145,12 +144,16 @@ function ProductsPageContent() {
                         </div>
                         <p className="text-[10px] font-black text-primary animate-pulse">جارِ البحث...</p>
                     </div>
-                ) : !hasMore && displayedProducts.length > 0 && !searchTerm ? (
-                    <p className="text-[10px] font-black text-muted-foreground/40">وصلت إلى نهاية القائمة ✨</p>
+                ) : (hasMore && !searchTerm) ? (
+                    <div className="p-3 bg-primary/5 rounded-full animate-bounce">
+                        <Loader2 className="h-4 w-4 text-primary" />
+                    </div>
+                ) : displayedProducts.length > 0 ? (
+                    <p className="text-[10px] font-black text-muted-foreground/40 italic">✨ وصلت لنهاية القائمة ✨</p>
                 ) : null}
             </div>
 
-            {!isLoading && filteredProducts.length === 0 && (
+            {!isLoading && filteredProducts.length === 0 && !isProcessingQueue.current && (
                 <div className="text-center py-20 bg-muted/5 rounded-[3rem] border-2 border-dashed">
                     <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
                     <p className="text-muted-foreground font-black">لم نجد وجبات تطابق بحثك حالياً.</p>

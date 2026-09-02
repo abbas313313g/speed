@@ -14,6 +14,30 @@ export const useOrders = (branchId?: string) => {
     const { toast } = useToast();
     const isAssigningRef = useRef(false);
 
+    // نظام تدوير الطلبات: سحب الطلب من المندوب إذا تأخر أكثر من 20 ثانية
+    const cleanupTimedOutAssignments = useCallback(async (orders: Order[]) => {
+        const timedOutOrders = orders.filter(o => 
+            o.status === 'confirmed' && 
+            o.confirmedAt && 
+            (new Date().getTime() - new Date(o.confirmedAt).getTime() > 20000)
+        );
+
+        for (const order of timedOutOrders) {
+            try {
+                await updateDoc(doc(db, "orders", order.id), {
+                    deliveryWorkerId: null,
+                    deliveryWorker: null,
+                    status: 'pending_assignment',
+                    confirmedAt: null,
+                    // نضع علامة للمندوب السابق لكي لا يختاره النظام فوراً مرة أخرى (اختياري)
+                    lastSkippedWorkerId: order.deliveryWorkerId 
+                });
+            } catch (e) {
+                console.error("Timeout cleanup failed:", e);
+            }
+        }
+    }, []);
+
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         if (isAssigningRef.current) return;
         
@@ -34,18 +58,11 @@ export const useOrders = (branchId?: string) => {
 
             if (onlineWorkers.length > 0) {
                 for (const order of pendingOrders) {
-                    const activeWorkersIds = orders
-                        .filter(o => ['preparing', 'confirmed', 'ready_for_pickup', 'on_the_way'].includes(o.status))
-                        .map(o => o.deliveryWorkerId);
+                    // استبعاد المندوب الذي تم سحب الطلب منه للتو لضمان التدوير
+                    const availablePool = onlineWorkers.filter(w => w.id !== (order as any).lastSkippedWorkerId);
+                    const finalPool = availablePool.length > 0 ? availablePool : onlineWorkers;
                     
-                    const workerLoadMap = new Map();
-                    activeWorkersIds.forEach(id => {
-                        if(id) workerLoadMap.set(id, (workerLoadMap.get(id) || 0) + 1);
-                    });
-
-                    const targetWorkers = onlineWorkers.filter(w => (workerLoadMap.get(w.id) || 0) < 3);
-                    const finalPool = targetWorkers.length > 0 ? targetWorkers : onlineWorkers;
-                    
+                    // اختيار عشوائي للمندوب لضمان العدالة
                     const shuffled = [...finalPool].sort(() => Math.random() - 0.5);
                     const worker = shuffled[0];
                     
@@ -53,11 +70,11 @@ export const useOrders = (branchId?: string) => {
                         await updateDoc(doc(db, "orders", order.id), {
                             deliveryWorkerId: worker.id,
                             deliveryWorker: { id: worker.id, name: worker.name },
-                            status: 'confirmed',
+                            status: 'confirmed', // حالة "العرض" على المندوب
                             confirmedAt: new Date().toISOString()
                         });
                         
-                        sendFcmNotification(worker.id, 'deliveryWorkers', 'لديك طلب جديد! 🚀', `وصلك طلب من ${order.restaurant?.name || 'متجر جديد'}`);
+                        sendFcmNotification(worker.id, 'deliveryWorkers', 'طلب جديد بانتظارك! 🚀', `لديك 20 ثانية للموافقة على طلب ${order.restaurant?.name || 'جديد'}`);
                     }
                 }
             }
@@ -70,8 +87,6 @@ export const useOrders = (branchId?: string) => {
 
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
-        
-        // استخدام استعلام بسيط لتجنب مشاكل الـ Index في البداية، والترتيب في الذاكرة
         let q = query(ordersRef, limit(200));
         
         if (branchId && branchId !== 'all' && branchId !== 'main') {
@@ -80,28 +95,32 @@ export const useOrders = (branchId?: string) => {
 
         const unsub = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
-            // الترتيب اليدوي لضمان السرعة ومنع التصفير
             const sortedData = data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             
             setAllOrders(sortedData);
             setIsLoading(false);
+            
+            // تشغيل محركات التوزيع والتدوير
+            cleanupTimedOutAssignments(sortedData);
             autoAssignOrders(sortedData);
         }, (error) => {
             setIsLoading(false);
         });
         return () => unsub();
-    }, [branchId, autoAssignOrders]);
+    }, [branchId, autoAssignOrders, cleanupTimedOutAssignments]);
     
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
             const orderRef = doc(db, "orders", orderId);
             const updateData: any = { status };
             
+            // المندوب يوافق -> تتحول الحالة لـ preparing
             if (status === 'preparing' && workerId) {
                 updateData.deliveryWorkerId = workerId;
                 updateData.confirmedAt = null; 
             }
 
+            // سحب الطلب أو إعادة التدوير
             if (status === 'unassigned') {
                 updateData.deliveryWorkerId = null;
                 updateData.deliveryWorker = null;
