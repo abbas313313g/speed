@@ -20,12 +20,12 @@ import { doc, writeBatch, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Wallet, Banknote, UserCheck } from 'lucide-react';
+import { Wallet, Banknote, UserCheck, Loader2 } from 'lucide-react';
 
 interface WorkerWallet {
     worker: DeliveryWorker;
-    deliveryEarnings: number; // أجرته الصافية (بعد التعديلات اليدوية)
-    cashToOffice: number; // ذمته الصافية (بعد التعديلات اليدوية) - تشمل مجموع الطلبات
+    deliveryEarnings: number; 
+    cashToOffice: number; 
     unpaidFeeIds: string[];
     unpaidCashIds: string[];
 }
@@ -42,12 +42,9 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
         const unpaidFees = orders.filter(o => !o.isFeePaid);
         const unpaidCash = orders.filter(o => !o.isOrderPaidToOffice);
         
-        // الأرباح الصافية = (مجموع أجور التوصيل) + التعديلات اليدوية (balanceAdjustment)
         const baseEarnings = unpaidFees.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
         const deliveryEarnings = Math.max(0, baseEarnings + (w.balanceAdjustment || 0));
 
-        // الذمة الصافية = (مجموع الكاش المستلم - الإجمالي الكلي للطلب) + التعديلات اليدوية (debtAdjustment)
-        // الذمة تكون المجموع الكلي للطلب كما طلبت (الوجبات + التوصيل)
         const baseCash = unpaidCash.reduce((acc, o) => acc + (o.total || 0), 0);
         const cashToOffice = Math.max(0, baseCash + (w.debtAdjustment || 0));
 
@@ -76,7 +73,12 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
       }
   }
 
-  if (workersLoading || ordersLoading) return <div className="p-8 text-center animate-pulse font-black text-primary">جارِ جلب سجلات المحفظة والديون...</div>;
+  if (workersLoading || ordersLoading) return (
+      <div className="p-20 text-center flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="font-black text-primary animate-pulse">جاري جلب سجلات المحفظة والديون...</p>
+      </div>
+  );
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 text-right">
@@ -119,6 +121,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
                                 <Button 
                                     className="w-full h-12 rounded-2xl font-black text-lg shadow-lg"
                                     onClick={() => clearSettlement(w.worker.id, w.unpaidFeeIds, 'isFeePaid')}
+                                    disabled={w.deliveryEarnings <= 0}
                                 >
                                     دفع أرباح التوصيل
                                 </Button>
@@ -136,6 +139,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
                                     variant="outline"
                                     className="w-full h-12 rounded-2xl font-black text-lg border-destructive text-destructive"
                                     onClick={() => clearSettlement(w.worker.id, w.unpaidCashIds, 'isOrderPaidToOffice')}
+                                    disabled={w.cashToOffice <= 0}
                                 >
                                     استلام المبالغ وتصفية الذمة
                                 </Button>

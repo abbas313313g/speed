@@ -15,7 +15,7 @@ import Image from 'next/image';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useOrders } from '@/hooks/useOrders';
-import { TrendingUp, Building2, Wallet, Landmark } from 'lucide-react';
+import { TrendingUp, Building2, Wallet, Landmark, Loader2 } from 'lucide-react';
 
 export default function AdminReportsPage({ branchId }: { branchId: string }) {
   const { restaurants, isLoading: rLoading } = useRestaurants(branchId);
@@ -31,7 +31,12 @@ export default function AdminReportsPage({ branchId }: { branchId: string }) {
     let companyEarnings = 0;
 
     delivered.forEach(order => {
-        const itemsPrice = order.items.reduce((sum, i) => sum + ((i.selectedSize?.price ?? i.product.discountPrice ?? i.product.price) * i.quantity), 0);
+        // حساب سعر الوجبات بدقة مع معالجة السعر المصفّر
+        const itemsPrice = order.items.reduce((sum, i) => {
+            const price = i.selectedSize?.price || i.product.discountPrice || i.product.price || 0;
+            return sum + (price * i.quantity);
+        }, 0);
+        
         const commissionRate = order.restaurant?.commissionRate || 10;
         const commission = (itemsPrice * commissionRate) / 100;
         
@@ -46,7 +51,12 @@ export default function AdminReportsPage({ branchId }: { branchId: string }) {
     };
   }, [allOrders, rLoading, oLoading]);
 
-  if (rLoading || oLoading) return <div className="p-8 text-center animate-pulse">جاري احتساب التقارير المالية...</div>;
+  if (rLoading || oLoading) return (
+      <div className="p-20 text-center flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="font-black text-primary animate-pulse">جاري جرد التقارير المالية والعمولات...</p>
+      </div>
+  );
 
   return (
     <div className="space-y-8 text-right animate-in fade-in duration-500">
@@ -77,16 +87,21 @@ export default function AdminReportsPage({ branchId }: { branchId: string }) {
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
-                            <TableHead className="font-black">المتجر</TableHead>
+                            <TableHead className="font-black text-right">المتجر</TableHead>
                             <TableHead className="font-black text-center">العمولة</TableHead>
                             <TableHead className="font-black text-center">المبيعات</TableHead>
-                            <TableHead className="font-black text-center">ربح النظام</TableHead>
+                            <TableHead className="font-black text-center text-primary">ربح النظام</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {restaurants.map(r => {
                             const myOrders = allOrders.filter(o => o.restaurant?.id === r.id && o.status === 'delivered');
-                            const sales = myOrders.reduce((acc, o) => acc + o.items.reduce((sum, i) => sum + ((i.selectedSize?.price ?? i.product.discountPrice ?? i.product.price) * i.quantity), 0), 0);
+                            const sales = myOrders.reduce((acc, o) => {
+                                return acc + o.items.reduce((sum, i) => {
+                                    const price = i.selectedSize?.price || i.product.discountPrice || i.product.price || 0;
+                                    return sum + (price * i.quantity);
+                                }, 0);
+                            }, 0);
                             const earnings = (sales * (r.commissionRate || 10)) / 100;
                             return (
                                 <TableRow key={r.id}>
@@ -100,6 +115,7 @@ export default function AdminReportsPage({ branchId }: { branchId: string }) {
                                 </TableRow>
                             )
                         })}
+                        {restaurants.length === 0 && <TableRow><TableCell colSpan={4} className="py-20 text-center italic opacity-30 font-black">لا توجد سجلات مالية لعرضها لهذا الفرع.</TableCell></TableRow>}
                     </TableBody>
                 </Table>
           </Card>

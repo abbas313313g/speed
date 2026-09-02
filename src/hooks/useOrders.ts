@@ -8,30 +8,11 @@ import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
 import { sendFcmNotification } from '@/services/fcm-service';
 
-const ASSIGNMENT_TIMEOUT_MS = 20000; 
-
 export const useOrders = (branchId?: string) => {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
     const isAssigningRef = useRef(false);
-
-    const penalizeWorker = useCallback(async (workerId: string) => {
-        try {
-            const workerRef = doc(db, "deliveryWorkers", workerId);
-            const workerSnap = await getDocs(query(collection(db, "deliveryWorkers"), where("__name__", "==", workerId)));
-            if (workerSnap.empty) return;
-            
-            const workerData = workerSnap.docs[0].data();
-            const currentIdle = (workerData.idleCount || 0) + 1;
-            
-            if (currentIdle >= 3) {
-                await updateDoc(workerRef, { isOnline: false, idleCount: 0 });
-            } else {
-                await updateDoc(workerRef, { idleCount: increment(1) });
-            }
-        } catch (e) {}
-    }, []);
 
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         if (isAssigningRef.current) return;
@@ -41,7 +22,6 @@ export const useOrders = (branchId?: string) => {
 
         isAssigningRef.current = true;
         try {
-            // توزيع الطلبات عالمياً: نبحث عن المناديب المتصلين في كل الأفرع
             const workersRef = collection(db, "deliveryWorkers");
             const wQuery = query(
                 workersRef, 
@@ -63,7 +43,6 @@ export const useOrders = (branchId?: string) => {
                         if(id) workerLoadMap.set(id, (workerLoadMap.get(id) || 0) + 1);
                     });
 
-                    // اختيار مندوب عشوائي لديه ضغط عمل أقل من 3 طلبات
                     const targetWorkers = onlineWorkers.filter(w => (workerLoadMap.get(w.id) || 0) < 3);
                     const finalPool = targetWorkers.length > 0 ? targetWorkers : onlineWorkers;
                     
@@ -91,18 +70,22 @@ export const useOrders = (branchId?: string) => {
 
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
-        // تحسين أداء جلب الطلبات عبر الفروع
-        let q = query(ordersRef, orderBy("date", "desc"), limit(100));
+        
+        // استخدام استعلام بسيط لتجنب مشاكل الـ Index في البداية، والترتيب في الذاكرة
+        let q = query(ordersRef, limit(200));
         
         if (branchId && branchId !== 'all' && branchId !== 'main') {
-            q = query(ordersRef, where('branchId', '==', branchId), orderBy("date", "desc"), limit(100));
+            q = query(ordersRef, where('branchId', '==', branchId), limit(200));
         }
 
         const unsub = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
-            setAllOrders(data);
+            // الترتيب اليدوي لضمان السرعة ومنع التصفير
+            const sortedData = data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            
+            setAllOrders(sortedData);
             setIsLoading(false);
-            autoAssignOrders(data);
+            autoAssignOrders(sortedData);
         }, (error) => {
             setIsLoading(false);
         });
@@ -115,8 +98,6 @@ export const useOrders = (branchId?: string) => {
             const updateData: any = { status };
             
             if (status === 'preparing' && workerId) {
-                const workerRef = doc(db, "deliveryWorkers", workerId);
-                await updateDoc(workerRef, { idleCount: 0 });
                 updateData.deliveryWorkerId = workerId;
                 updateData.confirmedAt = null; 
             }
