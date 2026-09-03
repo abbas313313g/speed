@@ -14,17 +14,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import Image from 'next/image';
 
 export default function AdminDashboard({ branchId }: { branchId: string }) {
-  const { products, approveProduct, isLoading: pLoading } = useProducts(branchId);
+  // جلب البيانات مع الفلترة الذكية المدمجة في الهوك
+  const { products, approveProduct, isLoading: pLoading } = useProducts(branchId, undefined, 500, undefined, '', true);
   const { allOrders, isLoading: oLoading } = useOrders(branchId);
   const { branches } = useBranches();
   
   const isMain = branchId === 'main';
 
   const stats = useMemo(() => {
-    // فلترة الطلبات حسب الفرع الحالي لضمان عدم التصفير
-    const currentBranchOrders = isMain 
-        ? allOrders 
-        : allOrders.filter(o => o.branchId === branchId);
+    // البيانات تأتي مفلترة وجاهزة من الهوك حسب branchId
+    const currentBranchOrders = allOrders;
     
     const delivered = currentBranchOrders.filter(o => o.status === 'delivered');
     const cancelled = currentBranchOrders.filter(o => o.status === 'cancelled');
@@ -44,12 +43,12 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
         branchDailyProfit += (itemsPrice * rate) / 100;
     });
 
-    // للمركز الرئيسي: جرد أرباح كل الفروع
+    // للمركز الرئيسي فقط: جرد أرباح كل الفروع
     const allBranchProfits: {[key: string]: number} = { 'main': 0 };
     branches.forEach(b => { allBranchProfits[b.id] = 0; });
 
     if (isMain) {
-        allOrders.filter(o => o.status === 'delivered' && new Date(o.date) >= today).forEach(order => {
+        deliveredToday.forEach(order => {
             const itemsPrice = order.items.reduce((sum, i) => {
                 const price = i.selectedSize?.price || i.product.discountPrice || i.product.price || 0;
                 return sum + (price * i.quantity);
@@ -75,7 +74,7 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
             profit: allBranchProfits[b.id] || 0
         })).concat([{ name: 'فرع المركز العام', id: 'main', profit: allBranchProfits['main'] || 0 }])
     };
-  }, [allOrders, products, branches, isMain, branchId]);
+  }, [allOrders, products, branches, isMain]);
 
   if (pLoading || oLoading) return (
       <div className="p-20 text-center flex flex-col items-center gap-4">

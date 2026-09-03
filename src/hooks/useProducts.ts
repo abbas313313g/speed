@@ -66,7 +66,6 @@ export const useProducts = (
 
     useEffect(() => {
         setIsLoading(true);
-        
         let unsub = () => {};
 
         try {
@@ -81,30 +80,29 @@ export const useProducts = (
             }
 
             const ref = collection(db, 'products');
-
-            let q;
-            if (restaurantId && restaurantId !== 'none') {
-                const storeLimit = isAdmin ? 1000 : 500;
-                q = isAdmin 
-                    ? query(ref, where('restaurantId', '==', restaurantId), limit(storeLimit))
-                    : query(ref, where('restaurantId', '==', restaurantId), where('status', '==', 'approved'), limit(storeLimit));
-            } else if (branchId && branchId !== 'all') {
-                q = isAdmin 
-                    ? query(ref, where('branchId', '==', branchId), limit(loadLimit))
-                    : query(ref, where('branchId', '==', branchId), where('status', '==', 'approved'), limit(loadLimit));
-            } else {
-                q = isAdmin 
-                    ? query(ref, limit(loadLimit))
-                    : query(ref, where('status', '==', 'approved'), limit(loadLimit));
-            }
+            // جلب أوسع لضمان عدم التصفير في الأفرع وتجنب تعقيدات الـ Indexes
+            const q = query(ref, limit(isAdmin ? 1000 : 500));
 
             unsub = onSnapshot(q, (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-                setProducts(data);
-                // إذا العدد المرجوع أقل من الليميت المطلوب، يعني خلصت المنتجات
-                setHasMore(data.length >= loadLimit);
+                
+                // فلترة في الذاكرة لضمان السرعة والدقة في الأفرع
+                let filteredData = data;
+                if (restaurantId && restaurantId !== 'none') {
+                    filteredData = data.filter(p => p.restaurantId === restaurantId);
+                } else if (branchId && branchId !== 'all' && branchId !== 'main') {
+                    filteredData = data.filter(p => p.branchId === branchId);
+                }
+
+                if (!isAdmin) {
+                    filteredData = filteredData.filter(p => p.status === 'approved');
+                }
+
+                setProducts(filteredData);
+                setHasMore(data.length >= (isAdmin ? 1000 : 500));
                 setIsLoading(false);
             }, (error) => {
+                console.error("Products Snapshot Error:", error);
                 setIsLoading(false);
             });
 
@@ -113,7 +111,7 @@ export const useProducts = (
         }
 
         return () => unsub();
-    }, [branchId, restaurantId, loadLimit, productId, isAdmin]);
+    }, [branchId, restaurantId, isAdmin, productId]);
 
     const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
         try {

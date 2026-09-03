@@ -25,13 +25,12 @@ export const useOrders = (branchId?: string) => {
 
         for (const order of timedOutOrders) {
             try {
-                // المندوب لم يوافق خلال 20 ثانية، نعيد الطلب للبحث الآلي
                 await updateDoc(doc(db, "orders", order.id), {
                     deliveryWorkerId: null,
                     deliveryWorker: null,
                     status: 'pending_assignment',
                     confirmedAt: null,
-                    lastSkippedWorkerId: order.deliveryWorkerId // حظر المندوب الحالي من استلام نفس الطلب فوراً
+                    lastSkippedWorkerId: order.deliveryWorkerId
                 });
             } catch (e) {
                 console.error("Timeout cleanup failed:", e);
@@ -42,14 +41,12 @@ export const useOrders = (branchId?: string) => {
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         if (isAssigningRef.current) return;
         
-        // جلب الطلبات التي وافق عليها المتجر وتنتظر مندوب
         const pendingOrders = orders.filter(o => o.status === 'pending_assignment');
         if (pendingOrders.length === 0) return;
 
         isAssigningRef.current = true;
         try {
             const workersRef = collection(db, "deliveryWorkers");
-            // البحث عن المناديب المتصلين والمفعلين في كل الفروع (توزيع عالمي)
             const wQuery = query(
                 workersRef, 
                 where("isOnline", "==", true), 
@@ -61,16 +58,13 @@ export const useOrders = (branchId?: string) => {
 
             if (onlineWorkers.length > 0) {
                 for (const order of pendingOrders) {
-                    // تجنب إرسال الطلب لنفس المندوب الذي رفضه أو انتهى وقته مؤخراً
                     const availablePool = onlineWorkers.filter(w => w.id !== (order as any).lastSkippedWorkerId);
                     const finalPool = availablePool.length > 0 ? availablePool : onlineWorkers;
                     
-                    // اختيار مندوب عشوائي من المتاحين
                     const shuffled = [...finalPool].sort(() => Math.random() - 0.5);
                     const worker = shuffled[0];
                     
                     if (worker) {
-                        // إرسال "عرض" للمندوب - الحالة تصبح confirmed وهي تعني بانتظار موافقته
                         await updateDoc(doc(db, "orders", order.id), {
                             deliveryWorkerId: worker.id,
                             deliveryWorker: { id: worker.id, name: worker.name },
@@ -85,33 +79,31 @@ export const useOrders = (branchId?: string) => {
         } catch (e) {
             console.error("Auto-assign failed:", e);
         } finally {
-            // منع تنفيذ المحرك بشكل متكرر جداً (Throttling)
             setTimeout(() => { isAssigningRef.current = false; }, 4000);
         }
     }, []);
 
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
-        // جلب آخر 500 طلب لضمان الأداء
-        let q = query(ordersRef, orderBy("date", "desc"), limit(500));
-        
-        // فلترة جغرافية للفروع عند الطلب فقط لضمان العزل
-        if (branchId && branchId !== 'all' && branchId !== 'main') {
-            q = query(ordersRef, where('branchId', '==', branchId), orderBy("date", "desc"), limit(200));
-        }
+        // جلب أوسع لضمان عدم التصفير في الأفرع وتجنب تعقيدات الـ Indexes
+        const q = query(ordersRef, orderBy("date", "desc"), limit(500));
 
         const unsub = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
-            // الترتيب في الذاكرة لضمان السرعة وعدم الحاجة لـ Index معقد في كل مرة
-            const sortedData = data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             
-            setAllOrders(sortedData);
+            // فلترة الطلبات في الذاكرة لضمان استقرار العرض في الأفرع
+            let finalData = data;
+            if (branchId && branchId !== 'all' && branchId !== 'main') {
+                finalData = data.filter(o => o.branchId === branchId);
+            }
+            
+            setAllOrders(finalData);
             setIsLoading(false);
             
-            // تشغيل محركات التوزيع والتدوير
-            cleanupTimedOutAssignments(sortedData);
-            autoAssignOrders(sortedData);
+            cleanupTimedOutAssignments(finalData);
+            autoAssignOrders(finalData);
         }, (error) => {
+            console.error("Orders Snapshot Error:", error);
             setIsLoading(false);
         });
         return () => unsub();
@@ -122,13 +114,11 @@ export const useOrders = (branchId?: string) => {
             const orderRef = doc(db, "orders", orderId);
             const updateData: any = { status };
             
-            // المندوب ضغط "قبول" بنفسه
             if (status === 'preparing' && workerId) {
                 updateData.deliveryWorkerId = workerId;
-                updateData.confirmedAt = null; // إنهاء عداد الـ 20 ثانية
+                updateData.confirmedAt = null;
             }
 
-            // إعادة الطلب للبحث (إلغاء المندوب الحالي)
             if (status === 'unassigned') {
                 updateData.deliveryWorkerId = null;
                 updateData.deliveryWorker = null;
