@@ -1,4 +1,3 @@
-
 import { z } from 'zod';
 
 export interface User {
@@ -73,7 +72,8 @@ export interface Restaurant {
   categoryId: string; 
   menuSections?: string[]; 
   isFeatured?: boolean;
-  balanceAdjustment?: number; // لخصم مبالغ من الأرباح
+  balanceAdjustment?: number;
+  oneSignalId?: string; // معرف ون سيجنال الخاص بصاحب المتجر
 }
 
 export interface Branch {
@@ -114,8 +114,8 @@ export interface DeliveryWorker {
     idleCount?: number; 
     latitude?: number;
     longitude?: number;
-    balanceAdjustment?: number; // خصم من أرباحه
-    debtAdjustment?: number;    // خصم من المبالغ التي بذمته
+    balanceAdjustment?: number;
+    debtAdjustment?: number;
 }
 
 export type OrderStatus = 'unassigned' | 'pending_assignment' | 'preparing' | 'confirmed' | 'ready_for_pickup' | 'on_the_way' | 'delivered' | 'cancelled';
@@ -147,6 +147,7 @@ export interface Order {
         latitude?: number | null;
         longitude?: number | null;
         commissionRate?: number;
+        oneSignalId?: string;
     } | null;
 }
 

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useRef } from 'react';
@@ -35,7 +34,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Edit, Trash2, Loader2, MapPin, Upload, Clock, Power, PowerOff, Plus, X } from 'lucide-react';
+import { Edit, Trash2, Loader2, MapPin, Upload, Clock, Power, PowerOff, Plus, X, Bell } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
@@ -58,7 +57,8 @@ const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     branchId: 'main',
     categoryId: '',
     menuSections: [],
-    isManualClosed: false
+    isManualClosed: false,
+    oneSignalId: ''
 };
 
 export default function AdminStoresPage({ branchId }: { branchId: string }) {
@@ -204,6 +204,18 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                     </div>
                 </div>
 
+                <div className="space-y-1 bg-blue-50/50 p-4 rounded-2xl border-2 border-dashed border-blue-200">
+                    <Label className="font-black text-blue-800 flex items-center gap-2 justify-end">معرف ون سيجنال للإشعارات <Bell className="h-4 w-4"/></Label>
+                    <Input 
+                        value={currentStore.oneSignalId ?? ''} 
+                        onChange={(e) => setCurrentStore({ ...currentStore, oneSignalId: e.target.value })} 
+                        className="rounded-xl h-12 font-mono text-xs text-center bg-white" 
+                        placeholder="Player ID (الصقه هنا لاستلام إشعارات الطلبات)"
+                        dir="ltr"
+                    />
+                    <p className="text-[9px] text-blue-600 font-bold mt-1 text-center italic">* هذا المعرف يضمن وصول الإشعارات لصاحب المتجر حصراً.</p>
+                </div>
+
                 <div className="space-y-4 border-t pt-4">
                     <Label className="font-black text-lg">أقسام المنيو (فئات المنتجات داخل المتجر)</Label>
                     <div className="flex gap-2">
@@ -225,21 +237,18 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                                 </button>
                             </Badge>
                         ))}
-                        {(!currentStore.menuSections || currentStore.menuSections.length === 0) && (
-                            <p className="text-[10px] text-muted-foreground font-bold italic">لا توجد فئات مضافة. أضف فئة لتنظيم وجبات المتجر.</p>
-                        )}
                     </div>
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="font-bold">الموقع الجغرافي (لحساب أجور التوصيل)</Label>
+                    <Label className="font-bold">الموقع الجغرافي</Label>
                     <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
-                            <Label className="text-[10px]">خط العرض (Lat)</Label>
+                            <Label className="text-[10px]">Lat</Label>
                             <Input type="number" step="any" value={currentStore.latitude ?? ''} onChange={(e) => setCurrentStore({...currentStore, latitude: parseFloat(e.target.value)})} className="h-10 rounded-lg font-mono text-xs" />
                         </div>
                         <div className="space-y-1">
-                            <Label className="text-[10px]">خط الطول (Lng)</Label>
+                            <Label className="text-[10px]">Lng</Label>
                             <Input type="number" step="any" value={currentStore.longitude ?? ''} onChange={(e) => setCurrentStore({...currentStore, longitude: parseFloat(e.target.value)})} className="h-10 rounded-lg font-mono text-xs" />
                         </div>
                     </div>
@@ -260,17 +269,6 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                             <Image src={currentStore.image} fill className="object-cover" alt="preview" unoptimized={true} />
                         </div>
                     )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 bg-muted/20 p-4 rounded-2xl border">
-                    <div className="space-y-1 text-right">
-                        <Label className="font-bold flex items-center gap-1 justify-end"><Clock className="h-3 w-3"/> وقت الفتح</Label>
-                        <Input type="time" value={currentStore.openTime} onChange={(e)=>setCurrentStore({...currentStore, openTime: e.target.value})} className="h-11 rounded-xl" />
-                    </div>
-                    <div className="space-y-1 text-right">
-                        <Label className="font-bold flex items-center gap-1 justify-end"><Clock className="h-3 w-3"/> وقت الإغلاق</Label>
-                        <Input type="time" value={currentStore.closeTime} onChange={(e)=>setCurrentStore({...currentStore, closeTime: e.target.value})} className="h-11 rounded-xl" />
-                    </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
@@ -302,7 +300,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                 <TableRow>
                     <TableHead className="font-black text-right">الحالة</TableHead>
                     <TableHead className="font-black text-right">الاسم</TableHead>
-                    <TableHead className="font-black text-right">العمولة</TableHead>
+                    <TableHead className="font-black text-right">إشعارات</TableHead>
                     <TableHead className="font-black text-center">إجراءات</TableHead>
                 </TableRow>
             </TableHeader>
@@ -320,7 +318,9 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                                 <div className="relative h-8 w-8 shrink-0"><Image src={store.image} fill className="rounded-full object-cover border shadow-sm" alt="" unoptimized={true} /></div>
                             </div>
                         </TableCell>
-                        <TableCell className="font-bold text-primary text-right">{store.commissionRate}%</TableCell>
+                        <TableCell className="text-right">
+                            {store.oneSignalId ? <Badge className="bg-blue-100 text-blue-700 border-none font-black text-[9px] gap-1"><Bell className="h-3 w-3"/> مفعلة</Badge> : <Badge variant="outline" className="text-[9px] opacity-40">غير مفعلة</Badge>}
+                        </TableCell>
                         <TableCell>
                             <div className="flex justify-center gap-1">
                                 <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-2" onClick={() => handleOpenDialog(store)}><Edit className="h-4 w-4" /></Button>

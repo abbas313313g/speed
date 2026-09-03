@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -16,6 +15,7 @@ import { useCoupons } from '@/hooks/useCoupons';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useBanners } from '@/hooks/useBanners';
 import { sendFcmNotification } from '@/services/fcm-service';
+import { sendRestaurantOrderNotification } from '@/services/onesignal-service';
 
 interface AppContextType {
     isLoading: boolean;
@@ -141,18 +141,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const addAddress = useCallback(async (a: Omit<Address, 'id' | 'userId'>) => {
         try {
-            // نضمن الحصول على المعرف الحالي أو المزامنة فوراً
             let currentUid = userId;
             if (!currentUid) {
                 currentUid = await syncUserByPhone(a.phone);
             }
-
             if (!currentUid) throw new Error("Could not sync user ID");
-
-            await addDoc(collection(db, "addresses"), { 
-                ...a, 
-                userId: currentUid 
-            });
+            await addDoc(collection(db, "addresses"), { ...a, userId: currentUid });
         } catch (e) {
             console.error("AppContext Add Address Error:", e);
             throw e;
@@ -204,13 +198,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             let couponToUpdateId = null;
 
             if (coupCode?.trim()) {
-                const coupon = coupons.find(c => c.code === couponCode.trim().toUpperCase());
+                const coupon = coupons.find(c => c.code === coupCode.trim().toUpperCase());
                 if (coupon) {
                     if (coupon.usedCount >= coupon.maxUses) {
                         toast({ title: "هذا الكود انتهى استخدامه", variant: "destructive" });
                         return null;
                     }
-
                     if (coupon.isFirstOrderOnly) {
                         const qOrders = query(collection(db, "orders"), where("userId", "==", userId), limit(1));
                         const orderSnap = await getDocs(qOrders);
@@ -219,7 +212,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                             return null;
                         }
                     }
-
                     if (coupon.discountTarget === 'delivery') {
                         appliedDiscount = coupon.isFullDiscount ? customerDeliveryFee : Math.min(customerDeliveryFee, coupon.discountValue);
                         customerDeliveryFee -= appliedDiscount;
@@ -228,9 +220,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                         finalCartTotal -= appliedDiscount;
                     }
                     couponToUpdateId = coupon.id;
-                } else {
-                    toast({ title: "كود الخصم غير صحيح", variant: "destructive" });
-                    return null;
                 }
             }
             
@@ -268,7 +257,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     name: rest.name, 
                     latitude: rest.latitude || 0, 
                     longitude: rest.longitude || 0, 
-                    commissionRate: rest.commissionRate || 10
+                    commissionRate: rest.commissionRate || 10,
+                    oneSignalId: rest.oneSignalId || ''
                 } : null,
                 branchId: rest?.branchId || 'main',
                 isPaid: false, 
@@ -284,6 +274,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     usedCount: increment(1),
                     usedBy: arrayUnion(userId)
                 });
+            }
+
+            // إرسال إشعار ون سيجنال للمتجر فوراً
+            if (rest?.oneSignalId) {
+                sendRestaurantOrderNotification(rest.oneSignalId, rest.name, nextNumber);
             }
 
             if (rest?.id) {
