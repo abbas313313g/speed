@@ -179,6 +179,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                     <TableHead className="font-black text-right">المتجر</TableHead>
                     <TableHead className="font-black text-right">الوقت</TableHead>
                     <TableHead className="font-black text-right">رقم الزبون</TableHead>
+                    <TableHead className="font-black text-right">المندوب</TableHead>
                     <TableHead className="font-black text-right">المنطقة</TableHead>
                     <TableHead className="font-black text-right text-primary">المبلغ</TableHead>
                     <TableHead className="font-black text-right">الحالة</TableHead>
@@ -203,6 +204,23 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                         </div>
                     </TableCell>
                     <TableCell className="font-mono text-[11px] font-black" dir="ltr">{order.address.phone}</TableCell>
+                    <TableCell className="text-right">
+                        {order.deliveryWorker ? (
+                            <div className="flex flex-col">
+                                <div className="flex items-center gap-1 justify-end">
+                                    <span className="font-black text-xs text-slate-800 dark:text-slate-200">{order.deliveryWorker.name}</span>
+                                    <Bike className="h-3 w-3 text-primary" />
+                                </div>
+                                {order.status === 'confirmed' && (
+                                    <span className="text-[8px] font-bold text-orange-500 animate-pulse">بانتظار موافقته...</span>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="text-[9px] font-bold text-muted-foreground italic">
+                                {order.status === 'unassigned' ? 'بانتظار المتجر' : 'جارِ البحث...'}
+                            </div>
+                        )}
+                    </TableCell>
                     <TableCell className="text-[10px] font-black text-primary">{order.address.deliveryZone}</TableCell>
                     <TableCell className="font-black text-primary">{formatCurrency(order.total)}</TableCell>
                     <TableCell>
@@ -297,11 +315,11 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                         <div className="p-6 space-y-6">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-primary/5 p-4 rounded-2xl border-2 border-primary/10">
-                                    <Label className="text-[10px] font-black text-primary uppercase mb-1 block">المتجر المصدر</Label>
+                                    <Label className="text-[10px] font-black text-primary uppercase mb-1 block text-right">المتجر المصدر</Label>
                                     <p className="font-black text-slate-800 flex items-center gap-2 justify-end"><Store className="h-4 w-4"/> {viewOrder.restaurant?.name}</p>
                                 </div>
                                 <div className="bg-blue-50 p-4 rounded-2xl border-2 border-blue-100">
-                                    <Label className="text-[10px] font-black text-blue-600 uppercase mb-1 block">موقع التوصيل</Label>
+                                    <Label className="text-[10px] font-black text-blue-600 uppercase mb-1 block text-right">موقع التوصيل</Label>
                                     <p className="font-black text-slate-800 flex items-center gap-2 justify-end"><MapPin className="h-4 w-4"/> {viewOrder.address.deliveryZone}</p>
                                 </div>
                             </div>
@@ -338,7 +356,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                                 </div>
                             </div>
 
-                            <div className="p-4 bg-muted/30 rounded-2xl border-2 space-y-3">
+                            <div className="p-4 bg-muted/30 rounded-2xl border-2 space-y-3 text-right">
                                 <div className="flex justify-between items-center">
                                     <div className="flex items-center gap-2 text-primary">
                                         <Phone className="h-4 w-4" />
