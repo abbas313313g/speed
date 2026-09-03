@@ -121,7 +121,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
 
   const handleSave = async () => {
     if (!currentStore.name || !currentStore.image || !currentStore.loginCode || !currentStore.restaurantNumber || !currentStore.categoryId) {
-        toast({ title: "بيانات ناقصة", variant: "destructive" }); 
+        toast({ title: "بيانات ناقصة", description: "يرجى إكمال الاسم، الصورة، الفئة، والرمز السري.", variant: "destructive" }); 
         return;
     }
     
@@ -141,11 +141,11 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
   if (isLoading) return <div className="p-20 text-center animate-pulse"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto"/></div>;
 
   return (
-    <div className="space-y-8 text-right">
+    <div className="space-y-8 text-right" dir="rtl">
       <header className="flex justify-between items-center">
         <div>
             <h1 className="text-3xl font-black text-primary">إدارة المتاجر</h1>
-            <p className="text-muted-foreground font-bold italic">تحكم في الموقع الجغرافي وحالة المتاجر بدقة.</p>
+            <p className="text-muted-foreground font-bold italic">تحكم في الموقع الجغرافي، الفئات، وحالة المتاجر.</p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="rounded-xl h-12 px-6 font-bold shadow-lg">
             إضافة متجر جديد
@@ -172,10 +172,10 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                         <Input value={currentStore.name ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, name: e.target.value })} className="rounded-xl h-12 font-bold" />
                     </div>
                     <div className="space-y-1">
-                        <Label className="font-bold">الفئة</Label>
+                        <Label className="font-bold">الفئة الرئيسية</Label>
                         <Select value={currentStore.categoryId} onValueChange={(val) => setCurrentStore({...currentStore, categoryId: val})}>
-                            <SelectTrigger className="h-12 rounded-xl">
-                                <SelectValue placeholder="اختر فئة" />
+                            <SelectTrigger className="h-12 rounded-xl font-bold">
+                                <SelectValue placeholder="اختر الفئة..." />
                             </SelectTrigger>
                             <SelectContent>
                                 {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -203,19 +203,24 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
 
                 <div className="space-y-2">
                     <Label className="font-bold">لوغو المتجر</Label>
-                    <Button type="button" variant="outline" className="w-full h-14 rounded-xl font-black gap-2" onClick={() => fileInputRef.current?.click()} disabled={isCompressing}>
+                    <Button type="button" variant="outline" className="w-full h-14 rounded-xl font-black gap-2 border-dashed border-2" onClick={() => fileInputRef.current?.click()} disabled={isCompressing}>
                         {isCompressing ? <Loader2 className="animate-spin h-5 w-5 ml-2"/> : <Upload className="h-5 w-5" />}
-                        {isCompressing ? "جاري معالجة الصورة..." : "اختيار صورة"}
+                        {isCompressing ? "جاري تحسين الصورة..." : "اختيار صورة المتجر"}
                     </Button>
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+                    {currentStore.image && (
+                        <div className="relative w-24 h-24 mx-auto rounded-full overflow-hidden border-4 border-primary/10 shadow-lg mt-2">
+                            <Image src={currentStore.image} fill className="object-cover" alt="preview" unoptimized={true} />
+                        </div>
+                    )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 bg-muted/20 p-4 rounded-2xl">
-                    <div className="space-y-1">
+                <div className="grid grid-cols-2 gap-4 bg-muted/20 p-4 rounded-2xl border">
+                    <div className="space-y-1 text-right">
                         <Label className="font-bold flex items-center gap-1 justify-end"><Clock className="h-3 w-3"/> وقت الفتح</Label>
                         <Input type="time" value={currentStore.openTime} onChange={(e)=>setCurrentStore({...currentStore, openTime: e.target.value})} className="h-11 rounded-xl" />
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1 text-right">
                         <Label className="font-bold flex items-center gap-1 justify-end"><Clock className="h-3 w-3"/> وقت الإغلاق</Label>
                         <Input type="time" value={currentStore.closeTime} onChange={(e)=>setCurrentStore({...currentStore, closeTime: e.target.value})} className="h-11 rounded-xl" />
                     </div>
@@ -236,9 +241,9 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                     </div>
                 </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="p-4 bg-slate-50 border-t sticky bottom-0">
                 <Button onClick={handleSave} className="w-full h-14 rounded-2xl text-lg font-black shadow-xl" disabled={isSaving || isCompressing}>
-                    {isSaving ? <Loader2 className="animate-spin h-6 w-6" /> : "حفظ التعديلات"}
+                    {isSaving ? <Loader2 className="animate-spin h-6 w-6" /> : "حفظ بيانات المتجر"}
                 </Button>
             </DialogFooter>
         </DialogContent>
@@ -258,27 +263,27 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                 {restaurants.map((store) => (
                     <TableRow key={store.id}>
                         <TableCell>
-                            <Badge variant="outline" className={cn("gap-1 font-black", store.isStoreOpen ? "text-green-600 border-green-200" : "text-destructive border-destructive/20")}>
+                            <Badge variant="outline" className={cn("gap-1 font-black", store.isStoreOpen ? "text-green-600 border-green-200 bg-green-50" : "text-destructive border-destructive/20 bg-red-50")}>
                                 {store.isStoreOpen ? <><Power className="h-3 w-3"/> متاح</> : <><PowerOff className="h-3 w-3"/> مغلق</>}
                             </Badge>
                         </TableCell>
-                        <TableCell className="font-bold">
-                            <div className="flex items-center gap-3">
-                                <div className="relative h-8 w-8 shrink-0"><Image src={store.image} fill className="rounded-full object-cover border" alt="" unoptimized={true} /></div>
+                        <TableCell className="font-bold text-right">
+                            <div className="flex items-center gap-3 justify-end">
                                 <span>{store.name}</span>
+                                <div className="relative h-8 w-8 shrink-0"><Image src={store.image} fill className="rounded-full object-cover border shadow-sm" alt="" unoptimized={true} /></div>
                             </div>
                         </TableCell>
-                        <TableCell className="font-bold text-primary">{store.commissionRate}%</TableCell>
+                        <TableCell className="font-bold text-primary text-right">{store.commissionRate}%</TableCell>
                         <TableCell>
                             <div className="flex justify-center gap-1">
-                                <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl" onClick={() => handleOpenDialog(store)}><Edit className="h-4 w-4" /></Button>
+                                <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-2" onClick={() => handleOpenDialog(store)}><Edit className="h-4 w-4" /></Button>
                                 <AlertDialog>
-                                    <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                                    <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-9 w-9"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                                     <AlertDialogContent className="rounded-[2.5rem]">
                                         <AlertDialogHeader><AlertDialogTitle className="text-right font-black">حذف المتجر؟</AlertDialogTitle></AlertDialogHeader>
                                         <AlertDialogFooter className="flex-row gap-2">
                                             <AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel>
-                                            <AlertDialogAction onClick={()=>deleteRestaurant(store.id)} className="flex-1 bg-destructive rounded-xl">حذف</AlertDialogAction>
+                                            <AlertDialogAction onClick={()=>deleteRestaurant(store.id)} className="flex-1 bg-destructive rounded-xl">حذف نهائي</AlertDialogAction>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
