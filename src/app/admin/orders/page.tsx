@@ -22,7 +22,7 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Trash2, Loader2, Search, CheckSquare, Phone, Store, User, MapPin, Receipt, X, UserCog, RefreshCw, Bike, ChevronRight } from 'lucide-react';
+import { MoreHorizontal, Trash2, Loader2, Search, X, UserCog, RefreshCw, Bike, ChevronRight } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -46,6 +46,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const { toast } = useToast();
@@ -55,11 +57,15 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [viewOrder, setViewOrder] = useState<Order | null>(null);
-  
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [orderToAssign, setOrderToAssign] = useState<string | null>(null);
+
+  // فلترة الطلبات لتظهر فقط التابعة لهذا الفرع (تأكيد الاستقلالية)
+  const filteredOrders = useMemo(() => {
+    return allOrders.filter(o => o.branchId === branchId);
+  }, [allOrders, branchId]);
   
-  if (isLoading) return <div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="h-10 w-10 animate-spin text-primary"/><p className="font-black text-primary">جارِ تحميل الطلبات...</p></div>;
+  if (isLoading) return <div className="p-20 text-center animate-pulse"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto"/><p className="mt-4 font-black">جارِ تحميل طلبات الفرع...</p></div>;
   
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
     try {
@@ -71,11 +77,11 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const handleManualAssign = async (worker: DeliveryWorker) => {
       if (!orderToAssign) return;
       try {
-          await updateOrderStatus(orderToAssign, 'confirmed'); // نضعه في حالة العرض على المندوب
-          const orderRef = doc(db, "orders", orderToAssign);
-          await updateDoc(orderRef, {
+          // يتم توجيه الطلب للمندوب، ويبقى بانتظار موافقته
+          await updateDoc(doc(db, "orders", orderToAssign), {
               deliveryWorkerId: worker.id,
               deliveryWorker: { id: worker.id, name: worker.name },
+              status: 'confirmed', 
               confirmedAt: new Date().toISOString()
           });
           toast({ title: `تم توجيه الطلب للكابتن ${worker.name} 🚀` });
@@ -96,10 +102,10 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   };
 
   const toggleSelectAll = () => {
-      if (selectedOrderIds.length === allOrders.length) {
+      if (selectedOrderIds.length === filteredOrders.length) {
           setSelectedOrderIds([]);
       } else {
-          setSelectedOrderIds(allOrders.map(o => o.id));
+          setSelectedOrderIds(filteredOrders.map(o => o.id));
       }
   };
 
@@ -119,21 +125,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
       }
   };
 
-  const getStatusVariant = (status: OrderStatus) => {
-    switch (status) {
-      case 'unassigned': return 'bg-gray-400';
-      case 'pending_assignment': return 'bg-purple-500';
-      case 'confirmed': return 'bg-orange-500';
-      case 'preparing': return 'bg-blue-500';
-      case 'ready_for_pickup': return 'bg-teal-500';
-      case 'on_the_way': return 'bg-orange-500';
-      case 'delivered': return 'bg-green-500';
-      case 'cancelled': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-   const getStatusText = (status: OrderStatus) => {
+  const getStatusText = (status: OrderStatus) => {
         switch (status) {
             case 'unassigned': return "بانتظار المتجر";
             case 'pending_assignment': return "بحث عن مندوب...";
@@ -154,7 +146,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
       <header className="flex justify-between items-start">
         <div>
             <h1 className="text-3xl font-black text-primary">إدارة الطلبات</h1>
-            <p className="text-muted-foreground font-bold">المندوب لازم يوافق يلا يعتمد الطلب باسمه.</p>
+            <p className="text-muted-foreground font-bold">كل فرع يشاهد طلباته فقط. المندوب يجب أن يوافق ليتم التثبيت.</p>
         </div>
         {selectedOrderIds.length > 0 && (
             <AlertDialog>
@@ -183,17 +175,17 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
             <Table>
                 <TableHeader className="bg-muted/50 dark:bg-slate-800/50">
                 <TableRow>
-                    <TableHead className="w-[50px]"><Checkbox checked={selectedOrderIds.length === allOrders.length && allOrders.length > 0} onCheckedChange={toggleSelectAll}/></TableHead>
+                    <TableHead className="w-[50px]"><Checkbox checked={selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0} onCheckedChange={toggleSelectAll}/></TableHead>
                     <TableHead className="font-black text-right">رقم الطلب</TableHead>
                     <TableHead className="font-black text-right">العميل</TableHead>
                     <TableHead className="font-black text-right">السائق</TableHead>
-                    <TableHead className="font-black text-right text-primary">المبلغ</TableHead>
+                    <TableHead className="font-black text-right text-primary">المبلغ الكلي</TableHead>
                     <TableHead className="font-black text-right">الحالة</TableHead>
                     <TableHead className="font-black text-center">إجراءات</TableHead>
                 </TableRow>
                 </TableHeader>
                 <TableBody>
-                {allOrders.map((order) => (
+                {filteredOrders.map((order) => (
                     <TableRow key={order.id} className={cn("hover:bg-muted/30 transition-colors cursor-pointer", selectedOrderIds.includes(order.id) && "bg-primary/5")} onClick={() => setViewOrder(order)}>
                     <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedOrderIds.includes(order.id)} onCheckedChange={() => toggleSelectOrder(order.id)}/></TableCell>
                     <TableCell className="font-bold">#{order.orderNumber || order.id.substring(0, 6)}</TableCell>
@@ -201,11 +193,13 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                     <TableCell>
                         {order.deliveryWorker?.name ? (
                             <Badge variant="secondary" className="gap-1 font-bold"><UserCog className="h-3 w-3"/>{order.deliveryWorker.name}</Badge>
-                        ) : <span className="text-[10px] text-muted-foreground italic">بحث عن مندوب...</span>}
+                        ) : <span className="text-[10px] text-muted-foreground italic">بحث آلي...</span>}
                     </TableCell>
                     <TableCell className="font-black text-primary">{formatCurrency(order.total)}</TableCell>
                     <TableCell>
-                        <Badge className={cn("text-white font-black rounded-lg", getStatusVariant(order.status))}>
+                        <Badge className={cn("text-white font-black rounded-lg", 
+                            order.status === 'confirmed' ? 'bg-orange-500' : 
+                            order.status === 'delivered' ? 'bg-green-600' : 'bg-slate-500')}>
                             {getStatusText(order.status)}
                         </Badge>
                     </TableCell>
@@ -215,11 +209,11 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="rounded-xl font-bold">
-                                <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'pending_assignment')} className="gap-2"><RefreshCw className="h-4 w-4"/> تدوير الطلب</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'delivered')}>تم التوصيل</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'pending_assignment')} className="gap-2"><RefreshCw className="h-4 w-4"/> إعادة تدوير الطلب</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'delivered')}>تم التوصيل كاش</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'cancelled')}>إلغاء الطلب</DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => { setOrderToAssign(order.id); setAssignDialogOpen(true); }} className="text-orange-600 gap-2"><UserCog className="h-4 w-4"/> تعيين مندوب يدوي</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => { setOrderToAssign(order.id); setAssignDialogOpen(true); }} className="text-orange-600 gap-2"><UserCog className="h-4 w-4"/> تعيين يدوي (اختيار مندوب)</DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <AlertDialogTrigger asChild>
                                     <DropdownMenuItem className="text-destructive gap-2"><Trash2 className="h-4 w-4" /> حذف نهائي</DropdownMenuItem>
@@ -240,46 +234,41 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
         </div>
 
         <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
-            <DialogContent className="sm:max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
+            <DialogContent className="sm:max-w-md rounded-[2.5rem] p-0 overflow-hidden">
                 <DialogHeader className="p-6 bg-primary text-white">
-                    <DialogTitle className="text-2xl font-black italic">اختيار مندوب للطلب</DialogTitle>
+                    <DialogTitle className="text-2xl font-black italic">اختيار المندوب بالاسم</DialogTitle>
                 </DialogHeader>
                 <div className="p-4">
-                    <p className="text-xs font-bold text-muted-foreground mb-4 px-2">يظهر فقط المناديب المتاحين الآن (أونلاين).</p>
                     <ScrollArea className="h-[300px] pr-2">
                         <div className="space-y-2">
                             {onlineWorkers.map(worker => (
                                 <button 
                                     key={worker.id}
                                     onClick={() => handleManualAssign(worker)}
-                                    className="w-full flex items-center justify-between p-4 bg-muted/20 hover:bg-primary/10 rounded-2xl border-2 border-transparent hover:border-primary/20 transition-all text-right group"
+                                    className="w-full flex items-center justify-between p-4 bg-muted/20 hover:bg-primary/10 rounded-2xl border-2 border-transparent transition-all text-right group"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-primary/10 rounded-xl text-primary group-hover:bg-primary group-hover:text-white transition-colors">
-                                            <Bike className="h-5 w-5" />
-                                        </div>
+                                        <div className="p-2 bg-primary/10 rounded-xl text-primary"><Bike className="h-5 w-5" /></div>
                                         <div className="text-right">
-                                            <p className="font-black text-slate-800">{worker.name}</p>
+                                            <p className="font-black">{worker.name}</p>
                                             <p className="text-[10px] font-bold text-primary" dir="ltr">{worker.id}</p>
                                         </div>
                                     </div>
-                                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
+                                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
                                 </button>
                             ))}
-                            {onlineWorkers.length === 0 && (
-                                <div className="text-center py-10 opacity-40 font-bold italic">لا يوجد مناديب متصلين حالياً.</div>
-                            )}
+                            {onlineWorkers.length === 0 && <div className="text-center py-10 opacity-40 italic">لا يوجد مناديب متصلين حالياً.</div>}
                         </div>
                     </ScrollArea>
                 </div>
                 <DialogFooter className="p-4 bg-slate-50 border-t">
-                    <Button variant="outline" className="w-full rounded-xl font-black" onClick={() => setAssignDialogOpen(false)}>إغلاق</Button>
+                    <Button variant="outline" className="w-full rounded-xl" onClick={() => setAssignDialogOpen(false)}>إغلاق</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
 
         <Dialog open={!!viewOrder} onOpenChange={(v) => !v && setViewOrder(null)}>
-            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] p-0 border-none shadow-2xl">
+            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] p-0">
                 {viewOrder && (
                     <div className="flex flex-col text-right">
                         <DialogHeader className="p-6 bg-primary text-white">
@@ -287,34 +276,22 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                                 <DialogTitle className="text-2xl font-black italic">فاتورة طلب #{viewOrder.orderNumber}</DialogTitle>
                                 <Button variant="ghost" size="icon" onClick={() => setViewOrder(null)} className="text-white hover:bg-white/10 rounded-full"><X className="h-6 w-6"/></Button>
                             </div>
-                            <p className="text-xs font-bold text-white/70 mt-1">{new Date(viewOrder.date).toLocaleString('ar-IQ')}</p>
                         </DialogHeader>
-
                         <div className="p-6 space-y-6">
-                            <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-1">
-                                    <h3 className="text-[10px] font-black text-muted-foreground uppercase flex items-center gap-1 justify-end"><Store className="h-3 w-3"/> المتجر</h3>
-                                    <p className="font-black text-lg">{viewOrder.restaurant?.name || 'غير معروف'}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <h3 className="text-[10px] font-black text-muted-foreground uppercase flex items-center gap-1 justify-end"><User className="h-3 w-3"/> العميل</h3>
-                                    <p className="font-black text-lg">{viewOrder.address.name}</p>
-                                    <p className="text-xs font-bold text-primary" dir="ltr">{viewOrder.address.phone}</p>
-                                </div>
+                            <div className="bg-primary/5 p-5 rounded-[1.5rem] border-2 border-primary/10 flex justify-between items-center">
+                                <span className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(viewOrder.total)}</span>
+                                <span className="font-black text-slate-700">المبلغ الواجب استلامه (كاش):</span>
                             </div>
-                            <Separator className="border-dashed" />
-                            <div className="bg-primary/5 p-5 rounded-[1.5rem] border-2 border-primary/10 space-y-2">
-                                <div className="flex justify-between items-center text-xs font-bold text-slate-500">
-                                    <span>{formatCurrency(viewOrder.deliveryFee)}</span>
-                                    <span>أجور التوصيل الصافية للمندوب:</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(viewOrder.total)}</span>
-                                    <span className="font-black text-slate-700">الإجمالي كاش:</span>
-                                </div>
+                            <div className="space-y-4">
+                                {viewOrder.items.map((item, idx) => (
+                                    <div key={idx} className="flex justify-between items-center text-sm font-bold">
+                                        <span>{formatCurrency((item.selectedSize?.price || item.product.discountPrice || item.product.price || 0) * item.quantity)}</span>
+                                        <span>{item.product.name} x{item.quantity}</span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                        <DialogFooter className="p-6 bg-slate-50 border-t sticky bottom-0"><Button onClick={() => setViewOrder(null)} className="w-full h-14 rounded-2xl font-black text-lg">إغلاق</Button></DialogFooter>
+                        <DialogFooter className="p-6 border-t"><Button onClick={() => setViewOrder(null)} className="w-full h-14 rounded-2xl font-black">إغلاق</Button></DialogFooter>
                     </div>
                 )}
             </DialogContent>

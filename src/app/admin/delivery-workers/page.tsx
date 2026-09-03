@@ -11,12 +11,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/utils';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import type { DeliveryWorker } from '@/lib/types';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { doc, writeBatch, updateDoc } from 'firebase/firestore';
+import { doc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -37,7 +37,8 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
 
   const wallets: WorkerWallet[] = useMemo(() => {
     if (!deliveryWorkers || !allOrders) return [];
-    return deliveryWorkers.map(w => {
+    // عرض مناديب هذا الفرع فقط
+    return deliveryWorkers.filter(w => w.branchId === branchId).map(w => {
         const orders = allOrders.filter(o => o.deliveryWorkerId === w.id && o.status === 'delivered');
         const unpaidFees = orders.filter(o => !o.isFeePaid);
         const unpaidCash = orders.filter(o => !o.isOrderPaidToOffice);
@@ -45,6 +46,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
         const baseEarnings = unpaidFees.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
         const deliveryEarnings = Math.max(0, baseEarnings + (w.balanceAdjustment || 0));
 
+        // الذمة = المجموع الكلي للطلبات كاش
         const baseCash = unpaidCash.reduce((acc, o) => acc + (o.total || 0), 0);
         const cashToOffice = Math.max(0, baseCash + (w.debtAdjustment || 0));
 
@@ -56,93 +58,62 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
             unpaidCashIds: unpaidCash.map(o => o.id),
         };
     }).filter(w => w.deliveryEarnings > 0 || w.cashToOffice > 0);
-  }, [deliveryWorkers, allOrders]);
+  }, [deliveryWorkers, allOrders, branchId]);
 
   const clearSettlement = async (workerId: string, ids: string[], field: 'isFeePaid' | 'isOrderPaidToOffice') => {
       try {
           const batch = writeBatch(db);
           ids.forEach(id => batch.update(doc(db, "orders", id), { [field]: true }));
-          
           const adjField = field === 'isFeePaid' ? 'balanceAdjustment' : 'debtAdjustment';
           batch.update(doc(db, "deliveryWorkers", workerId), { [adjField]: 0 });
-          
           await batch.commit();
-          toast({ title: "تمت التصفية المالية وتصفير التعديلات بنجاح ✅" });
+          toast({ title: "تمت التصفية المالية بنجاح ✅" });
       } catch (e) {
-          toast({ title: "فشل في عملية التصفية", variant: "destructive" });
+          toast({ title: "فشل التصفية", variant: "destructive" });
       }
   }
 
-  if (workersLoading || ordersLoading) return (
-      <div className="p-20 text-center flex flex-col items-center gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="font-black text-primary animate-pulse">جاري جلب سجلات المحفظة والديون...</p>
-      </div>
-  );
+  if (workersLoading || ordersLoading) return <div className="p-20 text-center animate-pulse font-black text-primary">جارِ جرد الحسابات المالية...</div>;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 text-right">
+    <div className="space-y-8 text-right">
       <header>
         <h1 className="text-4xl font-black text-primary">تصفية حسابات المناديب</h1>
-        <p className="text-muted-foreground font-bold italic">إدارة الأرباح والذمم المالية (الذمة تشمل المجموع الكلي للطلب).</p>
+        <p className="text-muted-foreground font-bold italic">الذمة = المجموع الكلي للطلبات. الأرباح = أجور التوصيل فقط.</p>
       </header>
 
       {wallets.length === 0 ? (
-          <div className="p-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-muted">
+          <div className="p-20 text-center bg-white rounded-[3rem] border-2 border-dashed">
               <UserCheck className="h-16 w-16 mx-auto text-green-500/30 mb-4" />
-              <p className="text-xl font-black text-muted-foreground">كافة الحسابات مصفاة بالكامل!</p>
+              <p className="text-xl font-black text-muted-foreground">كافة حسابات مناديب هذا الفرع مصفاة.</p>
           </div>
       ) : (
           <div className="grid gap-6">
               {wallets.map((w) => (
-                  <Card key={w.worker.id} className="rounded-[2.5rem] border-none shadow-xl overflow-hidden bg-white hover:shadow-2xl transition-all">
+                  <Card key={w.worker.id} className="rounded-[2.5rem] border-none shadow-xl overflow-hidden bg-white">
                       <div className="bg-primary/5 p-6 border-b border-dashed flex justify-between items-center flex-row-reverse">
-                          <div className="flex items-center gap-4 text-right">
-                              <div>
-                                  <h3 className="text-xl font-black">{w.worker.name}</h3>
-                                  <p className="text-xs font-bold text-muted-foreground font-mono">{w.worker.id}</p>
-                              </div>
-                              <div className="h-14 w-14 bg-primary text-white rounded-2xl flex items-center justify-center text-2xl font-black shadow-lg shadow-primary/20">
-                                  {w.worker.name.charAt(0)}
-                              </div>
+                          <div className="text-right">
+                              <h3 className="text-xl font-black">{w.worker.name}</h3>
+                              <p className="text-[10px] font-bold text-muted-foreground" dir="ltr">{w.worker.id}</p>
                           </div>
-                          <Badge variant="outline" className="h-8 rounded-xl px-4 font-black bg-white">نشط</Badge>
+                          <Badge variant="outline" className="font-black">نشط</Badge>
                       </div>
-                      
-                      <div className="grid md:grid-cols-2 gap-0">
-                          <div className="p-6 border-l border-dashed space-y-4 text-right">
+                      <div className="grid md:grid-cols-2">
+                          <div className="p-6 border-l border-dashed space-y-4">
                                 <div className="flex items-center gap-2 text-primary justify-end">
-                                    <span className="text-xs font-black uppercase">أرباح المندوب (المكتب مدين له)</span>
+                                    <span className="text-xs font-black">أرباح المندوب (أجور التوصيل)</span>
                                     <Wallet className="h-5 w-5" />
                                 </div>
-                                <div className="text-4xl font-black tracking-tighter text-primary">
-                                    {formatCurrency(w.deliveryEarnings)}
-                                </div>
-                                <Button 
-                                    className="w-full h-12 rounded-2xl font-black text-lg shadow-lg"
-                                    onClick={() => clearSettlement(w.worker.id, w.unpaidFeeIds, 'isFeePaid')}
-                                    disabled={w.deliveryEarnings <= 0}
-                                >
-                                    دفع أرباح التوصيل
-                                </Button>
+                                <div className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(w.deliveryEarnings)}</div>
+                                <Button className="w-full h-12 rounded-2xl font-black shadow-lg" onClick={() => clearSettlement(w.worker.id, w.unpaidFeeIds, 'isFeePaid')} disabled={w.deliveryEarnings <= 0}>دفع المستحقات للمندوب</Button>
                           </div>
-
-                          <div className="p-6 space-y-4 text-right">
+                          <div className="p-6 space-y-4">
                                 <div className="flex items-center gap-2 text-destructive justify-end">
-                                    <span className="text-xs font-black uppercase">ذمة المندوب (المكتب يطلبه كاش)</span>
+                                    <span className="text-xs font-black">ذمة للمكتب (كاش المجموع الكلي)</span>
                                     <Banknote className="h-5 w-5" />
                                 </div>
-                                <div className="text-4xl font-black tracking-tighter text-destructive">
-                                    {formatCurrency(w.cashToOffice)}
-                                </div>
-                                <Button 
-                                    variant="outline"
-                                    className="w-full h-12 rounded-2xl font-black text-lg border-destructive text-destructive"
-                                    onClick={() => clearSettlement(w.worker.id, w.unpaidCashIds, 'isOrderPaidToOffice')}
-                                    disabled={w.cashToOffice <= 0}
-                                >
-                                    استلام المبالغ وتصفية الذمة
-                                </Button>
+                                <div className="text-3xl font-black text-destructive tracking-tighter">{formatCurrency(w.cashToOffice)}</div>
+                                <Button variant="outline" className="w-full h-12 rounded-2xl font-black border-destructive text-destructive" onClick={() => clearSettlement(w.worker.id, w.unpaidCashIds, 'isOrderPaidToOffice')} disabled={w.cashToOffice <= 0}>تصفية الكاش المستلم</Button>
                           </div>
                       </div>
                   </Card>

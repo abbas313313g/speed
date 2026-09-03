@@ -29,7 +29,6 @@ export const useOrders = (branchId?: string) => {
                     deliveryWorker: null,
                     status: 'pending_assignment',
                     confirmedAt: null,
-                    // نضع علامة للمندوب السابق لكي لا يختاره النظام فوراً مرة أخرى (اختياري)
                     lastSkippedWorkerId: order.deliveryWorkerId 
                 });
             } catch (e) {
@@ -58,11 +57,9 @@ export const useOrders = (branchId?: string) => {
 
             if (onlineWorkers.length > 0) {
                 for (const order of pendingOrders) {
-                    // استبعاد المندوب الذي تم سحب الطلب منه للتو لضمان التدوير
                     const availablePool = onlineWorkers.filter(w => w.id !== (order as any).lastSkippedWorkerId);
                     const finalPool = availablePool.length > 0 ? availablePool : onlineWorkers;
                     
-                    // اختيار عشوائي للمندوب لضمان العدالة
                     const shuffled = [...finalPool].sort(() => Math.random() - 0.5);
                     const worker = shuffled[0];
                     
@@ -70,7 +67,7 @@ export const useOrders = (branchId?: string) => {
                         await updateDoc(doc(db, "orders", order.id), {
                             deliveryWorkerId: worker.id,
                             deliveryWorker: { id: worker.id, name: worker.name },
-                            status: 'confirmed', // حالة "العرض" على المندوب
+                            status: 'confirmed', 
                             confirmedAt: new Date().toISOString()
                         });
                         
@@ -87,7 +84,8 @@ export const useOrders = (branchId?: string) => {
 
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
-        let q = query(ordersRef, limit(200));
+        // إذا كان المركز الرئيسي، نجلب كل شيء للإحصائيات، وإلا نجلب الفرع المحدد
+        let q = query(ordersRef, limit(500));
         
         if (branchId && branchId !== 'all' && branchId !== 'main') {
             q = query(ordersRef, where('branchId', '==', branchId), limit(200));
@@ -100,7 +98,6 @@ export const useOrders = (branchId?: string) => {
             setAllOrders(sortedData);
             setIsLoading(false);
             
-            // تشغيل محركات التوزيع والتدوير
             cleanupTimedOutAssignments(sortedData);
             autoAssignOrders(sortedData);
         }, (error) => {
@@ -114,13 +111,11 @@ export const useOrders = (branchId?: string) => {
             const orderRef = doc(db, "orders", orderId);
             const updateData: any = { status };
             
-            // المندوب يوافق -> تتحول الحالة لـ preparing
             if (status === 'preparing' && workerId) {
                 updateData.deliveryWorkerId = workerId;
                 updateData.confirmedAt = null; 
             }
 
-            // سحب الطلب أو إعادة التدوير
             if (status === 'unassigned') {
                 updateData.deliveryWorkerId = null;
                 updateData.deliveryWorker = null;

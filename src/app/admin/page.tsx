@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { CheckCircle, Clock, Building2, TrendingUp, ArrowRight, Wallet, Landmark, Calendar } from 'lucide-react';
+import { CheckCircle, Clock, Building2, TrendingUp, Calendar, Wallet } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useOrders } from '@/hooks/useOrders';
 import { useBranches } from '@/hooks/useBranches';
@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 
 export default function AdminDashboard({ branchId }: { branchId: string }) {
   const { products, approveProduct, isLoading: pLoading } = useProducts(branchId);
@@ -21,62 +20,62 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
   
   const isMain = branchId === 'main';
 
-  // حساب الإحصائيات من الطلبات المتوفرة لحظياً لضمان الدقة وعدم التصفير
+  // معالجة البيانات بكفاءة عالية لمنع الـ Freeze
   const stats = useMemo(() => {
-    const delivered = allOrders.filter(o => o.status === 'delivered');
-    const cancelled = allOrders.filter(o => o.status === 'cancelled');
+    // فلترة الطلبات حسب الفرع الحالي لعرضها في الإحصائيات الفردية
+    const currentBranchOrders = isMain ? allOrders.filter(o => o.branchId === 'main') : allOrders;
     
-    // حساب الأرباح اليومية (اليوم فقط)
+    const delivered = currentBranchOrders.filter(o => o.status === 'delivered');
+    const cancelled = currentBranchOrders.filter(o => o.status === 'cancelled');
+    
     const today = new Date();
     today.setHours(0,0,0,0);
     const deliveredToday = delivered.filter(o => new Date(o.date) >= today);
 
-    let dailyTotalProfit = 0;
-    const branchProfits: {[key: string]: number} = {};
-
+    // حساب أرباح هذا الفرع فقط
+    let branchDailyProfit = 0;
     deliveredToday.forEach(order => {
         const itemsPrice = order.items.reduce((sum, i) => {
             const price = i.selectedSize?.price || i.product.discountPrice || i.product.price || 0;
             return sum + (price * i.quantity);
         }, 0);
-        const commission = (itemsPrice * (order.restaurant?.commissionRate || 10)) / 100;
-        dailyTotalProfit += commission;
-        
-        const bId = order.branchId || 'main';
-        branchProfits[bId] = (branchProfits[bId] || 0) + commission;
+        branchDailyProfit += (itemsPrice * (order.restaurant?.commissionRate || 10)) / 100;
     });
 
+    // للمركز الرئيسي فقط: حساب أرباح كل الفروع
+    const allBranchProfits: {[key: string]: number} = {};
+    if (isMain) {
+        allOrders.filter(o => o.status === 'delivered' && new Date(o.date) >= today).forEach(order => {
+            const itemsPrice = order.items.reduce((sum, i) => {
+                const price = i.selectedSize?.price || i.product.discountPrice || i.product.price || 0;
+                return sum + (price * i.quantity);
+            }, 0);
+            const bId = order.branchId || 'main';
+            allBranchProfits[bId] = (allBranchProfits[bId] || 0) + ((itemsPrice * (order.restaurant?.commissionRate || 10)) / 100);
+        });
+    }
+
     const totalRevenue = delivered.reduce((acc, o) => acc + (o.total || 0), 0);
-    
-    // حساب صافي عمولة النظام الكلية
-    const totalCompanyProfit = delivered.reduce((acc, o) => {
-        const itemsPrice = o.items.reduce((sum, i) => {
-            const price = i.selectedSize?.price || i.product.discountPrice || i.product.price || 0;
-            return sum + (price * i.quantity);
-        }, 0);
-        return acc + ((itemsPrice * (o.restaurant?.commissionRate || 10)) / 100);
-    }, 0);
 
     return {
         totalRevenue,
-        totalCompanyProfit,
-        dailyTotalProfit,
-        branchProfits,
+        branchDailyProfit,
+        allBranchProfits,
         pendingProducts: products.filter(p => p.status === 'pending'),
-        activeOrders: allOrders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length,
+        activeOrders: currentBranchOrders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length,
         cancelledCount: cancelled.length,
-        branchesInfo: branches.map(b => ({
+        branchesSummary: branches.map(b => ({
             name: b.name,
             id: b.id,
-            profit: branchProfits[b.id] || 0
-        })).concat([{ name: 'المركز الرئيسي', id: 'main', profit: branchProfits['main'] || 0 }])
+            profit: allBranchProfits[b.id] || 0
+        })).concat([{ name: 'فرع المركز (المدحتية)', id: 'main', profit: allBranchProfits['main'] || 0 }])
     };
-  }, [allOrders, products, branches]);
+  }, [allOrders, products, branches, isMain]);
 
   if (pLoading || oLoading) return (
       <div className="p-20 text-center flex flex-col items-center gap-4">
           <TrendingUp className="h-12 w-12 text-primary animate-bounce" />
-          <p className="font-black text-primary animate-pulse">جاري تحليل البيانات المالية واسترجاع الإحصائيات...</p>
+          <p className="font-black text-primary animate-pulse">جاري جلب إحصائيات الفرع...</p>
       </div>
   );
   
@@ -84,41 +83,38 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
     <div className="space-y-8 animate-in fade-in duration-500 text-right">
       <header>
         <h1 className="text-4xl font-black text-primary italic">لوحة القيادة</h1>
-        <p className="text-muted-foreground font-bold italic">إدارة ومتابعة فرع: {branchId === 'main' ? 'المركز العام' : branchId}</p>
+        <p className="text-muted-foreground font-bold italic">متابعة فرع: {isMain ? 'المركز العام' : branchId}</p>
       </header>
 
       {isMain && (
-          <div className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-3">
+          <section className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
                   <Card className="rounded-[1.5rem] border-none shadow-xl bg-slate-900 text-white p-6 relative overflow-hidden">
                       <div className="absolute right-[-10px] bottom-[-10px] opacity-10"><Calendar className="h-20 w-20"/></div>
-                      <div className="text-[10px] font-black text-primary uppercase mb-2">صافي أرباح النظام اليوم</div>
-                      <div className="text-4xl font-black text-green-400 tracking-tighter">{formatCurrency(stats.dailyTotalProfit)}</div>
-                      <p className="text-[9px] text-white/40 mt-1">من كافة الفروع (عمولات المتاجر فقط)</p>
+                      <div className="text-[10px] font-black text-primary uppercase mb-2">صافي أرباح كافة الفروع اليوم</div>
+                      <div className="text-4xl font-black text-green-400 tracking-tighter">
+                          {formatCurrency(Object.values(stats.allBranchProfits).reduce((a,b)=>a+b, 0))}
+                      </div>
                   </Card>
                   <Card className="rounded-[1.5rem] border-none shadow-xl bg-primary text-white p-6">
-                      <div className="text-[10px] font-black text-white/70 uppercase mb-2">إجمالي عمولات النظام (الكل)</div>
-                      <div className="text-3xl font-black">{formatCurrency(stats.totalCompanyProfit)}</div>
-                  </Card>
-                  <Card className="rounded-[1.5rem] border-none shadow-xl bg-slate-800 text-white p-6">
-                      <div className="text-[10px] font-black text-orange-400 uppercase mb-2">إجمالي الكاش المتداول</div>
-                      <div className="text-3xl font-black">{formatCurrency(stats.totalRevenue)}</div>
+                      <div className="text-[10px] font-black text-white/70 uppercase mb-2">ربح هذا الفرع (اليوم)</div>
+                      <div className="text-3xl font-black">{formatCurrency(stats.branchDailyProfit)}</div>
                   </Card>
               </div>
 
-              <section className="space-y-4">
-                  <h2 className="text-xl font-black flex items-center gap-2 px-1 text-slate-800 justify-end">تحليل أرباح الفروع لهذا اليوم <TrendingUp className="h-5 w-5 text-primary"/></h2>
+              <div className="space-y-4">
+                  <h2 className="text-xl font-black flex items-center gap-2 px-1 justify-end text-slate-800">تحليل أداء الفروع <TrendingUp className="h-5 w-5 text-primary"/></h2>
                   <Card className="rounded-[2rem] border-none shadow-xl overflow-hidden bg-white">
                       <Table>
                           <TableHeader className="bg-muted/50">
                               <TableRow>
-                                  <TableHead className="font-black text-right">الفرع / المدينة</TableHead>
-                                  <TableHead className="font-black text-center">أرباح العمولات (اليوم)</TableHead>
+                                  <TableHead className="font-black text-right">الفرع</TableHead>
+                                  <TableHead className="font-black text-center">أرباح اليوم</TableHead>
                                   <TableHead className="font-black text-center">الحالة</TableHead>
                               </TableRow>
                           </TableHeader>
                           <TableBody>
-                              {stats.branchesInfo.sort((a,b) => b.profit - a.profit).map(b => (
+                              {stats.branchesSummary.sort((a,b) => b.profit - a.profit).map(b => (
                                   <TableRow key={b.id}>
                                       <TableCell className="font-bold flex items-center gap-2 justify-end">
                                           {b.name}
@@ -126,20 +122,27 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
                                       </TableCell>
                                       <TableCell className="text-center font-black text-lg text-primary">{formatCurrency(b.profit)}</TableCell>
                                       <TableCell className="text-center">
-                                          <Badge className="bg-green-100 text-green-700 border-none text-[10px] font-black">نشط الآن</Badge>
+                                          <Badge className="bg-green-100 text-green-700 border-none text-[10px] font-black">نشط</Badge>
                                       </TableCell>
                                   </TableRow>
                               ))}
                           </TableBody>
                       </Table>
                   </Card>
-              </section>
-          </div>
+              </div>
+          </section>
+      )}
+
+      {!isMain && (
+          <Card className="rounded-[1.5rem] border-none shadow-xl bg-slate-900 text-white p-6">
+              <div className="text-[10px] font-black text-primary uppercase mb-2">صافي أرباح الفرع (اليوم)</div>
+              <div className="text-4xl font-black text-green-400 tracking-tighter">{formatCurrency(stats.branchDailyProfit)}</div>
+          </Card>
       )}
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="rounded-[1.5rem] border-none shadow-lg bg-white p-5 border-r-4 border-r-primary">
-            <div className="text-[10px] font-black text-muted-foreground uppercase">إجمالي كاش هذا الفرع</div>
+            <div className="text-[10px] font-black text-muted-foreground uppercase">كاش الفرع (الطلبات الواصلة)</div>
             <div className="text-2xl font-black mt-1 text-primary">{formatCurrency(stats.totalRevenue)}</div>
         </Card>
         <Card className="rounded-[1.5rem] border-none shadow-lg bg-white p-5 border-r-4 border-r-orange-500">
@@ -147,21 +150,21 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
             <div className="text-2xl font-black text-orange-500 mt-1">{stats.activeOrders}</div>
         </Card>
         <Card className="rounded-[1.5rem] border-none shadow-lg bg-white p-5 border-r-4 border-r-red-500">
-            <div className="text-[10px] font-black text-muted-foreground uppercase">الطلبات الملغية</div>
+            <div className="text-[10px] font-black text-muted-foreground uppercase">الملغية</div>
             <div className="text-2xl font-black text-red-500 mt-1">{stats.cancelledCount}</div>
         </Card>
         <Card className="rounded-[1.5rem] border-none shadow-lg bg-white p-5 border-r-4 border-r-blue-500">
-            <div className="text-[10px] font-black text-muted-foreground uppercase">بانتظار المراجعة</div>
+            <div className="text-[10px] font-black text-muted-foreground uppercase">وجبات للمراجعة</div>
             <div className="text-2xl font-black text-blue-500 mt-1">{stats.pendingProducts.length}</div>
         </Card>
       </div>
 
       <section className="space-y-4">
-        <h2 className="text-2xl font-black flex items-center gap-2 px-1 text-blue-500 justify-end"><Clock className="h-6 w-6"/> طلبات تحديث المنيو</h2>
+        <h2 className="text-2xl font-black flex items-center gap-2 px-1 text-blue-500 justify-end"><Clock className="h-6 w-6"/> تحديثات المنيو المعلقة</h2>
         {stats.pendingProducts.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-[2rem] border-2 border-dashed">
                 <CheckCircle className="h-10 w-10 mx-auto text-green-500/30 mb-3" />
-                <p className="text-muted-foreground italic font-bold">كافة التحديثات في هذا الفرع تم تدقيقها.</p>
+                <p className="text-muted-foreground italic font-bold">كافة المنتجات تم تدقيقها في هذا الفرع.</p>
             </div>
         ) : (
             <div className="grid gap-4 md:grid-cols-2">
