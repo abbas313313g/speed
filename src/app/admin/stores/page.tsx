@@ -34,7 +34,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Edit, Trash2, Loader2, MapPin, Upload, Clock, Power, PowerOff, Plus, X, Bell } from 'lucide-react';
+import { Edit, Trash2, Loader2, MapPin, Upload, Clock, Power, PowerOff, Plus, X, Bell, Info } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
@@ -204,16 +204,22 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                     </div>
                 </div>
 
-                <div className="space-y-1 bg-blue-50/50 p-4 rounded-2xl border-2 border-dashed border-blue-200">
-                    <Label className="font-black text-blue-800 flex items-center gap-2 justify-end">معرف ون سيجنال للإشعارات <Bell className="h-4 w-4"/></Label>
+                <div className="space-y-1 bg-blue-50 p-5 rounded-[1.8rem] border-2 border-dashed border-blue-200 shadow-inner">
+                    <Label className="font-black text-blue-800 flex items-center gap-2 justify-end mb-2 text-base">معرف إشعارات المتجر <Bell className="h-5 w-5 text-blue-600 animate-pulse"/></Label>
                     <Input 
                         value={currentStore.oneSignalId ?? ''} 
                         onChange={(e) => setCurrentStore({ ...currentStore, oneSignalId: e.target.value })} 
-                        className="rounded-xl h-12 font-mono text-xs text-center bg-white" 
-                        placeholder="Player ID (الصقه هنا لاستلام إشعارات الطلبات)"
+                        className="rounded-xl h-14 font-mono text-sm text-center bg-white border-blue-100 shadow-sm" 
+                        placeholder="Subscription ID (الصقه هنا لاستلام التنبيهات)"
                         dir="ltr"
                     />
-                    <p className="text-[9px] text-blue-600 font-bold mt-1 text-center italic">* هذا المعرف يضمن وصول الإشعارات لصاحب المتجر حصراً.</p>
+                    <div className="flex items-start gap-2 bg-white/60 p-3 rounded-xl mt-3 border border-blue-50">
+                        <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                        <div className="text-right">
+                            <p className="text-[10px] text-blue-700 font-black">يجب وضع الـ Subscription ID الخاص بجهاز صاحب المطعم.</p>
+                            <p className="text-[9px] text-blue-500 font-bold mt-1 leading-relaxed">تجد هذا المعرف في لوحة ون سيجنال تحت (Audience -> Subscriptions) باسم ID.</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="space-y-4 border-t pt-4">

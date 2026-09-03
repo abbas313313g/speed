@@ -276,7 +276,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 });
             }
 
-            // إرسال إشعار ون سيجنال للمتجر فوراً
+            // إرسال إشعار ون سيجنال للمتجر فوراً باستخدام المعرف المباشر
             if (rest?.oneSignalId) {
                 sendRestaurantOrderNotification(rest.oneSignalId, rest.name, nextNumber);
             }
