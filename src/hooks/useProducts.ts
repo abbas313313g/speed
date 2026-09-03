@@ -80,13 +80,13 @@ export const useProducts = (
             }
 
             const ref = collection(db, 'products');
-            // جلب أوسع لضمان عدم التصفير في الأفرع وتجنب تعقيدات الـ Indexes
-            const q = query(ref, limit(isAdmin ? 1000 : 500));
+            // تقليل الليميت من 1000/500 إلى 250/150 لتوفير الكوتا
+            const fetchLimit = isAdmin ? 250 : 150;
+            const q = query(ref, limit(fetchLimit));
 
             unsub = onSnapshot(q, (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
                 
-                // فلترة في الذاكرة لضمان السرعة والدقة في الأفرع
                 let filteredData = data;
                 if (restaurantId && restaurantId !== 'none') {
                     filteredData = data.filter(p => p.restaurantId === restaurantId);
@@ -99,7 +99,7 @@ export const useProducts = (
                 }
 
                 setProducts(filteredData);
-                setHasMore(data.length >= (isAdmin ? 1000 : 500));
+                setHasMore(data.length >= fetchLimit);
                 setIsLoading(false);
             }, (error) => {
                 console.error("Products Snapshot Error:", error);

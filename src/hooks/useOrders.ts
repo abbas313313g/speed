@@ -13,6 +13,7 @@ export const useOrders = (branchId?: string) => {
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
     const isAssigningRef = useRef(false);
+    const lastAssignTimeRef = useRef(0);
 
     // نظام تدوير الطلبات: سحب الطلب من المندوب إذا تأخر أكثر من 20 ثانية
     const cleanupTimedOutAssignments = useCallback(async (orders: Order[]) => {
@@ -39,19 +40,23 @@ export const useOrders = (branchId?: string) => {
     }, []);
 
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
-        if (isAssigningRef.current) return;
+        const now = Date.now();
+        // حماية لمنع التكرار المستمر (كوول داون 5 ثواني)
+        if (isAssigningRef.current || (now - lastAssignTimeRef.current < 5000)) return;
         
         const pendingOrders = orders.filter(o => o.status === 'pending_assignment');
         if (pendingOrders.length === 0) return;
 
         isAssigningRef.current = true;
+        lastAssignTimeRef.current = now;
+
         try {
             const workersRef = collection(db, "deliveryWorkers");
             const wQuery = query(
                 workersRef, 
                 where("isOnline", "==", true), 
                 where("isActive", "==", true),
-                limit(100)
+                limit(50)
             );
             const workersSnap = await getDocs(wQuery);
             let onlineWorkers = workersSnap.docs.map(d => ({ id: d.id, ...d.data() })) as DeliveryWorker[];
@@ -65,6 +70,7 @@ export const useOrders = (branchId?: string) => {
                     const worker = shuffled[0];
                     
                     if (worker) {
+                        // تحديث الحالة لمنع دخولها في الحلقة مرة أخرى فوراً
                         await updateDoc(doc(db, "orders", order.id), {
                             deliveryWorkerId: worker.id,
                             deliveryWorker: { id: worker.id, name: worker.name },
@@ -73,25 +79,25 @@ export const useOrders = (branchId?: string) => {
                         });
                         
                         sendFcmNotification(worker.id, 'deliveryWorkers', 'طلب جديد بانتظارك! 🚀', `لديك 20 ثانية للموافقة على طلب ${order.restaurant?.name || 'جديد'}`);
+                        break; // تعيين طلب واحد في كل دورة لتوفير الكوتا
                     }
                 }
             }
         } catch (e) {
             console.error("Auto-assign failed:", e);
         } finally {
-            setTimeout(() => { isAssigningRef.current = false; }, 4000);
+            setTimeout(() => { isAssigningRef.current = false; }, 2000);
         }
     }, []);
 
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
-        // جلب أوسع لضمان عدم التصفير في الأفرع وتجنب تعقيدات الـ Indexes
-        const q = query(ordersRef, orderBy("date", "desc"), limit(500));
+        // تقليل الليميت من 500 إلى 100 لتوفير كوتا القراءة
+        const q = query(ordersRef, orderBy("date", "desc"), limit(100));
 
         const unsub = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
             
-            // فلترة الطلبات في الذاكرة لضمان استقرار العرض في الأفرع
             let finalData = data;
             if (branchId && branchId !== 'all' && branchId !== 'main') {
                 finalData = data.filter(o => o.branchId === branchId);
@@ -100,6 +106,7 @@ export const useOrders = (branchId?: string) => {
             setAllOrders(finalData);
             setIsLoading(false);
             
+            // استدعاء الوظائف مع حماية
             cleanupTimedOutAssignments(finalData);
             autoAssignOrders(finalData);
         }, (error) => {
