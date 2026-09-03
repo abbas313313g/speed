@@ -205,19 +205,19 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                 </div>
 
                 <div className="space-y-1 bg-blue-50 p-5 rounded-[1.8rem] border-2 border-dashed border-blue-200 shadow-inner">
-                    <Label className="font-black text-blue-800 flex items-center gap-2 justify-end mb-2 text-base">معرف إشعارات المتجر <Bell className="h-5 w-5 text-blue-600 animate-pulse"/></Label>
+                    <Label className="font-black text-blue-800 flex items-center gap-2 justify-end mb-2 text-base">معرف الاشتراك (Subscription ID) <Bell className="h-5 w-5 text-blue-600 animate-pulse"/></Label>
                     <Input 
                         value={currentStore.oneSignalId ?? ''} 
                         onChange={(e) => setCurrentStore({ ...currentStore, oneSignalId: e.target.value })} 
                         className="rounded-xl h-14 font-mono text-sm text-center bg-white border-blue-100 shadow-sm" 
-                        placeholder="Subscription ID (الصقه هنا لاستلام التنبيهات)"
+                        placeholder="الصق Subscription ID الخاص بجهاز صاحب المتجر"
                         dir="ltr"
                     />
                     <div className="flex items-start gap-2 bg-white/60 p-3 rounded-xl mt-3 border border-blue-50">
                         <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
                         <div className="text-right">
-                            <p className="text-[10px] text-blue-700 font-black">يجب وضع الـ Subscription ID الخاص بجهاز صاحب المطعم.</p>
-                            <p className="text-[9px] text-blue-500 font-bold mt-1 leading-relaxed">تجد هذا المعرف في لوحة ون سيجنال تحت (Audience -> Subscriptions) باسم ID.</p>
+                            <p className="text-[10px] text-blue-700 font-black">هام جداً: ضع هنا الـ Subscription ID الخاص بهاتف صاحب المطعم.</p>
+                            <p className="text-[9px] text-blue-500 font-bold mt-1 leading-relaxed">تجد هذا المعرف في لوحة ون سيجنال تحت (Audience -> Subscriptions) باسم ID لضمان وصول التنبيه له حصراً.</p>
                         </div>
                     </div>
                 </div>
