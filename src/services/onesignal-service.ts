@@ -7,16 +7,11 @@
 export async function sendRestaurantOrderNotification(subscriptionId: string, restaurantName: string, orderNumber: number) {
     // الآيدي الخاص بمشروعك كما زودتنا به
     const appId = 'fbb7ab81-ec87-4f8c-aaa8-de12522e62b3';
-    // مفتاح الـ REST API يجب أن يكون مسجلاً في إعدادات البيئة
-    const restKey = process.env.ONESIGNAL_REST_API_KEY;
+    // مفتاح الـ REST API الذي زودتنا به لتفعيل الإشعارات فوراً
+    const restKey = 'os_v2_app_7o32xapmq5hyzkvi3yjfeltcwmnxym7l5ucezhngrovny3cgtdssubwhdurs7i4ou4nabaurpp52i3byu5srpu4kj3hqurf6uxay4yy';
 
     if (!subscriptionId) {
         console.warn("OneSignal Notification Skipped: No Subscription ID provided for the store.");
-        return;
-    }
-
-    if (!restKey) {
-        console.error("OneSignal Config Error: REST_API_KEY is missing in server environment.");
         return;
     }
 
