@@ -35,7 +35,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Edit, Trash2, Loader2, MapPin, Upload, Clock, Power, PowerOff } from 'lucide-react';
+import { Edit, Trash2, Loader2, MapPin, Upload, Clock, Power, PowerOff, Plus, X } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
@@ -71,17 +71,37 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
   const [currentStore, setCurrentStore] = useState<Partial<Restaurant> & {image?:string}>({ ...EMPTY_STORE });
   const [isSaving, setIsSaving] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [newSection, setNewSection] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenDialog = (store?: Restaurant) => {
       if (store) {
           setIsEditing(true);
-          setCurrentStore({ ...store });
+          setCurrentStore({ ...store, menuSections: store.menuSections || [] });
       } else {
           setIsEditing(false);
           setCurrentStore({ ...EMPTY_STORE, branchId, menuSections: [] });
       }
+      setNewSection('');
       setOpen(true);
+  };
+
+  const addMenuSection = () => {
+      if (!newSection.trim()) return;
+      const sections = currentStore.menuSections || [];
+      if (sections.includes(newSection.trim())) {
+          toast({ title: "هذا القسم موجود مسبقاً", variant: "destructive" });
+          return;
+      }
+      setCurrentStore({ ...currentStore, menuSections: [...sections, newSection.trim()] });
+      setNewSection('');
+  };
+
+  const removeMenuSection = (section: string) => {
+      setCurrentStore({
+          ...currentStore,
+          menuSections: (currentStore.menuSections || []).filter(s => s !== section)
+      });
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -181,6 +201,33 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                                 {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
+                    </div>
+                </div>
+
+                <div className="space-y-4 border-t pt-4">
+                    <Label className="font-black text-lg">أقسام المنيو (فئات المنتجات داخل المتجر)</Label>
+                    <div className="flex gap-2">
+                        <Input 
+                            placeholder="مثال: بيتزا، مشويات، مقبلات..." 
+                            value={newSection} 
+                            onChange={(e) => setNewSection(e.target.value)}
+                            className="h-11 rounded-xl font-bold"
+                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addMenuSection())}
+                        />
+                        <Button type="button" onClick={addMenuSection} className="rounded-xl h-11 px-4"><Plus className="h-5 w-5"/></Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {currentStore.menuSections?.map((section) => (
+                            <Badge key={section} className="h-9 px-4 rounded-xl gap-2 bg-primary/10 text-primary border-none font-bold">
+                                {section}
+                                <button type="button" onClick={() => removeMenuSection(section)} className="hover:text-destructive">
+                                    <X className="h-3.5 w-3.5"/>
+                                </button>
+                            </Badge>
+                        ))}
+                        {(!currentStore.menuSections || currentStore.menuSections.length === 0) && (
+                            <p className="text-[10px] text-muted-foreground font-bold italic">لا توجد فئات مضافة. أضف فئة لتنظيم وجبات المتجر.</p>
+                        )}
                     </div>
                 </div>
 
