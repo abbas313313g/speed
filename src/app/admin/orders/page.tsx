@@ -22,7 +22,7 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Trash2, Loader2, Search, X, UserCog, RefreshCw, Bike, ChevronRight } from 'lucide-react';
+import { MoreHorizontal, Trash2, Loader2, Search, X, UserCog, RefreshCw, Bike, ChevronRight, Store } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -60,7 +60,6 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [orderToAssign, setOrderToAssign] = useState<string | null>(null);
 
-  // فلترة الطلبات لتظهر فقط التابعة لهذا الفرع (تأكيد الاستقلالية)
   const filteredOrders = useMemo(() => {
     return allOrders.filter(o => o.branchId === branchId);
   }, [allOrders, branchId]);
@@ -77,7 +76,6 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const handleManualAssign = async (worker: DeliveryWorker) => {
       if (!orderToAssign) return;
       try {
-          // يتم توجيه الطلب للمندوب، ويبقى بانتظار موافقته
           await updateDoc(doc(db, "orders", orderToAssign), {
               deliveryWorkerId: worker.id,
               deliveryWorker: { id: worker.id, name: worker.name },
@@ -146,7 +144,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
       <header className="flex justify-between items-start">
         <div>
             <h1 className="text-3xl font-black text-primary">إدارة الطلبات</h1>
-            <p className="text-muted-foreground font-bold">كل فرع يشاهد طلباته فقط. المندوب يجب أن يوافق ليتم التثبيت.</p>
+            <p className="text-muted-foreground font-bold text-xs">متابعة الفواتير وحالات التوصيل لكل متجر.</p>
         </div>
         {selectedOrderIds.length > 0 && (
             <AlertDialog>
@@ -177,6 +175,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                 <TableRow>
                     <TableHead className="w-[50px]"><Checkbox checked={selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0} onCheckedChange={toggleSelectAll}/></TableHead>
                     <TableHead className="font-black text-right">رقم الطلب</TableHead>
+                    <TableHead className="font-black text-right">المتجر</TableHead>
                     <TableHead className="font-black text-right">العميل</TableHead>
                     <TableHead className="font-black text-right">السائق</TableHead>
                     <TableHead className="font-black text-right text-primary">المبلغ الكلي</TableHead>
@@ -189,6 +188,12 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                     <TableRow key={order.id} className={cn("hover:bg-muted/30 transition-colors cursor-pointer", selectedOrderIds.includes(order.id) && "bg-primary/5")} onClick={() => setViewOrder(order)}>
                     <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedOrderIds.includes(order.id)} onCheckedChange={() => toggleSelectOrder(order.id)}/></TableCell>
                     <TableCell className="font-bold">#{order.orderNumber || order.id.substring(0, 6)}</TableCell>
+                    <TableCell className="font-black text-slate-700 dark:text-slate-200">
+                        <div className="flex items-center gap-2 justify-end">
+                            <span>{order.restaurant?.name || 'غير معروف'}</span>
+                            <Store className="h-3 w-3 text-primary opacity-50" />
+                        </div>
+                    </TableCell>
                     <TableCell className="font-bold">{order.address.name}</TableCell>
                     <TableCell>
                         {order.deliveryWorker?.name ? (
@@ -273,7 +278,13 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                     <div className="flex flex-col text-right">
                         <DialogHeader className="p-6 bg-primary text-white">
                             <div className="flex justify-between items-center flex-row-reverse">
-                                <DialogTitle className="text-2xl font-black italic">فاتورة طلب #{viewOrder.orderNumber}</DialogTitle>
+                                <div>
+                                    <DialogTitle className="text-2xl font-black italic">فاتورة طلب #{viewOrder.orderNumber}</DialogTitle>
+                                    <p className="text-[10px] font-bold opacity-80 mt-1 flex items-center gap-1 justify-end">
+                                        <Store className="h-3 w-3" />
+                                        المتجر: {viewOrder.restaurant?.name || 'غير معروف'}
+                                    </p>
+                                </div>
                                 <Button variant="ghost" size="icon" onClick={() => setViewOrder(null)} className="text-white hover:bg-white/10 rounded-full"><X className="h-6 w-6"/></Button>
                             </div>
                         </DialogHeader>
