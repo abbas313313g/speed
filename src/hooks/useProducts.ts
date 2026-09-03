@@ -80,26 +80,36 @@ export const useProducts = (
             }
 
             const ref = collection(db, 'products');
-            // تقليل الليميت من 1000/500 إلى 250/150 لتوفير الكوتا
-            const fetchLimit = isAdmin ? 250 : 150;
-            const q = query(ref, limit(fetchLimit));
+            let q;
+
+            // إذا كان هناك معرف متجر، نقوم بعمل استعلام موجه ومكثف له حصراً
+            if (restaurantId && restaurantId !== 'none' && restaurantId !== '') {
+                q = query(
+                    ref, 
+                    where("restaurantId", "==", restaurantId),
+                    limit(isAdmin ? 500 : 200) // سعة أكبر للمسؤول عند دخول المتجر
+                );
+            } else if (branchId && branchId !== 'all' && branchId !== 'main') {
+                q = query(
+                    ref, 
+                    where("branchId", "==", branchId),
+                    limit(isAdmin ? 300 : 150)
+                );
+            } else {
+                q = query(ref, limit(isAdmin ? 250 : 150));
+            }
 
             unsub = onSnapshot(q, (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
                 
                 let filteredData = data;
-                if (restaurantId && restaurantId !== 'none') {
-                    filteredData = data.filter(p => p.restaurantId === restaurantId);
-                } else if (branchId && branchId !== 'all' && branchId !== 'main') {
-                    filteredData = data.filter(p => p.branchId === branchId);
-                }
-
+                // الفلترة الإضافية للحالات الخاصة فقط
                 if (!isAdmin) {
                     filteredData = filteredData.filter(p => p.status === 'approved');
                 }
 
                 setProducts(filteredData);
-                setHasMore(data.length >= fetchLimit);
+                setHasMore(data.length >= (isAdmin ? 250 : 150));
                 setIsLoading(false);
             }, (error) => {
                 console.error("Products Snapshot Error:", error);

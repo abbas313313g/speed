@@ -82,8 +82,8 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
   
   const { products, addProduct, updateProduct, deleteProduct, isLoading: productsLoading } = useProducts(
       branchId, 
-      selectedStoreId || 'none',
-      200,
+      selectedStoreId || '', // نمرر الـ ID المختار مباشرة للـ Hook
+      500, // نرفع الحد لضمان تحميل الكل
       undefined,
       '',
       true // isAdmin: جلب كل الحالات
@@ -101,6 +101,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
     [selectedStoreId, restaurants]
   );
 
+  // الفلترة المحلية للبحث سريعة جداً لأن البيانات مجلوبة بالكامل للمتجر
   const filteredProducts = useMemo(() => {
     return products.filter(p => (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
   }, [products, searchTerm]);
@@ -240,7 +241,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
     <div className="space-y-8 animate-in slide-in-from-left-4 duration-500 text-right">
       <header className="flex justify-between items-start">
         <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" onClick={() => setSelectedStoreId(null)} className="rounded-xl h-12 w-12 border-2"><ArrowRight className="h-6 w-6"/></Button>
+            <Button variant="outline" size="icon" onClick={() => { setSelectedStoreId(null); setSearchTerm(''); }} className="rounded-xl h-12 w-12 border-2"><ArrowRight className="h-6 w-6"/></Button>
             <div>
                 <h1 className="text-3xl font-black text-slate-800">{selectedStore?.name}</h1>
                 <p className="text-muted-foreground font-bold text-xs">إدارة قائمة الوجبات والأسعار والكميات.</p>
@@ -284,7 +285,9 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                 className="pr-10 h-12 rounded-xl border-none bg-muted/30"
               />
           </div>
-          <Badge className="h-12 px-6 rounded-xl font-black text-lg bg-primary/10 text-primary border-none">{products.length} وجبة</Badge>
+          <Badge className="h-12 px-6 rounded-xl font-black text-lg bg-primary/10 text-primary border-none">
+              {productsLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : `${filteredProducts.length} وجبة`}
+          </Badge>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
