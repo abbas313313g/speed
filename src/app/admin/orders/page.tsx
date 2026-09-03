@@ -22,7 +22,7 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Trash2, Loader2, Search, X, UserCog, RefreshCw, Bike, ChevronRight, Store } from 'lucide-react';
+import { MoreHorizontal, Trash2, Loader2, Search, X, UserCog, RefreshCw, Bike, ChevronRight, Store, Clock, Phone, MapPin, ListFilter } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -143,8 +143,8 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
     <div className="space-y-8 text-right">
       <header className="flex justify-between items-start">
         <div>
-            <h1 className="text-3xl font-black text-primary">إدارة الطلبات</h1>
-            <p className="text-muted-foreground font-bold text-xs">متابعة الفواتير وحالات التوصيل لكل متجر.</p>
+            <h1 className="text-3xl font-black text-primary italic leading-none">إدارة الطلبات</h1>
+            <p className="text-muted-foreground font-bold text-xs mt-1">المتجر يوافق أولاً -> ثم المندوب يوافق يدوياً.</p>
         </div>
         {selectedOrderIds.length > 0 && (
             <AlertDialog>
@@ -173,14 +173,15 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
             <Table>
                 <TableHeader className="bg-muted/50 dark:bg-slate-800/50">
                 <TableRow>
-                    <TableHead className="w-[50px]"><Checkbox checked={selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0} onCheckedChange={toggleSelectAll}/></TableHead>
-                    <TableHead className="font-black text-right">رقم الطلب</TableHead>
+                    <TableHead className="w-[40px]"><Checkbox checked={selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0} onCheckedChange={toggleSelectAll}/></TableHead>
+                    <TableHead className="font-black text-right">رقم القائمة</TableHead>
                     <TableHead className="font-black text-right">المتجر</TableHead>
-                    <TableHead className="font-black text-right">العميل</TableHead>
-                    <TableHead className="font-black text-right">السائق</TableHead>
-                    <TableHead className="font-black text-right text-primary">المبلغ الكلي</TableHead>
+                    <TableHead className="font-black text-right">الوقت</TableHead>
+                    <TableHead className="font-black text-right">رقم الزبون</TableHead>
+                    <TableHead className="font-black text-right">المنطقة</TableHead>
+                    <TableHead className="font-black text-right text-primary">المبلغ</TableHead>
                     <TableHead className="font-black text-right">الحالة</TableHead>
-                    <TableHead className="font-black text-center">إجراءات</TableHead>
+                    <TableHead className="font-black text-center">إجراء</TableHead>
                 </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -188,23 +189,26 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                     <TableRow key={order.id} className={cn("hover:bg-muted/30 transition-colors cursor-pointer", selectedOrderIds.includes(order.id) && "bg-primary/5")} onClick={() => setViewOrder(order)}>
                     <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedOrderIds.includes(order.id)} onCheckedChange={() => toggleSelectOrder(order.id)}/></TableCell>
                     <TableCell className="font-bold">#{order.orderNumber || order.id.substring(0, 6)}</TableCell>
-                    <TableCell className="font-black text-slate-700 dark:text-slate-200">
+                    <TableCell className="font-black text-slate-800 dark:text-slate-100">
                         <div className="flex items-center gap-2 justify-end">
                             <span>{order.restaurant?.name || 'غير معروف'}</span>
-                            <Store className="h-3 w-3 text-primary opacity-50" />
+                            <Store className="h-3 w-3 text-primary" />
                         </div>
                     </TableCell>
-                    <TableCell className="font-bold">{order.address.name}</TableCell>
-                    <TableCell>
-                        {order.deliveryWorker?.name ? (
-                            <Badge variant="secondary" className="gap-1 font-bold"><UserCog className="h-3 w-3"/>{order.deliveryWorker.name}</Badge>
-                        ) : <span className="text-[10px] text-muted-foreground italic">بحث آلي...</span>}
+                    <TableCell className="text-xs font-bold text-muted-foreground">
+                        <div className="flex items-center gap-1 justify-end">
+                            <span>{new Date(order.date).toLocaleTimeString('ar-IQ', {hour:'2-digit', minute:'2-digit'})}</span>
+                            <Clock className="h-3 w-3" />
+                        </div>
                     </TableCell>
+                    <TableCell className="font-mono text-[11px] font-black" dir="ltr">{order.address.phone}</TableCell>
+                    <TableCell className="text-[10px] font-black text-primary">{order.address.deliveryZone}</TableCell>
                     <TableCell className="font-black text-primary">{formatCurrency(order.total)}</TableCell>
                     <TableCell>
-                        <Badge className={cn("text-white font-black rounded-lg", 
+                        <Badge className={cn("text-white font-black rounded-lg text-[9px]", 
                             order.status === 'confirmed' ? 'bg-orange-500' : 
-                            order.status === 'delivered' ? 'bg-green-600' : 'bg-slate-500')}>
+                            order.status === 'delivered' ? 'bg-green-600' : 
+                            order.status === 'unassigned' ? 'bg-slate-400' : 'bg-blue-500')}>
                             {getStatusText(order.status)}
                         </Badge>
                     </TableCell>
@@ -218,7 +222,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                                 <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'delivered')}>تم التوصيل كاش</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'cancelled')}>إلغاء الطلب</DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => { setOrderToAssign(order.id); setAssignDialogOpen(true); }} className="text-orange-600 gap-2"><UserCog className="h-4 w-4"/> تعيين يدوي (اختيار مندوب)</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => { setOrderToAssign(order.id); setAssignDialogOpen(true); }} className="text-orange-600 gap-2"><UserCog className="h-4 w-4"/> تعيين يدوي لمندوب</DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <AlertDialogTrigger asChild>
                                     <DropdownMenuItem className="text-destructive gap-2"><Trash2 className="h-4 w-4" /> حذف نهائي</DropdownMenuItem>
@@ -241,7 +245,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
         <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
             <DialogContent className="sm:max-w-md rounded-[2.5rem] p-0 overflow-hidden">
                 <DialogHeader className="p-6 bg-primary text-white">
-                    <DialogTitle className="text-2xl font-black italic">اختيار المندوب بالاسم</DialogTitle>
+                    <DialogTitle className="text-2xl font-black italic">تعيين مندوب للطلب</DialogTitle>
                 </DialogHeader>
                 <div className="p-4">
                     <ScrollArea className="h-[300px] pr-2">
@@ -273,36 +277,85 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
         </Dialog>
 
         <Dialog open={!!viewOrder} onOpenChange={(v) => !v && setViewOrder(null)}>
-            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] p-0">
+            <DialogContent className="sm:max-w-xl max-h-[95vh] overflow-y-auto rounded-[2.5rem] p-0 border-none">
                 {viewOrder && (
                     <div className="flex flex-col text-right">
-                        <DialogHeader className="p-6 bg-primary text-white">
+                        <DialogHeader className="p-6 bg-slate-900 text-white rounded-t-[2.5rem]">
                             <div className="flex justify-between items-center flex-row-reverse">
                                 <div>
-                                    <DialogTitle className="text-2xl font-black italic">فاتورة طلب #{viewOrder.orderNumber}</DialogTitle>
-                                    <p className="text-[10px] font-bold opacity-80 mt-1 flex items-center gap-1 justify-end">
-                                        <Store className="h-3 w-3" />
-                                        المتجر: {viewOrder.restaurant?.name || 'غير معروف'}
-                                    </p>
+                                    <DialogTitle className="text-3xl font-black italic leading-none">فاتورة #{viewOrder.orderNumber}</DialogTitle>
+                                    <div className="flex items-center gap-2 justify-end mt-2">
+                                        <Badge className="bg-primary text-white text-[10px]">{getStatusText(viewOrder.status)}</Badge>
+                                        <span className="text-[10px] font-bold opacity-60">{new Date(viewOrder.date).toLocaleString('ar-IQ')}</span>
+                                    </div>
                                 </div>
                                 <Button variant="ghost" size="icon" onClick={() => setViewOrder(null)} className="text-white hover:bg-white/10 rounded-full"><X className="h-6 w-6"/></Button>
                             </div>
                         </DialogHeader>
+
                         <div className="p-6 space-y-6">
-                            <div className="bg-primary/5 p-5 rounded-[1.5rem] border-2 border-primary/10 flex justify-between items-center">
-                                <span className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(viewOrder.total)}</span>
-                                <span className="font-black text-slate-700">المبلغ الواجب استلامه (كاش):</span>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-primary/5 p-4 rounded-2xl border-2 border-primary/10">
+                                    <Label className="text-[10px] font-black text-primary uppercase mb-1 block">المتجر المصدر</Label>
+                                    <p className="font-black text-slate-800 flex items-center gap-2 justify-end"><Store className="h-4 w-4"/> {viewOrder.restaurant?.name}</p>
+                                </div>
+                                <div className="bg-blue-50 p-4 rounded-2xl border-2 border-blue-100">
+                                    <Label className="text-[10px] font-black text-blue-600 uppercase mb-1 block">موقع التوصيل</Label>
+                                    <p className="font-black text-slate-800 flex items-center gap-2 justify-end"><MapPin className="h-4 w-4"/> {viewOrder.address.deliveryZone}</p>
+                                </div>
                             </div>
+
                             <div className="space-y-4">
-                                {viewOrder.items.map((item, idx) => (
-                                    <div key={idx} className="flex justify-between items-center text-sm font-bold">
-                                        <span>{formatCurrency((item.selectedSize?.price || item.product.discountPrice || item.product.price || 0) * item.quantity)}</span>
-                                        <span>{item.product.name} x{item.quantity}</span>
+                                <h3 className="font-black text-lg flex items-center gap-2 text-slate-800"><ListFilter className="h-5 w-5 text-primary"/> تفاصيل الوجبات</h3>
+                                <div className="space-y-2">
+                                    {viewOrder.items.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center p-3 bg-muted/20 rounded-xl border border-dashed">
+                                            <span className="font-black text-primary">{formatCurrency((item.selectedSize?.price || item.product.discountPrice || item.product.price || 0) * item.quantity)}</span>
+                                            <div className="text-right">
+                                                <p className="font-black text-sm">{item.product.name} <span className="text-primary mx-1">x{item.quantity}</span></p>
+                                                {item.selectedSize && <Badge variant="secondary" className="text-[8px] h-4 mt-0.5">{item.selectedSize.name}</Badge>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <Separator className="border-dashed" />
+
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center text-sm font-bold text-muted-foreground">
+                                    <span>{formatCurrency(viewOrder.total - viewOrder.deliveryFee)}</span>
+                                    <span>مجموع الوجبات:</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm font-bold text-muted-foreground">
+                                    <span>{formatCurrency(viewOrder.deliveryFee)}</span>
+                                    <span>أجور التوصيل:</span>
+                                </div>
+                                <div className="p-5 bg-slate-900 text-white rounded-2xl flex justify-between items-center shadow-xl">
+                                    <span className="text-3xl font-black tracking-tighter text-green-400">{formatCurrency(viewOrder.total)}</span>
+                                    <span className="font-black text-lg">الإجمالي كاش</span>
+                                </div>
+                            </div>
+
+                            <div className="p-4 bg-muted/30 rounded-2xl border-2 space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-2 text-primary">
+                                        <Phone className="h-4 w-4" />
+                                        <span className="font-black text-lg select-all" dir="ltr">{viewOrder.address.phone}</span>
                                     </div>
-                                ))}
+                                    <span className="text-[10px] font-black text-muted-foreground uppercase">رقم هاتف الزبون</span>
+                                </div>
+                                <Button 
+                                    className="w-full h-12 rounded-xl font-black gap-2 bg-white text-slate-900 border-2 hover:bg-slate-50"
+                                    onClick={() => window.open(`https://www.google.com/maps?q=${viewOrder.address.latitude},${viewOrder.address.longitude}`, '_blank')}
+                                >
+                                    <MapPin className="h-5 w-5 text-primary" /> عرض موقع الزبون على الخريطة
+                                </Button>
                             </div>
                         </div>
-                        <DialogFooter className="p-6 border-t"><Button onClick={() => setViewOrder(null)} className="w-full h-14 rounded-2xl font-black">إغلاق</Button></DialogFooter>
+                        <DialogFooter className="p-4 bg-slate-50 border-t sticky bottom-0">
+                            <Button onClick={() => setViewOrder(null)} className="w-full h-14 rounded-2xl font-black text-xl">إغلاق الفاتورة</Button>
+                        </DialogFooter>
                     </div>
                 )}
             </DialogContent>
