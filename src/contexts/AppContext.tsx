@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -53,7 +54,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
     const { restaurants } = useRestaurants();
     const { banners, isLoading: bannersLoading } = useBanners();
-    const { supportTickets, createSupportTicket: createTicketHook } = useSupportTickets();
+    const { supportTickets, createSupportTicket: createTicketHook, addMessageToTicket: addMsgHook } = useSupportTickets();
     const { coupons } = useCoupons();
 
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -184,7 +185,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const placeOrder = useCallback(async (addr: Address, dFee: number, coupCode?: string): Promise<string | null> => {
         if (!userId || cart.length === 0) return null;
         try {
-            const qLast = query(collection(db, "orders"), orderBy("date", "desc"), limit(1));
+            const qLast = query(collection(db, "orders"), orderBy("orderNumber", "desc"), limit(1));
             const lastSnap = await getDocs(qLast);
             let nextNumber = 1;
             if (!lastSnap.empty) {
@@ -276,7 +277,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 });
             }
 
-            // إرسال إشعار ون سيجنال للمتجر فوراً باستخدام المعرف المباشر
             if (rest?.oneSignalId) {
                 sendRestaurantOrderNotification(rest.oneSignalId, rest.name, nextNumber);
             }
@@ -294,8 +294,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, [userId, cart, coupons, restaurants, cartTotal, toast, clearCart]);
 
+    const handleCreateSupportTicket = useCallback(async (msg: Message) => {
+        if (!userId) return;
+        const addr = addresses[0]; 
+        await createTicketHook(msg, userId, addr?.name || 'زبون', addr?.deliveryZone);
+    }, [userId, addresses, createTicketHook]);
+
     const value = {
-        isLoading: bannersLoading, isMainDataReady, placeOrder, createSupportTicket: createTicketHook, addMessageToTicket: (tid: string, m: Message) => updateDoc(doc(db, "supportTickets", tid), { history: arrayUnion(m) }),
+        isLoading: bannersLoading, 
+        isMainDataReady, 
+        placeOrder, 
+        createSupportTicket: handleCreateSupportTicket, 
+        addMessageToTicket: addMsgHook,
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, userId, addresses, 
         addAddress,
         deleteAddress: (id: string) => updateDoc(doc(db, "addresses", id), { userId: 'deleted' }),

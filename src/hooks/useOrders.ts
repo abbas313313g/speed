@@ -7,6 +7,7 @@ import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
 import { sendFcmNotification } from '@/services/fcm-service';
+import { calculateDistance } from '@/lib/utils';
 
 export const useOrders = (branchId?: string) => {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
@@ -15,7 +16,6 @@ export const useOrders = (branchId?: string) => {
     const isAssigningRef = useRef(false);
     const lastAssignTimeRef = useRef(0);
 
-    // نظام تدوير الطلبات: سحب الطلب من المندوب إذا تأخر أكثر من 20 ثانية
     const cleanupTimedOutAssignments = useCallback(async (orders: Order[]) => {
         const now = new Date().getTime();
         const timedOutOrders = orders.filter(o => 
@@ -41,7 +41,6 @@ export const useOrders = (branchId?: string) => {
 
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         const now = Date.now();
-        // حماية لمنع التكرار المستمر (كوول داون 5 ثواني)
         if (isAssigningRef.current || (now - lastAssignTimeRef.current < 5000)) return;
         
         const pendingOrders = orders.filter(o => o.status === 'pending_assignment');
@@ -63,14 +62,23 @@ export const useOrders = (branchId?: string) => {
 
             if (onlineWorkers.length > 0) {
                 for (const order of pendingOrders) {
-                    const availablePool = onlineWorkers.filter(w => w.id !== (order as any).lastSkippedWorkerId);
-                    const finalPool = availablePool.length > 0 ? availablePool : onlineWorkers;
+                    const lastSkipped = (order as any).lastSkippedWorkerId;
                     
-                    const shuffled = [...finalPool].sort(() => Math.random() - 0.5);
-                    const worker = shuffled[0];
+                    // 1. الأولوية لمناديب نفس الفرع
+                    let candidates = onlineWorkers.filter(w => w.branchId === order.branchId && w.id !== lastSkipped);
                     
-                    if (worker) {
-                        // تحديث الحالة لمنع دخولها في الحلقة مرة أخرى فوراً
+                    // 2. إذا لم يتوفر، ابحث في الفروع الأخرى بشرط المسافة أقل من 18 كم
+                    if (candidates.length === 0) {
+                        candidates = onlineWorkers.filter(w => 
+                            w.branchId !== order.branchId && 
+                            w.id !== lastSkipped &&
+                            w.latitude && w.longitude && order.restaurant?.latitude && order.restaurant?.longitude &&
+                            calculateDistance(order.restaurant.latitude, order.restaurant.longitude, w.latitude, w.longitude) < 18
+                        );
+                    }
+
+                    if (candidates.length > 0) {
+                        const worker = [...candidates].sort(() => Math.random() - 0.5)[0];
                         await updateDoc(doc(db, "orders", order.id), {
                             deliveryWorkerId: worker.id,
                             deliveryWorker: { id: worker.id, name: worker.name },
@@ -79,7 +87,7 @@ export const useOrders = (branchId?: string) => {
                         });
                         
                         sendFcmNotification(worker.id, 'deliveryWorkers', 'طلب جديد بانتظارك! 🚀', `لديك 20 ثانية للموافقة على طلب ${order.restaurant?.name || 'جديد'}`);
-                        break; // تعيين طلب واحد في كل دورة لتوفير الكوتا
+                        break; 
                     }
                 }
             }
@@ -92,7 +100,6 @@ export const useOrders = (branchId?: string) => {
 
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
-        // تقليل الليميت من 500 إلى 100 لتوفير كوتا القراءة
         const q = query(ordersRef, orderBy("date", "desc"), limit(100));
 
         const unsub = onSnapshot(q, (snapshot) => {
@@ -105,12 +112,9 @@ export const useOrders = (branchId?: string) => {
             
             setAllOrders(finalData);
             setIsLoading(false);
-            
-            // استدعاء الوظائف مع حماية
             cleanupTimedOutAssignments(finalData);
             autoAssignOrders(finalData);
         }, (error) => {
-            console.error("Orders Snapshot Error:", error);
             setIsLoading(false);
         });
         return () => unsub();

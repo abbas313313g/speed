@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, updateDoc, onSnapshot, doc, arrayUnion, query, where } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, onSnapshot, doc, arrayUnion, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Message, SupportTicket } from '@/lib/types';
 import { useToast } from './use-toast';
@@ -30,7 +30,6 @@ export const useSupportTickets = (branchId?: string) => {
                 setIsLoading(false);
             },
             (error) => {
-                console.error("Error fetching support tickets:", error);
                 setIsLoading(false);
             }
         );
@@ -58,11 +57,24 @@ export const useSupportTickets = (branchId?: string) => {
     const createSupportTicket = useCallback(async (firstMessage: Message, userId: string, userName: string, userZone?: string) => {
         if (!userId) return;
 
-        // التوزيع الجغرافي الذكي للدعم
-        // الافتراضي هو الرئيسية (main)
         let assignedBranchId = 'main';
-        if (userZone === "القاسم") {
-            assignedBranchId = 'qasim'; // نفترض أن كود فرع القاسم هو qasim
+        
+        // البحث عن معرف الفرع المناسب للمنطقة (خاصة القاسم)
+        if (userZone) {
+            try {
+                const branchesRef = collection(db, "branches");
+                const qb = query(branchesRef, where("name", "==", userZone));
+                const bSnap = await getDocs(qb);
+                if (!bSnap.empty) {
+                    assignedBranchId = bSnap.docs[0].id;
+                } else if (userZone.includes("القاسم")) {
+                     const qb2 = query(branchesRef, where("locationName", "==", "القاسم"));
+                     const bSnap2 = await getDocs(qb2);
+                     if(!bSnap2.empty) assignedBranchId = bSnap2.docs[0].id;
+                }
+            } catch (e) {
+                console.error("Error finding branch for support routing:", e);
+            }
         }
 
         try {
