@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { Loader2, Send, User, ShieldCheck, MessageSquareHeart, PlusCircle, ArrowRight, Bot } from "lucide-react";
+import { Loader2, Send, User, ShieldCheck, MessageSquareHeart, PlusCircle, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Message } from "@/lib/types";
 import { AppContext } from "@/contexts/AppContext";
@@ -19,7 +19,12 @@ export default function SupportPage() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   
-  if (!context) return null;
+  if (!context) return (
+    <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+    </div>
+  );
+
   const { mySupportTicket, createSupportTicket, addMessageToTicket, startNewTicketClient, setActiveTab } = context;
 
   const conversationHistory = mySupportTicket?.history || [];
@@ -40,7 +45,6 @@ export default function SupportPage() {
     
     setIsSending(true);
     const text = input.trim();
-    setInput("");
 
     const newMessage: Message = { 
         role: "user", 
@@ -55,9 +59,9 @@ export default function SupportPage() {
             await createSupportTicket(newMessage);
             toast({ title: "تم بدء محادثة جديدة", description: "سيقوم فريقنا بالرد عليك قريباً." });
         }
+        setInput(""); // تفريغ الحقل فقط عند النجاح
     } catch (error) {
          toast({ title: "فشل الإرسال", description: "يرجى المحاولة مرة أخرى.", variant: "destructive" });
-         setInput(text);
     } finally {
         setIsSending(false);
     }

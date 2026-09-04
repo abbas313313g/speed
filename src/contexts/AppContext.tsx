@@ -54,7 +54,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
     const { restaurants } = useRestaurants();
     const { banners, isLoading: bannersLoading } = useBanners();
-    const { supportTickets, createSupportTicket: createTicketHook, addMessageToTicket: addMsgHook } = useSupportTickets();
     const { coupons } = useCoupons();
 
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -65,6 +64,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
     const [isDarkMode, setIsDarkMode] = useState(false);
+
+    // جلب التذاكر الخاصة بهذا المستخدم حصراً لضمان بقائها وعدم اختفائها
+    const { supportTickets, createSupportTicket: createTicketHook, addMessageToTicket: addMsgHook } = useSupportTickets(undefined, userId || undefined);
 
     const isMainDataReady = useMemo(() => !bannersLoading, [bannersLoading]);
 
@@ -295,9 +297,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [userId, cart, coupons, restaurants, cartTotal, toast, clearCart]);
 
     const handleCreateSupportTicket = useCallback(async (msg: Message) => {
-        if (!userId) return;
+        // إذا لم يكن لدى المستخدم آيدي، نقوم بإنشاء واحد عشوائي مؤقت لضمان العمل
+        let currentUid = userId;
+        if (!currentUid) {
+            currentUid = uuidv4();
+            setUserId(currentUid);
+            safeStorage.set('speedShopUserId', currentUid);
+        }
+
         const addr = addresses[0]; 
-        await createTicketHook(msg, userId, addr?.name || 'زبون', addr?.deliveryZone);
+        await createTicketHook(msg, currentUid, addr?.name || 'زبون جديد', addr?.deliveryZone);
     }, [userId, addresses, createTicketHook]);
 
     const value = {
