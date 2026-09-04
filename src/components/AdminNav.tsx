@@ -58,7 +58,7 @@ const navItems = [
   { index: 7, label: "أكواد الخصم", icon: TicketPercent, mainOnly: true },
   { index: 8, label: "المناديب", icon: Users },
   { index: 9, label: "تصفية العمال", icon: UserCog },
-  { index: 11, label: "الدعم الفني", icon: MessageSquareWarning, notificationKey: 'openTickets', mainOnly: true },
+  { index: 11, label: "الدعم الفني", icon: MessageSquareWarning, notificationKey: 'openTickets' },
   { index: 13, label: "الإعدادات", icon: Settings, mainOnly: true },
 ];
 

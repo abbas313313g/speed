@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Check, MessageSquare, Send, ShieldCheck, User, Loader2 } from 'lucide-react';
+import { Check, MessageSquare, Send, ShieldCheck, User, Loader2, ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -85,36 +85,36 @@ export default function AdminSupportTicketsPage({ branchId }: { branchId: string
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 text-right">
       <header>
-        <h1 className="text-3xl font-black text-primary">تذاكر الدعم - {branchId === 'main' ? 'الرئيسية' : 'الفرع'}</h1>
-        <p className="text-muted-foreground font-bold">الرد على زبائن منطقتك المسؤولة.</p>
+        <h1 className="text-3xl font-black text-primary italic">تذاكر الدعم الفني</h1>
+        <p className="text-muted-foreground font-bold">إدارة استفسارات الزبائن الخاصة بفرعك الحالي.</p>
       </header>
 
-      <div className="bg-white rounded-[2rem] shadow-sm border overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-xl border dark:border-slate-800 overflow-hidden">
         <Table>
-            <TableHeader className="bg-muted/50">
+            <TableHeader className="bg-muted/50 dark:bg-slate-800/50">
             <TableRow>
-                <TableHead className="font-black">الزبون</TableHead>
-                <TableHead className="font-black w-[40%]">آخر رسالة</TableHead>
-                <TableHead className="font-black">الحالة</TableHead>
+                <TableHead className="font-black text-right">الزبون</TableHead>
+                <TableHead className="font-black text-right w-[40%]">آخر رسالة</TableHead>
+                <TableHead className="font-black text-right">الحالة</TableHead>
                 <TableHead className="font-black text-center">إجراء</TableHead>
             </TableRow>
             </TableHeader>
             <TableBody>
             {sortedTickets.map((ticket) => (
-                <TableRow key={ticket.id} className="hover:bg-muted/30">
+                <TableRow key={ticket.id} className="hover:bg-muted/30 transition-colors">
                 <TableCell className="font-bold">{ticket.userName}</TableCell>
                 <TableCell className="text-muted-foreground truncate max-w-[200px]">
                     {ticket.history?.[ticket.history.length-1]?.content || '...'}
                 </TableCell>
                 <TableCell>
-                    <Badge className={cn("rounded-lg", ticket.isResolved ? "bg-muted text-muted-foreground" : "bg-destructive/10 text-destructive")}>
-                        {ticket.isResolved ? "مغلقة" : "نشطة"}
+                    <Badge className={cn("rounded-lg font-black", ticket.isResolved ? "bg-slate-100 text-slate-500" : "bg-green-100 text-green-700")}>
+                        {ticket.isResolved ? "مغلقة" : "نشطة الآن"}
                     </Badge>
                 </TableCell>
                 <TableCell className="text-center">
-                    <Button variant="outline" size="sm" onClick={() => setSelectedTicket(ticket)} className="rounded-xl font-bold">
+                    <Button variant="outline" size="sm" onClick={() => setSelectedTicket(ticket)} className="rounded-xl font-bold h-9">
                        فتح المحادثة
                     </Button>
                 </TableCell>
@@ -128,21 +128,36 @@ export default function AdminSupportTicketsPage({ branchId }: { branchId: string
       </div>
 
       <Dialog open={!!selectedTicket} onOpenChange={(isOpen) => !isOpen && setSelectedTicket(null)}>
-        <DialogContent className="max-w-2xl flex flex-col h-[90vh] rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
-            <DialogHeader className="p-6 bg-primary text-white">
-                <DialogTitle className="text-2xl font-black">دعم: {selectedTicket?.userName}</DialogTitle>
+        <DialogContent className="max-w-2xl flex flex-col h-[90vh] rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl bg-background">
+            <DialogHeader className="p-6 bg-primary text-white flex-row justify-between items-center space-y-0">
+                <div className="text-right">
+                    <DialogTitle className="text-2xl font-black">محادثة: {selectedTicket?.userName}</DialogTitle>
+                    <p className="text-[10px] opacity-80 font-bold">نظام الدعم الجغرافي المفعل</p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setSelectedTicket(null)} className="text-white hover:bg-white/10 rounded-full"><ArrowRight className="h-6 w-6 rotate-180"/></Button>
             </DialogHeader>
             
-            <ScrollArea className="flex-1 p-6 bg-muted/10">
+            <ScrollArea className="flex-1 p-6 bg-muted/5">
                 <div className="space-y-6">
                 {selectedTicket?.history?.map((message, index) => {
                     const isAdmin = message.role === "admin";
                     return (
                         <div key={index} className={cn("flex items-start gap-3", isAdmin ? "flex-row-reverse" : "flex-row")}>
-                            <Avatar className="h-8 w-8"><AvatarFallback className={isAdmin ? "bg-primary" : "bg-white"}>{isAdmin ? 'A' : 'U'}</AvatarFallback></Avatar>
-                            <div className={cn("max-w-[80%] p-4 text-sm font-bold shadow-sm", isAdmin ? "bg-primary text-white rounded-t-2xl rounded-bl-2xl" : "bg-white rounded-t-2xl rounded-br-2xl")}>
-                                <p className="whitespace-pre-wrap">{message.content}</p>
-                                <span className="text-[8px] opacity-60 block mt-1">{new Date(message.timestamp).toLocaleTimeString('ar-IQ')}</span>
+                            <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
+                                <AvatarFallback className={cn("font-black", isAdmin ? "bg-primary text-white" : "bg-white text-primary")}>
+                                    {isAdmin ? <ShieldCheck className="h-5 w-5"/> : <User className="h-5 w-5"/>}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className={cn(
+                                "max-w-[80%] p-4 text-sm font-bold shadow-sm", 
+                                isAdmin 
+                                    ? "bg-primary text-white rounded-t-2xl rounded-bl-2xl" 
+                                    : "bg-white dark:bg-slate-900 rounded-t-2xl rounded-br-2xl border dark:border-slate-800"
+                            )}>
+                                <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                                <span className={cn("text-[8px] opacity-60 block mt-2", isAdmin ? "text-left" : "text-right")}>
+                                    {new Date(message.timestamp).toLocaleTimeString('ar-IQ', {hour:'2-digit', minute:'2-digit'})}
+                                </span>
                             </div>
                         </div>
                     );
@@ -150,20 +165,30 @@ export default function AdminSupportTicketsPage({ branchId }: { branchId: string
                 </div>
             </ScrollArea>
 
-            <DialogFooter className="p-6 bg-white border-t flex-col gap-4">
+            <DialogFooter className="p-6 bg-white dark:bg-slate-950 border-t flex-col gap-4">
                  {!selectedTicket?.isResolved ? (
-                    <form onSubmit={handleReply} className="flex w-full items-center gap-3 bg-muted/40 p-2 rounded-[1.5rem] border-2">
-                        <Input placeholder="رد على الزبون..." value={reply} onChange={(e) => setReply(e.target.value)} className="bg-transparent border-none shadow-none font-bold h-12" />
-                        <Button type="submit" size="icon" disabled={isReplying || !reply.trim()} className="h-12 w-12 rounded-2xl shadow-lg">
+                    <form onSubmit={handleReply} className="flex w-full items-center gap-3 bg-muted/40 p-2 rounded-[1.8rem] border-2 border-muted focus-within:border-primary/30 transition-all">
+                        <Input 
+                            placeholder="اكتب ردك هنا..." 
+                            value={reply} 
+                            onChange={(e) => setReply(e.target.value)} 
+                            className="bg-transparent border-none shadow-none font-bold h-12 text-base" 
+                        />
+                        <Button type="submit" size="icon" disabled={isReplying || !reply.trim()} className="h-12 w-12 rounded-2xl shadow-lg shadow-primary/20 active:scale-75 transition-all">
                             {isReplying ? <Loader2 className="h-5 w-5 animate-spin"/> : <Send className="h-5 w-5"/>}
                         </Button>
                     </form>
-                 ) : <div className="text-center p-3 text-xs font-bold text-muted-foreground">التذكرة مغلقة</div>}
+                 ) : (
+                    <div className="text-center p-4 bg-muted/20 rounded-2xl text-xs font-black text-muted-foreground flex items-center justify-center gap-2">
+                        <Check className="h-4 w-4 text-green-600"/> تمت معالجة هذه التذكرة وإغلاقها.
+                    </div>
+                 )}
+                 
                  <div className="flex w-full justify-between gap-4">
-                    <Button variant="outline" onClick={() => setSelectedTicket(null)} className="rounded-xl font-bold">إغلاق</Button>
+                    <Button variant="outline" onClick={() => setSelectedTicket(null)} className="rounded-xl font-black h-12 px-6">إغلاق</Button>
                     {!selectedTicket?.isResolved && (
-                         <Button variant="secondary" onClick={handleResolveTicket} className="flex-1 rounded-xl font-bold bg-green-500 text-white hover:bg-green-600">
-                            تم حل المشكلة
+                         <Button variant="secondary" onClick={handleResolveTicket} className="flex-1 rounded-xl font-black h-12 bg-green-600 text-white hover:bg-green-700 shadow-lg shadow-green-100">
+                            تم حل المشكلة وإغلاق التذكرة
                          </Button>
                     )}
                  </div>

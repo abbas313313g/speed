@@ -19,11 +19,9 @@ export const useSupportTickets = (branchId?: string, currentUserId?: string) => 
         const ticketsRef = collection(db, 'supportTickets');
         let q = query(ticketsRef);
         
-        // إذا كان الطلب من لوحة الأدمن (حسب الفرع)
         if (branchId && branchId !== 'all') {
             q = query(ticketsRef, where('branchId', '==', branchId));
         } 
-        // إذا كان الطلب من تطبيق الزبون (جلب محادثاته فقط للخصوصية والسرعة)
         else if (currentUserId) {
             q = query(ticketsRef, where('userId', '==', currentUserId));
         }
@@ -65,22 +63,29 @@ export const useSupportTickets = (branchId?: string, currentUserId?: string) => 
 
         let assignedBranchId = 'main';
         
-        // نظام التوجيه الجغرافي الذكي لفرع القاسم
+        // نظام التوجيه الجغرافي الذكي والمحسن
         if (userZone) {
             try {
-                // البحث في مناطق التوصيل لمعرفة الفرع المسؤول عن هذه المنطقة
+                // 1. فحص دقيق في مناطق التوصيل المبرمجة
                 const zonesRef = collection(db, "deliveryZones");
                 const qz = query(zonesRef, where("name", "==", userZone));
                 const zSnap = await getDocs(qz);
                 
                 if (!zSnap.empty) {
                     assignedBranchId = zSnap.docs[0].data().branchId || 'main';
-                } else if (userZone.includes("القاسم")) {
-                     // بحث احتياطي بالاسم
+                } 
+                // 2. فحص بالاسم (إذا كانت المنطقة تحتوي كلمة القاسم)
+                else if (userZone.includes("القاسم")) {
                      const branchesRef = collection(db, "branches");
                      const qb = query(branchesRef, where("locationName", "==", "القاسم"));
                      const bSnap = await getDocs(qb);
                      if(!bSnap.empty) assignedBranchId = bSnap.docs[0].id;
+                     else {
+                         // بحث احتياطي آخر بالاسم
+                         const qb2 = query(branchesRef, where("name", ">=", "القاسم"), where("name", "<=", "القاسم\uf8ff"));
+                         const bSnap2 = await getDocs(qb2);
+                         if(!bSnap2.empty) assignedBranchId = bSnap2.docs[0].id;
+                     }
                 }
             } catch (e) {
                 console.error("Support Routing Logic Error:", e);
@@ -98,7 +103,6 @@ export const useSupportTickets = (branchId?: string, currentUserId?: string) => 
             };
             await addDoc(collection(db, "supportTickets"), newTicket);
             
-            // إرسال تنبيه تليجرام للأدمن العام
             if (telegramConfigs.length > 0) {
                 telegramConfigs.filter(c => c.type === 'owner').forEach(c => 
                     sendTelegramMessage(c.chatId, `*تذكرة دعم جديدة (${userZone || 'عام'})* 📩\n*من:* ${userName}\n*الرسالة:* ${firstMessage.content}`)
