@@ -34,7 +34,7 @@ interface AppContextType {
     addresses: Address[];
     addAddress: (address: Omit<Address, 'id'>) => Promise<void>;
     deleteAddress: (addressId: string) => void;
-    mySupportTicket: SupportTicket | null;
+    mySupportTickets: SupportTicket[];
     startNewTicketClient: () => void;
     activeTab: number;
     previousTab: number;
@@ -65,11 +65,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
     const [isDarkMode, setIsDarkMode] = useState(false);
 
-    // جلب التذاكر الخاصة بهذا المستخدم حصراً لضمان بقائها وعدم اختفائها
-    const { supportTickets, createSupportTicket: createTicketHook, addMessageToTicket: addMsgHook } = useSupportTickets(undefined, userId || undefined);
-
-    const isMainDataReady = useMemo(() => !bannersLoading, [bannersLoading]);
-
     useEffect(() => {
         try {
             let id = safeStorage.get('speedShopUserId');
@@ -84,6 +79,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             }
         } catch (e) {}
     }, []);
+
+    // جلب التذاكر الخاصة بهذا المستخدم حصراً لضمان بقائها وعدم اختفائها
+    const { supportTickets, createSupportTicket: createTicketHook, addMessageToTicket: addMsgHook } = useSupportTickets(undefined, userId || undefined);
 
     const toggleDarkMode = useCallback(() => {
         setIsDarkMode(prev => {
@@ -297,7 +295,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [userId, cart, coupons, restaurants, cartTotal, toast, clearCart]);
 
     const handleCreateSupportTicket = useCallback(async (msg: Message) => {
-        // إذا لم يكن لدى المستخدم آيدي، نقوم بإنشاء واحد عشوائي مؤقت لضمان العمل
         let currentUid = userId;
         if (!currentUid) {
             currentUid = uuidv4();
@@ -309,6 +306,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         await createTicketHook(msg, currentUid, addr?.name || 'زبون جديد', addr?.deliveryZone);
     }, [userId, addresses, createTicketHook]);
 
+    const isMainDataReady = useMemo(() => !bannersLoading, [bannersLoading]);
+
     const value = {
         isLoading: bannersLoading, 
         isMainDataReady, 
@@ -318,7 +317,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, userId, addresses, 
         addAddress,
         deleteAddress: (id: string) => updateDoc(doc(db, "addresses", id), { userId: 'deleted' }),
-        mySupportTicket: useMemo(() => supportTickets.find(t => t.userId === userId && !t.isResolved), [userId, supportTickets]),
+        mySupportTickets: useMemo(() => supportTickets.filter(t => t.userId === userId).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [userId, supportTickets]),
         startNewTicketClient: () => {},
         activeTab, previousTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId, syncUserByPhone,
         isDarkMode, toggleDarkMode
