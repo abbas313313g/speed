@@ -18,6 +18,7 @@ interface DeliveryPageProps {
     onViewOrder: (id: string) => void;
 }
 
+// واجهة قبول المهمة مع الحماية الزمنية
 function AvailableOrderCard({ order, onAccept, onReject, isProcessing }: { order: Order, onAccept: (id: string) => void, onReject: (id: string) => void, isProcessing: boolean }) {
     const { restaurants } = useRestaurants();
     const [timeLeft, setTimeLeft] = useState(20);
@@ -189,6 +190,7 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
         if (!workerId) return;
         setIsProcessing(true);
         try {
+            // تحديث الحالة إلى "قيد التحضير" وتثبيت المندوب كمالك للمهمة
             await updateOrderStatus(orderId, 'preparing', workerId);
             toast({ title: "تم قبول المهمة! انطلق الآن 🚀" });
         } catch (error) {
@@ -199,9 +201,11 @@ export default function DeliveryPage({ onNavigate, onViewOrder }: DeliveryPagePr
     };
 
     const handleRejectOrder = async (orderId: string) => {
+        if (!workerId) return;
         setIsProcessing(true);
         try {
-            await updateOrderStatus(orderId, 'unassigned');
+            // إرجاع الطلب لمحرك البحث مع وسم المندوب بالرفض
+            await updateOrderStatus(orderId, 'unassigned', workerId);
             toast({ title: "تم الرفض، سيتم توجيه الطلب لمندوب آخر" });
         } catch (e) {} finally {
             setIsProcessing(false);

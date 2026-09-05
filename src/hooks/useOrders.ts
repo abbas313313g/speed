@@ -16,6 +16,7 @@ export const useOrders = (branchId?: string) => {
     const isAssigningRef = useRef(false);
     const lastAssignTimeRef = useRef(0);
 
+    // وظيفة تنظيف المهام التي لم يقبلها المناديب خلال 20 ثانية (حماية من التعليق)
     const cleanupTimedOutAssignments = useCallback(async (orders: Order[]) => {
         const now = new Date().getTime();
         const timedOutOrders = orders.filter(o => 
@@ -26,12 +27,13 @@ export const useOrders = (branchId?: string) => {
 
         for (const order of timedOutOrders) {
             try {
+                // إعادة الطلب للبحث مع وسم المندوب الذي لم يستجب لكي لا يعود له الطلب فوراً
                 await updateDoc(doc(db, "orders", order.id), {
                     deliveryWorkerId: null,
                     deliveryWorker: null,
                     status: 'pending_assignment',
                     confirmedAt: null,
-                    lastSkippedWorkerId: order.deliveryWorkerId
+                    lastSkippedWorkerId: order.deliveryWorkerId // حماية من التكرار
                 });
             } catch (e) {
                 console.error("Timeout cleanup failed:", e);
@@ -39,10 +41,12 @@ export const useOrders = (branchId?: string) => {
         }
     }, []);
 
+    // محرك التوزيع الذكي (لا يلمس الطلب إلا بعد موافقة المتجر)
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         const now = Date.now();
         if (isAssigningRef.current || (now - lastAssignTimeRef.current < 5000)) return;
         
+        // الحماية: المحرك يعمل فقط على الحالات التي وافق عليها المتجر (pending_assignment)
         const pendingOrders = orders.filter(o => o.status === 'pending_assignment');
         if (pendingOrders.length === 0) return;
 
@@ -64,10 +68,10 @@ export const useOrders = (branchId?: string) => {
                 for (const order of pendingOrders) {
                     const lastSkipped = (order as any).lastSkippedWorkerId;
                     
-                    // 1. الأولوية لمناديب نفس الفرع
+                    // 1. الأولوية المطلقة لمناديب نفس فرع الطلب (شرط عدم التخطي السابق)
                     let candidates = onlineWorkers.filter(w => w.branchId === order.branchId && w.id !== lastSkipped);
                     
-                    // 2. إذا لم يتوفر، ابحث في الفروع الأخرى بشرط المسافة أقل من 18 كم
+                    // 2. إذا لم يتوفر أحد في الفرع، نبحث في الفروع القريبة (أقل من 18 كم)
                     if (candidates.length === 0) {
                         candidates = onlineWorkers.filter(w => 
                             w.branchId !== order.branchId && 
@@ -78,7 +82,10 @@ export const useOrders = (branchId?: string) => {
                     }
 
                     if (candidates.length > 0) {
+                        // اختيار عشوائي من المرشحين لضمان العدالة
                         const worker = [...candidates].sort(() => Math.random() - 0.5)[0];
+                        
+                        // إرسال "دعوة مهمة" للمندوب (حالة confirmed)
                         await updateDoc(doc(db, "orders", order.id), {
                             deliveryWorkerId: worker.id,
                             deliveryWorker: { id: worker.id, name: worker.name },
@@ -86,8 +93,9 @@ export const useOrders = (branchId?: string) => {
                             confirmedAt: new Date().toISOString()
                         });
                         
+                        // إشعار المندوب بوجود مهمة جديدة
                         sendFcmNotification(worker.id, 'deliveryWorkers', 'طلب جديد بانتظارك! 🚀', `لديك 20 ثانية للموافقة على طلب ${order.restaurant?.name || 'جديد'}`);
-                        break; 
+                        break; // معالجة طلب واحد في كل دورة لضمان الاستقرار
                     }
                 }
             }
@@ -112,6 +120,8 @@ export const useOrders = (branchId?: string) => {
             
             setAllOrders(finalData);
             setIsLoading(false);
+            
+            // تشغيل محركات الحماية والتدوير
             cleanupTimedOutAssignments(finalData);
             autoAssignOrders(finalData);
         }, (error) => {
@@ -125,16 +135,19 @@ export const useOrders = (branchId?: string) => {
             const orderRef = doc(db, "orders", orderId);
             const updateData: any = { status };
             
+            // عند قبول المندوب للمهمة
             if (status === 'preparing' && workerId) {
                 updateData.deliveryWorkerId = workerId;
-                updateData.confirmedAt = null;
+                updateData.confirmedAt = null; // إيقاف عداد الـ 20 ثانية
             }
 
+            // عند رفض المندوب أو رجوع الطلب للبحث (حماية من التعليق)
             if (status === 'unassigned') {
                 updateData.deliveryWorkerId = null;
                 updateData.deliveryWorker = null;
                 updateData.confirmedAt = null;
-                updateData.status = 'pending_assignment';
+                updateData.status = 'pending_assignment'; // إعادته لمحرك البحث فوراً
+                if (workerId) updateData.lastSkippedWorkerId = workerId; // وسم الرفض
             }
 
             await updateDoc(orderRef, updateData);
