@@ -158,7 +158,7 @@ export default function HomePage() {
               <div className="flex items-center justify-between px-1">
                   <button onClick={() => setActiveTab(2)} className="text-primary font-black text-xs">عرض الكل</button>
                   <h2 className="text-xl font-black text-slate-800 dark:text-white flex items-center gap-2">
-                    الأكثر مبيعاً حقيقياً <Flame className="h-5 w-5 text-red-500 animate-pulse" />
+                    الأكثر مبيعاً <Flame className="h-5 w-5 text-red-500 animate-pulse" />
                   </h2>
               </div>
               <div className="grid grid-cols-2 gap-4">
