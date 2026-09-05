@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState } from 'react';
@@ -14,7 +15,7 @@ import Image from 'next/image';
 import { Card } from '@/components/ui/card';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useOrders } from '@/hooks/useOrders';
-import { TrendingUp, Building2, Loader2, Download, RotateCcw, ShieldCheck } from 'lucide-react';
+import { TrendingUp, Building2, Loader2, Download, RotateCcw, ShieldCheck, Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -38,7 +39,7 @@ export default function AdminReportsPage({ branchId }: { branchId: string }) {
   const [isResetting, setIsResetting] = useState(false);
 
   const reportData = useMemo(() => {
-    if (rLoading || oLoading) return { totalSales: 0, companyEarnings: 0, storePayouts: 0, stores: [] };
+    if (rLoading || oLoading) return { totalSales: 0, companyEarnings: 0, storePayouts: 0, totalDiscounts: 0, stores: [] };
     
     // فلترة للفرع الحالي والطلبات غير المؤرشفة فقط
     const branchOrders = allOrders.filter(o => 
@@ -49,6 +50,7 @@ export default function AdminReportsPage({ branchId }: { branchId: string }) {
     
     let totalSales = 0;
     let companyEarnings = 0;
+    let totalDiscounts = branchOrders.reduce((acc, o) => acc + (o.appliedCoupon?.discountAmount || 0), 0);
 
     const storeStats = restaurants.filter(r => r.branchId === branchId).map(r => {
         const myOrders = branchOrders.filter(o => o.restaurant?.id === r.id);
@@ -77,6 +79,7 @@ export default function AdminReportsPage({ branchId }: { branchId: string }) {
         totalSales,
         companyEarnings,
         storePayouts: totalSales - companyEarnings,
+        totalDiscounts,
         stores: storeStats
     };
   }, [allOrders, branchId, rLoading, oLoading, restaurants]);
@@ -177,18 +180,22 @@ export default function AdminReportsPage({ branchId }: { branchId: string }) {
         </div>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
           <Card className="rounded-[1.5rem] border-none shadow-xl bg-slate-900 text-white p-6">
-              <div className="text-[10px] font-black text-primary uppercase mb-2">إجمالي مبيعات الوجبات الحالية</div>
-              <div className="text-3xl font-black">{formatCurrency(reportData.totalSales)}</div>
+              <div className="text-[10px] font-black text-primary uppercase mb-2">إجمالي مبيعات الوجبات</div>
+              <div className="text-2xl font-black">{formatCurrency(reportData.totalSales)}</div>
           </Card>
           <Card className="rounded-[1.5rem] border-none shadow-xl bg-primary text-white p-6">
               <div className="text-[10px] font-black text-white/70 uppercase mb-2">صافي عمولات النظام</div>
-              <div className="text-3xl font-black">{formatCurrency(reportData.companyEarnings)}</div>
+              <div className="text-2xl font-black">{formatCurrency(reportData.companyEarnings)}</div>
           </Card>
           <Card className="rounded-[1.5rem] border-none shadow-xl bg-white p-6 border-r-4 border-r-orange-500">
-              <div className="text-[10px] font-black text-muted-foreground uppercase mb-2">إجمالي مستحقات المتاجر</div>
-              <div className="text-3xl font-black text-slate-800">{formatCurrency(reportData.storePayouts)}</div>
+              <div className="text-[10px] font-black text-muted-foreground uppercase mb-2">مستحقات المتاجر</div>
+              <div className="text-2xl font-black text-slate-800">{formatCurrency(reportData.storePayouts)}</div>
+          </Card>
+          <Card className="rounded-[1.5rem] border-none shadow-xl bg-white p-6 border-r-4 border-r-red-500">
+              <div className="text-[10px] font-black text-muted-foreground uppercase mb-2 flex items-center gap-1 justify-end">مبالغ الخصومات الممنوحة <Ticket className="h-3 w-3 text-red-500"/></div>
+              <div className="text-2xl font-black text-red-600">{formatCurrency(reportData.totalDiscounts)}</div>
           </Card>
       </div>
 

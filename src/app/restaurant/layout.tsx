@@ -62,7 +62,7 @@ function RestaurantLayoutContent() {
 
   return (
     <div className={cn("flex h-screen w-full flex-col bg-card shadow-2xl relative overflow-hidden restaurant-active")} dir="rtl">
-        {/* OneSignal Web Push SDK - محصور في المتاجر فقط */}
+        {/* OneSignal Web Push SDK - محصور في المتاجر فقط مع حماية النطاق */}
         <Script 
             src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" 
             strategy="afterInteractive"
@@ -72,13 +72,16 @@ function RestaurantLayoutContent() {
                 window.OneSignalDeferred = window.OneSignalDeferred || [];
                 OneSignalDeferred.push(async function(OneSignal) {
                     try {
-                        // الحماية: تفعيل الإشعارات فقط إذا كان النطاق صحيحاً
-                        // تم إضافة try-catch لمنع توقف التطبيق في بيئة المعاينة (Preview Domain)
-                        await OneSignal.init({
-                            appId: "fbb7ab81-ec87-4f8c-aaa8-de12522e62b3",
-                        });
+                        // الحماية: تفعيل الإشعارات فقط إذا كان النطاق الرسمي صحيحاً لمنع أخطاء الـ Dev Environment
+                        if (window.location.hostname === 'speedshop1.com') {
+                            await OneSignal.init({
+                                appId: "fbb7ab81-ec87-4f8c-aaa8-de12522e62b3",
+                            });
+                        } else {
+                            console.warn("OneSignal Web Push: Initialization skipped on non-production domain.");
+                        }
                     } catch (e) {
-                        console.warn("OneSignal Web Push: Initialization skipped or domain mismatch. This is expected in non-production environments.");
+                        console.error("OneSignal Initialization Error:", e);
                     }
                 });
             `}
