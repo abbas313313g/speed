@@ -32,6 +32,12 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const hasSizes = activeSizes.length > 0;
 
+  const discountPercentage = useMemo(() => {
+      if (!product.discountPrice || product.discountPrice <= 0 || product.price <= 0 || hasSizes) return 0;
+      const diff = product.price - product.discountPrice;
+      return Math.round((diff / product.price) * 100);
+  }, [product, hasSizes]);
+
   const isOutOfStock = useMemo(() => {
     if (product.isUnlimitedStock) return false;
     if (hasSizes) return activeSizes.every(size => !size.isUnlimited && size.stock <= 0);
@@ -99,10 +105,16 @@ function ProductCardComponent({ product }: ProductCardProps) {
                   className="object-cover"
                   unoptimized={true}
                   loading="lazy"
-                  decoding="async"
                 />
             ) : <div className="w-full h-full animate-pulse bg-muted/20" />}
-            {isOutOfStock && <Badge variant="destructive" className="absolute top-2 left-2 z-10 text-[10px] font-black">نفد</Badge>}
+            
+            {discountPercentage > 0 && (
+                <Badge className="absolute top-2 left-2 z-10 bg-red-600 text-white font-black text-[10px] rounded-lg h-6">
+                    خصم {discountPercentage}%
+                </Badge>
+            )}
+            
+            {isOutOfStock && <Badge variant="destructive" className="absolute bottom-2 left-2 z-10 text-[10px] font-black">نفد</Badge>}
             {hasSizes && <Badge className="absolute top-2 right-2 bg-primary/80 backdrop-blur-md text-[9px] font-black z-10">خيارات</Badge>}
           </div>
           <div className="p-3 text-right flex-1 flex flex-col justify-between bg-white">

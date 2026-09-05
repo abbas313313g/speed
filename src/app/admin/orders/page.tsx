@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { MoreHorizontal, Trash2, Loader2, Search, X, UserCog, RefreshCw, Bike, ChevronRight, Store, Clock, Phone, MapPin, ListFilter } from 'lucide-react';
+import { MoreHorizontal, Trash2, Loader2, Search, X, UserCog, RefreshCw, Bike, ChevronRight, Store, Clock, Phone, MapPin, ListFilter, Ticket } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -56,7 +56,6 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const { deliveryWorkers } = useDeliveryWorkers();
   
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
-  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [viewOrder, setViewOrder] = useState<Order | null>(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [orderToAssign, setOrderToAssign] = useState<string | null>(null);
@@ -65,12 +64,12 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
     return allOrders.filter(o => o.branchId === branchId);
   }, [allOrders, branchId]);
   
-  if (isLoading) return <div className="p-20 text-center animate-pulse"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto"/><p className="mt-4 font-black">جارِ تحميل طلبات الفرع...</p></div>;
+  if (isLoading) return <div className="p-20 text-center animate-pulse"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto"/><p className="mt-4 font-black">جارِ تحميل الطلبات...</p></div>;
   
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
     try {
       await updateOrderStatus(orderId, status);
-      toast({ title: "تم تحديث الحالة بنجاح ✅" });
+      toast({ title: "تم التحديث بنجاح" });
     } catch(e) {}
   };
 
@@ -83,7 +82,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
               status: 'confirmed', 
               confirmedAt: new Date().toISOString()
           });
-          toast({ title: `تم توجيه الطلب للكابتن ${worker.name} 🚀` });
+          toast({ title: `تم التعيين للكابتن ${worker.name}` });
           setAssignDialogOpen(false);
           setOrderToAssign(null);
       } catch (e) {
@@ -100,88 +99,39 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
       setSelectedOrderIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
-  const toggleSelectAll = () => {
-      if (selectedOrderIds.length === filteredOrders.length) {
-          setSelectedOrderIds([]);
-      } else {
-          setSelectedOrderIds(filteredOrders.map(o => o.id));
-      }
-  };
-
-  const handleBulkDelete = async () => {
-      if (selectedOrderIds.length === 0) return;
-      setIsBulkDeleting(true);
-      try {
-          for (const id of selectedOrderIds) {
-              await deleteOrder(id);
-          }
-          setSelectedOrderIds([]);
-          toast({ title: `تم حذف الطلبات بنجاح ✅` });
-      } catch (e) {
-          toast({ title: "فشل الحذف الجماعي", variant: "destructive" });
-      } finally {
-          setIsBulkDeleting(false);
-      }
-  };
-
   const getStatusText = (status: OrderStatus) => {
         switch (status) {
             case 'unassigned': return "بانتظار المتجر";
-            case 'pending_assignment': return "بحث عن مندوب...";
-            case 'confirmed': return "بانتظار موافقة المندوب";
+            case 'pending_assignment': return "بحث...";
+            case 'confirmed': return "بانتظار المندوب";
             case 'preparing': return "قيد التحضير";
-            case 'ready_for_pickup': return "جاهز للاستلام";
-            case 'on_the_way': return "في الطريق";
+            case 'ready_for_pickup': return "جاهز";
+            case 'on_the_way': return "بالطريق";
             case 'delivered': return "تم التوصيل";
             case 'cancelled': return "ملغي";
             default: return status;
         }
     }
 
-  const onlineWorkers = deliveryWorkers.filter(w => w.isOnline && w.isActive !== false);
-
   return (
     <div className="space-y-8 text-right">
       <header className="flex justify-between items-start">
         <div>
             <h1 className="text-3xl font-black text-primary italic leading-none">إدارة الطلبات</h1>
-            <p className="text-muted-foreground font-bold text-xs mt-1">المتجر يوافق أولاً -> ثم المندوب يوافق يدوياً.</p>
+            <p className="text-muted-foreground font-bold text-xs mt-1">متابعة كافة تفاصيل الوجبات والخصومات والمناديب.</p>
         </div>
-        {selectedOrderIds.length > 0 && (
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="rounded-xl h-12 px-6 font-bold shadow-lg gap-2">
-                        <Trash2 className="h-5 w-5" /> حذف المحددة ({selectedOrderIds.length})
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="rounded-[2.5rem]">
-                    <AlertDialogHeader>
-                        <AlertDialogTitle className="text-right font-black">تأكيد الحذف الجماعي؟</AlertDialogTitle>
-                        <AlertDialogDescription className="text-right font-bold text-muted-foreground">أنت على وشك حذف {selectedOrderIds.length} طلب نهائياً.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter className="flex-row gap-3">
-                        <AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleBulkDelete} className="flex-1 rounded-xl bg-destructive" disabled={isBulkDeleting}>
-                            {isBulkDeleting ? <Loader2 className="animate-spin h-5 w-5" /> : "حذف الكل"}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        )}
       </header>
 
-        <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] border dark:border-slate-800 shadow-xl overflow-hidden">
+        <div className="bg-white rounded-[1.5rem] border shadow-xl overflow-hidden">
             <Table>
-                <TableHeader className="bg-muted/50 dark:bg-slate-800/50">
+                <TableHeader className="bg-muted/50">
                 <TableRow>
-                    <TableHead className="w-[40px]"><Checkbox checked={selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0} onCheckedChange={toggleSelectAll}/></TableHead>
+                    <TableHead className="w-[40px]"><Checkbox checked={selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0} onCheckedChange={() => {}}/></TableHead>
                     <TableHead className="font-black text-right">رقم القائمة</TableHead>
                     <TableHead className="font-black text-right">المتجر</TableHead>
-                    <TableHead className="font-black text-right">الوقت</TableHead>
-                    <TableHead className="font-black text-right">رقم الزبون</TableHead>
                     <TableHead className="font-black text-right">المندوب</TableHead>
-                    <TableHead className="font-black text-right">المنطقة</TableHead>
-                    <TableHead className="font-black text-right text-primary">المبلغ</TableHead>
+                    <TableHead className="font-black text-right">الخصم</TableHead>
+                    <TableHead className="font-black text-right text-primary">المبلغ الصافي</TableHead>
                     <TableHead className="font-black text-right">الحالة</TableHead>
                     <TableHead className="font-black text-center">إجراء</TableHead>
                 </TableRow>
@@ -190,44 +140,31 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                 {filteredOrders.map((order) => (
                     <TableRow key={order.id} className={cn("hover:bg-muted/30 transition-colors cursor-pointer", selectedOrderIds.includes(order.id) && "bg-primary/5")} onClick={() => setViewOrder(order)}>
                     <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedOrderIds.includes(order.id)} onCheckedChange={() => toggleSelectOrder(order.id)}/></TableCell>
-                    <TableCell className="font-bold">#{order.orderNumber || order.id.substring(0, 6)}</TableCell>
-                    <TableCell className="font-black text-slate-800 dark:text-slate-100">
-                        <div className="flex items-center gap-2 justify-end">
-                            <span>{order.restaurant?.name || 'غير معروف'}</span>
-                            <Store className="h-3 w-3 text-primary" />
-                        </div>
-                    </TableCell>
-                    <TableCell className="text-xs font-bold text-muted-foreground">
-                        <div className="flex items-center gap-1 justify-end">
-                            <span>{new Date(order.date).toLocaleTimeString('ar-IQ', {hour:'2-digit', minute:'2-digit'})}</span>
-                            <Clock className="h-3 w-3" />
-                        </div>
-                    </TableCell>
-                    <TableCell className="font-mono text-[11px] font-black" dir="ltr">{order.address.phone}</TableCell>
+                    <TableCell className="font-bold">#{order.orderNumber}</TableCell>
+                    <TableCell className="font-black text-slate-800">{order.restaurant?.name}</TableCell>
                     <TableCell className="text-right">
                         {order.deliveryWorker ? (
                             <div className="flex flex-col">
-                                <div className="flex items-center gap-1 justify-end">
-                                    <span className="font-black text-xs text-slate-800 dark:text-slate-200">{order.deliveryWorker.name}</span>
+                                <div className="flex items-center gap-1 justify-end font-black text-xs">
+                                    <span>{order.deliveryWorker.name}</span>
                                     <Bike className="h-3 w-3 text-primary" />
                                 </div>
-                                {order.status === 'confirmed' && (
-                                    <span className="text-[8px] font-bold text-orange-500 animate-pulse">بانتظار موافقته...</span>
-                                )}
+                                {order.status === 'confirmed' && <span className="text-[8px] font-bold text-orange-500 animate-pulse">بانتظار موافقته...</span>}
                             </div>
-                        ) : (
-                            <div className="text-[9px] font-bold text-muted-foreground italic">
-                                {order.status === 'unassigned' ? 'بانتظار المتجر' : 'جارِ البحث...'}
-                            </div>
-                        )}
+                        ) : <span className="text-[9px] italic opacity-40">لم يحدد</span>}
                     </TableCell>
-                    <TableCell className="text-[10px] font-black text-primary">{order.address.deliveryZone}</TableCell>
+                    <TableCell className="text-right">
+                        {order.appliedCoupon ? (
+                            <Badge variant="outline" className="text-red-600 border-red-100 bg-red-50 gap-1 text-[9px] h-6">
+                                <Ticket className="h-2 w-2" /> {formatCurrency(order.appliedCoupon.discountAmount)}
+                            </Badge>
+                        ) : '-'}
+                    </TableCell>
                     <TableCell className="font-black text-primary">{formatCurrency(order.total)}</TableCell>
                     <TableCell>
                         <Badge className={cn("text-white font-black rounded-lg text-[9px]", 
-                            order.status === 'confirmed' ? 'bg-orange-500' : 
-                            order.status === 'delivered' ? 'bg-green-600' : 
-                            order.status === 'unassigned' ? 'bg-slate-400' : 'bg-blue-500')}>
+                            order.status === 'delivered' ? "bg-green-600" : 
+                            order.status === 'cancelled' ? "bg-red-600" : "bg-blue-500")}>
                             {getStatusText(order.status)}
                         </Badge>
                     </TableCell>
@@ -237,20 +174,20 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="rounded-xl font-bold">
-                                <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'pending_assignment')} className="gap-2"><RefreshCw className="h-4 w-4"/> إعادة تدوير الطلب</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'delivered')}>تم التوصيل كاش</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'cancelled')}>إلغاء الطلب</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'pending_assignment')} className="gap-2"><RefreshCw className="h-4 w-4"/> إعادة تدوير</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'delivered')}>تم التوصيل</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'cancelled')}>إلغاء</DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => { setOrderToAssign(order.id); setAssignDialogOpen(true); }} className="text-orange-600 gap-2"><UserCog className="h-4 w-4"/> تعيين يدوي لمندوب</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => { setOrderToAssign(order.id); setAssignDialogOpen(true); }} className="text-orange-600 gap-2"><UserCog className="h-4 w-4"/> تعيين يدوي</DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem className="text-destructive gap-2"><Trash2 className="h-4 w-4" /> حذف نهائي</DropdownMenuItem>
+                                    <DropdownMenuItem className="text-destructive gap-2"><Trash2 className="h-4 w-4" /> حذف</DropdownMenuItem>
                                 </AlertDialogTrigger>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                             <AlertDialogContent className="rounded-[2.5rem]">
-                                <AlertDialogHeader><AlertDialogTitle className="text-right">تأكيد الحذف</AlertDialogTitle></AlertDialogHeader>
-                                <AlertDialogFooter className="flex-row gap-2"><AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(order.id)} className="bg-destructive flex-1 rounded-xl">حذف الآن</AlertDialogAction></AlertDialogFooter>
+                                <AlertDialogHeader><AlertDialogTitle className="text-right">حذف الطلب؟</AlertDialogTitle></AlertDialogHeader>
+                                <AlertDialogFooter className="flex-row gap-2"><AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(order.id)} className="bg-destructive flex-1 rounded-xl">حذف</AlertDialogAction></AlertDialogFooter>
                             </AlertDialogContent>
                             </AlertDialog>
                         </div>
@@ -261,40 +198,6 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
             </Table>
         </div>
 
-        <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
-            <DialogContent className="sm:max-w-md rounded-[2.5rem] p-0 overflow-hidden">
-                <DialogHeader className="p-6 bg-primary text-white">
-                    <DialogTitle className="text-2xl font-black italic">تعيين مندوب للطلب</DialogTitle>
-                </DialogHeader>
-                <div className="p-4">
-                    <ScrollArea className="h-[300px] pr-2">
-                        <div className="space-y-2">
-                            {onlineWorkers.map(worker => (
-                                <button 
-                                    key={worker.id}
-                                    onClick={() => handleManualAssign(worker)}
-                                    className="w-full flex items-center justify-between p-4 bg-muted/20 hover:bg-primary/10 rounded-2xl border-2 border-transparent transition-all text-right group"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-primary/10 rounded-xl text-primary"><Bike className="h-5 w-5" /></div>
-                                        <div className="text-right">
-                                            <p className="font-black">{worker.name}</p>
-                                            <p className="text-[10px] font-bold text-primary" dir="ltr">{worker.id}</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                                </button>
-                            ))}
-                            {onlineWorkers.length === 0 && <div className="text-center py-10 opacity-40 italic">لا يوجد مناديب متصلين حالياً.</div>}
-                        </div>
-                    </ScrollArea>
-                </div>
-                <DialogFooter className="p-4 bg-slate-50 border-t">
-                    <Button variant="outline" className="w-full rounded-xl" onClick={() => setAssignDialogOpen(false)}>إغلاق</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-
         <Dialog open={!!viewOrder} onOpenChange={(v) => !v && setViewOrder(null)}>
             <DialogContent className="sm:max-w-xl max-h-[95vh] overflow-y-auto rounded-[2.5rem] p-0 border-none">
                 {viewOrder && (
@@ -302,79 +205,52 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                         <DialogHeader className="p-6 bg-slate-900 text-white rounded-t-[2.5rem]">
                             <div className="flex justify-between items-center flex-row-reverse">
                                 <div>
-                                    <DialogTitle className="text-3xl font-black italic leading-none">فاتورة #{viewOrder.orderNumber}</DialogTitle>
+                                    <DialogTitle className="text-3xl font-black italic">فاتورة #{viewOrder.orderNumber}</DialogTitle>
                                     <div className="flex items-center gap-2 justify-end mt-2">
                                         <Badge className="bg-primary text-white text-[10px]">{getStatusText(viewOrder.status)}</Badge>
                                         <span className="text-[10px] font-bold opacity-60">{new Date(viewOrder.date).toLocaleString('ar-IQ')}</span>
                                     </div>
                                 </div>
-                                <Button variant="ghost" size="icon" onClick={() => setViewOrder(null)} className="text-white hover:bg-white/10 rounded-full"><X className="h-6 w-6"/></Button>
+                                <Button variant="ghost" size="icon" onClick={() => setViewOrder(null)} className="text-white rounded-full"><X className="h-6 w-6"/></Button>
                             </div>
                         </DialogHeader>
 
                         <div className="p-6 space-y-6">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-primary/5 p-4 rounded-2xl border-2 border-primary/10">
-                                    <Label className="text-[10px] font-black text-primary uppercase mb-1 block text-right">المتجر المصدر</Label>
+                                    <Label className="text-[10px] font-black text-primary uppercase mb-1 block">المتجر المصدر</Label>
                                     <p className="font-black text-slate-800 flex items-center gap-2 justify-end"><Store className="h-4 w-4"/> {viewOrder.restaurant?.name}</p>
                                 </div>
                                 <div className="bg-blue-50 p-4 rounded-2xl border-2 border-blue-100">
-                                    <Label className="text-[10px] font-black text-blue-600 uppercase mb-1 block text-right">موقع التوصيل</Label>
+                                    <Label className="text-[10px] font-black text-blue-600 uppercase mb-1 block">موقع التوصيل</Label>
                                     <p className="font-black text-slate-800 flex items-center gap-2 justify-end"><MapPin className="h-4 w-4"/> {viewOrder.address.deliveryZone}</p>
                                 </div>
                             </div>
 
                             <div className="space-y-4">
-                                <h3 className="font-black text-lg flex items-center gap-2 text-slate-800"><ListFilter className="h-5 w-5 text-primary"/> تفاصيل الوجبات</h3>
+                                <h3 className="font-black text-lg">تفاصيل الوجبات:</h3>
                                 <div className="space-y-2">
                                     {viewOrder.items.map((item, idx) => (
                                         <div key={idx} className="flex justify-between items-center p-3 bg-muted/20 rounded-xl border border-dashed">
-                                            <span className="font-black text-primary">{formatCurrency((item.selectedSize?.price || item.product.discountPrice || item.product.price || 0) * item.quantity)}</span>
-                                            <div className="text-right">
-                                                <p className="font-black text-sm">{item.product.name} <span className="text-primary mx-1">x{item.quantity}</span></p>
-                                                {item.selectedSize && <Badge variant="secondary" className="text-[8px] h-4 mt-0.5">{item.selectedSize.name}</Badge>}
-                                            </div>
+                                            <span className="font-black text-primary">{formatCurrency((item.selectedSize?.price || item.product.price || 0) * item.quantity)}</span>
+                                            <p className="font-black text-sm">{item.product.name} <span className="text-primary mx-1">x{item.quantity}</span></p>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
-                            <Separator className="border-dashed" />
+                            {viewOrder.appliedCoupon && (
+                                <div className="p-4 bg-red-50 border-2 border-red-100 rounded-2xl flex justify-between items-center">
+                                    <span className="font-black text-red-600">-{formatCurrency(viewOrder.appliedCoupon.discountAmount)}</span>
+                                    <span className="font-bold text-red-800 flex items-center gap-2"><Ticket className="h-4 w-4"/> قيمة الخصم الممنوح:</span>
+                                </div>
+                            )}
 
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center text-sm font-bold text-muted-foreground">
-                                    <span>{formatCurrency(viewOrder.total - viewOrder.deliveryFee)}</span>
-                                    <span>مجموع الوجبات:</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm font-bold text-muted-foreground">
-                                    <span>{formatCurrency(viewOrder.deliveryFee)}</span>
-                                    <span>أجور التوصيل:</span>
-                                </div>
-                                <div className="p-5 bg-slate-900 text-white rounded-2xl flex justify-between items-center shadow-xl">
-                                    <span className="text-3xl font-black tracking-tighter text-green-400">{formatCurrency(viewOrder.total)}</span>
-                                    <span className="font-black text-lg">الإجمالي كاش</span>
-                                </div>
-                            </div>
-
-                            <div className="p-4 bg-muted/30 rounded-2xl border-2 space-y-3 text-right">
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-2 text-primary">
-                                        <Phone className="h-4 w-4" />
-                                        <span className="font-black text-lg select-all" dir="ltr">{viewOrder.address.phone}</span>
-                                    </div>
-                                    <span className="text-[10px] font-black text-muted-foreground uppercase">رقم هاتف الزبون</span>
-                                </div>
-                                <Button 
-                                    className="w-full h-12 rounded-xl font-black gap-2 bg-white text-slate-900 border-2 hover:bg-slate-50"
-                                    onClick={() => window.open(`https://www.google.com/maps?q=${viewOrder.address.latitude},${viewOrder.address.longitude}`, '_blank')}
-                                >
-                                    <MapPin className="h-5 w-5 text-primary" /> عرض موقع الزبون على الخريطة
-                                </Button>
+                            <div className="p-5 bg-slate-900 text-white rounded-2xl flex justify-between items-center shadow-xl">
+                                <span className="text-3xl font-black tracking-tighter text-green-400">{formatCurrency(viewOrder.total)}</span>
+                                <span className="font-black text-lg">الإجمالي كاش</span>
                             </div>
                         </div>
-                        <DialogFooter className="p-4 bg-slate-50 border-t sticky bottom-0">
-                            <Button onClick={() => setViewOrder(null)} className="w-full h-14 rounded-2xl font-black text-xl">إغلاق الفاتورة</Button>
-                        </DialogFooter>
                     </div>
                 )}
             </DialogContent>

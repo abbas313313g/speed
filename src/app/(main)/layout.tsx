@@ -112,10 +112,8 @@ export default function MainAppLayout() {
     }
     setIsSaving(true);
     try {
-        // نضمن مزامنة الـ UserID أولاً وبدقة
         const syncedUserId = await syncUserByPhone(newAddr.phone);
         
-        // نمرر البيانات للـ Hook مع التأكد من إرسالها لـ Firestore
         await addAddress({ 
             name: newAddr.name,
             phone: newAddr.phone,

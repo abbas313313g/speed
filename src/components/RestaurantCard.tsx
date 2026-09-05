@@ -1,13 +1,15 @@
 
 "use client";
 
-import React, { useContext } from "react";
+import React, { useContext, useMemo } from "react";
 import Image from "next/image";
 import { Card, CardTitle } from "@/components/ui/card";
 import type { Restaurant } from "@/lib/types";
 import { Badge } from "./ui/badge";
 import { AppContext } from "@/contexts/AppContext";
 import { cn } from "@/lib/utils";
+import { useProducts } from "@/hooks/useProducts";
+import { Sparkles } from "lucide-react";
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
@@ -18,6 +20,11 @@ interface RestaurantCardProps {
 
 function RestaurantCardComponent({ restaurant, large = false, compact = false, priority = false }: RestaurantCardProps) {
   const context = useContext(AppContext);
+  const { products } = useProducts(undefined, restaurant.id, 50);
+
+  const hasDiscounts = useMemo(() => {
+      return products.some(p => p.discountPrice && p.discountPrice > 0);
+  }, [products]);
   
   const handleOpenRestaurant = () => {
     if (context) {
@@ -51,9 +58,16 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false, p
                       unoptimized={true}
                       priority={priority}
                       loading={priority ? "eager" : "lazy"}
-                      decoding="async"
                   />
               )}
+              
+              {hasDiscounts && (
+                  <div className="absolute top-2 left-2 z-10 bg-red-600 text-white p-1.5 rounded-xl shadow-lg flex items-center gap-1 animate-bounce">
+                      <Sparkles className="h-3 w-3" />
+                      <span className="text-[8px] font-black">عروض</span>
+                  </div>
+              )}
+
               {!restaurant.isStoreOpen && (
                   <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10">
                       <Badge variant="destructive" className="text-[8px] font-black px-2 py-0.5 rounded-lg">مغلق</Badge>
@@ -62,7 +76,7 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false, p
           </div>
           <div className="flex-grow text-right">
               <div className="flex justify-between items-start">
-                  <CardTitle className={cn("font-black text-slate-800", large ? "text-xl" : "text-sm truncate")}>{restaurant.name}</CardTitle>
+                  <CardTitle className={cn("font-black text-slate-800 dark:text-white", large ? "text-xl" : "text-sm truncate")}>{restaurant.name}</CardTitle>
               </div>
               <p className="text-[9px] text-muted-foreground font-bold mt-1">أسرع توصيل في منطقتك</p>
           </div>
