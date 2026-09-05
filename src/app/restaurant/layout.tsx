@@ -71,9 +71,15 @@ function RestaurantLayoutContent() {
             {`
                 window.OneSignalDeferred = window.OneSignalDeferred || [];
                 OneSignalDeferred.push(async function(OneSignal) {
-                    await OneSignal.init({
-                        appId: "fbb7ab81-ec87-4f8c-aaa8-de12522e62b3",
-                    });
+                    try {
+                        // الحماية: تفعيل الإشعارات فقط إذا كان النطاق صحيحاً
+                        // تم إضافة try-catch لمنع توقف التطبيق في بيئة المعاينة (Preview Domain)
+                        await OneSignal.init({
+                            appId: "fbb7ab81-ec87-4f8c-aaa8-de12522e62b3",
+                        });
+                    } catch (e) {
+                        console.warn("OneSignal Web Push: Initialization skipped or domain mismatch. This is expected in non-production environments.");
+                    }
                 });
             `}
         </Script>
