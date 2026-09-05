@@ -12,6 +12,7 @@ import { AppContext } from '@/contexts/AppContext';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export default function RestaurantProductsPage() {
   const context = useContext(AppContext);
