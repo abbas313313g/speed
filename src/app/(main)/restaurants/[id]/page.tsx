@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useContext, useState, useEffect } from 'react';
@@ -41,15 +42,19 @@ export default function RestaurantProductsPage() {
       return list;
   }, [products, activeSection, selectedRestaurantId, searchTerm]);
   
-  const isWaitingForData = !selectedRestaurantId || restaurantsLoading || (productsLoading && products.length === 0);
+  const isWaitingForData = !selectedRestaurantId || restaurantsLoading || productsLoading;
 
   if (isWaitingForData) {
     return (
         <div className="flex h-full w-full items-center justify-center bg-background">
             <div className="p-12 rounded-[3.5rem] bg-primary/5 flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500">
-                <div className="relative h-24 w-24 flex items-center justify-center">
+                <div className="relative h-24 w-24 flex items-center justify-center mb-6">
                     <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
                     <Search className="h-10 w-10 text-primary animate-pulse" />
+                </div>
+                <div className="text-center space-y-1">
+                    <p className="text-primary font-black text-xs uppercase tracking-widest animate-pulse">جاري تحميل المنيو</p>
+                    <p className="text-muted-foreground font-bold text-[8px] opacity-40">Speed Engine v3.0</p>
                 </div>
             </div>
         </div>

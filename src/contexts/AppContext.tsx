@@ -15,6 +15,7 @@ import { useSupportTickets } from '@/hooks/useSupportTickets';
 import { useCoupons } from '@/hooks/useCoupons';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useBanners } from '@/hooks/useBanners';
+import { useOrders } from '@/hooks/useOrders';
 import { sendFcmNotification } from '@/services/fcm-service';
 import { sendRestaurantOrderNotification } from '@/services/onesignal-service';
 
@@ -52,8 +53,9 @@ export const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
-    const { restaurants } = useRestaurants();
+    const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
     const { banners, isLoading: bannersLoading } = useBanners();
+    const { allOrders, isLoading: ordersLoading } = useOrders();
     const { coupons } = useCoupons();
 
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -198,7 +200,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             let couponToUpdateId = null;
 
             if (coupCode?.trim()) {
-                const coupon = coupons.find(c => c.code === coupCode.trim().toUpperCase());
+                const coupon = coupons.find(c => c.code === couponCode.trim().toUpperCase());
                 if (coupon) {
                     if (coupon.usedCount >= coupon.maxUses) {
                         toast({ title: "هذا الكود انتهى استخدامه", variant: "destructive" });
@@ -278,7 +280,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 });
             }
 
-            // إرسال الإشعارات بناءً على تفضيلات المتجر
             if (rest) {
                 const targetIds: string[] = [];
                 const pref = rest.notificationPreference || 'app';
@@ -318,10 +319,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         await createTicketHook(msg, currentUid, addr?.name || 'زبون جديد', addr?.deliveryZone);
     }, [userId, addresses, createTicketHook]);
 
-    const isMainDataReady = useMemo(() => !bannersLoading, [bannersLoading]);
+    const isMainDataReady = useMemo(() => {
+        return !bannersLoading && !restaurantsLoading && !ordersLoading;
+    }, [bannersLoading, restaurantsLoading, ordersLoading]);
 
     const value = {
-        isLoading: bannersLoading, 
+        isLoading: bannersLoading || restaurantsLoading || ordersLoading, 
         isMainDataReady, 
         placeOrder, 
         createSupportTicket: handleCreateSupportTicket, 
