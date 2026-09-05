@@ -33,6 +33,7 @@ import AdminBranchesPage from './branches/page';
 import HomeSettingsPage from './home-settings/page';
 import AdminWithdrawalsPage from './withdrawals/page';
 import AdminAdjustmentsPage from './adjustments/page';
+import AdminStoreWalletsPage from './store-wallets/page';
 
 const ADMIN_PIN = "31344313";
 
@@ -111,6 +112,7 @@ function AdminLayoutContent() {
     17: <HomeSettingsPage />,
     18: <AdminWithdrawalsPage branchId={branchParam} />,
     19: <AdminAdjustmentsPage branchId={branchParam} />,
+    20: <AdminStoreWalletsPage branchId={branchParam} />,
   };
 
   if (accessLoading && !isAuthenticated) {
@@ -173,7 +175,7 @@ function AdminLayoutContent() {
         </header>
         <main className="flex-1 relative overflow-hidden bg-muted/5">
           <div className="spa-stack-container" style={{ transform: `translateX(${activeTab * 100}%)`, transition: 'none' }}>
-            {Array.from({ length: 20 }).map((_, idx) => (
+            {Array.from({ length: 21 }).map((_, idx) => (
                 <div key={idx} className="spa-page-view flex-shrink-0">
                     {activeTab === idx && pagesMap[idx] ? (
                         <ScrollArea className="h-full w-full px-4 py-6 sm:px-8">

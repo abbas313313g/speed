@@ -27,7 +27,8 @@ import {
   GitBranch,
   Banknote,
   LayoutDashboard,
-  ShieldAlert
+  ShieldAlert,
+  Landmark
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -46,6 +47,7 @@ const navItems = [
   { index: 2, label: "المنتجات", icon: Package },
   { index: 14, label: "المراجعات", icon: CheckCircle, notificationKey: 'pendingProducts' },
   { index: 18, label: "سحب الأرصدة", icon: Banknote, notificationKey: 'pendingWithdraws' },
+  { index: 20, label: "محفظات المتاجر", icon: Landmark },
   { index: 19, label: "الخصومات اليدوية", icon: ShieldAlert },
   { index: 17, label: "تخصيص الواجهة", icon: LayoutDashboard, mainOnly: true },
   { index: 10, label: "أرباح الشركة", icon: AreaChart },
