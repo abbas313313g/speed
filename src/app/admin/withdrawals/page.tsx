@@ -5,7 +5,7 @@ import { useWithdrawals } from '@/hooks/useWithdrawals';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Store, Banknote, Bike, UserCog, Landmark, Trash2 } from 'lucide-react';
+import { CheckCircle2, Store, Banknote, Bike, UserCog, Landmark, Trash2, Loader2 } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,11 +20,63 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, writeBatch, doc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
+import type { WithdrawRequest } from '@/lib/types';
 
 export default function AdminWithdrawalsPage({ branchId }: { branchId: string }) {
     const { requests, isLoading, updateRequestStatus, deleteWithdrawalRequest } = useWithdrawals(branchId);
+    const { toast } = useToast();
+    const [isProcessing, setIsProcessing] = useState<string | null>(null);
 
     if (isLoading) return <div className="p-8 text-center animate-pulse font-black text-primary text-xl">جاري جلب طلبات تسوية الحسابات...</div>;
+
+    const handleCompleteSettlement = async (req: WithdrawRequest) => {
+        setIsProcessing(req.id);
+        try {
+            const batch = writeBatch(db);
+            
+            // 1. تحديث حالة طلب السحب
+            batch.update(doc(db, "withdrawals", req.id), { status: 'completed' });
+
+            if (req.type === 'restaurant') {
+                // 2. جلب الطلبات غير المدفوعة للمتجر ووسمها كمدفوعة
+                const q = query(
+                    collection(db, "orders"), 
+                    where("restaurant.id", "==", req.targetId),
+                    where("status", "==", "delivered"),
+                    where("isPaid", "==", false)
+                );
+                const snap = await getDocs(q);
+                snap.docs.forEach(d => batch.update(d.ref, { isPaid: true }));
+                
+                // 3. تصفير التسويات اليدوية للمتجر
+                batch.update(doc(db, "restaurants", req.targetId), { balanceAdjustment: 0 });
+            } else {
+                // 4. جلب الطلبات غير المدفوعة للمندوب (أرباح التوصيل) ووسمها كمدفوعة
+                const q = query(
+                    collection(db, "orders"), 
+                    where("deliveryWorkerId", "==", req.targetId),
+                    where("status", "==", "delivered"),
+                    where("isFeePaid", "==", false)
+                );
+                const snap = await getDocs(q);
+                snap.docs.forEach(d => batch.update(d.ref, { isFeePaid: true }));
+                
+                // 5. تصفير التسويات اليدوية للمندوب
+                batch.update(doc(db, "deliveryWorkers", req.targetId), { balanceAdjustment: 0 });
+            }
+
+            await batch.commit();
+            toast({ title: "تمت التسوية وتصفير المحفظة بنجاح ✅" });
+        } catch (e) {
+            toast({ title: "فشل إكمال التسوية", variant: "destructive" });
+        } finally {
+            setIsProcessing(null);
+        }
+    };
 
     const storeRequests = requests.filter(r => r.type === 'restaurant');
     const workerRequests = requests.filter(r => r.type === 'delivery');
@@ -72,10 +124,16 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                             <div className="flex justify-center gap-3">
                                 {req.status === 'pending' ? (
                                     <>
-                                        <Button size="lg" className="bg-green-600 hover:bg-green-700 h-12 rounded-2xl font-black px-6 shadow-lg shadow-green-100" onClick={() => updateRequestStatus(req.id, 'completed')}>
-                                            <CheckCircle2 className="ml-2 h-5 w-5"/> تأكيد التسليم
+                                        <Button 
+                                            size="lg" 
+                                            className="bg-green-600 hover:bg-green-700 h-12 rounded-2xl font-black px-6 shadow-lg shadow-green-100" 
+                                            onClick={() => handleCompleteSettlement(req)}
+                                            disabled={isProcessing === req.id}
+                                        >
+                                            {isProcessing === req.id ? <Loader2 className="animate-spin h-5 w-5 ml-2"/> : <CheckCircle2 className="ml-2 h-5 w-5"/>}
+                                            تأكيد التسليم
                                         </Button>
-                                        <Button size="lg" variant="ghost" className="text-destructive h-12 rounded-2xl font-bold px-4 border border-destructive/10" onClick={() => updateRequestStatus(req.id, 'rejected')}>
+                                        <Button size="lg" variant="ghost" className="text-destructive h-12 rounded-2xl font-bold px-4 border border-destructive/10" onClick={() => updateRequestStatus(req.id, 'rejected')} disabled={isProcessing === req.id}>
                                             رفض
                                         </Button>
                                     </>

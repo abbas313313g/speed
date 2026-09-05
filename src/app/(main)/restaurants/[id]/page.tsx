@@ -49,15 +49,11 @@ export default function RestaurantProductsPage() {
 
   if (isWaitingForData) {
     return (
-        <div className="flex h-full w-full flex-col items-center justify-center bg-background p-10 text-center">
-            <div className="p-10 rounded-[3.5rem] bg-primary/5 flex flex-col items-center gap-5 animate-in fade-in zoom-in duration-500">
-                <div className="relative h-20 w-20 flex items-center justify-center">
+        <div className="flex h-full w-full items-center justify-center bg-background">
+            <div className="p-12 rounded-[3.5rem] bg-primary/5 flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500">
+                <div className="relative h-24 w-24 flex items-center justify-center">
                     <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
                     <Search className="h-10 w-10 text-primary animate-pulse" />
-                </div>
-                <div className="space-y-1">
-                    <p className="font-black text-primary italic text-lg">جاري تحميل المنيو الحصري...</p>
-                    <p className="text-[10px] text-muted-foreground font-bold">Speed Engine v3.0</p>
                 </div>
             </div>
         </div>
