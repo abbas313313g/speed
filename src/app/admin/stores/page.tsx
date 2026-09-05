@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef } from 'react';
@@ -34,7 +35,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Edit, Trash2, Loader2, MapPin, Upload, Clock, Power, PowerOff, Plus, X, Bell, Info } from 'lucide-react';
+import { Edit, Trash2, Loader2, MapPin, Upload, Clock, Power, PowerOff, Plus, X, Bell, Info, Laptop, Smartphone, MonitorSmartphone } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
@@ -42,6 +43,7 @@ import { useRestaurants } from '@/hooks/useRestaurants';
 import { useCategories } from '@/hooks/useCategories';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { compressImage, cn } from '@/lib/utils';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     restaurantNumber: '',
@@ -58,7 +60,9 @@ const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     categoryId: '',
     menuSections: [],
     isManualClosed: false,
-    oneSignalId: ''
+    oneSignalId: '',
+    oneSignalWebId: '',
+    notificationPreference: 'app'
 };
 
 export default function AdminStoresPage({ branchId }: { branchId: string }) {
@@ -77,7 +81,11 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
   const handleOpenDialog = (store?: Restaurant) => {
       if (store) {
           setIsEditing(true);
-          setCurrentStore({ ...store, menuSections: store.menuSections || [] });
+          setCurrentStore({ 
+              ...store, 
+              menuSections: store.menuSections || [],
+              notificationPreference: store.notificationPreference || 'app'
+          });
       } else {
           setIsEditing(false);
           setCurrentStore({ ...EMPTY_STORE, branchId, menuSections: [] });
@@ -204,20 +212,62 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                     </div>
                 </div>
 
-                <div className="space-y-1 bg-blue-50 p-5 rounded-[1.8rem] border-2 border-dashed border-blue-200 shadow-inner">
-                    <Label className="font-black text-blue-800 flex items-center gap-2 justify-end mb-2 text-base">معرف الاشتراك (Subscription ID) <Bell className="h-5 w-5 text-blue-600 animate-pulse"/></Label>
-                    <Input 
-                        value={currentStore.oneSignalId ?? ''} 
-                        onChange={(e) => setCurrentStore({ ...currentStore, oneSignalId: e.target.value })} 
-                        className="rounded-xl h-14 font-mono text-sm text-center bg-white border-blue-100 shadow-sm" 
-                        placeholder="الصق Subscription ID الخاص بجهاز صاحب المتجر"
-                        dir="ltr"
-                    />
-                    <div className="flex items-start gap-2 bg-white/60 p-3 rounded-xl mt-3 border border-blue-50">
+                <div className="bg-blue-50 p-6 rounded-[2rem] border-2 border-dashed border-blue-200 space-y-6 shadow-inner">
+                    <div className="flex items-center justify-between">
+                        <Badge className="bg-blue-600 text-white gap-1 font-black"><Bell className="h-3 w-3"/> نظام إشعارات المتاجر</Badge>
+                        <Label className="font-black text-blue-900 text-lg">الربط مع ون سيجنال</Label>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="space-y-1.5">
+                            <Label className="font-bold text-blue-700 flex items-center gap-1 justify-end"><Smartphone className="h-4 w-4"/> معرف التطبيق (Android/iOS)</Label>
+                            <Input 
+                                value={currentStore.oneSignalId ?? ''} 
+                                onChange={(e) => setCurrentStore({ ...currentStore, oneSignalId: e.target.value })} 
+                                className="rounded-xl h-12 font-mono text-xs text-center bg-white border-blue-100 shadow-sm" 
+                                placeholder="Subscription ID الخاص بالتطبيق"
+                                dir="ltr"
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label className="font-bold text-blue-700 flex items-center gap-1 justify-end"><Laptop className="h-4 w-4"/> معرف المتصفح (Web/PC)</Label>
+                            <Input 
+                                value={currentStore.oneSignalWebId ?? ''} 
+                                onChange={(e) => setCurrentStore({ ...currentStore, oneSignalWebId: e.target.value })} 
+                                className="rounded-xl h-12 font-mono text-xs text-center bg-white border-blue-100 shadow-sm" 
+                                placeholder="Subscription ID الخاص بالمتصفح"
+                                dir="ltr"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-3 pt-2">
+                        <Label className="font-black text-blue-900 block border-b border-blue-200 pb-2">وجهة استلام الإشعارات</Label>
+                        <RadioGroup 
+                            value={currentStore.notificationPreference || 'app'} 
+                            onValueChange={(val: 'app' | 'web' | 'both') => setCurrentStore({...currentStore, notificationPreference: val})}
+                            className="flex flex-col gap-2"
+                        >
+                            <div className={cn("flex items-center justify-between p-3 rounded-xl border-2 transition-all cursor-pointer", currentStore.notificationPreference === 'app' ? "bg-white border-blue-500 shadow-sm" : "border-transparent opacity-60")} onClick={()=>setCurrentStore({...currentStore, notificationPreference: 'app'})}>
+                                <div className="flex items-center gap-2 font-bold"><Smartphone className="h-4 w-4 text-blue-600"/> التطبيق فقط</div>
+                                <RadioGroupItem value="app" id="p1" />
+                            </div>
+                            <div className={cn("flex items-center justify-between p-3 rounded-xl border-2 transition-all cursor-pointer", currentStore.notificationPreference === 'web' ? "bg-white border-blue-500 shadow-sm" : "border-transparent opacity-60")} onClick={()=>setCurrentStore({...currentStore, notificationPreference: 'web'})}>
+                                <div className="flex items-center gap-2 font-bold"><Laptop className="h-4 w-4 text-blue-600"/> المتصفح فقط</div>
+                                <RadioGroupItem value="web" id="p2" />
+                            </div>
+                            <div className={cn("flex items-center justify-between p-3 rounded-xl border-2 transition-all cursor-pointer", currentStore.notificationPreference === 'both' ? "bg-white border-blue-500 shadow-sm" : "border-transparent opacity-60")} onClick={()=>setCurrentStore({...currentStore, notificationPreference: 'both'})}>
+                                <div className="flex items-center gap-2 font-bold"><MonitorSmartphone className="h-4 w-4 text-blue-600"/> الاثنين معاً (تطبيق وويب)</div>
+                                <RadioGroupItem value="both" id="p3" />
+                            </div>
+                        </RadioGroup>
+                    </div>
+
+                    <div className="flex items-start gap-2 bg-white/60 p-3 rounded-xl border border-blue-50">
                         <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
                         <div className="text-right">
-                            <p className="text-[10px] text-blue-700 font-black">هام جداً: ضع هنا الـ Subscription ID الخاص بهاتف صاحب المطعم.</p>
-                            <p className="text-[9px] text-blue-500 font-bold mt-1 leading-relaxed">تجد هذا المعرف في لوحة ون سيجنال تحت (Audience -> Subscriptions) باسم ID لضمان وصول التنبيه له حصراً.</p>
+                            <p className="text-[9px] text-blue-800 font-bold leading-relaxed">تجد الـ Subscription ID في لوحة ون سيجنال تحت (Audience -> Subscriptions) باسم ID. تأكد من وضعه بدقة لضمان وصول الطلبات لصاحب المتجر.</p>
                         </div>
                     </div>
                 </div>
@@ -325,7 +375,11 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                             </div>
                         </TableCell>
                         <TableCell className="text-right">
-                            {store.oneSignalId ? <Badge className="bg-blue-100 text-blue-700 border-none font-black text-[9px] gap-1"><Bell className="h-3 w-3"/> مفعلة</Badge> : <Badge variant="outline" className="text-[9px] opacity-40">غير مفعلة</Badge>}
+                            <div className="flex items-center gap-1 justify-end">
+                                {store.oneSignalId && <Badge className="bg-blue-100 text-blue-700 border-none font-black text-[8px] h-5 px-2">App</Badge>}
+                                {store.oneSignalWebId && <Badge className="bg-indigo-100 text-indigo-700 border-none font-black text-[8px] h-5 px-2">Web</Badge>}
+                                {!store.oneSignalId && !store.oneSignalWebId && <span className="text-[9px] opacity-40">لا توجد</span>}
+                            </div>
                         </TableCell>
                         <TableCell>
                             <div className="flex justify-center gap-1">

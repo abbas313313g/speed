@@ -80,7 +80,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (e) {}
     }, []);
 
-    // جلب التذاكر الخاصة بهذا المستخدم حصراً لضمان بقائها وعدم اختفائها
     const { supportTickets, createSupportTicket: createTicketHook, addMessageToTicket: addMsgHook } = useSupportTickets(undefined, userId || undefined);
 
     const toggleDarkMode = useCallback(() => {
@@ -259,7 +258,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     latitude: rest.latitude || 0, 
                     longitude: rest.longitude || 0, 
                     commissionRate: rest.commissionRate || 10,
-                    oneSignalId: rest.oneSignalId || ''
+                    oneSignalId: rest.oneSignalId || '',
+                    oneSignalWebId: rest.oneSignalWebId || '',
+                    notificationPreference: rest.notificationPreference || 'app'
                 } : null,
                 branchId: rest?.branchId || 'main',
                 isPaid: false, 
@@ -277,11 +278,22 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 });
             }
 
-            if (rest?.oneSignalId) {
-                sendRestaurantOrderNotification(rest.oneSignalId, rest.name, nextNumber);
-            }
+            // إرسال الإشعارات بناءً على تفضيلات المتجر
+            if (rest) {
+                const targetIds: string[] = [];
+                const pref = rest.notificationPreference || 'app';
+                
+                if ((pref === 'app' || pref === 'both') && rest.oneSignalId) {
+                    targetIds.push(rest.oneSignalId);
+                }
+                if ((pref === 'web' || pref === 'both') && rest.oneSignalWebId) {
+                    targetIds.push(rest.oneSignalWebId);
+                }
 
-            if (rest?.id) {
+                if (targetIds.length > 0) {
+                    sendRestaurantOrderNotification(targetIds, rest.name, nextNumber);
+                }
+                
                 sendFcmNotification(rest.id, 'restaurants', 'طلب جديد وصل! 🍔', `لديك طلب جديد برقم #${nextNumber}`);
             }
 

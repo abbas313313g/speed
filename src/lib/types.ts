@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 
 export interface User {
@@ -73,7 +74,9 @@ export interface Restaurant {
   menuSections?: string[]; 
   isFeatured?: boolean;
   balanceAdjustment?: number;
-  oneSignalId?: string; // معرف ون سيجنال الخاص بصاحب المتجر
+  oneSignalId?: string; // معرف ون سيجنال الخاص بالتطبيق
+  oneSignalWebId?: string; // معرف ون سيجنال الخاص بالويب
+  notificationPreference?: 'app' | 'web' | 'both'; // وجهة استلام الإشعارات
 }
 
 export interface Branch {
@@ -137,7 +140,7 @@ export interface Order {
     isOrderPaidToOffice: boolean;
     branchId: string;
     confirmedAt?: string; 
-    isArchived?: boolean; // حقل جديد لتصفير التقارير
+    isArchived?: boolean; 
     appliedCoupon: {
       code: string;
       discountAmount: number;
@@ -149,6 +152,8 @@ export interface Order {
         longitude?: number | null;
         commissionRate?: number;
         oneSignalId?: string;
+        oneSignalWebId?: string;
+        notificationPreference?: 'app' | 'web' | 'both';
     } | null;
 }
 
