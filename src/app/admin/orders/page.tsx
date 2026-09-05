@@ -122,8 +122,8 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
         </div>
       </header>
 
-        <div className="bg-white rounded-[1.5rem] border shadow-xl overflow-hidden">
-            <Table>
+        <div className="bg-white rounded-[1.5rem] border shadow-xl overflow-x-auto">
+            <Table className="min-w-[1000px]">
                 <TableHeader className="bg-muted/50">
                 <TableRow>
                     <TableHead className="w-[40px]"><Checkbox checked={selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0} onCheckedChange={() => {}}/></TableHead>
