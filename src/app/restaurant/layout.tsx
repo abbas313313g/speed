@@ -10,12 +10,13 @@ import RestaurantHistoryPage from './history/page';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 import { useFcm } from '@/hooks/useFcm';
+import Script from 'next/script';
 
 function RestaurantLayoutContent() {
   const [activeTab, setActiveTabState] = useState(-1); 
   const context = useContext(RestaurantContext);
 
-  // تفعيل إشعارات جوجل للمطعم
+  // تفعيل إشعارات جوجل للمطعم (FCM)
   useFcm('restaurants', context?.restaurant?.id || null);
 
   useEffect(() => {
@@ -26,7 +27,7 @@ function RestaurantLayoutContent() {
     } else {
       setActiveTabState(0);
     }
-  }, [context?.restaurant, context?.isInitialCheckDone]);
+  }, [context?.restaurant, context?.isInitialCheckDone, activeTab]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -61,6 +62,22 @@ function RestaurantLayoutContent() {
 
   return (
     <div className={cn("flex h-screen w-full flex-col bg-card shadow-2xl relative overflow-hidden restaurant-active")} dir="rtl">
+        {/* OneSignal Web Push SDK - محصور في المتاجر فقط */}
+        <Script 
+            src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" 
+            strategy="afterInteractive"
+        />
+        <Script id="onesignal-init" strategy="afterInteractive">
+            {`
+                window.OneSignalDeferred = window.OneSignalDeferred || [];
+                OneSignalDeferred.push(async function(OneSignal) {
+                    await OneSignal.init({
+                        appId: "fbb7ab81-ec87-4f8c-aaa8-de12522e62b3",
+                    });
+                });
+            `}
+        </Script>
+
         <main className="flex-1 relative overflow-hidden">
             <div 
                 className="spa-stack-container" 

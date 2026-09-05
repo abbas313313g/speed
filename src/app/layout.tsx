@@ -41,17 +41,6 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
         <meta httpEquiv="Cache-Control" content="max-age=31536000, public" />
         
-        {/* OneSignal Web Push SDK */}
-        <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-        <script dangerouslySetInnerHTML={{ __html: `
-          window.OneSignalDeferred = window.OneSignalDeferred || [];
-          OneSignalDeferred.push(async function(OneSignal) {
-            await OneSignal.init({
-              appId: "fbb7ab81-ec87-4f8c-aaa8-de12522e62b3",
-            });
-          });
-        `}} />
-
         {/* سكربت حماية WebView: تجاهل الأخطاء ومنع انهيار التطبيق */}
         <script dangerouslySetInnerHTML={{ __html: `
           window.onerror = function() { return true; };
