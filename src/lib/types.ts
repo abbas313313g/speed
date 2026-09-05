@@ -137,6 +137,7 @@ export interface Order {
     isOrderPaidToOffice: boolean;
     branchId: string;
     confirmedAt?: string; 
+    isArchived?: boolean; // حقل جديد لتصفير التقارير
     appliedCoupon: {
       code: string;
       discountAmount: number;
