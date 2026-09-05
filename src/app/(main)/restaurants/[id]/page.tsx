@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useContext, useState, useEffect } from 'react';
@@ -24,14 +23,12 @@ export default function RestaurantProductsPage() {
   if (!context) return null;
   const { selectedRestaurantId, setActiveTab } = context;
 
-  // نظام تحميل "حصري" للمتجر المختار فقط قبل العرض
   const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 500);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === selectedRestaurantId), [selectedRestaurantId, restaurants]);
   
   const restaurantProducts = useMemo(() => {
       if (!selectedRestaurantId) return [];
-      // التأكد الصارم من أن المنتجات المعروضة تابعة لهذا المتجر فقط
       let list = products.filter(p => p.restaurantId === selectedRestaurantId && p.status === 'approved' && (p.isActive ?? true));
       
       if (activeSection !== 'all') {
@@ -44,7 +41,6 @@ export default function RestaurantProductsPage() {
       return list;
   }, [products, activeSection, selectedRestaurantId, searchTerm]);
   
-  // شرط الانتظار الصارم: لا نفتح الصفحة إلا إذا توفرت بيانات المتجر الصحيحة أو انتهى التحميل
   const isWaitingForData = !selectedRestaurantId || restaurantsLoading || (productsLoading && products.length === 0);
 
   if (isWaitingForData) {

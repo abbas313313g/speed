@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useContext } from 'react';
@@ -16,7 +15,6 @@ function RestaurantLayoutContent() {
   const [activeTab, setActiveTabState] = useState(-1); 
   const context = useContext(RestaurantContext);
 
-  // تفعيل إشعارات جوجل للمطعم (FCM)
   useFcm('restaurants', context?.restaurant?.id || null);
 
   useEffect(() => {
@@ -62,7 +60,6 @@ function RestaurantLayoutContent() {
 
   return (
     <div className={cn("flex h-screen w-full flex-col bg-card shadow-2xl relative overflow-hidden restaurant-active")} dir="rtl">
-        {/* OneSignal Web Push SDK - محصور في المتاجر فقط مع حماية النطاق */}
         <Script 
             src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" 
             strategy="afterInteractive"
@@ -72,13 +69,10 @@ function RestaurantLayoutContent() {
                 window.OneSignalDeferred = window.OneSignalDeferred || [];
                 OneSignalDeferred.push(async function(OneSignal) {
                     try {
-                        // الحماية: تفعيل الإشعارات فقط إذا كان النطاق الرسمي صحيحاً لمنع أخطاء الـ Dev Environment
                         if (window.location.hostname === 'speedshop1.com') {
                             await OneSignal.init({
                                 appId: "fbb7ab81-ec87-4f8c-aaa8-de12522e62b3",
                             });
-                        } else {
-                            console.warn("OneSignal Web Push: Initialization skipped on non-production domain.");
                         }
                     } catch (e) {
                         console.error("OneSignal Initialization Error:", e);
