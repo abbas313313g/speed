@@ -6,7 +6,7 @@ import { useRestaurants } from '@/hooks/useRestaurants';
 import { useOrders } from '@/hooks/useOrders';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import Image from 'next/image';
 import { Landmark, Loader2, Store, Wallet } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
