@@ -82,34 +82,32 @@ export const useProducts = (
             const ref = collection(db, 'products');
             let q;
 
-            // إذا كان هناك معرف متجر، نقوم بعمل استعلام موجه ومكثف له حصراً
             if (restaurantId && restaurantId !== 'none' && restaurantId !== '') {
                 q = query(
                     ref, 
                     where("restaurantId", "==", restaurantId),
-                    limit(isAdmin ? 500 : 200) // سعة أكبر للمسؤول عند دخول المتجر
+                    limit(loadLimit) 
                 );
             } else if (branchId && branchId !== 'all' && branchId !== 'main') {
                 q = query(
                     ref, 
                     where("branchId", "==", branchId),
-                    limit(isAdmin ? 300 : 150)
+                    limit(loadLimit)
                 );
             } else {
-                q = query(ref, limit(isAdmin ? 250 : 150));
+                q = query(ref, limit(loadLimit));
             }
 
             unsub = onSnapshot(q, (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
                 
                 let filteredData = data;
-                // الفلترة الإضافية للحالات الخاصة فقط
                 if (!isAdmin) {
                     filteredData = filteredData.filter(p => p.status === 'approved');
                 }
 
                 setProducts(filteredData);
-                setHasMore(data.length >= (isAdmin ? 250 : 150));
+                setHasMore(data.length >= loadLimit);
                 setIsLoading(false);
             }, (error) => {
                 console.error("Products Snapshot Error:", error);
@@ -121,7 +119,7 @@ export const useProducts = (
         }
 
         return () => unsub();
-    }, [branchId, restaurantId, isAdmin, productId]);
+    }, [branchId, restaurantId, isAdmin, productId, loadLimit]);
 
     const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
         try {

@@ -53,11 +53,8 @@ export default function MainAppLayout() {
 
   useEffect(() => {
     if (isMainDataReady) {
-        const timer = setTimeout(() => setShowSplash(false), 500);
-        return () => clearTimeout(timer);
+        setShowSplash(false);
     }
-    const fallbackTimer = setTimeout(() => setShowSplash(false), 3000);
-    return () => clearTimeout(fallbackTimer);
   }, [isMainDataReady]);
 
   useEffect(() => {
@@ -165,8 +162,7 @@ export default function MainAppLayout() {
                     <h1 className="text-4xl font-black text-white italic tracking-tighter leading-none">SHOP</h1>
                 </div>
                 <div className="mt-8 flex flex-col items-center gap-2">
-                    <p className="text-primary font-black text-[10px] tracking-widest uppercase">أسرع خدمة توصيل</p>
-                    <Loader2 className="h-4 w-4 animate-spin text-primary/40 mt-2" />
+                    <Loader2 className="h-6 w-6 animate-spin text-primary mt-2" />
                 </div>
             </div>
         )}

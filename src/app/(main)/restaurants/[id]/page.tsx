@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useMemo, useContext, useState, useEffect } from 'react';
+import { useMemo, useContext, useState, useEffect, useRef } from 'react';
 import { ProductCard } from '@/components/ProductCard';
 import Image from 'next/image';
 import { ArrowRight, Clock, Search, LayoutGrid, PackageOpen, Loader2 } from 'lucide-react';
@@ -20,11 +20,12 @@ export default function RestaurantProductsPage() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [activeSection, setActiveSection] = useState('all');
+  const [currentLimit, setCurrentLimit] = useState(12);
 
   if (!context) return null;
   const { selectedRestaurantId, setActiveTab } = context;
 
-  const { products, isLoading: productsLoading } = useProducts(undefined, selectedRestaurantId || undefined, 500);
+  const { products, isLoading: productsLoading, hasMore } = useProducts(undefined, selectedRestaurantId || undefined, currentLimit);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === selectedRestaurantId), [selectedRestaurantId, restaurants]);
   
@@ -42,19 +43,34 @@ export default function RestaurantProductsPage() {
       return list;
   }, [products, activeSection, selectedRestaurantId, searchTerm]);
   
-  const isWaitingForData = !selectedRestaurantId || restaurantsLoading || productsLoading;
+  const isWaitingForData = !selectedRestaurantId || restaurantsLoading || (products.length === 0 && productsLoading);
+
+  const observerTarget = useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !productsLoading) {
+          setCurrentLimit(prev => prev + 12);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, productsLoading]);
 
   if (isWaitingForData) {
     return (
         <div className="flex h-full w-full items-center justify-center bg-background">
-            <div className="p-12 rounded-[3.5rem] bg-primary/5 flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500">
-                <div className="relative h-24 w-24 flex items-center justify-center mb-6">
+            <div className="p-12 rounded-[3.5rem] flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300">
+                <div className="relative h-24 w-24 flex items-center justify-center">
                     <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
                     <Search className="h-10 w-10 text-primary animate-pulse" />
-                </div>
-                <div className="text-center space-y-1">
-                    <p className="text-primary font-black text-xs uppercase tracking-widest animate-pulse">جاري تحميل المنيو</p>
-                    <p className="text-muted-foreground font-bold text-[8px] opacity-40">Speed Engine v3.0</p>
                 </div>
             </div>
         </div>
@@ -129,13 +145,25 @@ export default function RestaurantProductsPage() {
         </div>
         
         {restaurantProducts.length > 0 ? (
-             <div className="grid grid-cols-2 gap-4">
-                {restaurantProducts.map((product) => (
-                    <div key={product.id} className="animate-in fade-in slide-in-from-bottom-2">
-                        <ProductCard product={product} />
-                    </div>
-                ))}
-             </div>
+             <>
+                <div className="grid grid-cols-2 gap-4">
+                    {restaurantProducts.map((product) => (
+                        <div key={product.id} className="animate-in fade-in slide-in-from-bottom-2">
+                            <ProductCard product={product} />
+                        </div>
+                    ))}
+                </div>
+                
+                <div ref={observerTarget} className="h-20 flex items-center justify-center w-full mt-4">
+                    {productsLoading ? (
+                         <div className="h-10 w-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                    ) : hasMore ? (
+                        <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
+                    ) : (
+                        <p className="text-[10px] font-black text-muted-foreground/40 italic">✨ نهاية المنيو ✨</p>
+                    )}
+                </div>
+             </>
         ) : (
             <div className="text-center py-20 bg-muted/10 rounded-[2.5rem] border-2 border-dashed">
                 <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/20 mb-2" />
