@@ -37,12 +37,15 @@ export default function MainAppLayout() {
   const [islocLoading, setIslocLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  
+  // نظام تتبع الصفحات التي تم زيارتها لضمان التحميل الكسول (Lazy Loading)
   const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([0]));
 
   if (!context) return null;
   const { activeTab, syncUserByPhone, isMainDataReady, addAddress } = context;
 
   useEffect(() => {
+    // إضافة التاب الحالي إلى القائمة المزارة لكي يتم رندرتها
     setVisitedTabs(prev => {
         if (prev.has(activeTab)) return prev;
         const next = new Set(prev);
@@ -136,7 +139,10 @@ export default function MainAppLayout() {
     <div className="flex flex-col h-full w-full overflow-hidden">
       <main className="flex-1 relative z-0 overflow-hidden">
         <div className="spa-stack-container" style={{ transform: `translateX(${activeTab * 100}%)` }}>
+          {/* الصفحة الرئيسية تتحمل دائماً */}
           <div className="spa-page-view"><HomePage /></div>
+          
+          {/* باقي الصفحات لا تُرندر إلا إذا زارها المستخدم لضمان سرعة الفتح */}
           <div className="spa-page-view">{visitedTabs.has(1) ? <RestaurantsPage /> : null}</div>
           <div className="spa-page-view">{visitedTabs.has(2) ? <ProductsPage /> : null}</div>
           <div className="spa-page-view">{visitedTabs.has(3) ? <CartPage /> : null}</div>
