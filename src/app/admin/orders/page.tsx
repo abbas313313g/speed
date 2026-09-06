@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -54,7 +55,6 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const { allOrders, isLoading, deleteOrder, updateOrderStatus } = useOrders(branchId);
   const { deliveryWorkers } = useDeliveryWorkers();
   
-  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [viewOrder, setViewOrder] = useState<Order | null>(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [orderToAssign, setOrderToAssign] = useState<string | null>(null);
@@ -75,13 +75,14 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const handleManualAssign = async (worker: DeliveryWorker) => {
       if (!orderToAssign) return;
       try {
+          // التعيين اليدوي يصبح مباشر بدون انتظار موافقة المندوب
           await updateDoc(doc(db, "orders", orderToAssign), {
               deliveryWorkerId: worker.id,
               deliveryWorker: { id: worker.id, name: worker.name },
-              status: 'confirmed', 
-              confirmedAt: new Date().toISOString()
+              status: 'preparing', 
+              confirmedAt: null
           });
-          toast({ title: `تم التعيين للكابتن ${worker.name}` });
+          toast({ title: `تم إسناد الطلب للكابتن ${worker.name} بنجاح ✅` });
           setAssignDialogOpen(false);
           setOrderToAssign(null);
       } catch (e) {
@@ -91,12 +92,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   
   const handleDelete = async (orderId: string) => {
       await deleteOrder(orderId);
-      setSelectedOrderIds(prev => prev.filter(id => id !== orderId));
   }
-
-  const toggleSelectOrder = (id: string) => {
-      setSelectedOrderIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-  };
 
   const getStatusText = (status: OrderStatus) => {
         switch (status) {
@@ -113,101 +109,64 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
     }
 
   return (
-    <div className="space-y-8 text-right">
-      <header className="flex justify-between items-start">
-        <div>
-            <h1 className="text-3xl font-black text-primary italic leading-none">إدارة الطلبات</h1>
-            <p className="text-muted-foreground font-bold text-xs mt-1">عرض كامل وشامل لكافة الفواتير والزبائن والمناديب.</p>
-        </div>
+    <div className="space-y-6 text-right">
+      <header>
+          <h1 className="text-2xl font-black text-primary italic">إدارة الطلبات</h1>
       </header>
 
-        <div className="bg-white rounded-[1.5rem] border shadow-xl overflow-x-auto">
-            <Table className="min-w-[1200px]">
-                <TableHeader className="bg-muted/50 h-16">
+        <div className="bg-white rounded-2xl border shadow-lg overflow-hidden">
+            <Table>
+                <TableHeader className="bg-muted/30 h-12">
                 <TableRow>
-                    <TableHead className="w-[50px]"><Checkbox checked={selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0} onCheckedChange={() => {}}/></TableHead>
-                    <TableHead className="font-black text-right">القائمة</TableHead>
-                    <TableHead className="font-black text-right">الزبون والهاتف</TableHead>
-                    <TableHead className="font-black text-right">المنطقة</TableHead>
+                    <TableHead className="font-black text-right w-[80px]">القائمة</TableHead>
                     <TableHead className="font-black text-right">المتجر</TableHead>
-                    <TableHead className="font-black text-right">المندوب</TableHead>
-                    <TableHead className="font-black text-right">الخصم</TableHead>
-                    <TableHead className="font-black text-right text-primary">الصافي</TableHead>
-                    <TableHead className="font-black text-right">الحالة</TableHead>
-                    <TableHead className="font-black text-center">إجراء</TableHead>
+                    <TableHead className="font-black text-center w-[100px]">الحالة</TableHead>
+                    <TableHead className="font-black text-center w-[60px]">أدوات</TableHead>
                 </TableRow>
                 </TableHeader>
                 <TableBody>
                 {filteredOrders.map((order) => (
-                    <TableRow key={order.id} className={cn("hover:bg-muted/30 transition-colors cursor-pointer h-20", selectedOrderIds.includes(order.id) && "bg-primary/5")} onClick={() => setViewOrder(order)}>
-                    <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedOrderIds.includes(order.id)} onCheckedChange={() => toggleSelectOrder(order.id)}/></TableCell>
-                    <TableCell className="font-bold">#{order.orderNumber}</TableCell>
-                    <TableCell>
-                        <div className="flex flex-col text-right">
-                            <span className="font-black text-slate-800 text-sm">{order.address.name}</span>
-                            <span className="text-[10px] font-mono font-bold text-muted-foreground" dir="ltr">{order.address.phone}</span>
-                        </div>
-                    </TableCell>
-                    <TableCell>
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 font-bold text-[10px] h-7 px-3">
-                            <MapPin className="h-3 w-3 ml-1"/> {order.address.deliveryZone}
-                        </Badge>
-                    </TableCell>
-                    <TableCell className="font-black text-slate-800 flex items-center gap-1 h-20 justify-end"><Store className="h-3.5 w-3.5 text-primary"/> {order.restaurant?.name}</TableCell>
-                    <TableCell className="text-right">
-                        {order.deliveryWorker ? (
-                            <div className="flex flex-col">
-                                <div className="flex items-center gap-1 justify-end font-black text-xs">
-                                    <span>{order.deliveryWorker.name}</span>
-                                    <Bike className="h-3 w-3 text-primary" />
-                                </div>
-                                {order.status === 'confirmed' && <span className="text-[8px] font-bold text-orange-500 animate-pulse">بانتظار موافقته...</span>}
-                            </div>
-                        ) : <span className="text-[9px] italic opacity-40">جارِ البحث...</span>}
-                    </TableCell>
-                    <TableCell className="text-right">
-                        {order.appliedCoupon ? (
-                            <Badge variant="outline" className="text-red-600 border-red-100 bg-red-50 gap-1 text-[9px] h-6">
-                                <Ticket className="h-2 w-2" /> {formatCurrency(order.appliedCoupon.discountAmount)}
+                    <TableRow key={order.id} className="hover:bg-primary/5 transition-colors cursor-pointer h-12" onClick={() => setViewOrder(order)}>
+                        <TableCell className="font-black text-xs">#{order.orderNumber}</TableCell>
+                        <TableCell className="font-black text-slate-700 text-xs truncate max-w-[120px]">
+                            {order.restaurant?.name}
+                        </TableCell>
+                        <TableCell className="text-center">
+                            <Badge className={cn("text-white font-black rounded-md text-[8px] px-2 h-5", 
+                                order.status === 'delivered' ? "bg-green-600" : 
+                                order.status === 'cancelled' ? "bg-red-600" : "bg-blue-500")}>
+                                {getStatusText(order.status)}
                             </Badge>
-                        ) : '-'}
-                    </TableCell>
-                    <TableCell className="font-black text-primary text-lg tracking-tighter">{formatCurrency(order.total)}</TableCell>
-                    <TableCell>
-                        <Badge className={cn("text-white font-black rounded-lg text-[9px] px-3 h-7", 
-                            order.status === 'delivered' ? "bg-green-600" : 
-                            order.status === 'cancelled' ? "bg-red-600" : "bg-blue-500")}>
-                            {getStatusText(order.status)}
-                        </Badge>
-                    </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-center items-center gap-1">
-                            <AlertDialog>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild><Button variant="ghost" className="h-9 w-9 p-0 rounded-xl hover:bg-slate-100"><MoreHorizontal className="h-5 w-5" /></Button></DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="rounded-xl font-bold min-w-[180px]">
-                                <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'pending_assignment')} className="gap-2 h-11"><RefreshCw className="h-4 w-4 text-blue-600"/> إعادة تدوير (بحث)</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'delivered')} className="gap-2 h-11"><CheckCircle className="h-4 w-4 text-green-600"/> تم التوصيل</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'cancelled')} className="gap-2 h-11"><X className="h-4 w-4 text-red-600"/> إلغاء الطلب</DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => { setOrderToAssign(order.id); setAssignDialogOpen(true); }} className="text-orange-600 gap-2 h-11"><UserCog className="h-4 w-4"/> تعيين يدوي</DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem className="text-destructive gap-2 h-11"><Trash2 className="h-4 w-4" /> حذف الفاتورة</DropdownMenuItem>
-                                </AlertDialogTrigger>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                            <AlertDialogContent className="rounded-[2.5rem]">
-                                <AlertDialogHeader><AlertDialogTitle className="text-right">حذف الطلب؟</AlertDialogTitle><AlertDialogDescription className="text-right">هل أنت متأكد من حذف الفاتورة #{order.orderNumber}؟ لا يمكن التراجع عن هذا الإجراء.</AlertDialogDescription></AlertDialogHeader>
-                                <AlertDialogFooter className="flex-row gap-2"><AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(order.id)} className="bg-destructive flex-1 rounded-xl">نعم، حذف</AlertDialogAction></AlertDialogFooter>
-                            </AlertDialogContent>
-                            </AlertDialog>
-                        </div>
-                    </TableCell>
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-center">
+                                <AlertDialog>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild><Button variant="ghost" className="h-7 w-7 p-0 rounded-lg hover:bg-slate-100"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="rounded-xl font-bold min-w-[180px]">
+                                    <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'pending_assignment')} className="gap-2 h-10"><RefreshCw className="h-4 w-4 text-blue-600"/> إعادة تدوير (بحث)</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'delivered')} className="gap-2 h-10"><CheckCircle className="h-4 w-4 text-green-600"/> تم التوصيل</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'cancelled')} className="gap-2 h-10"><X className="h-4 w-4 text-red-600"/> إلغاء الطلب</DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => { setOrderToAssign(order.id); setAssignDialogOpen(true); }} className="text-orange-600 gap-2 h-10"><UserCog className="h-4 w-4"/> تعيين مندوب فوراً</DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <AlertDialogTrigger asChild>
+                                        <DropdownMenuItem className="text-destructive gap-2 h-10"><Trash2 className="h-4 w-4" /> حذف الفاتورة</DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                <AlertDialogContent className="rounded-[2.5rem]">
+                                    <AlertDialogHeader><AlertDialogTitle className="text-right">حذف الطلب؟</AlertDialogTitle><AlertDialogDescription className="text-right">هل أنت متأكد من حذف الفاتورة #{order.orderNumber}؟ لا يمكن التراجع.</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogFooter className="flex-row gap-2"><AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(order.id)} className="bg-destructive flex-1 rounded-xl">نعم، حذف</AlertDialogAction></AlertDialogFooter>
+                                </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+                        </TableCell>
                     </TableRow>
                 ))}
                 </TableBody>
             </Table>
+            {filteredOrders.length === 0 && <div className="p-10 text-center text-muted-foreground font-bold italic text-xs">لا يوجد طلبات حالياً.</div>}
         </div>
 
         <Dialog open={!!viewOrder} onOpenChange={(v) => !v && setViewOrder(null)}>
@@ -230,7 +189,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                         <div className="p-6 space-y-6">
                             <div className="bg-slate-50 p-5 rounded-[2rem] border-2 border-dashed border-slate-200 space-y-4">
                                 <div className="flex items-center gap-3 justify-end text-primary font-black">
-                                    <span>بيانات الزبون</span>
+                                    <span>بيانات الزبون الكاملة</span>
                                     <User className="h-5 w-5"/>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4 text-right">
@@ -261,10 +220,10 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                             </div>
 
                             <div className="space-y-4">
-                                <h3 className="font-black text-lg text-slate-800 border-r-4 border-primary pr-3">قائمة الطلبات:</h3>
+                                <h3 className="font-black text-lg text-slate-800 border-r-4 border-primary pr-3">قائمة الوجبات المطلوبة:</h3>
                                 <div className="space-y-2">
                                     {viewOrder.items.map((item, idx) => (
-                                        <div key={idx} className="flex justify-between items-center p-4 bg-muted/10 rounded-2xl border border-dashed hover:bg-muted/20 transition-colors">
+                                        <div key={idx} className="flex justify-between items-center p-4 bg-muted/10 rounded-2xl border border-dashed">
                                             <span className="font-black text-primary text-lg">{formatCurrency((item.selectedSize?.price || item.product.price || 0) * item.quantity)}</span>
                                             <div className="text-right">
                                                 <p className="font-black text-sm">{item.product.name} <span className="text-primary mx-1">x{item.quantity}</span></p>
@@ -300,12 +259,11 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
             </DialogContent>
         </Dialog>
 
-        {/* نافذة التعيين اليدوي */}
         <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
             <DialogContent className="sm:max-w-md rounded-[2.5rem]">
-                <DialogHeader><DialogTitle className="text-2xl font-black text-right">تعيين مندوب يدوياً</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle className="text-2xl font-black text-right">إسناد الطلب فوراً</DialogTitle></DialogHeader>
                 <div className="py-4 space-y-3">
-                    <p className="text-xs font-bold text-muted-foreground text-right mb-4">اختر أحد المناديب المتصلين حالياً لإسناد المهمة له فوراً.</p>
+                    <p className="text-xs font-bold text-muted-foreground text-right mb-4">عند اختيار المندوب، سيتم تعيين الطلب له مباشرة دون الحاجة لموافقته.</p>
                     <ScrollArea className="h-[300px] pr-2">
                         <div className="space-y-2">
                             {deliveryWorkers.filter(w => w.isOnline && w.isActive !== false).map(worker => (
@@ -322,7 +280,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                                 </button>
                             ))}
                             {deliveryWorkers.filter(w => w.isOnline && w.isActive !== false).length === 0 && (
-                                <div className="text-center py-10 opacity-40 font-bold italic">لا يوجد مناديب متاحين حالياً.</div>
+                                <div className="text-center py-10 opacity-40 font-bold italic text-xs">لا يوجد مناديب متاحين الآن.</div>
                             )}
                         </div>
                     </ScrollArea>
