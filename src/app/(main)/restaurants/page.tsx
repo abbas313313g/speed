@@ -7,15 +7,17 @@ import { useRestaurants } from '@/hooks/useRestaurants';
 import { useCategories } from '@/hooks/useCategories';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
-import { Search, Store } from 'lucide-react';
+import { Search, Store, Loader2 } from 'lucide-react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 export default function RestaurantsPage() {
-  const { restaurants } = useRestaurants();
-  const { categories } = useCategories();
+  const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
+  const { categories, isLoading: categoriesLoading } = useCategories();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+
+  const isLoading = restaurantsLoading || categoriesLoading;
 
   const filteredRestaurants = useMemo(() => {
       let list = restaurants;
@@ -30,6 +32,19 @@ export default function RestaurantsPage() {
       
       return list;
   }, [restaurants, activeTab, searchTerm]);
+
+  if (isLoading) {
+    return (
+        <div className="flex h-full w-full items-center justify-center bg-background py-40">
+            <div className="p-12 rounded-[3.5rem] flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300">
+                <div className="relative h-24 w-24 flex items-center justify-center">
+                    <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                    <Search className="h-10 w-10 text-primary animate-pulse" />
+                </div>
+            </div>
+        </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-6 pb-40">
