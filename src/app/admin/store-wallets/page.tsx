@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo } from 'react';
@@ -29,6 +30,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
         );
 
         const income = myUnpaidOrders.reduce((acc, order) => {
+            // نستخدم السعر الأصلي للوجبات لضمان استلام المتجر حقه كاملاً بدون تأثير خصومات الشركة
             const itemsPrice = order.items.reduce((sum, i) => {
                 const basePrice = i.selectedSize?.price ?? i.product.price ?? 0;
                 return sum + (basePrice * i.quantity);

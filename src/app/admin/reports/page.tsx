@@ -56,14 +56,30 @@ export default function AdminReportsPage({ branchId }: { branchId: string }) {
         const myOrders = branchOrders.filter(o => o.restaurant?.id === r.id);
         const sales = myOrders.reduce((acc, o) => {
             return acc + o.items.reduce((sum, i) => {
-                const price = i.selectedSize?.price || i.product.discountPrice || i.product.price || 0;
+                // نستخدم السعر الأصلي دائماً لحساب مستحقات المتجر ومبيعاته الكلية
+                const price = i.selectedSize?.price || i.product.price || 0;
                 return sum + (price * i.quantity);
             }, 0);
         }, 0);
-        const earnings = (sales * (r.commissionRate || 10)) / 100;
+
+        // حساب قيمة الخصم العام الذي تحملته الشركة لهذا المتجر
+        const discountCost = myOrders.reduce((acc, o) => {
+            const originalItemsTotal = o.items.reduce((sum, i) => sum + ((i.selectedSize?.price || i.product.price || 0) * i.quantity), 0);
+            const customerItemsTotal = o.items.reduce((sum, i) => {
+                const rest = restaurants.find(res => res.id === i.product.restaurantId);
+                const gDisc = rest?.discountPercentage || 0;
+                const getAdj = (p: number) => gDisc > 0 ? p * (1 - gDisc/100) : p;
+                const p = i.selectedSize ? getAdj(i.selectedSize.price) : (i.product.discountPrice || getAdj(i.product.price));
+                return sum + (p * i.quantity);
+            }, 0);
+            return acc + (originalItemsTotal - customerItemsTotal);
+        }, 0);
+
+        const commission = (sales * (r.commissionRate || 10)) / 100;
         
         totalSales += sales;
-        companyEarnings += earnings;
+        companyEarnings += (commission - discountCost);
+        totalDiscounts += discountCost;
 
         return {
             id: r.id,
@@ -71,14 +87,14 @@ export default function AdminReportsPage({ branchId }: { branchId: string }) {
             image: r.image,
             commissionRate: r.commissionRate,
             sales,
-            earnings
+            earnings: commission - discountCost
         };
     });
 
     return {
         totalSales,
         companyEarnings,
-        storePayouts: totalSales - companyEarnings,
+        storePayouts: totalSales - (totalSales * 0.1), // تبسيط للعرض فقط
         totalDiscounts,
         stores: storeStats
     };
@@ -87,16 +103,16 @@ export default function AdminReportsPage({ branchId }: { branchId: string }) {
   const handleExportCSV = () => {
     if (reportData.stores.length === 0) return;
 
-    const headers = ["المتجر", "نسبة العمولة", "إجمالي مبيعات الوجبات", "ربح النظام (العمولة)", "مستحقات المتجر الصافية"];
+    const headers = ["المتجر", "نسبة العمولة", "إجمالي مبيعات الوجبات (الأصلي)", "صافي ربح النظام", "مستحقات المتجر"];
     const rows = reportData.stores.map(s => [
         s.name,
         `${s.commissionRate}%`,
         s.sales,
         s.earnings,
-        s.sales - s.earnings
+        s.sales - ((s.sales * s.commissionRate) / 100)
     ]);
 
-    let csvContent = "\uFEFF"; // UTF-8 BOM for Arabic support in Excel
+    let csvContent = "\uFEFF"; 
     csvContent += headers.join(",") + "\n";
     rows.forEach(row => {
         csvContent += row.join(",") + "\n";
@@ -117,7 +133,6 @@ export default function AdminReportsPage({ branchId }: { branchId: string }) {
       setIsResetting(true);
       try {
           const batch = writeBatch(db);
-          // جلب كافة الطلبات الحالية لهذا الفرع التي تم تسليمها وغير مؤرشفة
           const ordersToArchive = allOrders.filter(o => 
               o.branchId === branchId && 
               o.status === 'delivered' && 
@@ -149,8 +164,8 @@ export default function AdminReportsPage({ branchId }: { branchId: string }) {
     <div className="space-y-8 text-right animate-in fade-in duration-500">
       <header className="flex justify-between items-start">
         <div>
-            <h1 className="text-3xl font-black text-primary italic">كشف العمولات (الوجبات فقط)</h1>
-            <p className="text-muted-foreground font-bold">هذا الكشف لا يشمل أجور التوصيل لضمان دقة صافي أرباح المتاجر.</p>
+            <h1 className="text-3xl font-black text-primary italic">كشف العمولات والأرباح</h1>
+            <p className="text-muted-foreground font-bold">الشركة تتحمل تكاليف الخصومات والمتاجر تستلم مبالغها كاملة.</p>
         </div>
         <div className="flex gap-2">
             <Button variant="outline" className="rounded-xl font-black gap-2 h-12" onClick={handleExportCSV}>
@@ -168,7 +183,7 @@ export default function AdminReportsPage({ branchId }: { branchId: string }) {
                     <AlertDialogHeader>
                         <AlertDialogTitle className="text-right font-black">تصفير سجلات الفرع؟</AlertDialogTitle>
                         <AlertDialogDescription className="text-right font-bold text-muted-foreground">
-                            سيتم نقل كافة إحصائيات المبيعات الحالية إلى الأرشيف لتبدأ التقارير من الصفر. هذا الإجراء لا يحذف الطلبات بل يخفيها من هذا التقرير فقط.
+                            سيتم أرشفة مبيعات اليوم للبدء من الصفر. هذا لا يحذف الطلبات بل يخفيها من هذا التقرير فقط.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="flex-row gap-3">
@@ -182,33 +197,33 @@ export default function AdminReportsPage({ branchId }: { branchId: string }) {
 
       <div className="grid gap-4 md:grid-cols-4">
           <Card className="rounded-[1.5rem] border-none shadow-xl bg-slate-900 text-white p-6">
-              <div className="text-[10px] font-black text-primary uppercase mb-2">إجمالي مبيعات الوجبات</div>
+              <div className="text-[10px] font-black text-primary uppercase mb-2">إجمالي مبيعات الوجبات (بالأصل)</div>
               <div className="text-2xl font-black">{formatCurrency(reportData.totalSales)}</div>
           </Card>
           <Card className="rounded-[1.5rem] border-none shadow-xl bg-primary text-white p-6">
-              <div className="text-[10px] font-black text-white/70 uppercase mb-2">صافي عمولات النظام</div>
+              <div className="text-[10px] font-black text-white/70 uppercase mb-2">صافي أرباح الشركة</div>
               <div className="text-2xl font-black">{formatCurrency(reportData.companyEarnings)}</div>
           </Card>
           <Card className="rounded-[1.5rem] border-none shadow-xl bg-white p-6 border-r-4 border-r-orange-500">
-              <div className="text-[10px] font-black text-muted-foreground uppercase mb-2">مستحقات المتاجر</div>
-              <div className="text-2xl font-black text-slate-800">{formatCurrency(reportData.storePayouts)}</div>
+              <div className="text-[10px] font-black text-muted-foreground uppercase mb-2">مستحقات المتاجر (بدون نقص)</div>
+              <div className="text-2xl font-black text-slate-800">{formatCurrency(reportData.totalSales - (reportData.totalSales * 0.1))}</div>
           </Card>
           <Card className="rounded-[1.5rem] border-none shadow-xl bg-white p-6 border-r-4 border-r-red-500">
-              <div className="text-[10px] font-black text-muted-foreground uppercase mb-2 flex items-center gap-1 justify-end">مبالغ الخصومات الممنوحة <Ticket className="h-3 w-3 text-red-500"/></div>
+              <div className="text-[10px] font-black text-muted-foreground uppercase mb-2 flex items-center gap-1 justify-end">تكلفة الخصومات (على عاتقنا) <Ticket className="h-3 w-3 text-red-500"/></div>
               <div className="text-2xl font-black text-red-600">{formatCurrency(reportData.totalDiscounts)}</div>
           </Card>
       </div>
 
       <section className="space-y-4">
-          <h2 className="text-xl font-black flex items-center gap-2 px-1 justify-end">أداء المتاجر المالي <Building2 className="text-primary h-5 w-5"/></h2>
+          <h2 className="text-xl font-black flex items-center gap-2 px-1 justify-end">تفاصيل مبيعات المتاجر <Building2 className="text-primary h-5 w-5"/></h2>
           <Card className="rounded-[2rem] border-none shadow-xl overflow-hidden bg-white">
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
                             <TableHead className="font-black text-right">المتجر</TableHead>
                             <TableHead className="font-black text-center">العمولة</TableHead>
-                            <TableHead className="font-black text-center">صافي المبيعات</TableHead>
-                            <TableHead className="font-black text-center text-primary">ربح النظام</TableHead>
+                            <TableHead className="font-black text-center">المبيعات الأصلية</TableHead>
+                            <TableHead className="font-black text-center text-primary">صافي ربح الشركة</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
