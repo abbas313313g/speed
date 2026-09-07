@@ -5,7 +5,7 @@ import { useState, useMemo, useContext } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Minus, Plus, Trash2, Home, Loader2, MapPin, AlertCircle, ReceiptText, Ticket, Store, CheckCircle2, ClipboardList } from "lucide-react";
+import { ShoppingBag, Minus, Plus, Trash2, Home, Loader2, MapPin, AlertCircle, ReceiptText, Ticket, Store, CheckCircle2, ClipboardList, Percent } from "lucide-react";
 import { formatCurrency, calculateDistance, calculateDeliveryFee, cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -183,12 +183,17 @@ export default function CartPage() {
   return (
     <div className="p-4 space-y-6 pb-40">
       <header className="flex justify-between items-start">
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 text-right">
             <h1 className="text-3xl font-black text-primary">سلة التسوق</h1>
             {cartRestaurant && (
-                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                    <Store className="h-4 w-4" />
+                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 justify-end">
+                    {cartRestaurant.discountPercentage && cartRestaurant.discountPercentage > 0 && (
+                        <Badge className="bg-primary/10 text-primary border-none gap-1 font-black text-[9px]">
+                            <Percent className="h-2.5 w-2.5"/> خصم {cartRestaurant.discountPercentage}% مطبق
+                        </Badge>
+                    )}
                     <span className="font-bold">{cartRestaurant.name}</span>
+                    <Store className="h-4 w-4" />
                 </div>
             )}
         </div>
@@ -199,17 +204,20 @@ export default function CartPage() {
 
       <div className="space-y-3">
         {cart.map(({ product, quantity, selectedSize }) => {
-          const itemPrice = selectedSize?.price || product.discountPrice || product.price || 0;
+          const globalDiscount = cartRestaurant?.discountPercentage || 0;
+          const getPrice = (p: number) => globalDiscount > 0 ? p * (1 - globalDiscount/100) : p;
+          const itemPrice = selectedSize ? getPrice(selectedSize.price) : (product.discountPrice || getPrice(product.price));
+          
           return (
-            <div key={product.id + (selectedSize?.name || '')} className="flex items-center gap-4 bg-white dark:bg-slate-900 p-3 rounded-2xl border dark:border-slate-800 shadow-sm">
+            <div key={product.id + (selectedSize?.name || '')} className="flex items-center gap-4 bg-white dark:bg-slate-900 p-3 rounded-2xl border dark:border-slate-800 shadow-sm flex-row-reverse">
               <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted/20">
                 <Image src={product.image || 'https://placehold.co/80x80.png'} alt={product.name} fill className="object-cover" unoptimized={true} />
               </div>
-              <div className="flex-grow min-w-0 py-1">
+              <div className="flex-grow min-w-0 py-1 text-right">
                 <h3 className="font-black text-sm text-slate-800 dark:text-white line-clamp-1">{product.name}</h3>
                 {selectedSize && <Badge variant="secondary" className="text-[9px] font-black h-5 px-2 mt-1">{selectedSize.name}</Badge>}
                 <p className="text-primary font-black text-lg mt-1 tracking-tighter">{formatCurrency(itemPrice)}</p>
-                <div className="flex items-center gap-3 mt-2">
+                <div className="flex items-center gap-3 mt-2 justify-end">
                   <div className="flex items-center gap-4 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
                     <button className="h-8 w-8 rounded-lg bg-white dark:bg-slate-700 flex items-center justify-center shadow-sm" onClick={() => updateCartQuantity(product.id, quantity - 1, selectedSize?.name)}><Minus className="h-4 w-4" /></button>
                     <span className="font-black text-lg w-4 text-center">{quantity}</span>
@@ -224,18 +232,18 @@ export default function CartPage() {
       </div>
       
        <div className="space-y-4">
-          <h2 className="text-lg font-black flex items-center gap-2 px-1 text-slate-800 dark:text-white"><MapPin className="h-5 w-5 text-primary"/> موقع التوصيل</h2>
+          <h2 className="text-lg font-black flex items-center gap-2 px-1 text-slate-800 dark:text-white justify-end">موقع التوصيل <MapPin className="h-5 w-5 text-primary"/></h2>
           {addresses.length > 0 ? (
              <Select value={selectedAddressId} onValueChange={setSelectedAddressId}>
-                <SelectTrigger className="w-full h-14 rounded-2xl border-2 dark:border-slate-800 font-bold bg-white dark:bg-slate-900">
+                <SelectTrigger className="w-full h-14 rounded-2xl border-2 dark:border-slate-800 font-bold bg-white dark:bg-slate-900 text-right" dir="rtl">
                     <SelectValue placeholder="اختر العنوان..." />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl">
                     {addresses.map(address => (
-                        <SelectItem key={address.id} value={address.id} className="font-bold py-3">
-                            <div className="flex items-center gap-2">
-                                <div className="p-2 bg-primary/10 rounded-lg"><Home className="h-4 w-4 text-primary"/></div>
+                        <SelectItem key={address.id} value={address.id} className="font-bold py-3 text-right" dir="rtl">
+                            <div className="flex items-center gap-2 justify-end">
                                 <span>{address.name}</span>
+                                <div className="p-2 bg-primary/10 rounded-lg"><Home className="h-4 w-4 text-primary"/></div>
                             </div>
                         </SelectItem>
                     ))}
@@ -249,39 +257,42 @@ export default function CartPage() {
           )}
        </div>
 
-      <div className="space-y-6 bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden">
-        <h2 className="text-xl font-black flex items-center gap-2 text-slate-800 dark:text-white"><ReceiptText className="h-6 w-6 text-primary"/> ملخص الحساب</h2>
+      <div className="space-y-6 bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden text-right">
+        <h2 className="text-xl font-black flex items-center gap-2 text-slate-800 dark:text-white justify-end">ملخص الحساب <ReceiptText className="h-6 w-6 text-primary"/></h2>
         
         <div className="space-y-4 font-bold text-sm">
             <div className="flex justify-between items-center text-slate-500 dark:text-slate-400">
-                <span>مجموع الوجبات:</span>
                 <span className="text-slate-800 dark:text-white font-black">{formatCurrency(cartTotal)}</span>
+                <span>مجموع الوجبات:</span>
             </div>
             <div className="flex justify-between items-center text-slate-500 dark:text-slate-400">
+                <span className={cn("text-slate-800 dark:text-white font-black", isDistanceTooFar && "text-destructive")}>{formatCurrency(deliveryFee)}</span>
                 <div className="flex flex-col text-right">
                     <span>أجور التوصيل:</span>
                     {displayDistance && <span className="text-[10px] text-primary font-black">يبعد {displayDistance}</span>}
                 </div>
-                <span className={cn("text-slate-800 dark:text-white font-black", isDistanceTooFar && "text-destructive")}>{formatCurrency(deliveryFee)}</span>
             </div>
 
             {appliedCoupon && (
                 <div className="flex justify-between items-center text-green-600">
-                    <span>خصم الكود ({appliedCoupon.code}):</span>
                     <span className="font-black">-{formatCurrency(discountAmount)}</span>
+                    <span>خصم الكود ({appliedCoupon.code}):</span>
                 </div>
             )}
             
             <Separator className="my-2 border-dashed" />
             
             <div className="flex justify-between items-end pt-2">
-                <span className="text-lg font-black">المجموع الكلي:</span>
                 <span className="text-4xl font-black text-primary tracking-tighter">{formatCurrency(finalTotalAmount)}</span>
+                <span className="text-lg font-black">المجموع الكلي:</span>
             </div>
         </div>
 
         <div className="pt-2">
              <div className="flex gap-2">
+                <Button onClick={handleApplyCoupon} disabled={isCheckingCoupon || !couponCode.trim() || appliedCoupon} className="h-14 px-6 rounded-2xl font-black">
+                    {isCheckingCoupon ? <Loader2 className="h-5 w-5 animate-spin" /> : appliedCoupon ? "تم ✅" : "تطبيق"}
+                </Button>
                 <div className="relative flex-1">
                     <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
@@ -294,9 +305,6 @@ export default function CartPage() {
                         className="h-14 rounded-2xl text-center font-black bg-slate-50 dark:bg-slate-800 border-2"
                     />
                 </div>
-                <Button onClick={handleApplyCoupon} disabled={isCheckingCoupon || !couponCode.trim() || appliedCoupon} className="h-14 px-6 rounded-2xl font-black">
-                    {isCheckingCoupon ? <Loader2 className="h-5 w-5 animate-spin" /> : appliedCoupon ? "تم ✅" : "تطبيق"}
-                </Button>
              </div>
         </div>
       </div>

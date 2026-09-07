@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect, useContext } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
-import { Minus, Plus, ShoppingCart, ArrowRight, Store, Maximize2, X } from 'lucide-react';
+import { Minus, Plus, ShoppingCart, ArrowRight, Store, Maximize2, X, Percent } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
@@ -47,18 +47,25 @@ export default function ProductDetailPage() {
 
   const hasSizes = activeSizes.length > 0;
 
+  // دالة حساب السعر المعدل مع الخصم العام
+  const getAdjustedPrice = (price: number) => {
+    const globalDiscount = restaurant?.discountPercentage || 0;
+    if (globalDiscount > 0) return price * (1 - globalDiscount / 100);
+    return price;
+  };
+
   const priceDisplay = useMemo(() => {
-    if (selectedSize) return formatCurrency(selectedSize.price);
+    if (selectedSize) return formatCurrency(getAdjustedPrice(selectedSize.price));
     if (hasSizes) {
-      const prices = activeSizes.map(s => s.price);
+      const prices = activeSizes.map(s => getAdjustedPrice(s.price));
       const min = Math.min(...prices);
       const max = Math.max(...prices);
       if (min === max) return formatCurrency(min);
       return `${formatCurrency(min)} - ${formatCurrency(max)}`;
     }
-    const basePrice = product?.discountPrice || product?.price || 0;
+    const basePrice = product?.discountPrice || getAdjustedPrice(product?.price || 0);
     return formatCurrency(basePrice);
-  }, [selectedSize, product, hasSizes, activeSizes]);
+  }, [selectedSize, product, hasSizes, activeSizes, restaurant]);
 
   const cartCount = useMemo(() => cart.reduce((acc, item) => acc + item.quantity, 0), [cart]);
 
@@ -153,7 +160,10 @@ export default function ProductDetailPage() {
       }
   };
 
+  const globalDiscount = restaurant?.discountPercentage || 0;
+  const hasGlobalDiscount = globalDiscount > 0;
   const hasIndividualDiscount = !!product.discountPrice && !hasSizes;
+  const showOriginalPrice = hasGlobalDiscount || hasIndividualDiscount;
   
   const imageUrl = imgError 
     ? 'https://placehold.co/600x600/00b358/white?text=Speed+Shop' 
@@ -253,12 +263,19 @@ export default function ProductDetailPage() {
                         <div className="space-y-1">
                             <h1 className="text-2xl font-black text-slate-800 dark:text-white leading-tight">{product.name}</h1>
                             {restaurant && (
-                                <button onClick={handleVisitStore} className="flex items-center gap-2 text-primary group active:scale-95 transition-all mt-1 justify-end">
-                                    <span className="text-xs font-black border-b border-primary/20">زيارة المتجر: {restaurant.name}</span>
-                                    <div className="p-1.5 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-                                        <Store className="h-3.5 w-3.5" />
-                                    </div>
-                                </button>
+                                <div className="flex flex-col items-end gap-1 mt-1">
+                                    <button onClick={handleVisitStore} className="flex items-center gap-2 text-primary group active:scale-95 transition-all justify-end">
+                                        <span className="text-xs font-black border-b border-primary/20">زيارة المتجر: {restaurant.name}</span>
+                                        <div className="p-1.5 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                                            <Store className="h-3.5 w-3.5" />
+                                        </div>
+                                    </button>
+                                    {hasGlobalDiscount && (
+                                        <Badge className="bg-primary/10 text-primary border-none gap-1 font-black text-[9px] h-6">
+                                            <Percent className="h-3 w-3"/> خصم حصري من المتجر {globalDiscount}%
+                                        </Badge>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </div>
@@ -272,7 +289,11 @@ export default function ProductDetailPage() {
                     <div className="space-y-1 text-right">
                         <span className="text-[10px] font-black text-muted-foreground uppercase">السعر الحالي</span>
                         <div className="flex items-center gap-3 justify-end">
-                             {hasIndividualDiscount && <p className="text-base font-bold text-muted-foreground line-through decoration-destructive/40">{formatCurrency(product.price)}</p>}
+                             {showOriginalPrice && (
+                                 <p className="text-base font-bold text-muted-foreground line-through decoration-destructive/40">
+                                     {formatCurrency(selectedSize ? selectedSize.price : product.price)}
+                                 </p>
+                             )}
                              <p className={cn("font-black text-primary tracking-tighter", hasSizes && !selectedSize ? "text-xl" : "text-3xl")}>
                                 {priceDisplay}
                              </p>
@@ -302,7 +323,10 @@ export default function ProductDetailPage() {
                             )}
                         >
                             <span className="font-black text-sm">{size.name}</span>
-                            <span className="font-black text-xs opacity-80">{formatCurrency(size.price)}</span>
+                            <div className="flex flex-col items-center">
+                                {hasGlobalDiscount && <span className="text-[8px] text-muted-foreground line-through opacity-60">{formatCurrency(size.price)}</span>}
+                                <span className="font-black text-xs opacity-80">{formatCurrency(getAdjustedPrice(size.price))}</span>
+                            </div>
                         </button>
                       ))}
                     </div>

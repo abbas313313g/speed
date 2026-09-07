@@ -35,7 +35,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Edit, Trash2, Loader2, MapPin, Upload, Clock, Power, PowerOff, Plus, X, Bell, Info, Laptop, Smartphone, MonitorSmartphone } from 'lucide-react';
+import { Edit, Trash2, Loader2, MapPin, Upload, Clock, Power, PowerOff, Plus, X, Bell, Info, Laptop, Smartphone, MonitorSmartphone, Percent } from 'lucide-react';
 import type { Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
@@ -56,6 +56,7 @@ const EMPTY_STORE: Omit<Restaurant, 'id'> & {image: string} = {
     closeTime: '23:00',
     loginCode: '',
     commissionRate: 10,
+    discountPercentage: 0,
     branchId: 'main',
     categoryId: '',
     menuSections: [],
@@ -84,7 +85,8 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
           setCurrentStore({ 
               ...store, 
               menuSections: store.menuSections || [],
-              notificationPreference: store.notificationPreference || 'app'
+              notificationPreference: store.notificationPreference || 'app',
+              discountPercentage: store.discountPercentage || 0
           });
       } else {
           setIsEditing(false);
@@ -212,6 +214,18 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                     </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                        <Label className="font-bold flex items-center gap-1 justify-end"><Percent className="h-3.5 w-3.5 text-primary"/> نسبة الخصم العامة (%)</Label>
+                        <Input type="number" placeholder="مثال: 10" value={currentStore.discountPercentage || ''} onChange={(e) => setCurrentStore({ ...currentStore, discountPercentage: parseFloat(e.target.value) || 0 })} className="rounded-xl h-12 text-center font-black text-primary" />
+                        <p className="text-[9px] font-bold text-muted-foreground">تطبق تلقائياً على كافة وجبات المتجر.</p>
+                    </div>
+                    <div className="space-y-1">
+                        <Label className="font-bold">العمولة %</Label>
+                        <Input type="number" value={currentStore.commissionRate || ''} onChange={(e) => setCurrentStore({ ...currentStore, commissionRate: parseInt(e.target.value) || 10 })} className="rounded-xl h-12 text-center" />
+                    </div>
+                </div>
+
                 <div className="bg-blue-50 p-6 rounded-[2rem] border-2 border-dashed border-blue-200 space-y-6 shadow-inner">
                     <div className="flex items-center justify-between">
                         <Badge className="bg-blue-600 text-white gap-1 font-black"><Bell className="h-3 w-3"/> نظام إشعارات المتاجر</Badge>
@@ -327,7 +341,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                     )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                         <Label className="font-bold">الرمز السري</Label>
                         <Input value={currentStore.loginCode ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, loginCode: e.target.value })} className="rounded-xl h-11 text-center font-black" dir="ltr" />
@@ -335,10 +349,6 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                     <div className="space-y-1">
                         <Label className="font-bold">رقم المتجر</Label>
                         <Input value={currentStore.restaurantNumber ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, restaurantNumber: e.target.value })} className="rounded-xl h-11 text-center" dir="ltr" />
-                    </div>
-                    <div className="space-y-1">
-                        <Label className="font-bold">العمولة %</Label>
-                        <Input type="number" value={currentStore.commissionRate || ''} onChange={(e) => setCurrentStore({ ...currentStore, commissionRate: parseInt(e.target.value) })} className="rounded-xl h-11 text-center" />
                     </div>
                 </div>
             </div>
@@ -356,7 +366,7 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                 <TableRow>
                     <TableHead className="font-black text-right">الحالة</TableHead>
                     <TableHead className="font-black text-right">الاسم</TableHead>
-                    <TableHead className="font-black text-right">إشعارات</TableHead>
+                    <TableHead className="font-black text-right">الخصم</TableHead>
                     <TableHead className="font-black text-center">إجراءات</TableHead>
                 </TableRow>
             </TableHeader>
@@ -375,11 +385,9 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
                             </div>
                         </TableCell>
                         <TableCell className="text-right">
-                            <div className="flex items-center gap-1 justify-end">
-                                {store.oneSignalId && <Badge className="bg-blue-100 text-blue-700 border-none font-black text-[8px] h-5 px-2">App</Badge>}
-                                {store.oneSignalWebId && <Badge className="bg-indigo-100 text-indigo-700 border-none font-black text-[8px] h-5 px-2">Web</Badge>}
-                                {!store.oneSignalId && !store.oneSignalWebId && <span className="text-[9px] opacity-40">لا توجد</span>}
-                            </div>
+                            {store.discountPercentage ? (
+                                <Badge className="bg-primary/10 text-primary border-none font-black">-{store.discountPercentage}%</Badge>
+                            ) : '-'}
                         </TableCell>
                         <TableCell>
                             <div className="flex justify-center gap-1">

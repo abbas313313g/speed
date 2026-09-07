@@ -69,6 +69,7 @@ export interface Restaurant {
   isManualClosed?: boolean; 
   loginCode: string;
   commissionRate: number;
+  discountPercentage?: number; // حقل نسبة الخصم العامة للمتجر
   branchId: string;
   categoryId: string; 
   menuSections?: string[]; 
@@ -151,6 +152,7 @@ export interface Order {
         latitude?: number | null;
         longitude?: number | null;
         commissionRate?: number;
+        discountPercentage?: number;
         oneSignalId?: string;
         oneSignalWebId?: string;
         notificationPreference?: 'app' | 'web' | 'both';

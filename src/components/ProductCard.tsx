@@ -32,11 +32,35 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const hasSizes = activeSizes.length > 0;
 
+  // محرك حساب السعر النهائي مع مراعاة خصم المتجر العام
+  const finalPrices = useMemo(() => {
+    const globalDiscount = restaurant?.discountPercentage || 0;
+    
+    const calculateNewPrice = (base: number, individualDiscount?: number) => {
+        if (individualDiscount && individualDiscount > 0) return individualDiscount;
+        if (globalDiscount > 0) return base * (1 - globalDiscount / 100);
+        return base;
+    };
+
+    if (hasSizes) {
+        return activeSizes.map(s => ({
+            ...s,
+            displayPrice: calculateNewPrice(s.price)
+        }));
+    }
+
+    return {
+        original: product.price,
+        display: calculateNewPrice(product.price, product.discountPrice)
+    };
+  }, [product, restaurant, hasSizes, activeSizes]);
+
   const discountPercentage = useMemo(() => {
-      if (!product.discountPrice || product.discountPrice <= 0 || product.price <= 0 || hasSizes) return 0;
-      const diff = product.price - product.discountPrice;
-      return Math.round((diff / product.price) * 100);
-  }, [product, hasSizes]);
+      if (hasSizes) return 0;
+      const data = finalPrices as { original: number, display: number };
+      if (data.display >= data.original) return 0;
+      return Math.round(((data.original - data.display) / data.original) * 100);
+  }, [finalPrices, hasSizes]);
 
   const isOutOfStock = useMemo(() => {
     if (product.isUnlimitedStock) return false;
@@ -71,7 +95,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
 
   const priceDisplay = useMemo(() => {
     if (hasSizes) {
-      const prices = activeSizes.map(s => s.price).filter(p => p > 0);
+      const prices = (finalPrices as any[]).map(s => s.displayPrice).filter(p => p > 0);
       if (prices.length > 0) {
         const min = Math.min(...prices);
         const max = Math.max(...prices);
@@ -79,11 +103,15 @@ function ProductCardComponent({ product }: ProductCardProps) {
         return `تبدأ من ${formatCurrency(min)}`;
       }
     }
-    const basePrice = product.discountPrice || product.price || 0;
-    return formatCurrency(basePrice);
-  }, [product, hasSizes, activeSizes]);
+    const data = finalPrices as { display: number };
+    return formatCurrency(data.display);
+  }, [finalPrices, hasSizes]);
 
-  const hasIndividualDiscount = !!product.discountPrice && !hasSizes;
+  const hasAnyDiscount = useMemo(() => {
+      if (hasSizes) return false;
+      const data = finalPrices as { original: number, display: number };
+      return data.display < data.original;
+  }, [finalPrices, hasSizes]);
 
   return (
     <div 
@@ -108,9 +136,15 @@ function ProductCardComponent({ product }: ProductCardProps) {
                 />
             ) : <div className="w-full h-full animate-pulse bg-muted/20" />}
             
-            {discountPercentage > 0 && (
+            {hasAnyDiscount && !hasSizes && (
                 <Badge className="absolute top-2 left-2 z-10 bg-red-600 text-white font-black text-[10px] rounded-lg h-6">
                     خصم {discountPercentage}%
+                </Badge>
+            )}
+
+            {restaurant?.discountPercentage && restaurant.discountPercentage > 0 && hasSizes && (
+                <Badge className="absolute top-2 left-2 z-10 bg-primary text-white font-black text-[10px] rounded-lg h-6">
+                    عرض المتجر %
                 </Badge>
             )}
             
@@ -129,7 +163,7 @@ function ProductCardComponent({ product }: ProductCardProps) {
             </div>
             <div className="mt-2 flex items-center justify-between">
               <div className="flex flex-col text-right">
-                  {hasIndividualDiscount && <p className="text-[9px] text-muted-foreground line-through decoration-destructive/50 font-bold">{formatCurrency(product.price)}</p>}
+                  {hasAnyDiscount && !hasSizes && <p className="text-[9px] text-muted-foreground line-through decoration-destructive/50 font-bold">{formatCurrency(product.price)}</p>}
                   <p className={cn("font-black text-primary leading-none", hasSizes ? "text-[10px]" : "text-sm")}>{priceDisplay}</p>
               </div>
               <Button size="icon" variant="ghost" className={cn("h-9 w-9 rounded-xl shadow-sm active:scale-75", hasSizes ? "bg-secondary text-primary" : "bg-primary text-white")} onClick={handleAddToCart} disabled={isOutOfStock || (restaurant && !restaurant.isStoreOpen)}>

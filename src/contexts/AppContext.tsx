@@ -176,12 +176,21 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const updateCartQuantity = (pid: string, q: number, sname?: string) => setCart(prev => prev.map(i => (i.product.id === pid && i.selectedSize?.name === sname) ? { ...i, quantity: q } : i));
     const clearCart = () => setCart([]);
     
+    // محرك حساب المجموع الكلي مع مراعاة خصومات المتاجر العامة
     const cartTotal = useMemo(() => {
         return cart.reduce((total, item) => {
-            const basePrice = item.selectedSize?.price || item.product.discountPrice || item.product.price || 0;
+            const rest = restaurants.find(r => r.id === item.product.restaurantId);
+            const globalDiscount = rest?.discountPercentage || 0;
+            
+            const getAdjusted = (p: number) => {
+                if (globalDiscount > 0) return p * (1 - globalDiscount/100);
+                return p;
+            };
+
+            const basePrice = item.selectedSize ? getAdjusted(item.selectedSize.price) : (item.product.discountPrice || getAdjusted(item.product.price));
             return total + (basePrice * item.quantity);
         }, 0);
-    }, [cart]);
+    }, [cart, restaurants]);
 
     const placeOrder = useCallback(async (addr: Address, dFee: number, coupCode?: string): Promise<string | null> => {
         if (!userId || cart.length === 0) return null;
@@ -260,6 +269,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     latitude: rest.latitude || 0, 
                     longitude: rest.longitude || 0, 
                     commissionRate: rest.commissionRate || 10,
+                    discountPercentage: rest.discountPercentage || 0,
                     oneSignalId: rest.oneSignalId || '',
                     oneSignalWebId: rest.oneSignalWebId || '',
                     notificationPreference: rest.notificationPreference || 'app'
