@@ -2,9 +2,11 @@
 "use server";
 
 export const sendTelegramMessage = async (chatId: string, message: string) => {
-    const botToken = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
-    if (!botToken || botToken === "YOUR_TELEGRAM_BOT_TOKEN_HERE" || !chatId) {
-        console.warn("Telegram bot token or chat ID is not configured. Skipping message.");
+    // استخدام التوكن الذي زودنا به المستخدم
+    const botToken = "8905247257:AAHz8czkJBooD67PWIfaxrbbAcLd516hU4k";
+    
+    if (!chatId) {
+        console.warn("Telegram Chat ID is missing. Skipping message.");
         return;
     };
     

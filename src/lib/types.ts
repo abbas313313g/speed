@@ -219,3 +219,13 @@ export interface AdminAccess {
     approvedAt?: string;
     deviceName?: string;
 }
+
+export interface TelegramConfig {
+    id: string;
+    name: string;
+    chatId: string;
+    type: 'owner' | 'worker' | 'restaurant' | 'admin_orders';
+    workerId?: string;
+    restaurantId?: string;
+    targetBranchId?: string; // 'all', 'main', or specific branch ID
+}

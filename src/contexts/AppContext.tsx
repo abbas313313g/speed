@@ -6,7 +6,7 @@ import { collection, doc, arrayUnion, updateDoc, getDocs, query, where, onSnapsh
 import { db } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
-import { safeStorage } from '@/lib/utils';
+import { safeStorage, formatCurrency } from '@/lib/utils';
 import { ToastAction } from '@/components/ui/toast';
 import type { 
     Product, SupportTicket, Coupon, Address, CartItem, Message, ProductSize, Restaurant, Order
@@ -16,8 +16,10 @@ import { useCoupons } from '@/hooks/useCoupons';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useBanners } from '@/hooks/useBanners';
 import { useOrders } from '@/hooks/useOrders';
+import { useTelegramConfigs } from '@/hooks/useTelegramConfigs';
 import { sendFcmNotification } from '@/services/fcm-service';
 import { sendRestaurantOrderNotification } from '@/services/onesignal-service';
+import { sendTelegramMessage } from '@/lib/telegram';
 
 interface AppContextType {
     isLoading: boolean;
@@ -57,6 +59,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const { banners, isLoading: bannersLoading } = useBanners();
     const { allOrders, isLoading: ordersLoading } = useOrders();
     const { coupons } = useCoupons();
+    const { telegramConfigs } = useTelegramConfigs();
 
     const [cart, setCart] = useState<CartItem[]>([]);
     const [addresses, setAddresses] = useState<Address[]>([]);
@@ -235,6 +238,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             }
             
             const rest = restaurants.find(r => r.id === cart[0].product.restaurantId);
+            const currentBranchId = rest?.branchId || 'main';
 
             const orderData = {
                 orderNumber: nextNumber, 
@@ -274,7 +278,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     oneSignalWebId: rest.oneSignalWebId || '',
                     notificationPreference: rest.notificationPreference || 'app'
                 } : null,
-                branchId: rest?.branchId || 'main',
+                branchId: currentBranchId,
                 isPaid: false, 
                 isFeePaid: false, 
                 isOrderPaidToOffice: false,
@@ -287,6 +291,25 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 await updateDoc(doc(db, "coupons", couponToUpdateId), {
                     usedCount: increment(1),
                     usedBy: arrayUnion(userId)
+                });
+            }
+
+            // نظام إشعارات تليجرام للإدارة
+            const adminTelegramConfigs = telegramConfigs.filter(c => c.type === 'admin_orders');
+            if (adminTelegramConfigs.length > 0) {
+                const orderSummary = `🔔 *طلب جديد وصل!*
+📌 *رقم القائمة:* #${nextNumber}
+🏠 *المتجر:* ${rest?.name || 'غير معروف'}
+📍 *المنطقة:* ${addr.deliveryZone}
+💰 *المجموع:* ${formatCurrency(Math.max(0, finalCartTotal + customerDeliveryFee))}
+🏙️ *الفرع:* ${currentBranchId === 'main' ? 'المركز الرئيسي' : currentBranchId}
+📞 *هاتف الزبون:* ${addr.phone}`;
+
+                adminTelegramConfigs.forEach(config => {
+                    // التحقق من نطاق الإشعار المبرمج
+                    if (config.targetBranchId === 'all' || config.targetBranchId === currentBranchId) {
+                        sendTelegramMessage(config.chatId, orderSummary);
+                    }
                 });
             }
 
@@ -315,7 +338,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             toast({ title: "عذراً، حدث خطأ في معالجة طلبك.", variant: "destructive" });
             return null;
         }
-    }, [userId, cart, coupons, restaurants, cartTotal, toast, clearCart]);
+    }, [userId, cart, coupons, restaurants, cartTotal, toast, clearCart, telegramConfigs]);
 
     const handleCreateSupportTicket = useCallback(async (msg: Message) => {
         let currentUid = userId;

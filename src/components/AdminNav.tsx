@@ -28,7 +28,8 @@ import {
   Banknote,
   LayoutDashboard,
   ShieldAlert,
-  Landmark
+  Landmark,
+  Send
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -50,6 +51,7 @@ const navItems = [
   { index: 20, label: "محفظات المتاجر", icon: Landmark },
   { index: 19, label: "الخصومات اليدوية", icon: ShieldAlert },
   { index: 17, label: "تخصيص الواجهة", icon: LayoutDashboard, mainOnly: true },
+  { index: 12, label: "إشعارات تليجرام", icon: Send, mainOnly: true },
   { index: 10, label: "أرباح الشركة", icon: AreaChart },
   { index: 15, label: "تراخيص الأجهزة", icon: Fingerprint, notificationKey: 'pendingAccess' },
   { index: 16, label: "إدارة الفروع", icon: GitBranch, mainOnly: true },

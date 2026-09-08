@@ -34,6 +34,7 @@ import HomeSettingsPage from './home-settings/page';
 import AdminWithdrawalsPage from './withdrawals/page';
 import AdminAdjustmentsPage from './adjustments/page';
 import AdminStoreWalletsPage from './store-wallets/page';
+import AdminTelegramPage from './telegram/page';
 
 const ADMIN_PIN = "31344313";
 
@@ -105,6 +106,7 @@ function AdminLayoutContent() {
     9: <AdminDeliveryWorkersPage branchId={branchParam} />,
     10: <AdminReportsPage branchId={branchParam} />,
     11: <AdminSupportTicketsPage branchId={branchParam} />,
+    12: <AdminTelegramPage />,
     13: <AdminSettingsPage />,
     14: <AdminApprovalsPage branchId={branchParam} />,
     15: <AdminAccessPage branchId={branchParam} />,
