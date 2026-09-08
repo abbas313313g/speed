@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { safeStorage, formatCurrency } from '@/lib/utils';
 import { ToastAction } from '@/components/ui/toast';
 import type { 
-    Product, SupportTicket, Coupon, Address, CartItem, Message, ProductSize, Restaurant, Order
+    Product, SupportTicket, Coupon, Address, CartItem, Message, ProductSize, Restaurant, Order, OrderStatus
 } from '@/lib/types';
 import { useSupportTickets } from '@/hooks/useSupportTickets';
 import { useCoupons } from '@/hooks/useCoupons';
@@ -179,7 +179,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const updateCartQuantity = (pid: string, q: number, sname?: string) => setCart(prev => prev.map(i => (i.product.id === pid && i.selectedSize?.name === sname) ? { ...i, quantity: q } : i));
     const clearCart = () => setCart([]);
     
-    // محرك حساب المجموع الكلي مع مراعاة خصومات المتاجر العامة
     const cartTotal = useMemo(() => {
         return cart.reduce((total, item) => {
             const rest = restaurants.find(r => r.id === item.product.restaurantId);
@@ -195,11 +194,21 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }, 0);
     }, [cart, restaurants]);
 
-    const placeOrder = useCallback(async (addr: Address, dFee: number, coupCode?: string): Promise<string | null> => {
+    const placeOrder = useCallback(async (addr: Address, dFee: number, couponCode?: string): Promise<string | null> => {
         if (!userId || cart.length === 0) return null;
+        
         try {
-            const qLast = query(collection(db, "orders"), orderBy("orderNumber", "desc"), limit(1));
-            const lastSnap = await getDocs(qLast);
+            // Speed optimization: Parallel fetching of order number and potential history checks
+            const nextNumPromise = getDocs(query(collection(db, "orders"), orderBy("orderNumber", "desc"), limit(1)));
+            
+            const coupon = couponCode?.trim() ? coupons.find(c => c.code === couponCode.trim().toUpperCase()) : null;
+            let historyCheckPromise = Promise.resolve(null as any);
+            if (coupon?.isFirstOrderOnly) {
+                historyCheckPromise = getDocs(query(collection(db, "orders"), where("userId", "==", userId), limit(1)));
+            }
+
+            const [lastSnap, historySnap] = await Promise.all([nextNumPromise, historyCheckPromise]);
+
             let nextNumber = 1;
             if (!lastSnap.empty) {
                 const lastOrder = lastSnap.docs[0].data() as Order;
@@ -211,30 +220,23 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             let appliedDiscount = 0;
             let couponToUpdateId = null;
 
-            if (coupCode?.trim()) {
-                const coupon = coupons.find(c => c.code === couponCode.trim().toUpperCase());
-                if (coupon) {
-                    if (coupon.usedCount >= coupon.maxUses) {
-                        toast({ title: "هذا الكود انتهى استخدامه", variant: "destructive" });
-                        return null;
-                    }
-                    if (coupon.isFirstOrderOnly) {
-                        const qOrders = query(collection(db, "orders"), where("userId", "==", userId), limit(1));
-                        const orderSnap = await getDocs(qOrders);
-                        if (!orderSnap.empty) {
-                            toast({ title: "عذراً، هذا الكود للزبائن الجدد فقط", variant: "destructive" });
-                            return null;
-                        }
-                    }
-                    if (coupon.discountTarget === 'delivery') {
-                        appliedDiscount = coupon.isFullDiscount ? customerDeliveryFee : Math.min(customerDeliveryFee, coupon.discountValue);
-                        customerDeliveryFee -= appliedDiscount;
-                    } else {
-                        appliedDiscount = coupon.isFullDiscount ? finalCartTotal : Math.min(finalCartTotal, coupon.discountValue);
-                        finalCartTotal -= appliedDiscount;
-                    }
-                    couponToUpdateId = coupon.id;
+            if (coupon) {
+                if (coupon.usedCount >= coupon.maxUses) {
+                    toast({ title: "هذا الكود انتهى استخدامه", variant: "destructive" });
+                    return null;
                 }
+                if (coupon.isFirstOrderOnly && historySnap && !historySnap.empty) {
+                    toast({ title: "عذراً، هذا الكود للزبائن الجدد فقط", variant: "destructive" });
+                    return null;
+                }
+                if (coupon.discountTarget === 'delivery') {
+                    appliedDiscount = coupon.isFullDiscount ? customerDeliveryFee : Math.min(customerDeliveryFee, coupon.discountValue);
+                    customerDeliveryFee -= appliedDiscount;
+                } else {
+                    appliedDiscount = coupon.isFullDiscount ? finalCartTotal : Math.min(finalCartTotal, coupon.discountValue);
+                    finalCartTotal -= appliedDiscount;
+                }
+                couponToUpdateId = coupon.id;
             }
             
             const rest = restaurants.find(r => r.id === cart[0].product.restaurantId);
@@ -282,22 +284,25 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 isPaid: false, 
                 isFeePaid: false, 
                 isOrderPaidToOffice: false,
-                appliedCoupon: couponToUpdateId ? { code: coupCode?.toUpperCase() || '', discountAmount: appliedDiscount } : null
+                appliedCoupon: couponToUpdateId ? { code: couponCode?.toUpperCase() || '', discountAmount: appliedDiscount } : null
             };
 
+            // Save order first for maximum speed feedback
             const docRef = await addDoc(collection(db, "orders"), orderData);
             
-            if (couponToUpdateId) {
-                await updateDoc(doc(db, "coupons", couponToUpdateId), {
-                    usedCount: increment(1),
-                    usedBy: arrayUnion(userId)
-                });
-            }
+            // Side effects (Notifications, Updates) handled in background without blocking UI
+            (async () => {
+                if (couponToUpdateId) {
+                    updateDoc(doc(db, "coupons", couponToUpdateId), {
+                        usedCount: increment(1),
+                        usedBy: arrayUnion(userId)
+                    }).catch(() => {});
+                }
 
-            // نظام إشعارات تليجرام للإدارة
-            const adminTelegramConfigs = telegramConfigs.filter(c => c.type === 'admin_orders');
-            if (adminTelegramConfigs.length > 0) {
-                const orderSummary = `🔔 *طلب جديد وصل!*
+                // Telegram Admin Notifications
+                const adminTelegramConfigs = telegramConfigs.filter(c => c.type === 'admin_orders');
+                if (adminTelegramConfigs.length > 0) {
+                    const orderSummary = `🔔 *طلب جديد وصل!*
 📌 *رقم القائمة:* #${nextNumber}
 🏠 *المتجر:* ${rest?.name || 'غير معروف'}
 📍 *المنطقة:* ${addr.deliveryZone}
@@ -305,31 +310,25 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 🏙️ *الفرع:* ${currentBranchId === 'main' ? 'المركز الرئيسي' : currentBranchId}
 📞 *هاتف الزبون:* ${addr.phone}`;
 
-                adminTelegramConfigs.forEach(config => {
-                    // التحقق من نطاق الإشعار المبرمج
-                    if (config.targetBranchId === 'all' || config.targetBranchId === currentBranchId) {
-                        sendTelegramMessage(config.chatId, orderSummary);
+                    adminTelegramConfigs.forEach(config => {
+                        if (config.targetBranchId === 'all' || config.targetBranchId === currentBranchId) {
+                            sendTelegramMessage(config.chatId, orderSummary).catch(() => {});
+                        }
+                    });
+                }
+
+                if (rest) {
+                    const targetIds: string[] = [];
+                    const pref = rest.notificationPreference || 'app';
+                    if ((pref === 'app' || pref === 'both') && rest.oneSignalId) targetIds.push(rest.oneSignalId);
+                    if ((pref === 'web' || pref === 'both') && rest.oneSignalWebId) targetIds.push(rest.oneSignalWebId);
+
+                    if (targetIds.length > 0) {
+                        sendRestaurantOrderNotification(targetIds, rest.name, nextNumber).catch(() => {});
                     }
-                });
-            }
-
-            if (rest) {
-                const targetIds: string[] = [];
-                const pref = rest.notificationPreference || 'app';
-                
-                if ((pref === 'app' || pref === 'both') && rest.oneSignalId) {
-                    targetIds.push(rest.oneSignalId);
+                    sendFcmNotification(rest.id, 'restaurants', 'طلب جديد وصل! 🍔', `لديك طلب جديد برقم #${nextNumber}`).catch(() => {});
                 }
-                if ((pref === 'web' || pref === 'both') && rest.oneSignalWebId) {
-                    targetIds.push(rest.oneSignalWebId);
-                }
-
-                if (targetIds.length > 0) {
-                    sendRestaurantOrderNotification(targetIds, rest.name, nextNumber);
-                }
-                
-                sendFcmNotification(rest.id, 'restaurants', 'طلب جديد وصل! 🍔', `لديك طلب جديد برقم #${nextNumber}`);
-            }
+            })();
 
             clearCart();
             return docRef.id;
