@@ -3,10 +3,11 @@
 
 import { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { CheckCircle, Clock, Building2, TrendingUp, Calendar, Wallet } from 'lucide-react';
+import { CheckCircle, Clock, Building2, TrendingUp, Calendar, Wallet, XCircle, Store } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useOrders } from '@/hooks/useOrders';
 import { useBranches } from '@/hooks/useBranches';
+import { useRestaurants } from '@/hooks/useRestaurants';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,15 +15,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import Image from 'next/image';
 
 export default function AdminDashboard({ branchId }: { branchId: string }) {
-  // جلب البيانات مع الفلترة الذكية المدمجة في الهوك
-  const { products, approveProduct, isLoading: pLoading } = useProducts(branchId, undefined, 500, undefined, '', true);
+  const { products, approveProduct, deleteProduct, isLoading: pLoading } = useProducts(branchId, undefined, 500, undefined, '', true);
   const { allOrders, isLoading: oLoading } = useOrders(branchId);
+  const { restaurants } = useRestaurants(branchId);
   const { branches } = useBranches();
   
   const isMain = branchId === 'main';
 
   const stats = useMemo(() => {
-    // البيانات تأتي مفلترة وجاهزة من الهوك حسب branchId
     const currentBranchOrders = allOrders;
     
     const delivered = currentBranchOrders.filter(o => o.status === 'delivered');
@@ -32,7 +32,6 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
     today.setHours(0,0,0,0);
     const deliveredToday = delivered.filter(o => new Date(o.date) >= today);
 
-    // حساب أرباح هذا الفرع حصراً
     let branchDailyProfit = 0;
     deliveredToday.forEach(order => {
         const itemsPrice = order.items.reduce((sum, i) => {
@@ -43,7 +42,6 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
         branchDailyProfit += (itemsPrice * rate) / 100;
     });
 
-    // للمركز الرئيسي فقط: جرد أرباح كل الفروع
     const allBranchProfits: {[key: string]: number} = { 'main': 0 };
     branches.forEach(b => { allBranchProfits[b.id] = 0; });
 
@@ -65,7 +63,7 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
         totalRevenue,
         branchDailyProfit,
         allBranchProfits,
-        pendingProducts: products.filter(p => p.status === 'pending'),
+        pendingProducts: products.filter(p => p.status === 'pending' && p.branchId === branchId),
         activeOrders: currentBranchOrders.filter(o => !['delivered', 'cancelled', 'unassigned'].includes(o.status)).length,
         cancelledCount: cancelled.length,
         branchesSummary: branches.map(b => ({
@@ -74,7 +72,7 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
             profit: allBranchProfits[b.id] || 0
         })).concat([{ name: 'فرع المركز العام', id: 'main', profit: allBranchProfits['main'] || 0 }])
     };
-  }, [allOrders, products, branches, isMain]);
+  }, [allOrders, products, branches, isMain, branchId]);
 
   if (pLoading || oLoading) return (
       <div className="p-20 text-center flex flex-col items-center gap-4">
@@ -165,7 +163,7 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
       </div>
 
       <section className="space-y-4">
-        <h2 className="text-2xl font-black flex items-center gap-2 px-1 text-blue-500 justify-end"><Clock className="h-6 w-6"/> تحديثات المنيو المعلقة</h2>
+        <h2 className="text-2xl font-black flex items-center gap-2 px-1 text-blue-500 justify-end"><Clock className="h-6 w-6"/> تحديثات المنيو المعلقة للفرع</h2>
         {stats.pendingProducts.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-[2rem] border-2 border-dashed">
                 <CheckCircle className="h-10 w-10 mx-auto text-green-500/30 mb-3" />
@@ -173,18 +171,28 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
             </div>
         ) : (
             <div className="grid gap-4 md:grid-cols-2">
-                {stats.pendingProducts.map(p => (
-                    <Card key={p.id} className="rounded-2xl shadow-md border-none flex p-4 items-center gap-4 bg-white">
-                        <div className="relative h-16 w-16 flex-shrink-0">
-                            <Image src={p.image} fill className="object-cover rounded-xl border" alt="" unoptimized={true} />
-                        </div>
-                        <div className="flex-1 min-w-0 text-right">
-                            <h3 className="font-black text-sm truncate">{p.name}</h3>
-                            <div className="font-black text-primary text-xs">{formatCurrency(p.price)}</div>
-                        </div>
-                        <Button size="sm" className="bg-green-600 rounded-lg px-4" onClick={()=>approveProduct(p.id)}>نشر</Button>
-                    </Card>
-                ))}
+                {stats.pendingProducts.map(p => {
+                    const store = restaurants.find(r => r.id === p.restaurantId);
+                    return (
+                        <Card key={p.id} className="rounded-2xl shadow-md border-none flex p-4 items-center gap-4 bg-white">
+                            <div className="relative h-16 w-16 flex-shrink-0">
+                                <Image src={p.image} fill className="object-cover rounded-xl border" alt="" unoptimized={true} />
+                            </div>
+                            <div className="flex-1 min-w-0 text-right">
+                                <h3 className="font-black text-sm truncate">{p.name}</h3>
+                                <div className="flex items-center gap-1 justify-end text-[10px] font-bold text-muted-foreground">
+                                    <span>{store?.name || 'تحميل...'}</span>
+                                    <Store className="h-3 w-3" />
+                                </div>
+                                <div className="font-black text-primary text-xs mt-1">{formatCurrency(p.price)}</div>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <Button size="sm" className="bg-green-600 hover:bg-green-700 rounded-lg px-4" onClick={()=>approveProduct(p.id)}>نشر</Button>
+                                <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/5 rounded-lg px-4" onClick={()=>deleteProduct(p.id)}>رفض</Button>
+                            </div>
+                        </Card>
+                    );
+                })}
             </div>
         )}
       </section>
