@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -177,6 +176,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const removeFromCart = (pid: string, sname?: string) => setCart(prev => prev.filter(i => !(i.product.id === pid && i.selectedSize?.name === sname)));
     const updateCartQuantity = (pid: string, q: number, sname?: string) => setCart(prev => prev.map(i => (i.product.id === pid && i.selectedSize?.name === sname) ? { ...i, quantity: q } : i));
+    const createSupportTicket = (m: Message) => createTicketHook(m, userId!, addresses[0]?.name || 'زبون سبيد', addresses[0]?.deliveryZone);
     const clearCart = () => setCart([]);
     
     const cartTotal = useMemo(() => {
@@ -198,7 +198,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         if (!userId || cart.length === 0) return null;
         
         try {
-            // Speed optimization: Parallel fetching of order number and potential history checks
             const nextNumPromise = getDocs(query(collection(db, "orders"), orderBy("orderNumber", "desc"), limit(1)));
             
             const coupon = couponCode?.trim() ? coupons.find(c => c.code === couponCode.trim().toUpperCase()) : null;
@@ -287,10 +286,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 appliedCoupon: couponToUpdateId ? { code: couponCode?.toUpperCase() || '', discountAmount: appliedDiscount } : null
             };
 
-            // Save order first for maximum speed feedback
             const docRef = await addDoc(collection(db, "orders"), orderData);
             
-            // Side effects (Notifications, Updates) handled in background without blocking UI
             (async () => {
                 if (couponToUpdateId) {
                     updateDoc(doc(db, "coupons", couponToUpdateId), {
@@ -299,7 +296,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     }).catch(() => {});
                 }
 
-                // Telegram Admin Notifications
                 const adminTelegramConfigs = telegramConfigs.filter(c => c.type === 'admin_orders');
                 if (adminTelegramConfigs.length > 0) {
                     const orderSummary = `🔔 *طلب جديد وصل!*
@@ -339,18 +335,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, [userId, cart, coupons, restaurants, cartTotal, toast, clearCart, telegramConfigs]);
 
-    const handleCreateSupportTicket = useCallback(async (msg: Message) => {
-        let currentUid = userId;
-        if (!currentUid) {
-            currentUid = uuidv4();
-            setUserId(currentUid);
-            safeStorage.set('speedShopUserId', currentUid);
-        }
-
-        const addr = addresses[0]; 
-        await createTicketHook(msg, currentUid, addr?.name || 'زبون جديد', addr?.deliveryZone);
-    }, [userId, addresses, createTicketHook]);
-
     const isMainDataReady = useMemo(() => {
         return !bannersLoading && !restaurantsLoading && !ordersLoading;
     }, [bannersLoading, restaurantsLoading, ordersLoading]);
@@ -359,7 +343,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         isLoading: bannersLoading || restaurantsLoading || ordersLoading, 
         isMainDataReady, 
         placeOrder, 
-        createSupportTicket: handleCreateSupportTicket, 
+        createSupportTicket, 
         addMessageToTicket: addMsgHook,
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, userId, addresses, 
         addAddress,

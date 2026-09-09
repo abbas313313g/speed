@@ -32,7 +32,8 @@ export default function HomePage() {
   const { settings } = useAppSettings();
   const { allOrders } = useOrders();
   
-  const { products: allProducts } = useProducts(undefined, undefined, 500);
+  // تقليل الليميت لضمان سرعة الفتح على الموبايل (50 بدلاً من 500)
+  const { products: allProducts } = useProducts(undefined, undefined, 50);
   
   const mostSoldProducts = useMemo(() => {
       if (!allOrders.length || !allProducts.length) return [];
