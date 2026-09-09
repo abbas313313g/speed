@@ -82,11 +82,11 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
   
   const { products, addProduct, updateProduct, deleteProduct, isLoading: productsLoading } = useProducts(
       branchId, 
-      selectedStoreId || '', // نمرر الـ ID المختار مباشرة للـ Hook
-      500, // نرفع الحد لضمان تحميل الكل
+      selectedStoreId || '', 
+      500, 
       undefined,
       '',
-      true // isAdmin: جلب كل الحالات
+      true 
   );
 
   const [open, setOpen] = useState(false);
@@ -101,7 +101,6 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
     [selectedStoreId, restaurants]
   );
 
-  // الفلترة المحلية للبحث سريعة جداً لأن البيانات مجلوبة بالكامل للمتجر
   const filteredProducts = useMemo(() => {
     return products.filter(p => (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
   }, [products, searchTerm]);
@@ -436,8 +435,8 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
             <TableBody>
               {productsLoading ? (
                   <TableRow><TableCell colSpan={5} className="py-20 text-center flex flex-col items-center gap-2"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-40"/><p className="font-bold text-muted-foreground animate-pulse">جاري جلب قائمة الوجبات...</p></TableCell></TableRow>
-              ) : filteredProducts.length > 0 ? filteredProducts.map((p) => (
-                <TableRow key={p.id} className={cn("hover:bg-muted/20 transition-colors", !(p.isActive ?? true) && "opacity-40 grayscale")}>
+              ) : filteredProducts.length > 0 ? filteredProducts.map((p, index) => (
+                <TableRow key={p.id || `prod-${index}`} className={cn("hover:bg-muted/20 transition-colors", !(p.isActive ?? true) && "opacity-40 grayscale")}>
                   <TableCell>
                       <Checkbox 
                         checked={selectedProductIds.includes(p.id)}

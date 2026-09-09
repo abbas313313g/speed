@@ -41,7 +41,7 @@ export const useProducts = (
 
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'restaurants'), (snap) => {
-            setRestaurants(snap.docs.map(d => ({id: d.id, ...d.data()})) as Restaurant[]);
+            setRestaurants(snap.docs.map(d => ({...d.data(), id: d.id}) as Restaurant));
         });
         return () => unsub();
     }, []);
@@ -72,7 +72,7 @@ export const useProducts = (
             if (productId) {
                 unsub = onSnapshot(doc(db, 'products', productId), (docSnap) => {
                     if (docSnap.exists()) {
-                        setProducts([{ id: docSnap.id, ...docSnap.data() } as Product]);
+                        setProducts([{ ...docSnap.data(), id: docSnap.id } as Product]);
                     }
                     setIsLoading(false);
                 });
@@ -99,7 +99,7 @@ export const useProducts = (
             }
 
             unsub = onSnapshot(q, (snapshot) => {
-                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+                const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Product));
                 
                 let filteredData = data;
                 if (!isAdmin) {
@@ -123,7 +123,6 @@ export const useProducts = (
 
     const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
         try {
-            // التعديل الأساسي: الحالة تصبح approved دائماً للنشر الفوري
             const finalData = { 
                 ...productData, 
                 status: 'approved',
