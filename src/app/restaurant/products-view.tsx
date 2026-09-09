@@ -153,7 +153,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
 
             <Dialog open={isDialogOpen} onOpenChange={setIsAdding}>
                 <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-[2.5rem]">
-                    <DialogHeader className="p-4 border-b">
+                    <DialogHeader>
                         <DialogTitle className="text-2xl font-black text-right">{isEditing ? 'تعديل الوجبة' : 'إضافة وجبة جديدة'}</DialogTitle>
                     </DialogHeader>
                     
@@ -243,7 +243,7 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
 
                     <DialogFooter className="p-4 bg-slate-50 border-t sticky bottom-0">
                         <Button onClick={handleSave} disabled={isProcessing || isCompressing} className="w-full h-16 rounded-2xl text-xl font-black shadow-2xl">
-                            {isProcessing ? <Loader2 className="animate-spin h-6 w-6"/> : (isEditing ? "حفظ التعديلات" : "إرسال للنشر")}
+                            {isProcessing ? <Loader2 className="animate-spin h-6 w-6"/> : (isEditing ? "حفظ التعديلات" : "نشر الوجبة الآن")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

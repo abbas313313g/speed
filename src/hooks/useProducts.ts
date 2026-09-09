@@ -123,13 +123,14 @@ export const useProducts = (
 
     const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
         try {
+            // التعديل الأساسي: الحالة تصبح approved دائماً للنشر الفوري
             const finalData = { 
                 ...productData, 
-                status: isFromStore ? 'pending' : 'approved',
+                status: 'approved',
                 createdAt: new Date().toISOString()
             };
             await addDoc(collection(db, "products"), finalData);
-            toast({ title: isFromStore ? "تم إرسال الوجبة للمراجعة" : "تم النشر بنجاح ✅" });
+            toast({ title: "تم النشر بنجاح ✅" });
         } catch (error: any) { 
             toast({ title: "فشل الإرسال", variant: "destructive" }); 
         }
