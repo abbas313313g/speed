@@ -12,7 +12,8 @@ import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 
 export default function AdminApprovalsPage({ branchId }: { branchId: string }) {
-  const { products, approveProduct, deleteProduct, isLoading: pLoading } = useProducts(branchId);
+  // تفعيل وضع الأدمن لجلب كافة الحالات (approved و pending) لضمان ظهور الطلبات المعلقة وزيادة الليميت لضمان عدم ضياع الطلبات
+  const { products, approveProduct, deleteProduct, isLoading: pLoading } = useProducts(branchId, undefined, 500, undefined, '', true);
   const { restaurants, isLoading: rLoading } = useRestaurants(branchId);
 
   const pendingProducts = useMemo(() => {
@@ -24,7 +25,7 @@ export default function AdminApprovalsPage({ branchId }: { branchId: string }) {
   if (isLoading) return <div className="p-8 text-center animate-pulse font-bold text-primary">جارِ تحميل طلبات الموافقة...</div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 text-right" dir="rtl">
       <header>
         <h1 className="text-4xl font-black text-primary">موافقات المنتجات</h1>
         <p className="text-muted-foreground font-bold">مراجعة التعديلات الخاصة بفرع "{branchId === 'main' ? 'الرئيسية' : branchId}" فقط.</p>
