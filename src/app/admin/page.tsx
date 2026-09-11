@@ -3,11 +3,12 @@
 
 import { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { CheckCircle, Clock, Building2, TrendingUp, Calendar, Wallet, XCircle, Store } from 'lucide-react';
+import { CheckCircle, Clock, Building2, TrendingUp, Calendar, Wallet, XCircle, Store, MousePointer2 } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useOrders } from '@/hooks/useOrders';
 import { useBranches } from '@/hooks/useBranches';
 import { useRestaurants } from '@/hooks/useRestaurants';
+import { useAppSettings } from '@/hooks/useAppSettings';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,7 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
   const { allOrders, isLoading: oLoading } = useOrders(branchId);
   const { restaurants } = useRestaurants(branchId);
   const { branches } = useBranches();
+  const { settings } = useAppSettings();
   
   const isMain = branchId === 'main';
 
@@ -90,7 +92,7 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
 
       {isMain && (
           <section className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-3">
                   <Card className="rounded-[1.5rem] border-none shadow-xl bg-slate-900 text-white p-6 relative overflow-hidden">
                       <div className="absolute right-[-10px] bottom-[-10px] opacity-10"><Calendar className="h-20 w-20"/></div>
                       <div className="text-[10px] font-black text-primary uppercase mb-2 tracking-widest">صافي أرباح كافة الفروع (اليوم)</div>
@@ -101,6 +103,14 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
                   <Card className="rounded-[1.5rem] border-none shadow-xl bg-primary text-white p-6">
                       <div className="text-[10px] font-black text-white/70 uppercase mb-2 tracking-widest">أرباح الفرع الرئيسي (اليوم)</div>
                       <div className="text-3xl font-black">{formatCurrency(stats.branchDailyProfit)}</div>
+                  </Card>
+                  <Card className="rounded-[1.5rem] border-none shadow-xl bg-white p-6 border-r-8 border-r-blue-600">
+                      <div className="flex items-center justify-between flex-row-reverse mb-1">
+                        <MousePointer2 className="h-5 w-5 text-blue-600"/>
+                        <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">إجمالي دخولات التطبيق</div>
+                      </div>
+                      <div className="text-4xl font-black text-blue-600 tracking-tighter">{(settings as any)?.totalVisits || 0}</div>
+                      <p className="text-[8px] font-bold text-muted-foreground mt-1 italic">إحصائية شاملة لكافة المنصات</p>
                   </Card>
               </div>
 

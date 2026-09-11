@@ -31,7 +31,7 @@ export default function RestaurantProductsPage() {
   
   const restaurantProducts = useMemo(() => {
       if (!selectedRestaurantId) return [];
-      let list = products.filter(p => p.restaurantId === selectedRestaurantId && p.status === 'approved' && (p.isActive ?? true));
+      let list = products.filter(p => p.restaurantId === selectedRestaurantId && (p.isActive ?? true));
       
       if (activeSection !== 'all') {
           list = list.filter(p => p.storeSectionId === activeSection);
@@ -159,9 +159,7 @@ export default function RestaurantProductsPage() {
                          <div className="h-10 w-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
                     ) : hasMore ? (
                         <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
-                    ) : (
-                        <p className="text-[10px] font-black text-muted-foreground/40 italic">✨ نهاية المنيو ✨</p>
-                    )}
+                    ) : null}
                 </div>
              </>
         ) : (

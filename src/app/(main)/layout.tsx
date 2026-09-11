@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useContext } from 'react';
@@ -11,6 +12,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { isLocationInAllowedZones, safeStorage } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { AppContext } from '@/contexts/AppContext';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc, increment } from 'firebase/firestore';
 
 import HomePage from './home/page';
 import RestaurantsPage from './restaurants/page';
@@ -37,14 +40,12 @@ export default function MainAppLayout() {
   const [isSaving, setIsSaving] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   
-  // نظام تتبع الصفحات التي تم زيارتها لضمان التحميل الكسول (Lazy Loading)
   const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([0]));
 
   if (!context) return null;
   const { activeTab, syncUserByPhone, isMainDataReady, addAddress } = context;
 
   useEffect(() => {
-    // إضافة التاب الحالي إلى القائمة المزارة لكي يتم رندرتها
     setVisitedTabs(prev => {
         if (prev.has(activeTab)) return prev;
         const next = new Set(prev);
@@ -58,6 +59,21 @@ export default function MainAppLayout() {
         setShowSplash(false);
     }
   }, [isMainDataReady]);
+
+  // محرك تتبع الزيارات الإحصائي الصامت
+  useEffect(() => {
+    const trackVisit = async () => {
+        const lastVisit = sessionStorage.getItem('ss_v');
+        if (!lastVisit) {
+            try {
+                const settingsRef = doc(db, 'settings', 'main_settings');
+                await updateDoc(settingsRef, { totalVisits: increment(1) });
+                sessionStorage.setItem('ss_v', '1');
+            } catch (e) {}
+        }
+    };
+    trackVisit();
+  }, []);
 
   useEffect(() => {
     if (!showSplash && !settings?.isMaintenanceMode) {
@@ -127,7 +143,6 @@ export default function MainAppLayout() {
         setShowAddressPrompt(false);
         toast({ title: "مرحباً بك في سبيد شوب! 🎉" });
     } catch (e) { 
-        console.error("Layout Save Address Error:", e);
         toast({ title: "خطأ في المزامنة سحابياً", variant: "destructive" }); 
     } finally { 
         setIsSaving(false); 
@@ -138,10 +153,7 @@ export default function MainAppLayout() {
     <div className="flex flex-col h-full w-full overflow-hidden">
       <main className="flex-1 relative z-0 overflow-hidden">
         <div className="spa-stack-container" style={{ transform: `translateX(${activeTab * 100}%)` }}>
-          {/* الصفحة الرئيسية تتحمل دائماً */}
           <div className="spa-page-view"><HomePage /></div>
-          
-          {/* باقي الصفحات لا تُرندر إلا إذا زارها المستخدم لضمان سرعة الفتح */}
           <div className="spa-page-view">{visitedTabs.has(1) ? <RestaurantsPage /> : null}</div>
           <div className="spa-page-view">{visitedTabs.has(2) ? <ProductsPage /> : null}</div>
           <div className="spa-page-view">{visitedTabs.has(3) ? <CartPage /> : null}</div>

@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useRef, useContext, useMemo, useState, useEffect } from "react";
+import { useRef, useContext, useMemo } from "react";
 import Image from "next/image";
 import Autoplay from "embla-carousel-autoplay";
 import { 
@@ -32,7 +33,6 @@ export default function HomePage() {
   const { settings } = useAppSettings();
   const { allOrders } = useOrders();
   
-  // تقليل الليميت لضمان سرعة الفتح على الموبايل (50 بدلاً من 500)
   const { products: allProducts } = useProducts(undefined, undefined, 50);
   
   const mostSoldProducts = useMemo(() => {
@@ -63,6 +63,12 @@ export default function HomePage() {
     setActiveTab(10);
   };
 
+  const handleBannerClick = (banner: any) => {
+      if (banner.linkType === 'restaurant' && banner.link) {
+          handleStoreClick(banner.link);
+      }
+  };
+
   const featuredBanners = useMemo(() => {
     if (!settings?.featuredBannerIds || settings.featuredBannerIds.length === 0) return banners.slice(0, 5);
     return banners.filter(b => settings.featuredBannerIds?.includes(b.id));
@@ -89,8 +95,8 @@ export default function HomePage() {
         <Carousel className="w-full" opts={{ loop: true, direction: 'rtl' }} plugins={[plugin.current]}>
             <CarouselContent>
                 {featuredBanners.map((banner, index) => (
-                    <CarouselItem key={banner.id} className="basis-full">
-                        <div className="relative aspect-[21/9] w-full overflow-hidden rounded-[2rem] shadow-lg border-4 border-white">
+                    <CarouselItem key={banner.id} className="basis-full cursor-pointer" onClick={() => handleBannerClick(banner)}>
+                        <div className="relative aspect-[21/9] w-full overflow-hidden rounded-[2rem] shadow-lg border-4 border-white transition-transform active:scale-95">
                             <Image src={banner.image} fill alt="" className="object-cover" unoptimized={true} priority={index === 0} />
                         </div>
                     </CarouselItem>
