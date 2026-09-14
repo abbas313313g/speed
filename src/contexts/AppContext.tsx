@@ -1,7 +1,8 @@
+
 "use client";
 
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, doc, arrayUnion, updateDoc, getDocs, query, where, onSnapshot, addDoc, limit, orderBy, increment } from 'firebase/firestore';
+import { collection, doc, arrayUnion, updateDoc, getDocs, query, where, onSnapshot, addDoc, limit, orderBy, increment, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
@@ -23,7 +24,7 @@ import { sendTelegramMessage } from '@/lib/telegram';
 interface AppContextType {
     isLoading: boolean;
     isMainDataReady: boolean;
-    placeOrder: (address: Address, deliveryFee: number, couponCode?: string) => Promise<string | null>;
+    placeOrder: (address: Address, deliveryFee: number, couponCode?: string, walletDiscount?: number) => Promise<string | null>;
     createSupportTicket: (firstMessage: Message) => Promise<void>;
     addMessageToTicket: (ticketId: string, message: Message) => Promise<void>;
     cart: CartItem[];
@@ -37,7 +38,6 @@ interface AppContextType {
     addAddress: (address: Omit<Address, 'id'>) => Promise<void>;
     deleteAddress: (addressId: string) => void;
     mySupportTickets: SupportTicket[];
-    startNewTicketClient: () => void;
     activeTab: number;
     previousTab: number;
     setActiveTab: (index: number, pushToHistory?: boolean) => void;
@@ -48,6 +48,7 @@ interface AppContextType {
     syncUserByPhone: (phone: string) => Promise<string | null>;
     isDarkMode: boolean;
     toggleDarkMode: () => void;
+    walletBalance: number;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -68,6 +69,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedProductId, setSelectedProductId] = useState<string|null>(null);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string|null>(null);
     const [isDarkMode, setIsDarkMode] = useState(false);
+    const [walletBalance, setWalletBalance] = useState(0);
 
     useEffect(() => {
         try {
@@ -83,6 +85,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             }
         } catch (e) {}
     }, []);
+
+    useEffect(() => {
+        if (!userId) return;
+        const unsub = onSnapshot(doc(db, "wallets", userId), (docSnap) => {
+            if (docSnap.exists()) {
+                setWalletBalance(docSnap.data().balance || 0);
+            } else {
+                setWalletBalance(0);
+            }
+        });
+        return () => unsub();
+    }, [userId]);
 
     const { supportTickets, createSupportTicket: createTicketHook, addMessageToTicket: addMsgHook } = useSupportTickets(undefined, userId || undefined);
 
@@ -183,23 +197,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         return cart.reduce((total, item) => {
             const rest = restaurants.find(r => r.id === item.product.restaurantId);
             const globalDiscount = rest?.discountPercentage || 0;
-            
-            const getAdjusted = (p: number) => {
-                if (globalDiscount > 0) return p * (1 - globalDiscount/100);
-                return p;
-            };
-
+            const getAdjusted = (p: number) => globalDiscount > 0 ? p * (1 - globalDiscount/100) : p;
             const basePrice = item.selectedSize ? getAdjusted(item.selectedSize.price) : (item.product.discountPrice || getAdjusted(item.product.price));
             return total + (basePrice * item.quantity);
         }, 0);
     }, [cart, restaurants]);
 
-    const placeOrder = useCallback(async (addr: Address, dFee: number, couponCode?: string): Promise<string | null> => {
+    const placeOrder = useCallback(async (addr: Address, dFee: number, couponCode?: string, walletDiscount = 0): Promise<string | null> => {
         if (!userId || cart.length === 0) return null;
         
         try {
             const nextNumPromise = getDocs(query(collection(db, "orders"), orderBy("orderNumber", "desc"), limit(1)));
-            
             const coupon = couponCode?.trim() ? coupons.find(c => c.code === couponCode.trim().toUpperCase()) : null;
             let historyCheckPromise = Promise.resolve(null as any);
             if (coupon?.isFirstOrderOnly) {
@@ -210,8 +218,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
             let nextNumber = 1;
             if (!lastSnap.empty) {
-                const lastOrder = lastSnap.docs[0].data() as Order;
-                nextNumber = (lastOrder.orderNumber || 0) + 1;
+                nextNumber = (lastSnap.docs[0].data().orderNumber || 0) + 1;
             }
 
             let customerDeliveryFee = dFee;
@@ -241,6 +248,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             const rest = restaurants.find(r => r.id === cart[0].product.restaurantId);
             const currentBranchId = rest?.branchId || 'main';
 
+            const finalCashTotal = Math.max(0, finalCartTotal + customerDeliveryFee - walletDiscount);
+
             const orderData = {
                 orderNumber: nextNumber, 
                 userId, 
@@ -256,80 +265,67 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     quantity: i.quantity || 1,
                     selectedSize: i.selectedSize ? { name: i.selectedSize.name || '', price: i.selectedSize.price || 0 } : null
                 })), 
-                total: Math.max(0, finalCartTotal + customerDeliveryFee),
+                total: finalCashTotal,
+                walletAmountUsed: walletDiscount,
                 date: new Date().toISOString(), 
                 status: 'unassigned' as OrderStatus, 
                 address: {
-                    name: addr.name || '',
-                    phone: addr.phone || '',
-                    details: addr.details || '',
-                    deliveryZone: addr.deliveryZone || 'عام',
-                    latitude: addr.latitude || 0,
-                    longitude: addr.longitude || 0
+                    name: addr.name || '', phone: addr.phone || '', details: addr.details || '',
+                    deliveryZone: addr.deliveryZone || 'عام', latitude: addr.latitude || 0, longitude: addr.longitude || 0
                 }, 
                 deliveryFee: dFee || 0, 
                 restaurant: rest ? { 
-                    id: rest.id, 
-                    name: rest.name, 
-                    latitude: rest.latitude || 0, 
-                    longitude: rest.longitude || 0, 
-                    commissionRate: rest.commissionRate || 10,
-                    discountPercentage: rest.discountPercentage || 0,
-                    oneSignalId: rest.oneSignalId || '',
-                    oneSignalWebId: rest.oneSignalWebId || '',
+                    id: rest.id, name: rest.name, latitude: rest.latitude || 0, longitude: rest.longitude || 0, 
+                    commissionRate: rest.commissionRate || 10, discountPercentage: rest.discountPercentage || 0,
+                    oneSignalId: rest.oneSignalId || '', oneSignalWebId: rest.oneSignalWebId || '',
                     notificationPreference: rest.notificationPreference || 'app'
                 } : null,
                 branchId: currentBranchId,
-                isPaid: false, 
-                isFeePaid: false, 
-                isOrderPaidToOffice: false,
+                isPaid: false, isFeePaid: false, isOrderPaidToOffice: false,
                 appliedCoupon: couponToUpdateId ? { code: couponCode?.toUpperCase() || '', discountAmount: appliedDiscount } : null
             };
 
             const docRef = await addDoc(collection(db, "orders"), orderData);
             
-            (async () => {
-                if (couponToUpdateId) {
-                    updateDoc(doc(db, "coupons", couponToUpdateId), {
-                        usedCount: increment(1),
-                        usedBy: arrayUnion(userId)
-                    }).catch(() => {});
-                }
+            if (walletDiscount > 0) {
+                updateDoc(doc(db, "wallets", userId), { balance: increment(-walletDiscount) }).catch(() => {});
+            }
 
-                const adminTelegramConfigs = telegramConfigs.filter(c => c.type === 'admin_orders');
-                if (adminTelegramConfigs.length > 0) {
-                    const orderSummary = `🔔 *طلب جديد وصل!*
+            if (couponToUpdateId) {
+                updateDoc(doc(db, "coupons", couponToUpdateId), {
+                    usedCount: increment(1), usedBy: arrayUnion(userId)
+                }).catch(() => {});
+            }
+
+            const adminTelegramConfigs = telegramConfigs.filter(c => c.type === 'admin_orders');
+            if (adminTelegramConfigs.length > 0) {
+                const orderSummary = `🔔 *طلب جديد وصل!*
 📌 *رقم القائمة:* #${nextNumber}
 🏠 *المتجر:* ${rest?.name || 'غير معروف'}
 📍 *المنطقة:* ${addr.deliveryZone}
-💰 *المجموع:* ${formatCurrency(Math.max(0, finalCartTotal + customerDeliveryFee))}
-🏙️ *الفرع:* ${currentBranchId === 'main' ? 'المركز الرئيسي' : currentBranchId}
+💰 *كاش الزبون:* ${formatCurrency(finalCashTotal)}
+${walletDiscount > 0 ? `👛 *مخصوم من المحفظة:* ${formatCurrency(walletDiscount)}\n` : ''}🏙️ *الفرع:* ${currentBranchId === 'main' ? 'المركز الرئيسي' : currentBranchId}
 📞 *هاتف الزبون:* ${addr.phone}`;
 
-                    adminTelegramConfigs.forEach(config => {
-                        if (config.targetBranchId === 'all' || config.targetBranchId === currentBranchId) {
-                            sendTelegramMessage(config.chatId, orderSummary).catch(() => {});
-                        }
-                    });
-                }
-
-                if (rest) {
-                    const targetIds: string[] = [];
-                    const pref = rest.notificationPreference || 'app';
-                    if ((pref === 'app' || pref === 'both') && rest.oneSignalId) targetIds.push(rest.oneSignalId);
-                    if ((pref === 'web' || pref === 'both') && rest.oneSignalWebId) targetIds.push(rest.oneSignalWebId);
-
-                    if (targetIds.length > 0) {
-                        sendRestaurantOrderNotification(targetIds, rest.name, nextNumber).catch(() => {});
+                adminTelegramConfigs.forEach(config => {
+                    if (config.targetBranchId === 'all' || config.targetBranchId === currentBranchId) {
+                        sendTelegramMessage(config.chatId, orderSummary).catch(() => {});
                     }
-                    sendFcmNotification(rest.id, 'restaurants', 'طلب جديد وصل! 🍔', `لديك طلب جديد برقم #${nextNumber}`).catch(() => {});
-                }
-            })();
+                });
+            }
+
+            if (rest) {
+                const targetIds: string[] = [];
+                const pref = rest.notificationPreference || 'app';
+                if ((pref === 'app' || pref === 'both') && rest.oneSignalId) targetIds.push(rest.oneSignalId);
+                if ((pref === 'web' || pref === 'both') && rest.oneSignalWebId) targetIds.push(rest.oneSignalWebId);
+                if (targetIds.length > 0) sendRestaurantOrderNotification(targetIds, rest.name, nextNumber).catch(() => {});
+                sendFcmNotification(rest.id, 'restaurants', 'طلب جديد وصل! 🍔', `لديك طلب جديد برقم #${nextNumber}`).catch(() => {});
+            }
 
             clearCart();
             return docRef.id;
         } catch (e) {
-            console.error("Order Creation Failed:", e);
             toast({ title: "عذراً، حدث خطأ في معالجة طلبك.", variant: "destructive" });
             return null;
         }
@@ -341,17 +337,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const value = {
         isLoading: bannersLoading || restaurantsLoading || ordersLoading, 
-        isMainDataReady, 
-        placeOrder, 
-        createSupportTicket, 
-        addMessageToTicket: addMsgHook,
+        isMainDataReady, placeOrder, createSupportTicket, addMessageToTicket: addMsgHook,
         cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, userId, addresses, 
         addAddress,
         deleteAddress: (id: string) => updateDoc(doc(db, "addresses", id), { userId: 'deleted' }),
         mySupportTickets: useMemo(() => supportTickets.filter(t => t.userId === userId).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [userId, supportTickets]),
-        startNewTicketClient: () => {},
         activeTab, previousTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId, syncUserByPhone,
-        isDarkMode, toggleDarkMode
+        isDarkMode, toggleDarkMode, walletBalance
     };
 
     return <AppContext.Provider value={value as any}>{children}</AppContext.Provider>;

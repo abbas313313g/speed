@@ -69,15 +69,15 @@ export interface Restaurant {
   isManualClosed?: boolean; 
   loginCode: string;
   commissionRate: number;
-  discountPercentage?: number; // حقل نسبة الخصم العامة للمتجر
+  discountPercentage?: number; 
   branchId: string;
   categoryId: string; 
   menuSections?: string[]; 
   isFeatured?: boolean;
   balanceAdjustment?: number;
-  oneSignalId?: string; // معرف ون سيجنال الخاص بالتطبيق
-  oneSignalWebId?: string; // معرف ون سيجنال الخاص بالويب
-  notificationPreference?: 'app' | 'web' | 'both'; // وجهة استلام الإشعارات
+  oneSignalId?: string; 
+  oneSignalWebId?: string; 
+  notificationPreference?: 'app' | 'web' | 'both'; 
 }
 
 export interface Branch {
@@ -142,6 +142,8 @@ export interface Order {
     branchId: string;
     confirmedAt?: string; 
     isArchived?: boolean; 
+    walletAmountUsed?: number;
+    walletAmountAdded?: number;
     appliedCoupon: {
       code: string;
       discountAmount: number;
@@ -208,6 +210,7 @@ export interface AppSettings {
     maintenanceMessage?: string;
     featuredStoreIds?: string[];
     featuredBannerIds?: string[];
+    totalVisits?: number;
 }
 
 export interface AdminAccess {
@@ -227,5 +230,5 @@ export interface TelegramConfig {
     type: 'owner' | 'worker' | 'restaurant' | 'admin_orders';
     workerId?: string;
     restaurantId?: string;
-    targetBranchId?: string; // 'all', 'main', or specific branch ID
+    targetBranchId?: string; 
 }

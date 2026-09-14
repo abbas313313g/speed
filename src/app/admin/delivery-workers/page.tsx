@@ -20,7 +20,7 @@ import { doc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Wallet, Banknote, UserCheck, Loader2 } from 'lucide-react';
+import { Wallet, Banknote, UserCheck } from 'lucide-react';
 
 interface WorkerWallet {
     worker: DeliveryWorker;
@@ -37,7 +37,6 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
 
   const wallets: WorkerWallet[] = useMemo(() => {
     if (!deliveryWorkers || !allOrders) return [];
-    // عرض مناديب هذا الفرع فقط
     return deliveryWorkers.filter(w => w.branchId === branchId).map(w => {
         const orders = allOrders.filter(o => o.deliveryWorkerId === w.id && o.status === 'delivered');
         const unpaidFees = orders.filter(o => !o.isFeePaid);
@@ -46,8 +45,8 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
         const baseEarnings = unpaidFees.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
         const deliveryEarnings = Math.max(0, baseEarnings + (w.balanceAdjustment || 0));
 
-        // الذمة = المجموع الكلي للطلبات كاش
-        const baseCash = unpaidCash.reduce((acc, o) => acc + (o.total || 0), 0);
+        // الذمة = المجموع الكلي للطلبات كاش + مبالغ شحن محفظة الزبائن التي تمت عبر المندوب
+        const baseCash = unpaidCash.reduce((acc, o) => acc + (o.total || 0) + (o.walletAmountAdded || 0), 0);
         const cashToOffice = Math.max(0, baseCash + (w.debtAdjustment || 0));
 
         return {
@@ -79,7 +78,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
     <div className="space-y-8 text-right">
       <header>
         <h1 className="text-4xl font-black text-primary">تصفية حسابات المناديب</h1>
-        <p className="text-muted-foreground font-bold italic">الذمة = المجموع الكلي للطلبات. الأرباح = أجور التوصيل فقط.</p>
+        <p className="text-muted-foreground font-bold italic">الذمة = الكاش المستلم من الزبون + إيداعات محفظة الزبون.</p>
       </header>
 
       {wallets.length === 0 ? (
@@ -109,7 +108,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
                           </div>
                           <div className="p-6 space-y-4">
                                 <div className="flex items-center gap-2 text-destructive justify-end">
-                                    <span className="text-xs font-black">ذمة للمكتب (كاش المجموع الكلي)</span>
+                                    <span className="text-xs font-black">ذمة للمكتب (كاش + إيداعات)</span>
                                     <Banknote className="h-5 w-5" />
                                 </div>
                                 <div className="text-3xl font-black text-destructive tracking-tighter">{formatCurrency(w.cashToOffice)}</div>

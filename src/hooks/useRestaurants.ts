@@ -15,13 +15,21 @@ function isStoreOpen(r: Restaurant): boolean {
     if (!openTimeStr || !closeTimeStr) return true; 
 
     const now = new Date();
+    // الحصول على الوقت بالدقائق منذ بداية اليوم
     const currentTime = now.getHours() * 60 + now.getMinutes();
+    
     const [openHours, openMinutes] = openTimeStr.split(':').map(Number);
     const openTime = openHours * 60 + openMinutes;
+    
     const [closeHours, closeMinutes] = closeTimeStr.split(':').map(Number);
     let closeTime = closeHours * 60 + closeMinutes;
     
-    if (closeTime < openTime) return currentTime >= openTime || currentTime < closeTime;
+    // التعامل مع المتاجر التي تعمل بعد منتصف الليل
+    if (closeTime <= openTime) {
+        // إذا كان وقت الإغلاق أصغر من وقت الفتح، فهذا يعني أنه يغلق في اليوم التالي
+        return currentTime >= openTime || currentTime < closeTime;
+    }
+    
     return currentTime >= openTime && currentTime < closeTime;
 }
 
