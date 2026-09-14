@@ -216,6 +216,17 @@ export default function AdminStoresPage({ branchId }: { branchId: string }) {
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
+                        <Label className="font-bold flex items-center gap-1 justify-end"><Clock className="h-3.5 w-3.5 text-primary"/> وقت الفتح</Label>
+                        <Input type="time" value={currentStore.openTime ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, openTime: e.target.value })} className="rounded-xl h-12 text-center font-bold" />
+                    </div>
+                    <div className="space-y-1">
+                        <Label className="font-bold flex items-center gap-1 justify-end"><Clock className="h-3.5 w-3.5 text-destructive"/> وقت الإغلاق</Label>
+                        <Input type="time" value={currentStore.closeTime ?? ''} onChange={(e) => setCurrentStore({ ...currentStore, closeTime: e.target.value })} className="rounded-xl h-12 text-center font-bold" />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
                         <Label className="font-bold flex items-center gap-1 justify-end"><Percent className="h-3.5 w-3.5 text-primary"/> نسبة الخصم العامة (%)</Label>
                         <Input type="number" placeholder="مثال: 10" value={currentStore.discountPercentage || ''} onChange={(e) => setCurrentStore({ ...currentStore, discountPercentage: parseFloat(e.target.value) || 0 })} className="rounded-xl h-12 text-center font-black text-primary" />
                         <p className="text-[9px] font-bold text-muted-foreground">تطبق تلقائياً على كافة وجبات المتجر.</p>
