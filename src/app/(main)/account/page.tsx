@@ -9,17 +9,18 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Home, PlusCircle, Trash2, MessageSquareHeart, Shield, Moon, Sun } from "lucide-react";
+import { Home, PlusCircle, Trash2, MessageSquareHeart, Shield, Moon, Sun, Wallet } from "lucide-react";
 import { useAddresses } from "@/hooks/useAddresses";
 import { AppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
+import { formatCurrency } from '@/lib/utils';
 
 export default function AccountPage() {
   const context = useContext(AppContext);
   const { addresses, deleteAddress, isLoading } = useAddresses();
 
   if (!context) return null;
-  const { setActiveTab, isDarkMode, toggleDarkMode } = context;
+  const { setActiveTab, isDarkMode, toggleDarkMode, walletBalance } = context;
 
   if (isLoading) {
     return <div className="p-8 text-center animate-pulse">جار التحميل...</div>;
@@ -37,10 +38,24 @@ export default function AccountPage() {
         </Button>
       </header>
 
+      {/* عرض المحفظة للزبون */}
+      <Card className="rounded-[2rem] border-none shadow-xl bg-primary text-white overflow-hidden relative">
+          <div className="absolute right-[-10px] top-[-10px] opacity-10"><Wallet className="h-24 w-24" /></div>
+          <CardContent className="p-6 flex justify-between items-center flex-row-reverse">
+              <div className="text-right">
+                  <p className="text-xs font-black text-white/70 uppercase tracking-widest mb-1">رصيد محفظتي</p>
+                  <div className="text-3xl font-black tracking-tighter">{formatCurrency(walletBalance)}</div>
+              </div>
+              <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-md">
+                  <Wallet className="h-8 w-8 text-white" />
+              </div>
+          </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 gap-3">
          <button 
             onClick={() => setActiveTab(6)}
-            className="flex items-center gap-4 p-4 bg-primary text-white rounded-[1.5rem] font-bold text-lg shadow-lg shadow-primary/20"
+            className="flex items-center gap-4 p-4 bg-white dark:bg-slate-900 border-2 border-primary/20 text-primary rounded-[1.5rem] font-black text-lg shadow-sm"
          >
             <PlusCircle className="h-6 w-6" />
             إضافة عنوان جديد

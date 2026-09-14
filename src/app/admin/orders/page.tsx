@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { MoreHorizontal, Trash2, Loader2, Search, X, UserCog, RefreshCw, Bike, ChevronRight, Store, Clock, Phone, MapPin, ListFilter, Ticket, User, CheckCircle } from 'lucide-react';
+import { MoreHorizontal, Trash2, Loader2, Search, X, UserCog, RefreshCw, Bike, ChevronRight, Store, Clock, Phone, MapPin, ListFilter, Ticket, User, CheckCircle, Navigation } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -43,8 +43,7 @@ import {
   DialogTitle,
   DialogFooter
 } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { db } from '@/lib/firebase';
@@ -75,7 +74,6 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const handleManualAssign = async (worker: DeliveryWorker) => {
       if (!orderToAssign) return;
       try {
-          // التعيين اليدوي يصبح مباشر بدون انتظار موافقة المندوب
           await updateDoc(doc(db, "orders", orderToAssign), {
               deliveryWorkerId: worker.id,
               deliveryWorker: { id: worker.id, name: worker.name },
@@ -189,7 +187,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                         <div className="p-6 space-y-6">
                             <div className="bg-slate-50 p-5 rounded-[2rem] border-2 border-dashed border-slate-200 space-y-4">
                                 <div className="flex items-center gap-3 justify-end text-primary font-black">
-                                    <span>بيانات الزبون الكاملة</span>
+                                    <span>بيانات الزبون والموقع</span>
                                     <User className="h-5 w-5"/>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4 text-right">
@@ -204,6 +202,24 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                                     <div className="space-y-1 col-span-2">
                                         <Label className="text-[10px] text-muted-foreground">العنوان والملاحظات</Label>
                                         <p className="font-bold text-sm text-slate-700 bg-white p-3 rounded-xl border">{viewOrder.address.deliveryZone} - {viewOrder.address.details || 'بدون ملاحظات'}</p>
+                                    </div>
+                                    
+                                    {/* عرض الموقع الجغرافي للزبون للأدمن */}
+                                    <div className="col-span-2 space-y-2 pt-2">
+                                        <div className="flex items-center justify-between bg-primary/5 p-3 rounded-xl border border-primary/10">
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                className="rounded-lg font-black gap-2 h-9 border-primary text-primary"
+                                                onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${viewOrder.address.latitude},${viewOrder.address.longitude}`, '_blank')}
+                                            >
+                                                <Navigation className="h-4 w-4" /> فتح الخريطة
+                                            </Button>
+                                            <div className="text-right">
+                                                <Label className="text-[10px] font-black text-primary">موقع الزبون (GPS)</Label>
+                                                <p className="text-[10px] font-mono text-muted-foreground">{viewOrder.address.latitude?.toFixed(5)}, {viewOrder.address.longitude?.toFixed(5)}</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
