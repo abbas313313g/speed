@@ -1,7 +1,7 @@
 
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableMultiTabIndexedDbPersistence } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging, isSupported } from "firebase/messaging";
 
@@ -19,6 +19,19 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
+
+// تفعيل نظام المزامنة غير المتصلة (Offline Persistence) لحل مشاكل الاتصال
+if (typeof window !== "undefined") {
+    enableMultiTabIndexedDbPersistence(db).catch((err) => {
+        if (err.code === 'failed-precondition') {
+            // تعدد التابات المفتوحة يمنع تفعيل الميزة أحياناً
+            console.warn("Persistence failed: multiple tabs open");
+        } else if (err.code === 'unimplemented') {
+            // المتصفح قديم ولا يدعم التخزين المحلي
+            console.warn("Persistence is not available in this browser");
+        }
+    });
+}
 
 // تهيئة Messaging فقط إذا كان المتصفح يدعمها (تجنب أخطاء SSR)
 export const messaging = typeof window !== "undefined" ? 
