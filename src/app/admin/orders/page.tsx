@@ -74,13 +74,26 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
 
   const handleManualAssign = async (worker: DeliveryWorker) => {
       if (!orderToAssign) return;
+      const currentOrder = allOrders.find(o => o.id === orderToAssign);
+      if (!currentOrder) return;
+
       try {
-          await updateDoc(doc(db, "orders", orderToAssign), {
+          const updateData: any = {
               deliveryWorkerId: worker.id,
               deliveryWorker: { id: worker.id, name: worker.name },
-              status: 'preparing', 
-              confirmedAt: null
-          });
+              confirmedAt: null,
+              lastSkippedWorkerId: null, // مسح سجل التخطي لضمان الثبات
+              isPaid: false, // إعادة الحساب المالي للمندوب الجديد
+              isFeePaid: false,
+              isOrderPaidToOffice: false
+          };
+          
+          // إذا كان الطلب في مراحل البحث، نحوله فوراً إلى "قيد التحضير" للمندوب الجديد
+          if (['unassigned', 'pending_assignment', 'confirmed'].includes(currentOrder.status)) {
+              updateData.status = 'preparing';
+          }
+
+          await updateDoc(doc(db, "orders", orderToAssign), updateData);
           toast({ title: `تم إسناد الطلب للكابتن ${worker.name} بنجاح ✅` });
           setAssignDialogOpen(false);
           setOrderToAssign(null);
@@ -205,7 +218,6 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                                         <p className="font-bold text-sm text-slate-700 bg-white p-3 rounded-xl border">{viewOrder.address.deliveryZone} - {viewOrder.address.details || 'بدون ملاحظات'}</p>
                                     </div>
                                     
-                                    {/* عرض الموقع الجغرافي للزبون للأدمن */}
                                     <div className="col-span-2 space-y-2 pt-2">
                                         <div className="flex items-center justify-between bg-primary/5 p-3 rounded-xl border border-primary/10">
                                             <Button 
@@ -280,7 +292,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
             <DialogContent className="sm:max-w-md rounded-[2.5rem]">
                 <DialogHeader><DialogTitle className="text-2xl font-black text-right">إسناد الطلب فوراً</DialogTitle></DialogHeader>
                 <div className="py-4 space-y-3">
-                    <p className="text-xs font-bold text-muted-foreground text-right mb-4">عند اختيار المندوب، سيتم تعيين الطلب له مباشرة دون الحاجة لموافقته.</p>
+                    <p className="text-xs font-bold text-muted-foreground text-right mb-4">عند اختيار المندوب، سيتم تعيين الطلب له مباشرة وبشكل ثابت.</p>
                     <ScrollArea className="h-[300px] pr-2">
                         <div className="space-y-2">
                             {deliveryWorkers.filter(w => w.isOnline && w.isActive !== false).map(worker => (
