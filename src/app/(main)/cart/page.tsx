@@ -22,8 +22,6 @@ import { useCart } from "@/hooks/useCart";
 import { useAddresses } from "@/hooks/useAddresses";
 import { useRestaurants } from "@/hooks/useRestaurants";
 import { useCoupons } from "@/hooks/useCoupons";
-import { query, collection, where, getDocs, limit } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { AppContext } from "@/contexts/AppContext";
 
 const MAX_DELIVERY_DISTANCE = 25; 
@@ -124,7 +122,7 @@ export default function CartPage() {
         {cart.map(({ product, quantity, selectedSize }) => {
           const globalDiscount = cartRestaurant?.discountPercentage || 0;
           const getPrice = (p: number) => globalDiscount > 0 ? p * (1 - globalDiscount/100) : p;
-          const itemPrice = selectedSize ? getAdjustedPrice(selectedSize.price, globalDiscount) : (product.discountPrice || getAdjustedPrice(product.price, globalDiscount));
+          const itemPrice = selectedSize ? getPrice(selectedSize.price) : (product.discountPrice || getPrice(product.price));
           return (
             <div key={product.id + (selectedSize?.name || '')} className="flex items-center gap-4 bg-white dark:bg-slate-900 p-3 rounded-2xl border dark:border-slate-800 shadow-sm flex-row-reverse">
               <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl"><Image src={product.image || 'https://placehold.co/80x80.png'} alt={product.name} fill className="object-cover" unoptimized={true} /></div>
@@ -196,8 +194,4 @@ export default function CartPage() {
       </Button>
     </div>
   );
-}
-
-function getAdjustedPrice(p: number, globalDiscount: number) {
-    return globalDiscount > 0 ? p * (1 - globalDiscount / 100) : p;
 }

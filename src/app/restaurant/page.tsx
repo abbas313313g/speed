@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import type { Order, OrderStatus } from '@/lib/types';
+import Image from 'next/image';
 
 export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (tab: number) => void }) {
     const context = useContext(RestaurantContext);
@@ -254,12 +255,21 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                     <h3 className="font-black text-primary flex items-center gap-2">وجبات الزبون:</h3>
                                     {selectedOrder.items && selectedOrder.items.length > 0 ? (
                                         selectedOrder.items.map((item, idx) => (
-                                            <div key={idx} className="flex justify-between items-center bg-muted/20 p-4 rounded-2xl border-2 border-dashed">
-                                                <div className="text-right">
+                                            <div key={idx} className="flex justify-between items-center bg-muted/20 p-4 rounded-2xl border-2 border-dashed flex-row-reverse">
+                                                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border">
+                                                    <Image 
+                                                        src={item.product?.image || 'https://placehold.co/100x100.png'} 
+                                                        alt={item.product?.name || ''} 
+                                                        fill 
+                                                        className="object-cover" 
+                                                        unoptimized={true} 
+                                                    />
+                                                </div>
+                                                <div className="flex-1 text-right mr-4">
                                                     <p className="font-black text-sm">{item.product?.name}</p>
                                                     {item.selectedSize && <Badge variant="outline" className="text-[8px] mt-1 font-bold">{item.selectedSize.name}</Badge>}
+                                                    <div className="mt-1 p-1 bg-primary/10 rounded-lg inline-block px-3 font-black text-primary text-xs">x{item.quantity}</div>
                                                 </div>
-                                                <div className="p-2 bg-primary/10 rounded-xl px-4 font-black text-primary">x{item.quantity}</div>
                                             </div>
                                         ))
                                     ) : (

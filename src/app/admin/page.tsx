@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { CheckCircle, Clock, Building2, TrendingUp, Calendar, Wallet, XCircle, Store, MousePointer2 } from 'lucide-react';
+import { CheckCircle, Clock, Building2, TrendingUp, Calendar, Wallet, XCircle, Store, MousePointer2, Loader2 } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useOrders } from '@/hooks/useOrders';
 import { useBranches } from '@/hooks/useBranches';
@@ -25,6 +25,9 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
   const isMain = branchId === 'main';
 
   const stats = useMemo(() => {
+    // إذا لم تكتمل البيانات لا نحسب لتجنب الأصفار الوهمية
+    if (oLoading || pLoading) return null;
+
     const currentBranchOrders = allOrders;
     
     const delivered = currentBranchOrders.filter(o => o.status === 'delivered');
@@ -74,12 +77,17 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
             profit: allBranchProfits[b.id] || 0
         })).concat([{ name: 'فرع المركز العام', id: 'main', profit: allBranchProfits['main'] || 0 }])
     };
-  }, [allOrders, products, branches, isMain, branchId]);
+  }, [allOrders, products, branches, isMain, branchId, oLoading, pLoading]);
 
-  if (pLoading || oLoading) return (
-      <div className="p-20 text-center flex flex-col items-center gap-4">
-          <TrendingUp className="h-12 w-12 text-primary animate-bounce" />
-          <p className="font-black text-primary animate-pulse text-xl">جاري جلب إحصائيات الفرع...</p>
+  // حالة التحميل لمنع التعليق أو الأصفار
+  if (!stats) return (
+      <div className="flex h-[70vh] w-full flex-col items-center justify-center gap-4 bg-background">
+          <div className="relative h-20 w-20 flex items-center justify-center">
+            <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+            <TrendingUp className="h-8 w-8 text-primary animate-pulse" />
+          </div>
+          <p className="font-black text-primary text-xl">جاري جلب إحصائيات الفرع...</p>
+          <p className="text-xs text-muted-foreground font-bold">يرجى الانتظار، جاري المزامنة السحابية 🛰️</p>
       </div>
   );
   
