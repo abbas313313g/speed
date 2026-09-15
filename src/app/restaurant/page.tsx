@@ -46,7 +46,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     const preparingOrders = myOrders.filter(o => ['pending_assignment', 'confirmed', 'preparing'].includes(o.status));
     const activeAndHistoryOrders = myOrders.filter(o => ['ready_for_pickup', 'on_the_way', 'delivered', 'cancelled'].includes(o.status));
 
-    // مزامنة الطلب المفتوح مع التحديثات الحية
     useEffect(() => {
         if (selectedOrder) {
             const liveOrder = allOrders.find(o => o.id === selectedOrder.id);
@@ -56,7 +55,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         }
     }, [allOrders, selectedOrder]);
 
-    // إعداد جرس التنبيه
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
@@ -65,7 +63,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         }
     }, []);
 
-    // تشغيل/إيقاف الصوت تلقائياً عند وجود طلبات جديدة
     useEffect(() => {
         if (newOrders.length > 0 && audioUnlocked && !isMuted && audioRef.current) {
             audioRef.current.play().catch(() => {});
@@ -241,23 +238,20 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                 )}
             </main>
 
-            {/* نافذة تفاصيل الطلب - نظام نصف الشاشة المحدث */}
             <Dialog open={!!selectedOrder} onOpenChange={(v) => !v && setSelectedOrder(null)}>
-                <DialogContent className="sm:max-w-md bg-white rounded-t-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
+                <DialogContent className="fixed inset-x-0 bottom-0 top-auto translate-x-0 translate-y-0 sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-w-md bg-white rounded-t-[3rem] sm:rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
                     {selectedOrder && (
                         <div className="flex flex-col h-full animate-in slide-in-from-bottom duration-300 text-right">
-                            {/* هيدر النافذة */}
-                            <div className="p-6 bg-slate-900 text-white flex justify-between items-center shrink-0">
+                            <DialogHeader className="p-6 bg-slate-900 text-white flex justify-between items-center shrink-0 flex-row-reverse">
                                 <div className="text-right">
-                                    <h2 className="text-2xl font-black italic">طلب #{selectedOrder.orderNumber}</h2>
+                                    <DialogTitle className="text-2xl font-black italic">طلب #{selectedOrder.orderNumber}</DialogTitle>
                                     <p className="text-[10px] opacity-70 font-bold">{new Date(selectedOrder.date).toLocaleString('ar-IQ')}</p>
                                 </div>
                                 <button onClick={() => setSelectedOrder(null)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors">
                                     <X className="h-6 w-6 text-white"/>
                                 </button>
-                            </div>
+                            </DialogHeader>
 
-                            {/* قائمة الوجبات مع الصور والأنواع */}
                             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-2 text-primary font-black text-lg border-b-2 border-primary/10 pb-2">
@@ -299,7 +293,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                     </div>
                                 </div>
 
-                                {/* الملخص المالي للمتجر */}
                                 <div className="p-5 bg-primary/5 rounded-[2rem] border-2 border-dashed border-primary/20 flex justify-between items-center">
                                     <div className="flex flex-col">
                                         <span className="font-black text-slate-600 text-xs">أرباح المتجر الصافية:</span>
@@ -309,7 +302,6 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                 </div>
                             </div>
 
-                            {/* أزرار الإجراءات - قبول أو رفض */}
                             <div className="p-6 bg-slate-50 border-t shrink-0">
                                 {selectedOrder.status === 'unassigned' ? (
                                     <div className="flex gap-4">
