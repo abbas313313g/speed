@@ -98,9 +98,11 @@ export const useOrders = (branchId?: string) => {
 
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
+        // استخدام orderBy "date" desc بدون قيود زمنية لضمان الظهور الفوري
         const q = query(ordersRef, orderBy("date", "desc"), limit(100));
 
-        const unsub = onSnapshot(q, (snapshot) => {
+        // onSnapshot يضمن التحديث اللحظي بدون أي تأخير (Real-time)
+        const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
             
             let finalData = data;
@@ -111,6 +113,7 @@ export const useOrders = (branchId?: string) => {
             setAllOrders(finalData);
             setIsLoading(false);
             
+            // تنفيذ العمليات الخلفية بعد تحديث الحالة
             cleanupTimedOutAssignments(finalData);
             autoAssignOrders(finalData);
         }, (error) => {

@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { MoreHorizontal, Trash2, Loader2, Search, X, UserCog, RefreshCw, Bike, ChevronRight, Store, Clock, Phone, MapPin, ListFilter, Ticket, User, CheckCircle, Navigation } from 'lucide-react';
+import { MoreHorizontal, Trash2, Loader2, Search, X, UserCog, RefreshCw, Bike, ChevronRight, Store, Clock, Phone, MapPin, ListFilter, Ticket, User, CheckCircle, Navigation, Wallet, ReceiptText, Tag } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -82,13 +82,12 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
               deliveryWorkerId: worker.id,
               deliveryWorker: { id: worker.id, name: worker.name },
               confirmedAt: null,
-              lastSkippedWorkerId: null, // مسح سجل التخطي لضمان الثبات
-              isPaid: false, // إعادة الحساب المالي للمندوب الجديد
+              lastSkippedWorkerId: null, 
+              isPaid: false, 
               isFeePaid: false,
               isOrderPaidToOffice: false
           };
           
-          // إذا كان الطلب في مراحل البحث، نحوله فوراً إلى "قيد التحضير" للمندوب الجديد
           if (['unassigned', 'pending_assignment', 'confirmed'].includes(currentOrder.status)) {
               updateData.status = 'preparing';
           }
@@ -251,15 +250,31 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                             <div className="space-y-4">
                                 <h3 className="font-black text-lg text-slate-800 border-r-4 border-primary pr-3">قائمة الوجبات المطلوبة:</h3>
                                 <div className="space-y-2">
-                                    {viewOrder.items.map((item, idx) => (
-                                        <div key={idx} className="flex justify-between items-center p-4 bg-muted/10 rounded-2xl border border-dashed">
-                                            <span className="font-black text-primary text-lg">{formatCurrency((item.selectedSize?.price || item.product.price || 0) * item.quantity)}</span>
-                                            <div className="text-right">
-                                                <p className="font-black text-sm">{item.product.name} <span className="text-primary mx-1">x{item.quantity}</span></p>
-                                                {item.selectedSize && <Badge variant="secondary" className="text-[8px] font-bold mt-1">{item.selectedSize.name}</Badge>}
+                                    {viewOrder.items.map((item, idx) => {
+                                        const originalPrice = item.selectedSize?.price || item.product.price;
+                                        const discountPrice = item.selectedSize ? originalPrice : (item.product.discountPrice || originalPrice);
+                                        const hasItemDiscount = discountPrice < originalPrice;
+
+                                        return (
+                                            <div key={idx} className="flex justify-between items-center p-4 bg-muted/10 rounded-2xl border border-dashed">
+                                                <div className="flex flex-col items-start">
+                                                    <span className="font-black text-primary text-lg">{formatCurrency(discountPrice * item.quantity)}</span>
+                                                    {hasItemDiscount && (
+                                                        <span className="text-[9px] text-muted-foreground line-through font-bold">
+                                                            {formatCurrency(originalPrice * item.quantity)}
+                                                        </span >
+                                                    )}
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-black text-sm">{item.product.name} <span className="text-primary mx-1">x{item.quantity}</span></p>
+                                                    <div className="flex items-center gap-1 justify-end mt-1">
+                                                        {item.selectedSize && <Badge variant="secondary" className="text-[8px] font-bold">{item.selectedSize.name}</Badge>}
+                                                        {hasItemDiscount && <Badge className="text-[8px] font-black bg-red-500 text-white gap-1"><Tag className="h-2 w-2"/> خصم</Badge>}
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
                             </div>
 
@@ -268,16 +283,25 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                                     <span>أجور التوصيل:</span>
                                     <span>{formatCurrency(viewOrder.deliveryFee)}</span>
                                 </div>
+                                
                                 {viewOrder.appliedCoupon && (
-                                    <div className="flex justify-between items-center text-sm font-bold text-red-600 px-2">
-                                        <span>خصم الكود ({viewOrder.appliedCoupon.code}):</span>
+                                    <div className="flex justify-between items-center text-sm font-bold text-red-600 px-2 bg-red-50 p-2 rounded-lg">
+                                        <div className="flex items-center gap-1"><Ticket className="h-4 w-4"/> كود خصم ({viewOrder.appliedCoupon.code})</div>
                                         <span>-{formatCurrency(viewOrder.appliedCoupon.discountAmount)}</span>
                                     </div>
                                 )}
-                                <div className="p-5 bg-slate-900 text-white rounded-[2rem] flex justify-between items-center shadow-2xl mt-4">
+
+                                {viewOrder.walletAmountUsed ? (
+                                    <div className="flex justify-between items-center text-sm font-bold text-blue-600 px-2 bg-blue-50 p-2 rounded-lg">
+                                        <div className="flex items-center gap-1"><Wallet className="h-4 w-4"/> مخصوم من المحفظة</div>
+                                        <span>-{formatCurrency(viewOrder.walletAmountUsed)}</span>
+                                    </div>
+                                ) : null}
+
+                                <div className="p-5 bg-slate-900 text-white rounded-[2rem] flex justify-between items-center shadow-2xl mt-4 border-2 border-primary/20">
                                     <div className="flex flex-col">
-                                        <span className="font-black text-lg">المجموع كاش</span>
-                                        <span className="text-[8px] opacity-60">شامل الوجبات والتوصيل والخصم</span>
+                                        <div className="flex items-center gap-1"><ReceiptText className="h-5 w-5 text-primary"/> <span className="font-black text-lg">المجموع كاش</span></div>
+                                        <span className="text-[8px] opacity-60">القيمة النهائية المستلمة من الزبون</span>
                                     </div>
                                     <span className="text-4xl font-black tracking-tighter text-green-400 drop-shadow-md">{formatCurrency(viewOrder.total)}</span>
                                 </div>
