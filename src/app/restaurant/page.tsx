@@ -5,7 +5,7 @@ import { useContext, useMemo, useState, useEffect, useRef } from 'react';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
 import { useOrders } from '@/hooks/useOrders';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, PackageSearch, History, Clock, Volume2, VolumeX, AlertCircle, PlayCircle, Receipt, X } from 'lucide-react';
+import { LogOut, Loader2, PackageSearch, History, Clock, Volume2, VolumeX, AlertCircle, PlayCircle, Receipt, X, CheckCircle2, Ban, ShoppingBasket } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -46,6 +46,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
     const preparingOrders = myOrders.filter(o => ['pending_assignment', 'confirmed', 'preparing'].includes(o.status));
     const activeAndHistoryOrders = myOrders.filter(o => ['ready_for_pickup', 'on_the_way', 'delivered', 'cancelled'].includes(o.status));
 
+    // مزامنة الطلب المفتوح مع التحديثات الحية
     useEffect(() => {
         if (selectedOrder) {
             const liveOrder = allOrders.find(o => o.id === selectedOrder.id);
@@ -55,6 +56,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         }
     }, [allOrders, selectedOrder]);
 
+    // إعداد جرس التنبيه
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
@@ -63,6 +65,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         }
     }, []);
 
+    // تشغيل/إيقاف الصوت تلقائياً عند وجود طلبات جديدة
     useEffect(() => {
         if (newOrders.length > 0 && audioUnlocked && !isMuted && audioRef.current) {
             audioRef.current.play().catch(() => {});
@@ -238,75 +241,102 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                 )}
             </main>
 
+            {/* نافذة تفاصيل الطلب - نظام نصف الشاشة المحدث */}
             <Dialog open={!!selectedOrder} onOpenChange={(v) => !v && setSelectedOrder(null)}>
-                <DialogContent className="sm:max-w-md bg-white rounded-t-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[90vh]">
+                <DialogContent className="sm:max-w-md bg-white rounded-t-[3rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
                     {selectedOrder && (
-                        <div className="flex flex-col h-full animate-in slide-in-from-bottom duration-300">
-                            <DialogHeader className="p-6 border-b text-right flex flex-row items-center justify-between">
-                                <div>
-                                    <DialogTitle className="text-2xl font-black text-slate-800">تفاصيل الطلب</DialogTitle>
-                                    <p className="text-[10px] font-bold text-muted-foreground">رقم القائمة: {selectedOrder.orderNumber}</p>
+                        <div className="flex flex-col h-full animate-in slide-in-from-bottom duration-300 text-right">
+                            {/* هيدر النافذة */}
+                            <div className="p-6 bg-slate-900 text-white flex justify-between items-center shrink-0">
+                                <div className="text-right">
+                                    <h2 className="text-2xl font-black italic">طلب #{selectedOrder.orderNumber}</h2>
+                                    <p className="text-[10px] opacity-70 font-bold">{new Date(selectedOrder.date).toLocaleString('ar-IQ')}</p>
                                 </div>
-                                <Button variant="ghost" size="icon" onClick={() => setSelectedOrder(null)} className="rounded-full"><X className="h-6 w-6"/></Button>
-                            </DialogHeader>
-
-                            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                                <div className="space-y-3">
-                                    <h3 className="font-black text-primary flex items-center gap-2">وجبات الزبون:</h3>
-                                    {selectedOrder.items && selectedOrder.items.length > 0 ? (
-                                        selectedOrder.items.map((item, idx) => (
-                                            <div key={idx} className="flex justify-between items-center bg-muted/20 p-4 rounded-2xl border-2 border-dashed flex-row-reverse">
-                                                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border">
-                                                    <Image 
-                                                        src={item.product?.image || 'https://placehold.co/100x100.png'} 
-                                                        alt={item.product?.name || ''} 
-                                                        fill 
-                                                        className="object-cover" 
-                                                        unoptimized={true} 
-                                                    />
-                                                </div>
-                                                <div className="flex-1 text-right mr-4">
-                                                    <p className="font-black text-sm">{item.product?.name}</p>
-                                                    {item.selectedSize && <Badge variant="outline" className="text-[8px] mt-1 font-bold">{item.selectedSize.name}</Badge>}
-                                                    <div className="mt-1 p-1 bg-primary/10 rounded-lg inline-block px-3 font-black text-primary text-xs">x{item.quantity}</div>
-                                                </div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <p className="text-center py-4 font-bold text-muted-foreground">جاري جلب تفاصيل الوجبات...</p>
-                                    )}
-                                </div>
-
-                                <div className="p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 flex justify-between items-center">
-                                    <span className="font-black text-slate-600">صافي ربح المتجر:</span>
-                                    <span className="text-2xl font-black text-slate-900">{formatCurrency(calculateStoreNetProfit(selectedOrder))}</span>
-                                </div>
-                                <p className="text-[9px] text-center text-muted-foreground font-bold italic">ملاحظة: هذا المبلغ لا يشمل أجور التوصيل، فهو يمثل ثمن الوجبات ناقصاً عمولة المنصة.</p>
+                                <button onClick={() => setSelectedOrder(null)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors">
+                                    <X className="h-6 w-6 text-white"/>
+                                </button>
                             </div>
 
-                            {selectedOrder.status === 'unassigned' ? (
-                                <DialogFooter className="p-6 bg-slate-50 border-t sticky bottom-0 flex-row gap-3">
-                                    <Button 
-                                        variant="outline" 
-                                        disabled={!!processingOrderId}
-                                        onClick={() => handleUpdateStatus(selectedOrder.id, 'cancelled')}
-                                        className="flex-1 h-16 rounded-2xl font-black text-destructive border-destructive/20 bg-white"
-                                    >
-                                        {processingOrderId === selectedOrder.id ? <Loader2 className="animate-spin h-5 w-5"/> : "رفض الطلب"}
+                            {/* قائمة الوجبات مع الصور والأنواع */}
+                            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2 text-primary font-black text-lg border-b-2 border-primary/10 pb-2">
+                                        <ShoppingBasket className="h-5 w-5" />
+                                        وجبات القائمة:
+                                    </div>
+                                    <div className="space-y-3">
+                                        {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                                            selectedOrder.items.map((item, idx) => (
+                                                <div key={idx} className="flex gap-4 p-3 bg-slate-50 rounded-[1.8rem] border border-slate-100 items-center">
+                                                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border-2 border-white shadow-sm bg-white">
+                                                        <Image 
+                                                            src={item.product?.image || 'https://placehold.co/200x200.png'} 
+                                                            alt={item.product?.name || ''} 
+                                                            fill 
+                                                            className="object-cover" 
+                                                            unoptimized={true} 
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className="font-black text-slate-800 text-sm leading-tight line-clamp-1">{item.product?.name}</h4>
+                                                        {item.selectedSize && (
+                                                            <div className="mt-1">
+                                                                <Badge variant="outline" className="text-[9px] font-black border-primary/20 text-primary py-0.5 bg-primary/5">
+                                                                    النوع: {item.selectedSize.name}
+                                                                </Badge>
+                                                            </div>
+                                                        )}
+                                                        <div className="mt-2 flex items-center gap-2">
+                                                            <span className="font-black text-primary bg-primary/10 px-3 py-1 rounded-xl text-xs">x {item.quantity}</span>
+                                                            <span className="text-[10px] font-bold text-muted-foreground">تجهيز فوري</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="p-10 text-center opacity-40 font-bold">جاري جلب تفاصيل الوجبات...</div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* الملخص المالي للمتجر */}
+                                <div className="p-5 bg-primary/5 rounded-[2rem] border-2 border-dashed border-primary/20 flex justify-between items-center">
+                                    <div className="flex flex-col">
+                                        <span className="font-black text-slate-600 text-xs">أرباح المتجر الصافية:</span>
+                                        <span className="text-[8px] font-bold text-muted-foreground">(بعد خصم عمولة المنصة)</span>
+                                    </div>
+                                    <span className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(calculateStoreNetProfit(selectedOrder))}</span>
+                                </div>
+                            </div>
+
+                            {/* أزرار الإجراءات - قبول أو رفض */}
+                            <div className="p-6 bg-slate-50 border-t shrink-0">
+                                {selectedOrder.status === 'unassigned' ? (
+                                    <div className="flex gap-4">
+                                        <Button 
+                                            variant="outline" 
+                                            disabled={!!processingOrderId}
+                                            onClick={() => handleUpdateStatus(selectedOrder.id, 'cancelled')}
+                                            className="flex-1 h-16 rounded-2xl font-black text-destructive border-destructive/20 bg-white hover:bg-destructive/5 gap-2"
+                                        >
+                                            {processingOrderId === selectedOrder.id ? <Loader2 className="animate-spin h-5 w-5"/> : <Ban className="h-5 w-5"/>}
+                                            رفض
+                                        </Button>
+                                        <Button 
+                                            disabled={!!processingOrderId}
+                                            onClick={() => handleUpdateStatus(selectedOrder.id, 'pending_assignment')}
+                                            className="flex-[2.5] h-16 rounded-2xl font-black text-xl bg-green-600 hover:bg-green-700 shadow-xl shadow-green-100 gap-3"
+                                        >
+                                            {processingOrderId === selectedOrder.id ? <Loader2 className="animate-spin h-6 w-6"/> : <CheckCircle2 className="h-7 w-7 text-white"/>}
+                                            قبول وتحضير
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <Button variant="secondary" onClick={() => setSelectedOrder(null)} className="w-full h-14 rounded-2xl font-black">
+                                        إغلاق التفاصيل
                                     </Button>
-                                    <Button 
-                                        disabled={!!processingOrderId}
-                                        onClick={() => handleUpdateStatus(selectedOrder.id, 'pending_assignment')}
-                                        className="flex-[2] h-16 rounded-2xl font-black text-xl bg-green-600 hover:bg-green-700 shadow-xl shadow-green-100"
-                                    >
-                                        {processingOrderId === selectedOrder.id ? <Loader2 className="animate-spin h-6 w-6"/> : "قبول وتحضير"}
-                                    </Button>
-                                </DialogFooter>
-                            ) : (
-                                <DialogFooter className="p-6 bg-slate-50 border-t sticky bottom-0">
-                                    <Button variant="outline" onClick={() => setSelectedOrder(null)} className="w-full h-14 rounded-2xl font-black">إغلاق النافذة</Button>
-                                </DialogFooter>
-                            )}
+                                )}
+                            </div>
                         </div>
                     )}
                 </DialogContent>
