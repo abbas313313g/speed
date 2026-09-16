@@ -101,13 +101,9 @@ export const useOrders = (branchId?: string) => {
 
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
-        // تحسين الاستعلام ليكون بأقصى سرعة ممكنة (Direct Path)
         const q = query(ordersRef, orderBy("date", "desc"), limit(150));
 
-        // تفعيل استماع اللحظي فائق السرعة
         const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
-            // لا نحدث الحالة إذا كانت البيانات قادمة من الكاش فقط ولم تكتمل المزامنة بعد
-            // هذا يضمن أن الأدمن يرى البيانات "الحقيقية" من السيرفر فوراً
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
             
             let finalData = data;
@@ -117,8 +113,8 @@ export const useOrders = (branchId?: string) => {
             
             setAllOrders(finalData);
             
-            // ننهي حالة التحميل فقط عندما تكون البيانات متزامنة مع السيرفر
-            if (!snapshot.metadata.hasPendingWrites) {
+            // نظام حماية: لا نغلق التحميل إلا بعد التأكد من مزامنة السيرفر (ليس الكاش فقط)
+            if (!snapshot.metadata.fromCache || !snapshot.metadata.hasPendingWrites) {
                 setIsLoading(false);
             }
             
@@ -152,7 +148,6 @@ export const useOrders = (branchId?: string) => {
 
             await updateDoc(orderRef, updateData);
 
-            // إشعار تليجرام عند إلغاء الطلب (مع كامل المعلومات)
             if (status === 'cancelled' && currentOrder) {
                 const cancelMsg = `❌ *تم إلغاء الطلب!*
 📌 *رقم القائمة:* #${currentOrder.orderNumber}

@@ -52,7 +52,6 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const { toast } = useToast();
-  // نظام المزامنة اللحظية المحدث
   const { allOrders, isLoading: ordersLoading, deleteOrder, updateOrderStatus } = useOrders(branchId);
   const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers();
   
@@ -66,7 +65,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
     return allOrders.filter(o => o.branchId === branchId);
   }, [allOrders, branchId]);
   
-  // شاشة التحميل المانعة (Blocking Loader) لضمان اكتمال المزامنة 100%
+  // نظام الحماية المانع: يمنع رؤية أي بيانات حتى اكتمال المزامنة 100% مع السيرفر
   if (isLoading) return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-white/95 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="relative h-24 w-24 flex items-center justify-center">
