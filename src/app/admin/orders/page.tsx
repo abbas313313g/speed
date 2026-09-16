@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { MoreHorizontal, Trash2, Loader2, Search, X, UserCog, RefreshCw, Bike, ChevronRight, Store, Clock, Phone, MapPin, ListFilter, Ticket, User, CheckCircle, Navigation, Wallet, ReceiptText, Tag } from 'lucide-react';
+import { MoreHorizontal, Trash2, Loader2, Search, X, UserCog, RefreshCw, Bike, ChevronRight, Store, Clock, Phone, MapPin, ListFilter, Ticket, User, CheckCircle, Navigation, Wallet, ReceiptText, Tag, ShoppingCart } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -52,18 +52,31 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const { toast } = useToast();
-  const { allOrders, isLoading, deleteOrder, updateOrderStatus } = useOrders(branchId);
-  const { deliveryWorkers } = useDeliveryWorkers();
+  const { allOrders, isLoading: ordersLoading, deleteOrder, updateOrderStatus } = useOrders(branchId);
+  const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers();
   
   const [viewOrder, setViewOrder] = useState<Order | null>(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [orderToAssign, setOrderToAssign] = useState<string | null>(null);
 
+  const isLoading = ordersLoading || workersLoading;
+
   const filteredOrders = useMemo(() => {
     return allOrders.filter(o => o.branchId === branchId);
   }, [allOrders, branchId]);
   
-  if (isLoading) return <div className="p-20 text-center animate-pulse"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto"/><p className="mt-4 font-black text-primary">جارِ تحميل الطلبات...</p></div>;
+  if (isLoading) return (
+      <div className="flex h-[70vh] w-full flex-col items-center justify-center gap-6 bg-background animate-in fade-in duration-500">
+          <div className="relative h-24 w-24 flex items-center justify-center">
+            <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+            <ShoppingCart className="h-10 w-10 text-primary animate-pulse" />
+          </div>
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl font-black text-primary italic">جارِ تحميل الطلبات...</h2>
+            <p className="text-xs text-muted-foreground font-bold italic">يتم الآن مزامنة وتحديث كافة السجلات السحابية 🛰️</p>
+          </div>
+      </div>
+  );
   
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
     try {
