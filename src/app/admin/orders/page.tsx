@@ -52,6 +52,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const { toast } = useToast();
+  // نظام المزامنة اللحظية المحدث
   const { allOrders, isLoading: ordersLoading, deleteOrder, updateOrderStatus } = useOrders(branchId);
   const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers();
   
@@ -65,15 +66,16 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
     return allOrders.filter(o => o.branchId === branchId);
   }, [allOrders, branchId]);
   
+  // شاشة التحميل المانعة (Blocking Loader) لضمان اكتمال المزامنة 100%
   if (isLoading) return (
-      <div className="flex h-[70vh] w-full flex-col items-center justify-center gap-6 bg-background animate-in fade-in duration-500">
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-white/95 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="relative h-24 w-24 flex items-center justify-center">
             <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
             <ShoppingCart className="h-10 w-10 text-primary animate-pulse" />
           </div>
           <div className="text-center space-y-2">
-            <h2 className="text-2xl font-black text-primary italic">جارِ تحميل الطلبات...</h2>
-            <p className="text-xs text-muted-foreground font-bold italic">يتم الآن مزامنة وتحديث كافة السجلات السحابية 🛰️</p>
+            <h2 className="text-2xl font-black text-primary italic">جارِ مزامنة كافة الطلبات...</h2>
+            <p className="text-xs text-muted-foreground font-bold italic">يتم الآن التحقق من أحدث البيانات السحابية لضمان الدقة اللحظية 🛰️</p>
           </div>
       </div>
   );
@@ -135,7 +137,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   return (
     <div className="space-y-6 text-right">
       <header>
-          <h1 className="text-2xl font-black text-primary italic">إدارة الطلبات</h1>
+          <h1 className="text-2xl font-black text-primary italic">إدارة الطلبات اللحظية</h1>
       </header>
 
         <div className="bg-white rounded-2xl border shadow-lg overflow-hidden">

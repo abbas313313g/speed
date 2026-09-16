@@ -7,12 +7,15 @@ import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
 import { sendFcmNotification } from '@/services/fcm-service';
-import { calculateDistance } from '@/lib/utils';
+import { calculateDistance, formatCurrency } from '@/lib/utils';
+import { useTelegramConfigs } from './useTelegramConfigs';
+import { sendTelegramMessage } from '@/lib/telegram';
 
 export const useOrders = (branchId?: string) => {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
+    const { telegramConfigs } = useTelegramConfigs();
     const isAssigningRef = useRef(false);
     const lastAssignTimeRef = useRef(0);
 
@@ -98,11 +101,13 @@ export const useOrders = (branchId?: string) => {
 
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
-        // استخدام orderBy "date" desc بدون قيود زمنية لضمان الظهور الفوري
-        const q = query(ordersRef, orderBy("date", "desc"), limit(100));
+        // تحسين الاستعلام ليكون بأقصى سرعة ممكنة (Direct Path)
+        const q = query(ordersRef, orderBy("date", "desc"), limit(150));
 
-        // onSnapshot يضمن التحديث اللحظي بدون أي تأخير (Real-time)
+        // تفعيل استماع اللحظي فائق السرعة
         const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
+            // لا نحدث الحالة إذا كانت البيانات قادمة من الكاش فقط ولم تكتمل المزامنة بعد
+            // هذا يضمن أن الأدمن يرى البيانات "الحقيقية" من السيرفر فوراً
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
             
             let finalData = data;
@@ -111,12 +116,16 @@ export const useOrders = (branchId?: string) => {
             }
             
             setAllOrders(finalData);
-            setIsLoading(false);
             
-            // تنفيذ العمليات الخلفية بعد تحديث الحالة
+            // ننهي حالة التحميل فقط عندما تكون البيانات متزامنة مع السيرفر
+            if (!snapshot.metadata.hasPendingWrites) {
+                setIsLoading(false);
+            }
+            
             cleanupTimedOutAssignments(finalData);
             autoAssignOrders(finalData);
         }, (error) => {
+            console.error("Orders Snapshot Error:", error);
             setIsLoading(false);
         });
         return () => unsub();
@@ -125,6 +134,7 @@ export const useOrders = (branchId?: string) => {
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
             const orderRef = doc(db, "orders", orderId);
+            const currentOrder = allOrders.find(o => o.id === orderId);
             const updateData: any = { status };
             
             if (status === 'preparing' && workerId) {
@@ -141,11 +151,30 @@ export const useOrders = (branchId?: string) => {
             }
 
             await updateDoc(orderRef, updateData);
+
+            // إشعار تليجرام عند إلغاء الطلب (مع كامل المعلومات)
+            if (status === 'cancelled' && currentOrder) {
+                const cancelMsg = `❌ *تم إلغاء الطلب!*
+📌 *رقم القائمة:* #${currentOrder.orderNumber}
+🏠 *المتجر:* ${currentOrder.restaurant?.name || 'غير معروف'}
+📍 *المنطقة:* ${currentOrder.address.deliveryZone}
+💰 *المبلغ:* ${formatCurrency(currentOrder.total)}
+🏙️ *الفرع:* ${currentOrder.branchId === 'main' ? 'المركز الرئيسي' : currentOrder.branchId}
+📞 *هاتف الزبون:* ${currentOrder.address.phone}
+⚠️ *الحالة:* تم تغيير الحالة إلى ملغي`;
+
+                telegramConfigs.filter(c => c.type === 'admin_orders').forEach(config => {
+                    if (config.targetBranchId === 'all' || config.targetBranchId === currentOrder.branchId) {
+                        sendTelegramMessage(config.chatId, cancelMsg).catch(() => {});
+                    }
+                });
+            }
+
             return true;
         } catch (error: any) {
             return false;
         }
-    }, []);
+    }, [allOrders, telegramConfigs]);
 
     const deleteOrder = useCallback(async (orderId: string) => {
         try {
