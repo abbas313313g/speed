@@ -67,7 +67,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   
   // نظام الحماية المانع: يمنع رؤية أي بيانات حتى اكتمال المزامنة 100% مع السيرفر
   if (isLoading) return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-white/95 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-white/95 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="relative h-24 w-24 flex items-center justify-center">
             <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
             <ShoppingCart className="h-10 w-10 text-primary animate-pulse" />

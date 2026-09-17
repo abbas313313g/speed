@@ -103,6 +103,7 @@ export const useOrders = (branchId?: string) => {
         const ordersRef = collection(db, 'orders');
         const q = query(ordersRef, orderBy("date", "desc"), limit(150));
 
+        // تفعيل metadataChanges لضمان استلام تأكيد المزامنة من السيرفر بنسبة 100%
         const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
             
@@ -113,8 +114,8 @@ export const useOrders = (branchId?: string) => {
             
             setAllOrders(finalData);
             
-            // نظام حماية: لا نغلق التحميل إلا بعد التأكد من مزامنة السيرفر (ليس الكاش فقط)
-            if (!snapshot.metadata.fromCache || !snapshot.metadata.hasPendingWrites) {
+            // نظام الحماية: لا نغلق التحميل إلا بعد التأكد من مزامنة السيرفر (منع ظهور الكاش القديم)
+            if (!snapshot.metadata.fromCache) {
                 setIsLoading(false);
             }
             

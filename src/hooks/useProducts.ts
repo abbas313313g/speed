@@ -70,11 +70,13 @@ export const useProducts = (
 
         try {
             if (productId) {
-                unsub = onSnapshot(doc(db, 'products', productId), (docSnap) => {
+                unsub = onSnapshot(doc(db, 'products', productId), { includeMetadataChanges: true }, (docSnap) => {
                     if (docSnap.exists()) {
                         setProducts([{ ...docSnap.data(), id: docSnap.id } as Product]);
                     }
-                    setIsLoading(false);
+                    if (!docSnap.metadata.fromCache) {
+                        setIsLoading(false);
+                    }
                 });
                 return () => unsub();
             }
@@ -98,7 +100,7 @@ export const useProducts = (
                 q = query(ref, limit(loadLimit));
             }
 
-            unsub = onSnapshot(q, (snapshot) => {
+            unsub = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Product));
                 
                 let filteredData = data;
@@ -108,7 +110,10 @@ export const useProducts = (
 
                 setProducts(filteredData);
                 setHasMore(data.length >= loadLimit);
-                setIsLoading(false);
+                
+                if (!snapshot.metadata.fromCache) {
+                    setIsLoading(false);
+                }
             }, (error) => {
                 console.error("Products Snapshot Error:", error);
                 setIsLoading(false);

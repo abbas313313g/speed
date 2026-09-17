@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { CheckCircle, Clock, Building2, TrendingUp, Calendar, Wallet, XCircle, Store, MousePointer2, Loader2 } from 'lucide-react';
+import { CheckCircle, Clock, Building2, TrendingUp, Calendar, Wallet, XCircle, Store, MousePointer2, Loader2, DatabaseZap } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useOrders } from '@/hooks/useOrders';
 import { useBranches } from '@/hooks/useBranches';
@@ -79,15 +79,17 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
     };
   }, [allOrders, products, branches, isMain, branchId, oLoading, pLoading]);
 
-  // حالة التحميل لمنع التعليق أو الأصفار
+  // نظام الحماية المانع لكامل لوحة التحكم
   if (!stats) return (
-      <div className="flex h-[70vh] w-full flex-col items-center justify-center gap-4 bg-background">
-          <div className="relative h-20 w-20 flex items-center justify-center">
+      <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-white/95 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="relative h-24 w-24 flex items-center justify-center">
             <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-            <TrendingUp className="h-8 w-8 text-primary animate-pulse" />
+            <TrendingUp className="h-10 w-10 text-primary animate-pulse" />
           </div>
-          <p className="font-black text-primary text-xl">جاري جلب إحصائيات الفرع...</p>
-          <p className="text-xs text-muted-foreground font-bold">يرجى الانتظار، جاري المزامنة السحابية 🛰️</p>
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl font-black text-primary italic">جارِ مزامنة لوحة التحكم...</h2>
+            <p className="text-xs text-muted-foreground font-bold italic">يتم الآن جلب أحدث الحسابات والطلبات من السيرفر لضمان دقة 100% 🛰️</p>
+          </div>
       </div>
   );
   
