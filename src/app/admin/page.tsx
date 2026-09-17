@@ -107,7 +107,7 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
                       <div className="absolute right-[-10px] bottom-[-10px] opacity-10"><Calendar className="h-20 w-20"/></div>
                       <div className="text-[10px] font-black text-primary uppercase mb-2 tracking-widest">صافي أرباح كافة الفروع (اليوم)</div>
                       <div className="text-4xl font-black text-green-400 tracking-tighter">
-                          {formatCurrency(Object.values(stats.allBranchProfits).reduce((a,b)=>a+b, 0))}
+                          {formatCurrency(stats.allBranchProfits.main + Object.values(stats.allBranchProfits).reduce((a,b)=>a+b, 0) - stats.allBranchProfits.main)}
                       </div>
                   </Card>
                   <Card className="rounded-[1.5rem] border-none shadow-xl bg-primary text-white p-6">

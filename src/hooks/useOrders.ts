@@ -115,7 +115,7 @@ export const useOrders = (branchId?: string) => {
             setAllOrders(finalData);
             
             // نظام الحماية: لا نغلق التحميل إلا بعد التأكد من مزامنة السيرفر (منع ظهور الكاش القديم)
-            if (!snapshot.metadata.fromCache) {
+            if (!snapshot.metadata.fromCache || snapshot.docs.length > 0) {
                 setIsLoading(false);
             }
             
