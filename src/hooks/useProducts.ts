@@ -39,6 +39,7 @@ export const useProducts = (
     const [hasMore, setHasMore] = useState(true);
     const { toast } = useToast();
 
+    // جلب المتاجر مراقبة مستمرة لمرة واحدة لتوفير الكوتا
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'restaurants'), (snap) => {
             setRestaurants(snap.docs.map(d => ({...d.data(), id: d.id}) as Restaurant));
@@ -115,7 +116,6 @@ export const useProducts = (
                     setIsLoading(false);
                 }
             }, (error) => {
-                console.error("Products Snapshot Error:", error);
                 setIsLoading(false);
             });
 

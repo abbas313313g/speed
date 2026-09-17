@@ -18,6 +18,17 @@ export const useOrders = (branchId?: string) => {
     const { telegramConfigs } = useTelegramConfigs();
     const isAssigningRef = useRef(false);
     const lastAssignTimeRef = useRef(0);
+    const onlineWorkersRef = useRef<DeliveryWorker[]>([]);
+
+    // مراقبة العمال المتصلين مرة واحدة فقط لتوفير الكوتا
+    useEffect(() => {
+        const workersRef = collection(db, "deliveryWorkers");
+        const wQuery = query(workersRef, where("isOnline", "==", true), where("isActive", "==", true));
+        const unsub = onSnapshot(wQuery, (snap) => {
+            onlineWorkersRef.current = snap.docs.map(d => ({ id: d.id, ...d.data() })) as DeliveryWorker[];
+        });
+        return () => unsub();
+    }, []);
 
     const cleanupTimedOutAssignments = useCallback(async (orders: Order[]) => {
         const now = new Date().getTime();
@@ -36,14 +47,13 @@ export const useOrders = (branchId?: string) => {
                     confirmedAt: null,
                     lastSkippedWorkerId: order.deliveryWorkerId
                 });
-            } catch (e) {
-                console.error("Timeout cleanup failed:", e);
-            }
+            } catch (e) {}
         }
     }, []);
 
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         const now = Date.now();
+        // منع التعيين المتكرر في وقت واحد (أمان الكوتا)
         if (isAssigningRef.current || (now - lastAssignTimeRef.current < 4000)) return;
         
         const pendingOrders = orders.filter(o => o.status === 'pending_assignment');
@@ -53,15 +63,7 @@ export const useOrders = (branchId?: string) => {
         lastAssignTimeRef.current = now;
 
         try {
-            const workersRef = collection(db, "deliveryWorkers");
-            const wQuery = query(
-                workersRef, 
-                where("isOnline", "==", true), 
-                where("isActive", "==", true),
-                limit(50)
-            );
-            const workersSnap = await getDocs(wQuery);
-            let onlineWorkers = workersSnap.docs.map(d => ({ id: d.id, ...d.data() })) as DeliveryWorker[];
+            const onlineWorkers = onlineWorkersRef.current;
 
             if (onlineWorkers.length > 0) {
                 for (const order of pendingOrders) {
@@ -103,7 +105,6 @@ export const useOrders = (branchId?: string) => {
         const ordersRef = collection(db, 'orders');
         const q = query(ordersRef, orderBy("date", "desc"), limit(150));
 
-        // تفعيل metadataChanges لضمان استلام تأكيد المزامنة من السيرفر بنسبة 100%
         const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
             
@@ -114,7 +115,6 @@ export const useOrders = (branchId?: string) => {
             
             setAllOrders(finalData);
             
-            // نظام الحماية: لا نغلق التحميل إلا بعد التأكد من مزامنة السيرفر (منع ظهور الكاش القديم)
             if (!snapshot.metadata.fromCache || snapshot.docs.length > 0) {
                 setIsLoading(false);
             }
@@ -122,7 +122,6 @@ export const useOrders = (branchId?: string) => {
             cleanupTimedOutAssignments(finalData);
             autoAssignOrders(finalData);
         }, (error) => {
-            console.error("Orders Snapshot Error:", error);
             setIsLoading(false);
         });
         return () => unsub();
