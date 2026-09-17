@@ -59,25 +59,9 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [orderToAssign, setOrderToAssign] = useState<string | null>(null);
 
-  const isLoading = ordersLoading || workersLoading;
-
   const filteredOrders = useMemo(() => {
     return allOrders.filter(o => o.branchId === branchId);
   }, [allOrders, branchId]);
-  
-  // نظام الحماية المانع: يمنع رؤية أي بيانات حتى اكتمال المزامنة 100% مع السيرفر
-  if (isLoading) return (
-      <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-white/95 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="relative h-24 w-24 flex items-center justify-center">
-            <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-            <ShoppingCart className="h-10 w-10 text-primary animate-pulse" />
-          </div>
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl font-black text-primary italic">جارِ مزامنة كافة الطلبات...</h2>
-            <p className="text-xs text-muted-foreground font-bold italic">يتم الآن التحقق من أحدث البيانات السحابية لضمان الدقة اللحظية 🛰️</p>
-          </div>
-      </div>
-  );
   
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
     try {
@@ -134,9 +118,10 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
     }
 
   return (
-    <div className="space-y-6 text-right">
-      <header>
+    <div className="space-y-6 text-right relative">
+      <header className="flex justify-between items-center">
           <h1 className="text-2xl font-black text-primary italic">إدارة الطلبات اللحظية</h1>
+          {ordersLoading && <Loader2 className="h-5 w-5 animate-spin text-primary opacity-40"/>}
       </header>
 
         <div className="bg-white rounded-2xl border shadow-lg overflow-hidden">
@@ -191,7 +176,8 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                 ))}
                 </TableBody>
             </Table>
-            {filteredOrders.length === 0 && <div className="p-10 text-center text-muted-foreground font-bold italic text-xs">لا يوجد طلبات حالياً.</div>}
+            {filteredOrders.length === 0 && !ordersLoading && <div className="p-10 text-center text-muted-foreground font-bold italic text-xs">لا يوجد طلبات حالياً.</div>}
+            {filteredOrders.length === 0 && ordersLoading && <div className="p-10 text-center text-primary font-black animate-pulse text-xs">جارِ مزامنة الطلبات...</div>}
         </div>
 
         <Dialog open={!!viewOrder} onOpenChange={(v) => !v && setViewOrder(null)}>

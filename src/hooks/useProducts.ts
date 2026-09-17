@@ -39,7 +39,6 @@ export const useProducts = (
     const [hasMore, setHasMore] = useState(true);
     const { toast } = useToast();
 
-    // جلب المتاجر مراقبة مستمرة لمرة واحدة لتوفير الكوتا
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'restaurants'), (snap) => {
             setRestaurants(snap.docs.map(d => ({...d.data(), id: d.id}) as Restaurant));
@@ -71,13 +70,11 @@ export const useProducts = (
 
         try {
             if (productId) {
-                unsub = onSnapshot(doc(db, 'products', productId), { includeMetadataChanges: true }, (docSnap) => {
+                unsub = onSnapshot(doc(db, 'products', productId), (docSnap) => {
                     if (docSnap.exists()) {
                         setProducts([{ ...docSnap.data(), id: docSnap.id } as Product]);
                     }
-                    if (!docSnap.metadata.fromCache) {
-                        setIsLoading(false);
-                    }
+                    setIsLoading(false);
                 });
                 return () => unsub();
             }
@@ -86,35 +83,22 @@ export const useProducts = (
             let q;
 
             if (restaurantId && restaurantId !== 'none' && restaurantId !== '') {
-                q = query(
-                    ref, 
-                    where("restaurantId", "==", restaurantId),
-                    limit(loadLimit) 
-                );
+                q = query(ref, where("restaurantId", "==", restaurantId), limit(loadLimit));
             } else if (branchId && branchId !== 'all' && branchId !== 'main') {
-                q = query(
-                    ref, 
-                    where("branchId", "==", branchId),
-                    limit(loadLimit)
-                );
+                q = query(ref, where("branchId", "==", branchId), limit(loadLimit));
             } else {
                 q = query(ref, limit(loadLimit));
             }
 
-            unsub = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
+            unsub = onSnapshot(q, (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Product));
-                
                 let filteredData = data;
                 if (!isAdmin) {
                     filteredData = filteredData.filter(p => p.status === 'approved');
                 }
-
                 setProducts(filteredData);
                 setHasMore(data.length >= loadLimit);
-                
-                if (!snapshot.metadata.fromCache) {
-                    setIsLoading(false);
-                }
+                setIsLoading(false);
             }, (error) => {
                 setIsLoading(false);
             });

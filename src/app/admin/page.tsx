@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import Image from 'next/image';
 
 export default function AdminDashboard({ branchId }: { branchId: string }) {
-  const { products, approveProduct, deleteProduct, isLoading: pLoading } = useProducts(branchId, undefined, 500, undefined, '', true);
+  const { products, approveProduct, isLoading: pLoading } = useProducts(branchId, undefined, 500, undefined, '', true);
   const { allOrders, isLoading: oLoading } = useOrders(branchId);
   const { restaurants } = useRestaurants(branchId);
   const { branches } = useBranches();
@@ -25,13 +25,8 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
   const isMain = branchId === 'main';
 
   const stats = useMemo(() => {
-    // إذا لم تكتمل البيانات لا نحسب لتجنب الأصفار الوهمية
-    if (oLoading || pLoading) return null;
-
-    const currentBranchOrders = allOrders;
-    
-    const delivered = currentBranchOrders.filter(o => o.status === 'delivered');
-    const cancelled = currentBranchOrders.filter(o => o.status === 'cancelled');
+    const delivered = allOrders.filter(o => o.status === 'delivered');
+    const cancelled = allOrders.filter(o => o.status === 'cancelled');
     
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -69,7 +64,7 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
         branchDailyProfit,
         allBranchProfits,
         pendingProducts: products.filter(p => p.status === 'pending' && p.branchId === branchId),
-        activeOrders: currentBranchOrders.filter(o => !['delivered', 'cancelled', 'unassigned'].includes(o.status)).length,
+        activeOrders: allOrders.filter(o => !['delivered', 'cancelled', 'unassigned'].includes(o.status)).length,
         cancelledCount: cancelled.length,
         branchesSummary: branches.map(b => ({
             name: b.name,
@@ -77,27 +72,16 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
             profit: allBranchProfits[b.id] || 0
         })).concat([{ name: 'فرع المركز العام', id: 'main', profit: allBranchProfits['main'] || 0 }])
     };
-  }, [allOrders, products, branches, isMain, branchId, oLoading, pLoading]);
+  }, [allOrders, products, branches, isMain, branchId]);
 
-  // نظام الحماية المانع لكامل لوحة التحكم
-  if (!stats) return (
-      <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-white/95 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="relative h-24 w-24 flex items-center justify-center">
-            <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-            <TrendingUp className="h-10 w-10 text-primary animate-pulse" />
-          </div>
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl font-black text-primary italic">جارِ مزامنة لوحة التحكم...</h2>
-            <p className="text-xs text-muted-foreground font-bold italic">يتم الآن جلب أحدث الحسابات والطلبات من السيرفر لضمان دقة 100% 🛰️</p>
-          </div>
-      </div>
-  );
-  
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 text-right" dir="rtl">
-      <header>
-        <h1 className="text-4xl font-black text-primary italic leading-none">لوحة القيادة</h1>
-        <p className="text-muted-foreground font-bold mt-1">متابعة فرع: {isMain ? 'المركز العام' : (branches.find(b=>b.id === branchId)?.name || branchId)}</p>
+    <div className="space-y-8 animate-in fade-in duration-300 text-right relative" dir="rtl">
+      <header className="flex justify-between items-center">
+        <div>
+            <h1 className="text-4xl font-black text-primary italic leading-none">لوحة القيادة</h1>
+            <p className="text-muted-foreground font-bold mt-1">متابعة فرع: {isMain ? 'المركز العام' : (branches.find(b=>b.id === branchId)?.name || branchId)}</p>
+        </div>
+        {(oLoading || pLoading) && <Loader2 className="h-6 w-6 animate-spin text-primary opacity-30"/>}
       </header>
 
       {isMain && (
@@ -208,7 +192,6 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
                             </div>
                             <div className="flex flex-col gap-2">
                                 <Button size="sm" className="bg-green-600 hover:bg-green-700 rounded-lg px-4" onClick={()=>approveProduct(p.id)}>نشر</Button>
-                                <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/5 rounded-lg px-4" onClick={()=>deleteProduct(p.id)}>رفض</Button>
                             </div>
                         </Card>
                     );

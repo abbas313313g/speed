@@ -53,7 +53,6 @@ export const useOrders = (branchId?: string) => {
 
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         const now = Date.now();
-        // منع التعيين المتكرر في وقت واحد (أمان الكوتا)
         if (isAssigningRef.current || (now - lastAssignTimeRef.current < 4000)) return;
         
         const pendingOrders = orders.filter(o => o.status === 'pending_assignment');
@@ -103,9 +102,9 @@ export const useOrders = (branchId?: string) => {
 
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
-        const q = query(ordersRef, orderBy("date", "desc"), limit(150));
+        const q = query(ordersRef, orderBy("date", "desc"), limit(100));
 
-        const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
+        const unsub = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
             
             let finalData = data;
@@ -114,10 +113,7 @@ export const useOrders = (branchId?: string) => {
             }
             
             setAllOrders(finalData);
-            
-            if (!snapshot.metadata.fromCache || snapshot.docs.length > 0) {
-                setIsLoading(false);
-            }
+            setIsLoading(false);
             
             cleanupTimedOutAssignments(finalData);
             autoAssignOrders(finalData);
