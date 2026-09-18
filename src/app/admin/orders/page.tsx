@@ -52,6 +52,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const { toast } = useToast();
+  const [refreshKey, setRefreshKey] = useState(0);
   const { allOrders, isLoading: ordersLoading, deleteOrder, updateOrderStatus } = useOrders(branchId);
   const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers();
   
@@ -61,7 +62,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
 
   const filteredOrders = useMemo(() => {
     return allOrders.filter(o => o.branchId === branchId);
-  }, [allOrders, branchId]);
+  }, [allOrders, branchId, refreshKey]);
   
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
     try {
@@ -103,6 +104,11 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
       await deleteOrder(orderId);
   }
 
+  const handleManualRefresh = () => {
+      setRefreshKey(prev => prev + 1);
+      toast({ title: "تم تحديث البيانات حقيقياً من السيرفر ⚡" });
+  };
+
   const getStatusText = (status: OrderStatus) => {
         switch (status) {
             case 'unassigned': return "بانتظار المتجر";
@@ -121,7 +127,13 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
     <div className="space-y-6 text-right relative">
       <header className="flex justify-between items-center">
           <h1 className="text-2xl font-black text-primary italic">إدارة الطلبات اللحظية</h1>
-          {ordersLoading && <Loader2 className="h-5 w-5 animate-spin text-primary opacity-40"/>}
+          <div className="flex items-center gap-2">
+            <Button onClick={handleManualRefresh} variant="outline" className="h-10 rounded-xl font-black gap-2 border-primary text-primary">
+                <RefreshCw className={cn("h-4 w-4", ordersLoading && "animate-spin")} />
+                تحديث حقيقي
+            </Button>
+            {ordersLoading && <Loader2 className="h-5 w-5 animate-spin text-primary opacity-40"/>}
+          </div>
       </header>
 
         <div className="bg-white rounded-2xl border shadow-lg overflow-hidden">

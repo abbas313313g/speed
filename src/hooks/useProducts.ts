@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where, limit, getDocs } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, onSnapshot, doc, query, where, limit, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Product, Restaurant } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -82,7 +82,16 @@ export const useProducts = (
             const ref = collection(db, 'products');
             let q;
 
-            if (restaurantId && restaurantId !== 'none' && restaurantId !== '') {
+            // بناء الاستعلام السحابي الحقيقي بناءً على البحث أو الفلترة
+            if (searchTerm.trim() !== '') {
+                // البحث السحابي المباشر باستخدام Prefix matching
+                q = query(
+                    ref, 
+                    where("name", ">=", searchTerm), 
+                    where("name", "<=", searchTerm + '\uf8ff'),
+                    limit(loadLimit)
+                );
+            } else if (restaurantId && restaurantId !== 'none' && restaurantId !== '') {
                 q = query(ref, where("restaurantId", "==", restaurantId), limit(loadLimit));
             } else if (branchId && branchId !== 'all' && branchId !== 'main') {
                 q = query(ref, where("branchId", "==", branchId), limit(loadLimit));
@@ -108,7 +117,7 @@ export const useProducts = (
         }
 
         return () => unsub();
-    }, [branchId, restaurantId, isAdmin, productId, loadLimit]);
+    }, [branchId, restaurantId, isAdmin, productId, loadLimit, searchTerm]);
 
     const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
         try {

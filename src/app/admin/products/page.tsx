@@ -85,7 +85,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
       selectedStoreId || '', 
       500, 
       undefined,
-      '',
+      searchTerm, // تمرير كلمة البحث للمحرك السحابي الحقيقي
       true 
   );
 
@@ -100,10 +100,6 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
     restaurants.find(r => r.id === selectedStoreId), 
     [selectedStoreId, restaurants]
   );
-
-  const filteredProducts = useMemo(() => {
-    return products.filter(p => (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [products, searchTerm]);
 
   const handleOpenDialog = (product?: Product) => {
     if (product) {
@@ -182,10 +178,10 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
   };
 
   const toggleSelectAll = () => {
-      if (selectedProductIds.length === filteredProducts.length) {
+      if (selectedProductIds.length === products.length) {
           setSelectedProductIds([]);
       } else {
-          setSelectedProductIds(filteredProducts.map(p => p.id));
+          setSelectedProductIds(products.map(p => p.id));
       }
   };
 
@@ -278,14 +274,14 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
           <div className="relative flex-1">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
-                placeholder="ابحث باسم الوجبة داخل المتجر..." 
+                placeholder="ابحث حقيقياً من السيرفر ⚡..." 
                 value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)} 
                 className="pr-10 h-12 rounded-xl border-none bg-muted/30"
               />
           </div>
           <Badge className="h-12 px-6 rounded-xl font-black text-lg bg-primary/10 text-primary border-none">
-              {productsLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : `${filteredProducts.length} وجبة`}
+              {productsLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : `${products.length} وجبة`}
           </Badge>
       </div>
 
@@ -422,7 +418,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
               <TableRow>
                 <TableHead className="w-[50px]">
                     <Checkbox 
-                        checked={selectedProductIds.length === filteredProducts.length && filteredProducts.length > 0}
+                        checked={selectedProductIds.length === products.length && products.length > 0}
                         onCheckedChange={toggleSelectAll}
                     />
                 </TableHead>
@@ -435,7 +431,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
             <TableBody>
               {productsLoading ? (
                   <TableRow><TableCell colSpan={5} className="py-20 text-center flex flex-col items-center gap-2"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-40"/><p className="font-bold text-muted-foreground animate-pulse">جاري جلب قائمة الوجبات...</p></TableCell></TableRow>
-              ) : filteredProducts.length > 0 ? filteredProducts.map((p, index) => (
+              ) : products.length > 0 ? products.map((p, index) => (
                 <TableRow key={p.id || `prod-${index}`} className={cn("hover:bg-muted/20 transition-colors", !(p.isActive ?? true) && "opacity-40 grayscale")}>
                   <TableCell>
                       <Checkbox 
