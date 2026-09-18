@@ -39,6 +39,15 @@ export const useProducts = (
     const [hasMore, setHasMore] = useState(true);
     const { toast } = useToast();
 
+    // حماية الكوتا: تأخير البحث لتقليل عمليات القراءة من السيرفر
+    const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+        }, 600); // 600ms debounce
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'restaurants'), (snap) => {
             setRestaurants(snap.docs.map(d => ({...d.data(), id: d.id}) as Restaurant));
@@ -82,13 +91,12 @@ export const useProducts = (
             const ref = collection(db, 'products');
             let q;
 
-            // بناء الاستعلام السحابي الحقيقي بناءً على البحث أو الفلترة
-            if (searchTerm.trim() !== '') {
-                // البحث السحابي المباشر باستخدام Prefix matching
+            // استخدام المصطلح المجدول (Debounced) لحماية الكوتا من الاستنزاف أثناء الكتابة
+            if (debouncedSearch.trim() !== '') {
                 q = query(
                     ref, 
-                    where("name", ">=", searchTerm), 
-                    where("name", "<=", searchTerm + '\uf8ff'),
+                    where("name", ">=", debouncedSearch), 
+                    where("name", "<=", debouncedSearch + '\uf8ff'),
                     limit(loadLimit)
                 );
             } else if (restaurantId && restaurantId !== 'none' && restaurantId !== '') {
@@ -109,6 +117,7 @@ export const useProducts = (
                 setHasMore(data.length >= loadLimit);
                 setIsLoading(false);
             }, (error) => {
+                console.error("Firestore Error:", error);
                 setIsLoading(false);
             });
 
@@ -117,7 +126,7 @@ export const useProducts = (
         }
 
         return () => unsub();
-    }, [branchId, restaurantId, isAdmin, productId, loadLimit, searchTerm]);
+    }, [branchId, restaurantId, isAdmin, productId, loadLimit, debouncedSearch]);
 
     const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
         try {

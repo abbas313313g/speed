@@ -1,3 +1,4 @@
+
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -53,27 +54,30 @@ export const isLocationInAllowedZones = (lat: number, lng: number) => {
 }
 
 /**
- * محرك حساب أجور التوصيل الجديد:
- * 250 دينار لكل 700 متر (ما يعادل 1000 لكل 2.8 كم)
- * الحد الأدنى هو 1000 دينار دائماً
+ * محرك حساب أجور التوصيل المطور بدقة الـ 700 متر:
+ * 1000 دينار كحد أدنى.
+ * زيادة 250 دينار لكل وحدة مسافة (700 متر).
+ * 700 متر = 250 دينار إضافي.
+ * 1.4 كم = 500 دينار إضافي.
+ * 2.8 كم = 1000 دينار إضافي.
  */
 export const calculateDeliveryFee = (distanceInKm: number) => {
     const minFee = 1000;
-    const unitDistance = 0.7; // 700 متر
-    const unitPrice = 250; 
+    const unitDistance = 0.7; // 700 متر لكل وحدة
+    const unitPrice = 250; // سعر الوحدة الواحدة
 
     if (!distanceInKm || distanceInKm <= 0) {
         return minFee;
     }
     
-    // حساب عدد الوحدات (كل وحدة 700 متر)
+    // حساب عدد الوحدات (كل وحدة تمثل 700 متر)
     const units = distanceInKm / unitDistance;
     let totalFee = units * unitPrice;
     
-    // تقريب المبلغ لأقرب 250 دينار
+    // تقريب المبلغ لأقرب 250 دينار لضمان دقة الحساب المالي
     totalFee = Math.round(totalFee / 250) * 250;
     
-    // ضمان الحد الأدنى 1000 والحد الأقصى 15000 (للحماية)
+    // تطبيق الحد الأدنى 1000 دينار، والحد الأقصى 15000 كحماية للنظام
     return Math.min(Math.max(totalFee, minFee), 15000);
 }
 
