@@ -23,7 +23,7 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false, p
   const { products } = useProducts(undefined, restaurant.id, 100);
 
   const hasDiscounts = useMemo(() => {
-      return products.some(p => (p.discountPrice && p.discountPrice > 0) || (restaurant.discountPercentage && restaurant.discountPercentage > 0));
+      return (restaurant.discountPercentage && restaurant.discountPercentage > 0) || products.some(p => p.discountPrice && p.discountPrice > 0);
   }, [products, restaurant.discountPercentage]);
   
   const handleOpenRestaurant = () => {
@@ -64,7 +64,7 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false, p
               {hasDiscounts && (
                   <div className="absolute top-2 left-2 z-10 bg-red-600 text-white p-1.5 rounded-xl shadow-lg flex items-center gap-1 animate-bounce">
                       <Sparkles className="h-3 w-3" />
-                      <span className="text-[8px] font-black">عروض</span>
+                      <span className="text-[8px] font-black">خصومات</span>
                   </div>
               )}
 
