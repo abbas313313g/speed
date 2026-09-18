@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -106,7 +105,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
 
   const handleManualRefresh = () => {
       setRefreshKey(prev => prev + 1);
-      toast({ title: "تم تحديث البيانات حقيقياً من السيرفر ⚡" });
+      toast({ title: "تم تحديث القائمة بنجاح 🔄" });
   };
 
   const getStatusText = (status: OrderStatus) => {
@@ -130,7 +129,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
           <div className="flex items-center gap-2">
             <Button onClick={handleManualRefresh} variant="outline" className="h-10 rounded-xl font-black gap-2 border-primary text-primary">
                 <RefreshCw className={cn("h-4 w-4", ordersLoading && "animate-spin")} />
-                تحديث حقيقي
+                تحديث
             </Button>
             {ordersLoading && <Loader2 className="h-5 w-5 animate-spin text-primary opacity-40"/>}
           </div>

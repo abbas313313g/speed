@@ -52,21 +52,29 @@ export const isLocationInAllowedZones = (lat: number, lng: number) => {
     }
 }
 
+/**
+ * محرك حساب أجور التوصيل الجديد:
+ * 250 دينار لكل 700 متر (ما يعادل 1000 لكل 2.8 كم)
+ * الحد الأدنى هو 1000 دينار دائماً
+ */
 export const calculateDeliveryFee = (distanceInKm: number) => {
     const minFee = 1000;
-    const includedDistance = 3; 
-    const ratePerKm = 1000 / 3; 
+    const unitDistance = 0.7; // 700 متر
+    const unitPrice = 250; 
 
-    if (!distanceInKm || distanceInKm <= includedDistance) {
+    if (!distanceInKm || distanceInKm <= 0) {
         return minFee;
     }
     
-    const extraDistance = distanceInKm - includedDistance;
-    let totalFee = minFee + (extraDistance * ratePerKm);
+    // حساب عدد الوحدات (كل وحدة 700 متر)
+    const units = distanceInKm / unitDistance;
+    let totalFee = units * unitPrice;
     
+    // تقريب المبلغ لأقرب 250 دينار
     totalFee = Math.round(totalFee / 250) * 250;
     
-    return Math.min(Math.max(totalFee, 1000), 15000);
+    // ضمان الحد الأدنى 1000 والحد الأقصى 15000 (للحماية)
+    return Math.min(Math.max(totalFee, minFee), 15000);
 }
 
 export const safeStorage = {

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useContext, useMemo } from "react";
@@ -20,11 +19,12 @@ interface RestaurantCardProps {
 
 function RestaurantCardComponent({ restaurant, large = false, compact = false, priority = false }: RestaurantCardProps) {
   const context = useContext(AppContext);
-  const { products } = useProducts(undefined, restaurant.id, 50);
+  // جلب المنتجات للتحقق من وجود خصومات
+  const { products } = useProducts(undefined, restaurant.id, 100);
 
   const hasDiscounts = useMemo(() => {
-      return products.some(p => p.discountPrice && p.discountPrice > 0);
-  }, [products]);
+      return products.some(p => (p.discountPrice && p.discountPrice > 0) || (restaurant.discountPercentage && restaurant.discountPercentage > 0));
+  }, [products, restaurant.discountPercentage]);
   
   const handleOpenRestaurant = () => {
     if (context) {
