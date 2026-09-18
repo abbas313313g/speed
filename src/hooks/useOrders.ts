@@ -16,11 +16,12 @@ export const useOrders = (branchId?: string) => {
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
     const { telegramConfigs } = useTelegramConfigs();
+    
+    // استخدام مراجع لمنع التكرار اللانهائي واستهلاك الكوتا
     const isAssigningRef = useRef(false);
-    const lastAssignTimeRef = useRef(0);
+    const lastCleanupTimeRef = useRef(0);
     const onlineWorkersRef = useRef<DeliveryWorker[]>([]);
 
-    // مراقبة العمال المتصلين مرة واحدة فقط لتوفير الكوتا
     useEffect(() => {
         const workersRef = collection(db, "deliveryWorkers");
         const wQuery = query(workersRef, where("isOnline", "==", true), where("isActive", "==", true));
@@ -31,7 +32,11 @@ export const useOrders = (branchId?: string) => {
     }, []);
 
     const cleanupTimedOutAssignments = useCallback(async (orders: Order[]) => {
-        const now = new Date().getTime();
+        const now = Date.now();
+        // منع التشغيل المتكرر (مرة كل 10 ثوانٍ كحد أقصى)
+        if (now - lastCleanupTimeRef.current < 10000) return;
+        lastCleanupTimeRef.current = now;
+
         const timedOutOrders = orders.filter(o => 
             o.status === 'confirmed' && 
             o.confirmedAt && 
@@ -53,13 +58,12 @@ export const useOrders = (branchId?: string) => {
 
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         const now = Date.now();
-        if (isAssigningRef.current || (now - lastAssignTimeRef.current < 4000)) return;
+        if (isAssigningRef.current) return;
         
         const pendingOrders = orders.filter(o => o.status === 'pending_assignment');
         if (pendingOrders.length === 0) return;
 
         isAssigningRef.current = true;
-        lastAssignTimeRef.current = now;
 
         try {
             const onlineWorkers = onlineWorkersRef.current;
@@ -96,7 +100,8 @@ export const useOrders = (branchId?: string) => {
         } catch (e) {
             console.error("Auto-assign failed:", e);
         } finally {
-            setTimeout(() => { isAssigningRef.current = false; }, 1500);
+            // مهلة بسيطة قبل السماح بالتشغيل القادم لتجنب Loops الكوتا
+            setTimeout(() => { isAssigningRef.current = false; }, 3000);
         }
     }, []);
 
@@ -104,7 +109,7 @@ export const useOrders = (branchId?: string) => {
         const ordersRef = collection(db, 'orders');
         const q = query(ordersRef, orderBy("date", "desc"), limit(100));
 
-        const unsub = onSnapshot(q, (snapshot) => {
+        const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
             
             let finalData = data;
@@ -115,8 +120,10 @@ export const useOrders = (branchId?: string) => {
             setAllOrders(finalData);
             setIsLoading(false);
             
-            cleanupTimedOutAssignments(finalData);
-            autoAssignOrders(finalData);
+            if (!snapshot.metadata.fromCache) {
+                cleanupTimedOutAssignments(finalData);
+                autoAssignOrders(finalData);
+            }
         }, (error) => {
             setIsLoading(false);
         });

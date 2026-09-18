@@ -38,10 +38,6 @@ export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2
     }
 }
 
-/**
- * فحص هل الموقع ضمن مناطق جنوب بابل (المدحتية، الهاشمية، القاسم)
- * نستخدم نقطة مركزية ونطاق تغطية 22 كم
- */
 export const isLocationInAllowedZones = (lat: number, lng: number) => {
     try {
         const babilSouthCenterLat = 32.3333;
@@ -57,9 +53,6 @@ export const isLocationInAllowedZones = (lat: number, lng: number) => {
  * محرك حساب أجور التوصيل المطور بدقة الـ 700 متر:
  * 1000 دينار كحد أدنى.
  * زيادة 250 دينار لكل وحدة مسافة (700 متر).
- * 700 متر = 250 دينار إضافي.
- * 1.4 كم = 500 دينار إضافي.
- * 2.8 كم = 1000 دينار إضافي.
  */
 export const calculateDeliveryFee = (distanceInKm: number) => {
     const minFee = 1000;
@@ -70,14 +63,12 @@ export const calculateDeliveryFee = (distanceInKm: number) => {
         return minFee;
     }
     
-    // حساب عدد الوحدات (كل وحدة تمثل 700 متر)
     const units = distanceInKm / unitDistance;
     let totalFee = units * unitPrice;
     
     // تقريب المبلغ لأقرب 250 دينار لضمان دقة الحساب المالي
     totalFee = Math.round(totalFee / 250) * 250;
     
-    // تطبيق الحد الأدنى 1000 دينار، والحد الأقصى 15000 كحماية للنظام
     return Math.min(Math.max(totalFee, minFee), 15000);
 }
 
@@ -106,12 +97,8 @@ export const safeStorage = {
     }
 };
 
-/**
- * محرك الضغط الاحترافي المحدث لتوفير المساحة القصوى في Firestore
- */
 export const compressImage = async (base64: string, maxWidth = 500, quality = 0.4): Promise<string> => {
     if (!base64 || !base64.startsWith('data:image')) return base64;
-    // إذا كانت الصورة أصلاً صغيرة جداً (أقل من 30 كيلوبايت) لا نضغطها
     if (base64.length < 30000) return base64;
 
     return new Promise((resolve) => {
@@ -121,24 +108,18 @@ export const compressImage = async (base64: string, maxWidth = 500, quality = 0.
             const canvas = document.createElement('canvas');
             let width = img.width;
             let height = img.height;
-
-            // تصغير الأبعاد لتقليل عدد البكسلات
             if (width > maxWidth) {
                 height = (maxWidth / width) * height;
                 width = maxWidth;
             }
-
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
-            // تحسين الحواف عند التصغير
             if (ctx) {
                 ctx.imageSmoothingEnabled = true;
                 ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, width, height);
             }
-            
-            // التحويل لصيغة JPEG مع ضغط عدواني لتوفير المساحة
             resolve(canvas.toDataURL('image/jpeg', quality));
         };
         img.onerror = () => resolve(base64);

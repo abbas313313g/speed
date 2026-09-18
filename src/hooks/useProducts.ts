@@ -39,16 +39,16 @@ export const useProducts = (
     const [hasMore, setHasMore] = useState(true);
     const { toast } = useToast();
 
-    // حماية الكوتا: تأخير البحث لتقليل عمليات القراءة من السيرفر
     const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearch(searchTerm);
-        }, 600); // 600ms debounce
+        }, 1000); // زيادة وقت التأخير لـ 1 ثانية لحماية الكوتا
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
     useEffect(() => {
+        // جلب المطاعم كمستمع واحد مستقر للمنصة بالكامل
         const unsub = onSnapshot(collection(db, 'restaurants'), (snap) => {
             setRestaurants(snap.docs.map(d => ({...d.data(), id: d.id}) as Restaurant));
         });
@@ -91,8 +91,8 @@ export const useProducts = (
             const ref = collection(db, 'products');
             let q;
 
-            // استخدام المصطلح المجدول (Debounced) لحماية الكوتا من الاستنزاف أثناء الكتابة
             if (debouncedSearch.trim() !== '') {
+                // استخدام البحث السحابي المباشر عند وجود نص
                 q = query(
                     ref, 
                     where("name", ">=", debouncedSearch), 
@@ -117,7 +117,7 @@ export const useProducts = (
                 setHasMore(data.length >= loadLimit);
                 setIsLoading(false);
             }, (error) => {
-                console.error("Firestore Error:", error);
+                console.error("Firestore Quota/Error:", error);
                 setIsLoading(false);
             });
 
@@ -150,13 +150,6 @@ export const useProducts = (
         } catch (error: any) { toast({ title: "فشل التحديث", variant: "destructive" }); }
     }, [toast]);
 
-    const approveProduct = useCallback(async (id: string) => {
-        try {
-            await updateDoc(doc(db, "products", id), { status: 'approved' });
-            toast({ title: "تم قبول الوجبة" });
-        } catch (e) { toast({ title: "حدث خطأ", variant: "destructive" }); }
-    }, [toast]);
-
     const deleteProduct = useCallback(async (id: string) => {
         try {
             await deleteDoc(doc(db, "products", id));
@@ -164,5 +157,5 @@ export const useProducts = (
         } catch (e) { toast({ title: "فشل الحذف", variant: "destructive" }); }
     }, [toast]);
 
-    return { products, isLoading, hasMore, addProduct, updateProduct, deleteProduct, approveProduct };
+    return { products, isLoading, hasMore, addProduct, updateProduct, deleteProduct, approveProduct: (id: string) => updateDoc(doc(db, "products", id), { status: 'approved' }) };
 };

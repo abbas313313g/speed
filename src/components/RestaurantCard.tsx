@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useContext, useMemo } from "react";
@@ -7,7 +8,6 @@ import type { Restaurant } from "@/lib/types";
 import { Badge } from "./ui/badge";
 import { AppContext } from "@/contexts/AppContext";
 import { cn } from "@/lib/utils";
-import { useProducts } from "@/hooks/useProducts";
 import { Sparkles } from "lucide-react";
 
 interface RestaurantCardProps {
@@ -19,12 +19,12 @@ interface RestaurantCardProps {
 
 function RestaurantCardComponent({ restaurant, large = false, compact = false, priority = false }: RestaurantCardProps) {
   const context = useContext(AppContext);
-  // جلب المنتجات للتحقق من وجود خصومات
-  const { products } = useProducts(undefined, restaurant.id, 100);
 
+  // تم إلغاء استخدام useProducts هنا لحماية الكوتا من الاستنزاف.
+  // نعتمد الآن على نسبة الخصم العامة للمتجر لتمييزه.
   const hasDiscounts = useMemo(() => {
-      return (restaurant.discountPercentage && restaurant.discountPercentage > 0) || products.some(p => p.discountPrice && p.discountPrice > 0);
-  }, [products, restaurant.discountPercentage]);
+      return (restaurant.discountPercentage && restaurant.discountPercentage > 0);
+  }, [restaurant.discountPercentage]);
   
   const handleOpenRestaurant = () => {
     if (context) {
