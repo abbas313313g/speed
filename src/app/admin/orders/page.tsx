@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { MoreHorizontal, Trash2, Loader2, Search, X, UserCog, RefreshCw, Bike, ChevronRight, Store, Clock, Phone, MapPin, ListFilter, Ticket, User, CheckCircle, Navigation, Wallet, ReceiptText, Tag, ShoppingCart } from 'lucide-react';
+import { MoreHorizontal, Trash2, Loader2, Search, X, UserCog, RefreshCw, Bike, ChevronRight, Store, Clock, Phone, MapPin, ListFilter, Ticket, User, CheckCircle, Navigation, Wallet, ReceiptText, Tag, ShoppingCart, Filter } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -59,6 +59,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const [viewOrder, setViewOrder] = useState<Order | null>(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [orderToAssign, setOrderToAssign] = useState<string | null>(null);
+  const [showOnlyDelivered, setShowOnlyDelivered] = useState(false);
 
   // تحديث تلقائي عند الدخول للصفحة
   useEffect(() => {
@@ -66,8 +67,12 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   }, []);
 
   const filteredOrders = useMemo(() => {
-    return allOrders.filter(o => o.branchId === branchId);
-  }, [allOrders, branchId, refreshKey]);
+    let list = allOrders.filter(o => o.branchId === branchId);
+    if (showOnlyDelivered) {
+        list = list.filter(o => o.status === 'delivered');
+    }
+    return list.slice(0, 20); // عرض أحدث 20 فقط دائماً للسرعة
+  }, [allOrders, branchId, refreshKey, showOnlyDelivered]);
   
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
     try {
@@ -144,6 +149,14 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
       <header className="flex justify-between items-center">
           <h1 className="text-2xl font-black text-primary italic">إدارة الطلبات</h1>
           <div className="flex items-center gap-2">
+            <Button 
+                onClick={() => setShowOnlyDelivered(!showOnlyDelivered)} 
+                variant={showOnlyDelivered ? "default" : "outline"} 
+                className="h-10 rounded-xl font-black gap-2"
+            >
+                <Filter className="h-4 w-4" />
+                {showOnlyDelivered ? "عرض الكل" : "المكتملة فقط"}
+            </Button>
             <Button onClick={handleManualRefresh} variant="outline" className="h-10 rounded-xl font-black gap-2 border-primary text-primary">
                 <RefreshCw className={cn("h-4 w-4", ordersLoading && "animate-spin")} />
                 تحديث

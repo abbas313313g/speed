@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { CheckCircle, Clock, Building2, TrendingUp, Calendar, Wallet, XCircle, Store, MousePointer2, Loader2, DatabaseZap } from 'lucide-react';
+import { CheckCircle, Clock, Building2, TrendingUp, Calendar, Wallet, XCircle, Store, MousePointer2, Loader2, DatabaseZap, ExternalLink } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useOrders } from '@/hooks/useOrders';
 import { useBranches } from '@/hooks/useBranches';
@@ -74,6 +74,10 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
     };
   }, [allOrders, products, branches, isMain, branchId]);
 
+  const enterBranch = (id: string) => {
+      window.location.href = `/admin?branch=${id}`;
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300 text-right relative" dir="rtl">
       <header className="flex justify-between items-center">
@@ -109,14 +113,14 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
               </div>
 
               <div className="space-y-4">
-                  <h2 className="text-xl font-black flex items-center gap-2 px-1 justify-end text-slate-800">تحليل أداء الفروع <TrendingUp className="h-5 w-5 text-primary"/></h2>
+                  <h2 className="text-xl font-black flex items-center gap-2 px-1 justify-end text-slate-800">تحليل أداء الفروع وإدارتها <TrendingUp className="h-5 w-5 text-primary"/></h2>
                   <Card className="rounded-[2rem] border-none shadow-xl overflow-hidden bg-white">
                       <Table>
                           <TableHeader className="bg-muted/50">
                               <TableRow>
                                   <TableHead className="font-black text-right">الفرع</TableHead>
                                   <TableHead className="font-black text-center">أرباح اليوم</TableHead>
-                                  <TableHead className="font-black text-center">الحالة</TableHead>
+                                  <TableHead className="font-black text-center">الإجراء</TableHead>
                               </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -128,7 +132,9 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
                                       </TableCell>
                                       <TableCell className="text-center font-black text-lg text-primary">{formatCurrency(b.profit)}</TableCell>
                                       <TableCell className="text-center">
-                                          <Badge className="bg-green-100 text-green-700 border-none text-[10px] font-black">نشط الآن</Badge>
+                                          <Button variant="outline" size="sm" className="rounded-xl font-bold gap-2" onClick={() => enterBranch(b.id)}>
+                                              <ExternalLink className="h-4 w-4" /> فتح اللوحة
+                                          </Button>
                                       </TableCell>
                                   </TableRow>
                               ))}

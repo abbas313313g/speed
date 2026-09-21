@@ -74,15 +74,16 @@ export const useSupportTickets = (branchId?: string, currentUserId?: string) => 
                 if (!zSnap.empty) {
                     assignedBranchId = zSnap.docs[0].data().branchId || 'main';
                 } 
-                // 2. فحص بالاسم (إذا كانت المنطقة تحتوي كلمة القاسم)
+                // 2. فحص بالاسم (إذا كانت المنطقة تحتوي كلمة القاسم أو هي القاسم)
                 else if (userZone.includes("القاسم")) {
                      const branchesRef = collection(db, "branches");
                      const qb = query(branchesRef, where("locationName", "==", "القاسم"));
                      const bSnap = await getDocs(qb);
-                     if(!bSnap.empty) assignedBranchId = bSnap.docs[0].id;
-                     else {
-                         // بحث احتياطي آخر بالاسم
-                         const qb2 = query(branchesRef, where("name", ">=", "القاسم"), where("name", "<=", "القاسم\uf8ff"));
+                     if(!bSnap.empty) {
+                         assignedBranchId = bSnap.docs[0].id;
+                     } else {
+                         // بحث احتياطي بالاسم
+                         const qb2 = query(branchesRef, where("name", "==", "فرع القاسم"));
                          const bSnap2 = await getDocs(qb2);
                          if(!bSnap2.empty) assignedBranchId = bSnap2.docs[0].id;
                      }
