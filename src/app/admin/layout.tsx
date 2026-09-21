@@ -61,13 +61,21 @@ function AdminLayoutContent() {
       return branches.find(b => b.id === branchParam) || { name: 'فرع مستقل', id: branchParam };
   }, [branchParam, branches]);
 
+  // محرك الحماية اللحظي والمعزول حسب الفروع
   useEffect(() => {
     const deviceId = getDeviceId();
+    // البحث عن الترخيص الخاص بهذا الجهاز في هذا الفرع حصراً
     const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === branchParam);
     
     if (!myAccess || myAccess.status !== 'approved') {
         setIsAuthenticated(false);
         localStorage.removeItem(`admin_auth_${branchParam}`);
+        // إذا كان هناك طلب مرسل مسبقاً، نظهر حالة الإرسال
+        if (myAccess && myAccess.status === 'pending') {
+            setRequestStatus('sent');
+        } else {
+            setRequestStatus('none');
+        }
     } else {
         const storedAuth = localStorage.getItem(`admin_auth_${branchParam}`);
         if (storedAuth === 'true') {
@@ -162,7 +170,7 @@ function AdminLayoutContent() {
                         <Fingerprint className="h-16 w-16 mx-auto text-orange-500 animate-pulse" />
                         <h2 className="text-xl font-black">جهاز غير مرخص</h2>
                         <p className="text-sm font-bold text-muted-foreground">بانتظار موافقة أدمن الفرع الرئيسي.</p>
-                        <p className="text-[10px] font-bold opacity-60">ID: {getDeviceId().substring(0,10)}...</p>
+                        <p className="text-[10px] font-bold opacity-60">ID: {getDeviceId().split('_').pop()?.substring(0, 6).toUpperCase()}</p>
                         <Button variant="outline" className="w-full rounded-xl" onClick={() => setRequestStatus('none')}>محاولة مرة أخرى</Button>
                     </div>
                 ) : (

@@ -33,12 +33,8 @@ export const useAdminAccess = (branchId?: string) => {
 
     useEffect(() => {
         const accessRef = collection(db, 'adminAccess');
-        let q = query(accessRef);
-        if (branchId && branchId !== 'all') {
-            q = query(accessRef, where('branchId', '==', branchId));
-        }
-
-        const unsub = onSnapshot(q,
+        // المستمع يجب أن يراقب كل التراخيص لضمان عمل نظام الطرد الفوري عالمياً
+        const unsub = onSnapshot(accessRef,
             (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AdminAccess[];
                 setAccessList(data);
@@ -50,19 +46,20 @@ export const useAdminAccess = (branchId?: string) => {
             }
         );
         return () => unsub();
-    }, [branchId]);
+    }, []);
 
     const requestAccess = useCallback(async (bId: string, deviceName: string) => {
         const deviceId = getDeviceId();
         const shortId = getShortId(deviceId);
         try {
+            // منع التكرار: التأكد من عدم وجود طلب لهذا الجهاز في هذا الفرع تحديداً
             const q = query(collection(db, 'adminAccess'), 
                 where('deviceId', '==', deviceId),
                 where('branchId', '==', bId)
             );
             const snap = await getDocs(q);
             if (!snap.empty) {
-                toast({ title: "الطلب موجود مسبقاً", description: `جهازك (${shortId}) قيد المراجعة.` });
+                toast({ title: "الطلب موجود مسبقاً", description: `جهازك (${shortId}) قيد المراجعة في هذا الفرع.` });
                 return;
             }
             await addDoc(collection(db, "adminAccess"), {
@@ -73,7 +70,7 @@ export const useAdminAccess = (branchId?: string) => {
                 status: 'pending',
                 requestedAt: new Date().toISOString()
             });
-            toast({ title: "تم إرسال الطلب", description: `المعرف القصير لجهازك هو: ${shortId}` });
+            toast({ title: "تم إرسال الطلب بنجاح", description: `المعرف الخاص بك في هذا الفرع: ${shortId}` });
         } catch (error) {
             toast({ title: "فشل إرسال الطلب", variant: "destructive" });
         }
@@ -104,6 +101,7 @@ export const useAdminAccess = (branchId?: string) => {
         const deviceId = getDeviceId();
         const shortId = getShortId(deviceId);
         try {
+            // الموافقة التلقائية فقط إذا كان الفرع لا يمتلك أي أجهزة مرخصة بعد
             const q = query(collection(db, 'adminAccess'), where('branchId', '==', bId));
             const snap = await getDocs(q);
             if (snap.empty) {
