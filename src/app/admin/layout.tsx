@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminNav } from '@/components/AdminNav';
-import { Shield, KeyRound, PanelLeft, Loader2, Building2, Fingerprint, Lock, ShieldCheck, Construction } from 'lucide-react';
+import { Shield, KeyRound, PanelLeft, Loader2, Building2, Fingerprint, Lock, ShieldCheck, Terminal } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -45,7 +45,14 @@ function AdminLayoutContent() {
   const branchParam = searchParams.get('branch') || 'main';
 
   const [pin, setPin] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // محرك التحقق الفوري (Optimistic Auth)
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    if (typeof window !== 'undefined') {
+        return localStorage.getItem(`admin_auth_${branchParam}`) === 'true';
+    }
+    return false;
+  });
+  
   const [activeTab, setActiveTab] = useState(0);
   const [requestStatus, setRequestStatus] = useState<'none' | 'sent'>('none');
   
@@ -61,16 +68,18 @@ function AdminLayoutContent() {
       return branches.find(b => b.id === branchParam) || { name: 'فرع مستقل', id: branchParam };
   }, [branchParam, branches]);
 
-  // محرك الحماية اللحظي والمعزول حسب الفروع مع ميزة الدخول المباشر
+  // محرك حماية الأجهزة اللحظي والمعزول
   useEffect(() => {
     const deviceId = getDeviceId();
-    // البحث عن الترخيص الخاص بهذا الجهاز في هذا الفرع حصراً
     const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === branchParam);
     
     if (!myAccess || myAccess.status !== 'approved') {
-        // إذا سحب الترخيص أو لم يوجد، نطرد المستخدم فوراً
-        setIsAuthenticated(false);
-        localStorage.removeItem(`admin_auth_${branchParam}`);
+        // سحب الترخيص أو عدم وجوده يطرد المستخدم فوراً
+        if (isAuthenticated) {
+            setIsAuthenticated(false);
+            localStorage.removeItem(`admin_auth_${branchParam}`);
+            toast({ title: "تم سحب ترخيص هذا الجهاز", variant: "destructive" });
+        }
         
         if (myAccess && myAccess.status === 'pending') {
             setRequestStatus('sent');
@@ -78,16 +87,17 @@ function AdminLayoutContent() {
             setRequestStatus('none');
         }
     } else {
-        // إذا كان الجهاز مرخصاً (Approved)، يدخل مباشر دون طلب PIN
-        setIsAuthenticated(true);
-        localStorage.setItem(`admin_auth_${branchParam}`, 'true');
+        // الجهاز مرخص سحابياً
+        if (!isAuthenticated) {
+            setIsAuthenticated(true);
+            localStorage.setItem(`admin_auth_${branchParam}`, 'true');
+        }
     }
-  }, [accessList, branchParam, getDeviceId]);
+  }, [accessList, branchParam, getDeviceId, isAuthenticated, toast]);
 
   const handleLogin = async () => {
     if (pin === ADMIN_PIN) {
         const deviceName = navigator.userAgent.substring(0, 50);
-        // المحاولة الأولى للفرع تحصل على موافقة تلقائية
         const wasFirst = await autoApproveFirst(branchParam, deviceName);
         if (wasFirst) {
             setIsAuthenticated(true);
@@ -212,17 +222,7 @@ function AdminLayoutContent() {
           </div>
         </header>
         <main className="flex-1 relative overflow-hidden bg-muted/5">
-          <div className="spa-stack-container" style={{ transform: `translateX(${activeTab * 100}%)`, transition: 'none' }}>
-            {Array.from({ length: 22 }).map((_, idx) => (
-                <div key={idx} className="spa-page-view flex-shrink-0">
-                    {activeTab === idx && pagesMap[idx] ? (
-                        <ScrollArea className="h-full w-full px-4 py-6 sm:px-8">
-                            {pagesMap[idx]}
-                        </ScrollArea>
-                    ) : null}
-                </div>
-            ))}
-          </div>
+            {pagesMap[activeTab]}
         </main>
       </div>
 

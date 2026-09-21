@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { MoreHorizontal, Trash2, Loader2, Search, X, UserCog, RefreshCw, Bike, ChevronRight, Store, Clock, Phone, MapPin, ListFilter, Ticket, User, CheckCircle, Navigation, Wallet, ReceiptText, Tag, ShoppingCart, Filter } from 'lucide-react';
+import { MoreHorizontal, Trash2, Loader2, RefreshCw, Bike, ChevronRight, Store, X, UserCog, CheckCircle, Navigation, Wallet, User, Tag, Ticket, ReceiptText } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -41,7 +41,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -51,7 +50,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -71,17 +69,13 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const [orderToAssign, setOrderToAssign] = useState<string | null>(null);
   const [showOnlyDelivered, setShowOnlyDelivered] = useState(false);
 
-  useEffect(() => {
-    setRefreshKey(Date.now());
-  }, []);
-
   const filteredOrders = useMemo(() => {
     let list = allOrders;
     if (showOnlyDelivered) {
         list = list.filter(o => o.status === 'delivered');
     }
     return list;
-  }, [allOrders, showOnlyDelivered, refreshKey]);
+  }, [allOrders, showOnlyDelivered]);
   
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
     try {
@@ -101,9 +95,6 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
               deliveryWorker: { id: worker.id, name: worker.name },
               confirmedAt: null,
               lastSkippedWorkerId: null, 
-              isPaid: false, 
-              isFeePaid: false,
-              isOrderPaidToOffice: false
           };
           
           if (['unassigned', 'pending_assignment', 'confirmed'].includes(currentOrder.status)) {
@@ -126,7 +117,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const handleManualRefresh = () => {
       setIsDeepSearching(true);
       setRefreshKey(Date.now());
-      // محاكاة تأخير البحث العميق في الداتا
+      // محاكاة تأخير البحث العميق والتحميل من السيرفر
       setTimeout(() => {
           setIsDeepSearching(false);
           toast({ title: "تم تحديث القائمة بنجاح ✅" });
@@ -181,7 +172,6 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                 variant={showOnlyDelivered ? "default" : "outline"} 
                 className="h-10 rounded-xl font-black gap-2 border-2"
             >
-                <Filter className="h-4 w-4" />
                 {showOnlyDelivered ? "عرض الكل" : "المكتملة فقط"}
             </Button>
             <Button onClick={handleManualRefresh} variant="outline" className="h-10 rounded-xl font-black gap-2 border-2 border-primary text-primary shadow-sm active:scale-90">

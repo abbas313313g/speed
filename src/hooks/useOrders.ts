@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { collection, onSnapshot, doc, updateDoc, query, where, getDocs, limit, deleteDoc, increment, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
+import type { Order, OrderStatus, DeliveryWorker, Restaurant } from '@/lib/types';
 import { useToast } from './use-toast';
 import { sendFcmNotification } from '@/services/fcm-service';
 import { calculateDistance, formatCurrency } from '@/lib/utils';
@@ -131,7 +131,10 @@ export const useOrders = (branchId?: string, fetchLimit: number = 20) => {
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
             const orderRef = doc(db, "orders", orderId);
-            const currentOrder = allOrders.find(o => o.id === orderId);
+            const orderSnap = await getDocs(query(collection(db, "orders"), where("__name__", "==", orderId), limit(1)));
+            if (orderSnap.empty) return false;
+            const currentOrder = { id: orderSnap.docs[0].id, ...orderSnap.docs[0].data() } as Order;
+            
             const updateData: any = { status };
             
             if (status === 'preparing' && workerId) {
@@ -145,6 +148,30 @@ export const useOrders = (branchId?: string, fetchLimit: number = 20) => {
                 updateData.confirmedAt = null;
                 updateData.status = 'pending_assignment'; 
                 if (workerId) updateData.lastSkippedWorkerId = workerId; 
+            }
+
+            // محرك الحماية والارتباط المالي الدائم
+            if (status === 'delivered' && currentOrder.status !== 'delivered') {
+                // 1. حساب صافي أرباح المتجر
+                const itemsPrice = currentOrder.items.reduce((sum, item) => {
+                    const price = item.selectedSize?.price || item.product.price || 0;
+                    return sum + (price * item.quantity);
+                }, 0);
+                const rate = currentOrder.restaurant?.commissionRate || 10;
+                const storeIncome = itemsPrice * (1 - rate / 100);
+
+                // 2. تحديث محفظة المتجر بشكل دائم
+                await updateDoc(doc(db, "restaurants", currentOrder.restaurant!.id), {
+                    balanceAdjustment: increment(storeIncome)
+                });
+
+                // 3. تحديث محفظة المندوب (أرباح + ذمة)
+                if (currentOrder.deliveryWorkerId) {
+                    await updateDoc(doc(db, "deliveryWorkers", currentOrder.deliveryWorkerId), {
+                        balanceAdjustment: increment(currentOrder.deliveryFee || 0),
+                        debtAdjustment: increment(currentOrder.total || 0)
+                    });
+                }
             }
 
             await updateDoc(orderRef, updateData);
@@ -167,9 +194,10 @@ export const useOrders = (branchId?: string, fetchLimit: number = 20) => {
 
             return true;
         } catch (error: any) {
+            console.error("Order Status Update Error:", error);
             return false;
         }
-    }, [allOrders, telegramConfigs]);
+    }, [telegramConfigs]);
 
     const deleteOrder = useCallback(async (orderId: string) => {
         try {

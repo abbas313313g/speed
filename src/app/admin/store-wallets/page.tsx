@@ -18,41 +18,27 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
   const { allOrders, isLoading: oLoading } = useOrders(branchId);
 
   const storeWallets = useMemo(() => {
-    if (rLoading || oLoading) return [];
+    if (rLoading) return [];
     
+    // استخدام نظام الأرصدة الدائمة
     const branchStores = restaurants.filter(r => r.branchId === branchId);
     
     return branchStores.map(store => {
-        const myUnpaidOrders = allOrders.filter(o => 
-            o.restaurant?.id === store.id && 
-            o.status === 'delivered' && 
-            !o.isPaid
-        );
-
-        const income = myUnpaidOrders.reduce((acc, order) => {
-            // نستخدم السعر الأصلي للوجبات لضمان استلام المتجر حقه كاملاً بدون تأثير خصومات الشركة
-            const itemsPrice = order.items.reduce((sum, i) => {
-                const basePrice = i.selectedSize?.price ?? i.product.price ?? 0;
-                return sum + (basePrice * i.quantity);
-            }, 0);
-            
-            const commission = (itemsPrice * (store.commissionRate / 100));
-            return acc + (itemsPrice - commission);
-        }, 0);
-
-        const currentBalance = Math.max(0, income + (store.balanceAdjustment || 0));
+        // الرصيد الحقيقي المحسوب والمدقق
+        const currentBalance = Math.max(0, (store.balanceAdjustment || 0));
 
         return {
             store,
             balance: currentBalance,
-            unpaidOrdersCount: myUnpaidOrders.length,
-            unpaidOrders: myUnpaidOrders
+            // عدد الطلبات التي لم تُدفع بعد من الفواتير الموجودة حالياً
+            unpaidOrdersCount: allOrders.filter(o => o.restaurant?.id === store.id && o.status === 'delivered' && !o.isPaid).length,
         };
     }).sort((a, b) => b.balance - a.balance);
-  }, [restaurants, allOrders, branchId, rLoading, oLoading]);
+  }, [restaurants, allOrders, branchId, rLoading]);
 
   const handlePrintStoreReport = (storeData: any) => {
-    const { store, balance, unpaidOrders } = storeData;
+    const { store, balance } = storeData;
+    const unpaidOrders = allOrders.filter(o => o.restaurant?.id === store.id && o.status === 'delivered' && !o.isPaid);
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -97,7 +83,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                 </div>
             </div>
 
-            <h3>تفاصيل الطلبات غير المسواة (${unpaidOrders.length} طلب)</h3>
+            <h3>تفاصيل الطلبات الحالية بانتظار التسوية (${unpaidOrders.length} طلب)</h3>
             <table>
                 <thead>
                     <tr>
@@ -114,7 +100,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
 
             <div class="footer">
                 <p>تم استخراج هذا الكشف آلياً بتاريخ ${new Date().toLocaleString('ar-IQ')}</p>
-                <p>حقوق المراجعة محفوظة لشركة سبيد شوب</p>
+                <p>ملاحظة: هذا الرصيد ثابت ومحمي سحابياً حتى لو تم حذف الفواتير القديمة.</p>
             </div>
             <script>window.print();</script>
         </body>
@@ -125,13 +111,13 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
     printWindow.document.close();
   };
 
-  if (rLoading || oLoading) return <div className="p-20 text-center animate-pulse"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto"/><p className="mt-4 font-black text-primary">جاري جرد محافظ المتاجر...</p></div>;
+  if (rLoading) return <div className="p-20 text-center animate-pulse"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto"/><p className="mt-4 font-black text-primary">جاري جرد محافظ المتاجر...</p></div>;
 
   return (
     <div className="space-y-8 text-right animate-in fade-in duration-500">
       <header>
-        <h1 className="text-3xl font-black text-primary italic">محفظات المتاجر</h1>
-        <p className="text-muted-foreground font-bold">عرض أرصدة أصحاب المتاجر وطباعة الكشوفات المالية المتاحة للسحب.</p>
+        <h1 className="text-3xl font-black text-primary italic">محفظات المتاجر الحقيقية</h1>
+        <p className="text-muted-foreground font-bold">الأرصدة محفوظة بشكل دائم ومحمي من حذف الطلبات.</p>
       </header>
 
       <div className="grid gap-6">
@@ -175,7 +161,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                                           <span className={cn("text-2xl font-black tracking-tighter", data.balance > 0 ? "text-primary" : "text-slate-300")}>
                                               {formatCurrency(data.balance)}
                                           </span>
-                                          {data.balance > 0 && <span className="text-[8px] font-bold text-muted-foreground italic">صافي الربح المتاح</span>}
+                                          {data.balance > 0 && <span className="text-[8px] font-bold text-muted-foreground italic">صافي الربح المتاح (مخصوم العمولة)</span>}
                                       </div>
                                   </TableCell>
                                   <TableCell className="text-center">
@@ -193,11 +179,11 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
 
       <div className="p-6 bg-primary/5 rounded-[2.5rem] border-2 border-dashed border-primary/20">
           <div className="flex items-center gap-3 justify-end text-primary mb-2">
-              <span className="font-black">ملاحظة المحاسبة</span>
+              <span className="font-black">ملاحظة الحماية المالية</span>
               <Landmark className="h-5 w-5"/>
           </div>
           <p className="text-xs font-bold text-slate-600 text-right leading-relaxed">
-              هذا الرصيد يمثل فقط الأرباح التي لم تُدفع للمتجر بعد. زر الطباعة يولد لك كشفاً ورقياً مفصلاً بكافة أرقام القوائم وتواريخها لمطابقتها مع صاحب المتجر قبل إجراء عملية التسوية المالية.
+              هذا الرصيد مدقق سحابياً ومرتبط بملف المتجر مباشرة. تم فصل حسابات المحفظة عن "عرض الطلبات"؛ مما يعني أن حذف أي طلب قديم لن يؤثر على مستحقات المتجر المالية التي استحقها بالفعل.
           </p>
       </div>
     </div>
