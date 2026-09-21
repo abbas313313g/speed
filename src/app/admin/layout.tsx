@@ -45,13 +45,8 @@ function AdminLayoutContent() {
   const branchParam = searchParams.get('branch') || 'main';
 
   const [pin, setPin] = useState("");
-  // محرك التحقق الفوري (Optimistic Auth)
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    if (typeof window !== 'undefined') {
-        return localStorage.getItem(`admin_auth_${branchParam}`) === 'true';
-    }
-    return false;
-  });
+  const [mounted, setMounted] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   const [activeTab, setActiveTab] = useState(0);
   const [requestStatus, setRequestStatus] = useState<'none' | 'sent'>('none');
@@ -63,6 +58,15 @@ function AdminLayoutContent() {
   const { branches } = useBranches();
   const { toast } = useToast();
 
+  // Initialization: Handle hydration and restore local auth
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== 'undefined') {
+        const localAuth = localStorage.getItem(`admin_auth_${branchParam}`) === 'true';
+        setIsAuthenticated(localAuth);
+    }
+  }, [branchParam]);
+
   const currentBranch = useMemo(() => {
       if (branchParam === 'main') return { name: 'المركز الرئيسي', id: 'main' };
       return branches.find(b => b.id === branchParam) || { name: 'فرع مستقل', id: branchParam };
@@ -70,6 +74,8 @@ function AdminLayoutContent() {
 
   // محرك حماية الأجهزة اللحظي والمعزول
   useEffect(() => {
+    if (!mounted) return;
+
     const deviceId = getDeviceId();
     const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === branchParam);
     
@@ -93,7 +99,7 @@ function AdminLayoutContent() {
             localStorage.setItem(`admin_auth_${branchParam}`, 'true');
         }
     }
-  }, [accessList, branchParam, getDeviceId, isAuthenticated, toast]);
+  }, [accessList, branchParam, getDeviceId, isAuthenticated, toast, mounted]);
 
   const handleLogin = async () => {
     if (pin === ADMIN_PIN) {
@@ -162,8 +168,13 @@ function AdminLayoutContent() {
     21: <AdminDeveloperPage />,
   };
 
-  if (accessLoading && !isAuthenticated) {
-      return <div className="flex h-screen w-full items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary"/></div>;
+  // Show loader until mounted or if access check is in progress and we're not authenticated
+  if (!mounted || (accessLoading && !isAuthenticated)) {
+      return (
+        <div className="flex h-screen w-full items-center justify-center bg-background">
+          <Loader2 className="h-10 w-10 animate-spin text-primary"/>
+        </div>
+      );
   }
 
   if (!isAuthenticated) {
