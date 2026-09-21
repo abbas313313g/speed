@@ -17,7 +17,7 @@ import Image from 'next/image';
 
 export default function AdminDashboard({ branchId }: { branchId: string }) {
   const { products, approveProduct, isLoading: pLoading } = useProducts(branchId, undefined, 500, undefined, '', true);
-  const { allOrders, isLoading: oLoading } = useOrders(branchId);
+  const { allOrders, isLoading: oLoading } = useOrders(branchId, 500);
   const { restaurants } = useRestaurants(branchId);
   const { branches } = useBranches();
   const { settings } = useAppSettings();
@@ -70,7 +70,7 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
             name: b.name,
             id: b.id,
             profit: allBranchProfits[b.id] || 0
-        })).concat([{ name: 'فرع المركز العام', id: 'main', profit: allBranchProfits['main'] || 0 }])
+        })).concat([{ name: 'المركز الرئيسي', id: 'main', profit: allBranchProfits['main'] || 0 }])
     };
   }, [allOrders, products, branches, isMain, branchId]);
 
@@ -95,7 +95,7 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
                       <div className="absolute right-[-10px] bottom-[-10px] opacity-10"><Calendar className="h-20 w-20"/></div>
                       <div className="text-[10px] font-black text-primary uppercase mb-2 tracking-widest">صافي أرباح كافة الفروع (اليوم)</div>
                       <div className="text-4xl font-black text-green-400 tracking-tighter">
-                          {formatCurrency(stats.allBranchProfits.main + Object.values(stats.allBranchProfits).reduce((a,b)=>a+b, 0) - stats.allBranchProfits.main)}
+                          {formatCurrency(Object.values(stats.allBranchProfits).reduce((a,b)=>a+b, 0))}
                       </div>
                   </Card>
                   <Card className="rounded-[1.5rem] border-none shadow-xl bg-primary text-white p-6">
@@ -132,7 +132,7 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
                                       </TableCell>
                                       <TableCell className="text-center font-black text-lg text-primary">{formatCurrency(b.profit)}</TableCell>
                                       <TableCell className="text-center">
-                                          <Button variant="outline" size="sm" className="rounded-xl font-bold gap-2" onClick={() => enterBranch(b.id)}>
+                                          <Button variant="outline" size="sm" className="rounded-xl font-bold gap-2 border-2" onClick={() => enterBranch(b.id)}>
                                               <ExternalLink className="h-4 w-4" /> فتح اللوحة
                                           </Button>
                                       </TableCell>

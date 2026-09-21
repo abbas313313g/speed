@@ -43,6 +43,13 @@ import {
   DialogTitle,
   DialogFooter
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -53,7 +60,8 @@ import { useToast } from '@/hooks/use-toast';
 export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const { toast } = useToast();
   const [refreshKey, setRefreshKey] = useState(Date.now());
-  const { allOrders, isLoading: ordersLoading, deleteOrder, updateOrderStatus } = useOrders(branchId);
+  const [displayLimit, setDisplayLimit] = useState(20);
+  const { allOrders, isLoading: ordersLoading, deleteOrder, updateOrderStatus } = useOrders(branchId, displayLimit);
   const { deliveryWorkers } = useDeliveryWorkers();
   
   const [viewOrder, setViewOrder] = useState<Order | null>(null);
@@ -61,18 +69,17 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const [orderToAssign, setOrderToAssign] = useState<string | null>(null);
   const [showOnlyDelivered, setShowOnlyDelivered] = useState(false);
 
-  // تحديث تلقائي عند الدخول للصفحة
   useEffect(() => {
     setRefreshKey(Date.now());
   }, []);
 
   const filteredOrders = useMemo(() => {
-    let list = allOrders.filter(o => o.branchId === branchId);
+    let list = allOrders;
     if (showOnlyDelivered) {
         list = list.filter(o => o.status === 'delivered');
     }
-    return list.slice(0, 20); // عرض أحدث 20 فقط دائماً للسرعة
-  }, [allOrders, branchId, refreshKey, showOnlyDelivered]);
+    return list;
+  }, [allOrders, showOnlyDelivered, refreshKey]);
   
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
     try {
@@ -149,15 +156,30 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
       <header className="flex justify-between items-center">
           <h1 className="text-2xl font-black text-primary italic">إدارة الطلبات</h1>
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-4">
+                <Label className="text-[10px] font-black whitespace-nowrap">الكمية المعروضة:</Label>
+                <Select value={displayLimit.toString()} onValueChange={(val) => setDisplayLimit(parseInt(val))}>
+                    <SelectTrigger className="h-10 w-24 rounded-xl font-black bg-white border-2">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                        <SelectItem value="10" className="font-bold">10 طلبات</SelectItem>
+                        <SelectItem value="20" className="font-bold">20 طلب</SelectItem>
+                        <SelectItem value="50" className="font-bold">50 طلب</SelectItem>
+                        <SelectItem value="100" className="font-bold">100 طلب</SelectItem>
+                        <SelectItem value="500" className="font-bold">الكل (500)</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
             <Button 
                 onClick={() => setShowOnlyDelivered(!showOnlyDelivered)} 
                 variant={showOnlyDelivered ? "default" : "outline"} 
-                className="h-10 rounded-xl font-black gap-2"
+                className="h-10 rounded-xl font-black gap-2 border-2"
             >
                 <Filter className="h-4 w-4" />
                 {showOnlyDelivered ? "عرض الكل" : "المكتملة فقط"}
             </Button>
-            <Button onClick={handleManualRefresh} variant="outline" className="h-10 rounded-xl font-black gap-2 border-primary text-primary">
+            <Button onClick={handleManualRefresh} variant="outline" className="h-10 rounded-xl font-black gap-2 border-2 border-primary text-primary">
                 <RefreshCw className={cn("h-4 w-4", ordersLoading && "animate-spin")} />
                 تحديث
             </Button>

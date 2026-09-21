@@ -11,7 +11,7 @@ import { calculateDistance, formatCurrency } from '@/lib/utils';
 import { useTelegramConfigs } from './useTelegramConfigs';
 import { sendTelegramMessage } from '@/lib/telegram';
 
-export const useOrders = (branchId?: string) => {
+export const useOrders = (branchId?: string, fetchLimit: number = 20) => {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
@@ -102,8 +102,7 @@ export const useOrders = (branchId?: string) => {
 
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
-        // جلب أحدث 20 طلباً فقط لضمان السرعة والتحميل النظيف
-        const q = query(ordersRef, orderBy("date", "desc"), limit(20));
+        const q = query(ordersRef, orderBy("date", "desc"), limit(fetchLimit));
 
         const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
@@ -115,7 +114,6 @@ export const useOrders = (branchId?: string) => {
             
             setAllOrders(finalData);
             
-            // ننهي حالة التحميل فقط عندما نتأكد أن البيانات ليست قادمة من الكاش القديم عند الفتح
             if (!snapshot.metadata.fromCache || data.length > 0) {
                 setIsLoading(false);
             }
@@ -128,7 +126,7 @@ export const useOrders = (branchId?: string) => {
             setIsLoading(false);
         });
         return () => unsub();
-    }, [branchId, autoAssignOrders, cleanupTimedOutAssignments]);
+    }, [branchId, fetchLimit, autoAssignOrders, cleanupTimedOutAssignments]);
     
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
