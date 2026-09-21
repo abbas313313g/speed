@@ -20,30 +20,26 @@ export default function RestaurantProductsPage() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [activeSection, setActiveSection] = useState('all');
-  const [currentLimit, setCurrentLimit] = useState(12);
+  const [currentLimit, setCurrentLimit] = useState(8); // التحميل المبدئي 8 منتجات
 
   if (!context) return null;
   const { selectedRestaurantId, setActiveTab } = context;
 
-  const { products, isLoading: productsLoading, hasMore } = useProducts(undefined, selectedRestaurantId || undefined, currentLimit);
+  // جلب البيانات مع البحث السحابي المباشر والحد المختار
+  const { products, isLoading: productsLoading, hasMore } = useProducts(undefined, selectedRestaurantId || undefined, currentLimit, undefined, searchTerm);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === selectedRestaurantId), [selectedRestaurantId, restaurants]);
   
   const restaurantProducts = useMemo(() => {
       if (!selectedRestaurantId) return [];
       let list = products.filter(p => p.restaurantId === selectedRestaurantId && (p.isActive ?? true));
-      
       if (activeSection !== 'all') {
           list = list.filter(p => p.storeSectionId === activeSection);
       }
-      if (searchTerm.trim() !== '') {
-          list = list.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-      }
-      
       return list;
-  }, [products, activeSection, selectedRestaurantId, searchTerm]);
+  }, [products, activeSection, selectedRestaurantId]);
   
-  const isWaitingForData = !selectedRestaurantId || restaurantsLoading || (products.length === 0 && productsLoading);
+  const isWaitingForData = !selectedRestaurantId || restaurantsLoading || (products.length === 0 && productsLoading && !searchTerm);
 
   const observerTarget = useRef(null);
 
@@ -51,7 +47,7 @@ export default function RestaurantProductsPage() {
     const observer = new IntersectionObserver(
       entries => {
         if (entries[0].isIntersecting && hasMore && !productsLoading) {
-          setCurrentLimit(prev => prev + 12);
+          setCurrentLimit(prev => prev + 8); // تحميل 8 وجبات إضافية عند الوصول للنهاية
         }
       },
       { threshold: 0.1 }
@@ -118,7 +114,7 @@ export default function RestaurantProductsPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input 
-                placeholder={`ابحث في ${restaurant.name}...`}
+                placeholder={`ابحث في ${restaurant.name} (من السيرفر ⚡)...`}
                 className="pl-10 h-12 rounded-2xl border-2 font-bold shadow-sm bg-white dark:bg-slate-950"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -154,18 +150,23 @@ export default function RestaurantProductsPage() {
                     ))}
                 </div>
                 
-                <div ref={observerTarget} className="h-20 flex items-center justify-center w-full mt-4">
+                <div ref={observerTarget} className="h-24 flex items-center justify-center w-full mt-4">
                     {productsLoading ? (
-                         <div className="h-10 w-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                         <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <p className="text-[10px] font-black text-primary animate-pulse">جارِ جلب المزيد...</p>
+                         </div>
                     ) : hasMore ? (
                         <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
-                    ) : null}
+                    ) : (
+                        <p className="text-[10px] font-black text-muted-foreground/40 italic">✨ اكتمل المنيو ✨</p>
+                    )}
                 </div>
              </>
         ) : (
             <div className="text-center py-20 bg-muted/10 rounded-[2.5rem] border-2 border-dashed">
                 <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground/20 mb-2" />
-                <p className="text-muted-foreground font-black">لا توجد وجبات حالياً.</p>
+                <p className="text-muted-foreground font-black">{searchTerm ? 'لم نجد وجبات تطابق بحثك.' : 'لا توجد وجبات حالياً.'}</p>
             </div>
         )}
       </div>

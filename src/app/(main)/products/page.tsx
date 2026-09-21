@@ -16,7 +16,7 @@ function ProductsPageContent() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState(initialCategory);
-  const [currentLimit, setCurrentLimit] = useState(20);
+  const [currentLimit, setCurrentLimit] = useState(8); // تحميل 8 وجبات في كل مرة
   
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
   const queueRef = useRef<any[]>([]);
@@ -28,7 +28,7 @@ function ProductsPageContent() {
       undefined, 
       searchTerm ? 500 : currentLimit, // زيادة الليميت عند البحث
       undefined, 
-      '' 
+      searchTerm 
   );
   
   const { categories } = useCategories();
@@ -36,11 +36,8 @@ function ProductsPageContent() {
   const filteredProducts = useMemo(() => {
       let prods = products.filter(p => p.isActive !== false);
       if (activeTab !== 'all') prods = prods.filter(p => p.categoryId === initialCategory || p.categoryId === activeTab);
-      if (searchTerm.trim() !== '') {
-          prods = prods.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-      }
       return prods;
-  }, [products, activeTab, searchTerm, initialCategory]);
+  }, [products, activeTab, initialCategory]);
 
   const displayedIdsRef = useRef(new Set<string>());
 
@@ -83,7 +80,7 @@ function ProductsPageContent() {
     const observer = new IntersectionObserver(
       entries => {
         if (entries[0].isIntersecting && hasMore && !isLoading && !searchTerm) {
-          setCurrentLimit(prev => prev + 20);
+          setCurrentLimit(prev => prev + 8);
         }
       },
       { threshold: 0.1 }

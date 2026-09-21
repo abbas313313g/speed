@@ -4,13 +4,12 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminNav } from '@/components/AdminNav';
-import { Shield, KeyRound, PanelLeft, Loader2, Building2, Fingerprint, Lock, ShieldCheck, Terminal } from 'lucide-react';
+import { Shield, KeyRound, PanelLeft, Loader2, Building2, Fingerprint, Lock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useBranches } from '@/hooks/useBranches';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -58,7 +57,6 @@ function AdminLayoutContent() {
   const { branches } = useBranches();
   const { toast } = useToast();
 
-  // Initialization: Handle hydration and restore local auth
   useEffect(() => {
     setMounted(true);
     if (typeof window !== 'undefined') {
@@ -72,28 +70,19 @@ function AdminLayoutContent() {
       return branches.find(b => b.id === branchParam) || { name: 'فرع مستقل', id: branchParam };
   }, [branchParam, branches]);
 
-  // محرك حماية الأجهزة اللحظي والمعزول
   useEffect(() => {
     if (!mounted) return;
-
     const deviceId = getDeviceId();
     const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === branchParam);
     
     if (!myAccess || myAccess.status !== 'approved') {
-        // سحب الترخيص أو عدم وجوده يطرد المستخدم فوراً
         if (isAuthenticated) {
             setIsAuthenticated(false);
             localStorage.removeItem(`admin_auth_${branchParam}`);
             toast({ title: "تم سحب ترخيص هذا الجهاز", variant: "destructive" });
         }
-        
-        if (myAccess && myAccess.status === 'pending') {
-            setRequestStatus('sent');
-        } else {
-            setRequestStatus('none');
-        }
+        setRequestStatus(myAccess?.status === 'pending' ? 'sent' : 'none');
     } else {
-        // الجهاز مرخص سحابياً
         if (!isAuthenticated) {
             setIsAuthenticated(true);
             localStorage.setItem(`admin_auth_${branchParam}`, 'true');
@@ -143,6 +132,7 @@ function AdminLayoutContent() {
       }
   }
 
+  // مصفوفة الصفحات المتاحة
   const pagesMap: { [key: number]: React.ReactNode } = {
     0: <AdminDashboard branchId={branchParam} />,
     1: <AdminOrdersPage branchId={branchParam} />,
@@ -168,7 +158,6 @@ function AdminLayoutContent() {
     21: <AdminDeveloperPage />,
   };
 
-  // Show loader until mounted or if access check is in progress and we're not authenticated
   if (!mounted || (accessLoading && !isAuthenticated)) {
       return (
         <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -233,6 +222,7 @@ function AdminLayoutContent() {
           </div>
         </header>
         <main className="flex-1 relative overflow-hidden bg-muted/5">
+            {/* نظام التحميل المنعزل: يتم تحميل الكومبوننت فقط إذا كان نشطاً لضمان تحميل جديد */}
             {pagesMap[activeTab]}
         </main>
       </div>
