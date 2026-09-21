@@ -27,6 +27,10 @@ export const useAdminAccess = (branchId?: string) => {
         return deviceId;
     }, []);
 
+    const getShortId = (longId: string) => {
+        return longId.split('_').pop()?.substring(0, 6).toUpperCase() || '??????';
+    };
+
     useEffect(() => {
         const accessRef = collection(db, 'adminAccess');
         let q = query(accessRef);
@@ -50,6 +54,7 @@ export const useAdminAccess = (branchId?: string) => {
 
     const requestAccess = useCallback(async (bId: string, deviceName: string) => {
         const deviceId = getDeviceId();
+        const shortId = getShortId(deviceId);
         try {
             const q = query(collection(db, 'adminAccess'), 
                 where('deviceId', '==', deviceId),
@@ -57,17 +62,18 @@ export const useAdminAccess = (branchId?: string) => {
             );
             const snap = await getDocs(q);
             if (!snap.empty) {
-                toast({ title: "الطلب موجود مسبقاً", description: "جهازك قيد المراجعة لهذا الفرع." });
+                toast({ title: "الطلب موجود مسبقاً", description: `جهازك (${shortId}) قيد المراجعة.` });
                 return;
             }
             await addDoc(collection(db, "adminAccess"), {
                 deviceId,
+                shortId,
                 branchId: bId,
                 deviceName,
                 status: 'pending',
                 requestedAt: new Date().toISOString()
             });
-            toast({ title: "تم إرسال الطلب", description: "بانتظار موافقة أدمن هذا الفرع." });
+            toast({ title: "تم إرسال الطلب", description: `المعرف القصير لجهازك هو: ${shortId}` });
         } catch (error) {
             toast({ title: "فشل إرسال الطلب", variant: "destructive" });
         }
@@ -79,7 +85,7 @@ export const useAdminAccess = (branchId?: string) => {
                 status: 'approved',
                 approvedAt: new Date().toISOString()
             });
-            toast({ title: "تم الترخيص بنجاح" });
+            toast({ title: "تم الترخيص بنجاح ✅" });
         } catch (error) {
             toast({ title: "فشل الإجراء", variant: "destructive" });
         }
@@ -88,7 +94,7 @@ export const useAdminAccess = (branchId?: string) => {
     const removeAccess = useCallback(async (id: string) => {
         try {
             await deleteDoc(doc(db, "adminAccess", id));
-            toast({ title: "تم سحب الترخيص" });
+            toast({ title: "تم سحب الترخيص نهائياً ❌" });
         } catch (error) {
             toast({ title: "فشل الحذف", variant: "destructive" });
         }
@@ -96,12 +102,14 @@ export const useAdminAccess = (branchId?: string) => {
 
     const autoApproveFirst = useCallback(async (bId: string, deviceName: string) => {
         const deviceId = getDeviceId();
+        const shortId = getShortId(deviceId);
         try {
             const q = query(collection(db, 'adminAccess'), where('branchId', '==', bId));
             const snap = await getDocs(q);
             if (snap.empty) {
                 await addDoc(collection(db, "adminAccess"), {
                     deviceId,
+                    shortId,
                     branchId: bId,
                     deviceName,
                     status: 'approved',

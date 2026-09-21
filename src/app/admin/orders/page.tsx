@@ -61,6 +61,8 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const { toast } = useToast();
   const [refreshKey, setRefreshKey] = useState(Date.now());
   const [displayLimit, setDisplayLimit] = useState(20);
+  const [isDeepSearching, setIsDeepSearching] = useState(false);
+  
   const { allOrders, isLoading: ordersLoading, deleteOrder, updateOrderStatus } = useOrders(branchId, displayLimit);
   const { deliveryWorkers } = useDeliveryWorkers();
   
@@ -122,8 +124,13 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   }
 
   const handleManualRefresh = () => {
+      setIsDeepSearching(true);
       setRefreshKey(Date.now());
-      toast({ title: "تم تحديث القائمة فورياً 🔄" });
+      // محاكاة تأخير البحث العميق في الداتا
+      setTimeout(() => {
+          setIsDeepSearching(false);
+          toast({ title: "تم تحديث القائمة بنجاح ✅" });
+      }, 1500);
   };
 
   const getStatusText = (status: OrderStatus) => {
@@ -140,34 +147,32 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
         }
     }
 
-  if (ordersLoading && filteredOrders.length === 0) {
-      return (
-          <div className="flex h-60 w-full items-center justify-center">
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                <p className="font-black text-primary text-sm">جارِ المزامنة مع السيرفر...</p>
-              </div>
-          </div>
-      );
-  }
-
   return (
     <div className="space-y-6 text-right relative">
+      {(isDeepSearching || (ordersLoading && filteredOrders.length === 0)) && (
+          <div className="fixed inset-0 z-[100] bg-white/60 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-300">
+              <div className="flex flex-col items-center gap-4 p-8 bg-white rounded-[2.5rem] shadow-2xl border-4 border-primary/20">
+                <Loader2 className="h-16 w-16 animate-spin text-primary" />
+                <p className="font-black text-primary text-xl">جاري التحميل...</p>
+              </div>
+          </div>
+      )}
+
       <header className="flex justify-between items-center">
           <h1 className="text-2xl font-black text-primary italic">إدارة الطلبات</h1>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 ml-4">
-                <Label className="text-[10px] font-black whitespace-nowrap">الكمية المعروضة:</Label>
+                <Label className="text-[10px] font-black whitespace-nowrap">العرض:</Label>
                 <Select value={displayLimit.toString()} onValueChange={(val) => setDisplayLimit(parseInt(val))}>
                     <SelectTrigger className="h-10 w-24 rounded-xl font-black bg-white border-2">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
-                        <SelectItem value="10" className="font-bold">10 طلبات</SelectItem>
-                        <SelectItem value="20" className="font-bold">20 طلب</SelectItem>
-                        <SelectItem value="50" className="font-bold">50 طلب</SelectItem>
-                        <SelectItem value="100" className="font-bold">100 طلب</SelectItem>
-                        <SelectItem value="500" className="font-bold">الكل (500)</SelectItem>
+                        <SelectItem value="10" className="font-bold">10</SelectItem>
+                        <SelectItem value="20" className="font-bold">20</SelectItem>
+                        <SelectItem value="50" className="font-bold">50</SelectItem>
+                        <SelectItem value="100" className="font-bold">100</SelectItem>
+                        <SelectItem value="500" className="font-bold">الكل</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -179,8 +184,8 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                 <Filter className="h-4 w-4" />
                 {showOnlyDelivered ? "عرض الكل" : "المكتملة فقط"}
             </Button>
-            <Button onClick={handleManualRefresh} variant="outline" className="h-10 rounded-xl font-black gap-2 border-2 border-primary text-primary">
-                <RefreshCw className={cn("h-4 w-4", ordersLoading && "animate-spin")} />
+            <Button onClick={handleManualRefresh} variant="outline" className="h-10 rounded-xl font-black gap-2 border-2 border-primary text-primary shadow-sm active:scale-90">
+                <RefreshCw className={cn("h-4 w-4", isDeepSearching && "animate-spin")} />
                 تحديث
             </Button>
           </div>

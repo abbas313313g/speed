@@ -29,7 +29,8 @@ import {
   LayoutDashboard,
   ShieldAlert,
   Landmark,
-  Send
+  Send,
+  Terminal
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -64,6 +65,7 @@ const navItems = [
   { index: 9, label: "تصفية العمال", icon: UserCog },
   { index: 11, label: "الدعم الفني", icon: MessageSquareWarning, notificationKey: 'openTickets' },
   { index: 13, label: "الإعدادات", icon: Settings, mainOnly: true },
+  { index: 21, label: "المطور", icon: Terminal, mainOnly: true },
 ];
 
 export function AdminNav({ isSheet = false, onTabChange, activeTab, isBranch = false }: { isSheet?: boolean, onTabChange: (idx: number) => void, activeTab: number, isBranch?: boolean }) {

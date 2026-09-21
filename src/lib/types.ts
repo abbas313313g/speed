@@ -216,11 +216,13 @@ export interface AppSettings {
 export interface AdminAccess {
     id: string;
     deviceId: string;
+    shortId?: string;
     branchId: string;
     status: 'approved' | 'pending';
     requestedAt: string;
     approvedAt?: string;
     deviceName?: string;
+    ip?: string;
 }
 
 export interface TelegramConfig {

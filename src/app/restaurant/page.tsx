@@ -84,14 +84,11 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
         }
     };
 
-    const calculateStoreNetProfit = (order: Order) => {
-        if (!context?.restaurant) return 0;
-        const itemsTotal = order.items.reduce((sum, item) => {
+    const calculateOrderPriceOnly = (order: Order) => {
+        return order.items.reduce((sum, item) => {
             const price = item.selectedSize?.price || item.product.discountPrice || item.product.price || 0;
             return sum + (price * item.quantity);
         }, 0);
-        const commission = (itemsTotal * (context.restaurant.commissionRate / 100));
-        return itemsTotal - commission;
     };
 
     if (!context?.restaurant || oLoading) return (
@@ -230,7 +227,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                              order.status === 'delivered' ? 'تم التوصيل ✅' : 'ملغي ❌'}
                                         </p>
                                     </div>
-                                    <Badge variant="secondary" className="font-black">{formatCurrency(calculateStoreNetProfit(order))}</Badge>
+                                    <Badge variant="secondary" className="font-black">{formatCurrency(calculateOrderPriceOnly(order))}</Badge>
                                 </div>
                             ))}
                         </div>
@@ -281,9 +278,9 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
 
                                 <div className="p-5 bg-primary/5 rounded-[2rem] border-2 border-dashed border-primary/20 flex justify-between items-center">
                                     <div className="flex flex-col">
-                                        <span className="font-black text-slate-600 text-xs">أرباح المتجر:</span>
+                                        <span className="font-black text-slate-600 text-xs">سعر الطلب:</span>
                                     </div>
-                                    <span className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(calculateStoreNetProfit(selectedOrder))}</span>
+                                    <span className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(calculateOrderPriceOnly(selectedOrder))}</span>
                                 </div>
                             </div>
 
