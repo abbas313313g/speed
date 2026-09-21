@@ -61,32 +61,33 @@ function AdminLayoutContent() {
       return branches.find(b => b.id === branchParam) || { name: 'فرع مستقل', id: branchParam };
   }, [branchParam, branches]);
 
-  // محرك الحماية اللحظي والمعزول حسب الفروع
+  // محرك الحماية اللحظي والمعزول حسب الفروع مع ميزة الدخول المباشر
   useEffect(() => {
     const deviceId = getDeviceId();
     // البحث عن الترخيص الخاص بهذا الجهاز في هذا الفرع حصراً
     const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === branchParam);
     
     if (!myAccess || myAccess.status !== 'approved') {
+        // إذا سحب الترخيص أو لم يوجد، نطرد المستخدم فوراً
         setIsAuthenticated(false);
         localStorage.removeItem(`admin_auth_${branchParam}`);
-        // إذا كان هناك طلب مرسل مسبقاً، نظهر حالة الإرسال
+        
         if (myAccess && myAccess.status === 'pending') {
             setRequestStatus('sent');
         } else {
             setRequestStatus('none');
         }
     } else {
-        const storedAuth = localStorage.getItem(`admin_auth_${branchParam}`);
-        if (storedAuth === 'true') {
-            setIsAuthenticated(true);
-        }
+        // إذا كان الجهاز مرخصاً (Approved)، يدخل مباشر دون طلب PIN
+        setIsAuthenticated(true);
+        localStorage.setItem(`admin_auth_${branchParam}`, 'true');
     }
   }, [accessList, branchParam, getDeviceId]);
 
   const handleLogin = async () => {
     if (pin === ADMIN_PIN) {
         const deviceName = navigator.userAgent.substring(0, 50);
+        // المحاولة الأولى للفرع تحصل على موافقة تلقائية
         const wasFirst = await autoApproveFirst(branchParam, deviceName);
         if (wasFirst) {
             setIsAuthenticated(true);
