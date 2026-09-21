@@ -5,7 +5,7 @@ import { useState, useMemo, useContext } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Minus, Plus, Trash2, Home, Loader2, MapPin, ReceiptText, Ticket, Store, ClipboardList, Percent, Wallet, CheckCircle2 } from "lucide-react";
+import { ShoppingBag, Minus, Plus, Trash2, Home, Loader2, MapPin, ReceiptText, Ticket, Store, ClipboardList, Percent, Wallet, CheckCircle2, Navigation } from "lucide-react";
 import { formatCurrency, calculateDistance, calculateDeliveryFee, cn } from "@/lib/utils";
 import {
   Select,
@@ -173,6 +173,7 @@ export default function CartPage() {
         <div className="space-y-4 font-bold text-sm">
             <div className="flex justify-between items-center text-slate-500"><span>{formatCurrency(cartTotal)}</span><span>مجموع الوجبات:</span></div>
             <div className="flex justify-between items-center text-slate-500"><span>{formatCurrency(deliveryFee)}</span><span>أجور التوصيل:</span></div>
+            {distance !== null && <div className="flex justify-between items-center text-slate-400 text-[10px] italic"><span>{distance.toFixed(1)} كم</span><span>مسافة التوصيل:</span></div>}
             {appliedCoupon && <div className="flex justify-between items-center text-green-600"><span>-{formatCurrency(discountAmount)}</span><span>خصم الكود ({appliedCoupon.code}):</span></div>}
             {walletDiscount > 0 && <div className="flex justify-between items-center text-primary"><span>-{formatCurrency(walletDiscount)}</span><span>مخصوم من المحفظة:</span></div>}
             <Separator className="my-2 border-dashed" />

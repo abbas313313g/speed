@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
@@ -51,13 +52,18 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const { toast } = useToast();
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(Date.now());
   const { allOrders, isLoading: ordersLoading, deleteOrder, updateOrderStatus } = useOrders(branchId);
-  const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers();
+  const { deliveryWorkers } = useDeliveryWorkers();
   
   const [viewOrder, setViewOrder] = useState<Order | null>(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [orderToAssign, setOrderToAssign] = useState<string | null>(null);
+
+  // تحديث تلقائي عند الدخول للصفحة
+  useEffect(() => {
+    setRefreshKey(Date.now());
+  }, []);
 
   const filteredOrders = useMemo(() => {
     return allOrders.filter(o => o.branchId === branchId);
@@ -104,8 +110,8 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   }
 
   const handleManualRefresh = () => {
-      setRefreshKey(prev => prev + 1);
-      toast({ title: "تم تحديث القائمة بنجاح 🔄" });
+      setRefreshKey(Date.now());
+      toast({ title: "تم تحديث القائمة فورياً 🔄" });
   };
 
   const getStatusText = (status: OrderStatus) => {
@@ -122,16 +128,26 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
         }
     }
 
+  if (ordersLoading && filteredOrders.length === 0) {
+      return (
+          <div className="flex h-60 w-full items-center justify-center">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <p className="font-black text-primary text-sm">جارِ المزامنة مع السيرفر...</p>
+              </div>
+          </div>
+      );
+  }
+
   return (
     <div className="space-y-6 text-right relative">
       <header className="flex justify-between items-center">
-          <h1 className="text-2xl font-black text-primary italic">إدارة الطلبات اللحظية</h1>
+          <h1 className="text-2xl font-black text-primary italic">إدارة الطلبات</h1>
           <div className="flex items-center gap-2">
             <Button onClick={handleManualRefresh} variant="outline" className="h-10 rounded-xl font-black gap-2 border-primary text-primary">
                 <RefreshCw className={cn("h-4 w-4", ordersLoading && "animate-spin")} />
                 تحديث
             </Button>
-            {ordersLoading && <Loader2 className="h-5 w-5 animate-spin text-primary opacity-40"/>}
           </div>
       </header>
 
@@ -188,7 +204,6 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                 </TableBody>
             </Table>
             {filteredOrders.length === 0 && !ordersLoading && <div className="p-10 text-center text-muted-foreground font-bold italic text-xs">لا يوجد طلبات حالياً.</div>}
-            {filteredOrders.length === 0 && ordersLoading && <div className="p-10 text-center text-primary font-black animate-pulse text-xs">جارِ مزامنة الطلبات...</div>}
         </div>
 
         <Dialog open={!!viewOrder} onOpenChange={(v) => !v && setViewOrder(null)}>
@@ -343,9 +358,6 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                                     </div>
                                 </button>
                             ))}
-                            {deliveryWorkers.filter(w => w.isOnline && w.isActive !== false).length === 0 && (
-                                <div className="text-center py-10 opacity-40 font-bold italic text-xs">لا يوجد مناديب متاحين الآن.</div>
-                            )}
                         </div>
                     </ScrollArea>
                 </div>

@@ -17,7 +17,6 @@ export const useOrders = (branchId?: string) => {
     const { toast } = useToast();
     const { telegramConfigs } = useTelegramConfigs();
     
-    // استخدام مراجع لمنع التكرار اللانهائي واستهلاك الكوتا
     const isAssigningRef = useRef(false);
     const lastCleanupTimeRef = useRef(0);
     const onlineWorkersRef = useRef<DeliveryWorker[]>([]);
@@ -33,7 +32,6 @@ export const useOrders = (branchId?: string) => {
 
     const cleanupTimedOutAssignments = useCallback(async (orders: Order[]) => {
         const now = Date.now();
-        // منع التشغيل المتكرر (مرة كل 10 ثوانٍ كحد أقصى)
         if (now - lastCleanupTimeRef.current < 10000) return;
         lastCleanupTimeRef.current = now;
 
@@ -57,7 +55,6 @@ export const useOrders = (branchId?: string) => {
     }, []);
 
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
-        const now = Date.now();
         if (isAssigningRef.current) return;
         
         const pendingOrders = orders.filter(o => o.status === 'pending_assignment');
@@ -71,7 +68,6 @@ export const useOrders = (branchId?: string) => {
             if (onlineWorkers.length > 0) {
                 for (const order of pendingOrders) {
                     const lastSkipped = (order as any).lastSkippedWorkerId;
-                    
                     let candidates = onlineWorkers.filter(w => w.branchId === order.branchId && w.id !== lastSkipped);
                     
                     if (candidates.length === 0) {
@@ -100,14 +96,14 @@ export const useOrders = (branchId?: string) => {
         } catch (e) {
             console.error("Auto-assign failed:", e);
         } finally {
-            // مهلة بسيطة قبل السماح بالتشغيل القادم لتجنب Loops الكوتا
             setTimeout(() => { isAssigningRef.current = false; }, 3000);
         }
     }, []);
 
     useEffect(() => {
         const ordersRef = collection(db, 'orders');
-        const q = query(ordersRef, orderBy("date", "desc"), limit(100));
+        // جلب أحدث 20 طلباً فقط لضمان السرعة والتحميل النظيف
+        const q = query(ordersRef, orderBy("date", "desc"), limit(20));
 
         const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
@@ -118,7 +114,11 @@ export const useOrders = (branchId?: string) => {
             }
             
             setAllOrders(finalData);
-            setIsLoading(false);
+            
+            // ننهي حالة التحميل فقط عندما نتأكد أن البيانات ليست قادمة من الكاش القديم عند الفتح
+            if (!snapshot.metadata.fromCache || data.length > 0) {
+                setIsLoading(false);
+            }
             
             if (!snapshot.metadata.fromCache) {
                 cleanupTimedOutAssignments(finalData);
@@ -158,8 +158,7 @@ export const useOrders = (branchId?: string) => {
 📍 *المنطقة:* ${currentOrder.address.deliveryZone}
 💰 *المبلغ:* ${formatCurrency(currentOrder.total)}
 🏙️ *الفرع:* ${currentOrder.branchId === 'main' ? 'المركز الرئيسي' : currentOrder.branchId}
-📞 *هاتف الزبون:* ${currentOrder.address.phone}
-⚠️ *الحالة:* تم تغيير الحالة إلى ملغي`;
+📞 *هاتف الزبون:* ${currentOrder.address.phone}`;
 
                 telegramConfigs.filter(c => c.type === 'admin_orders').forEach(config => {
                     if (config.targetBranchId === 'all' || config.targetBranchId === currentOrder.branchId) {

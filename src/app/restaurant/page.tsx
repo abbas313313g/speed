@@ -239,7 +239,7 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
             </main>
 
             <Dialog open={!!selectedOrder} onOpenChange={(v) => !v && setSelectedOrder(null)}>
-                <DialogContent className="fixed inset-x-0 bottom-0 top-auto translate-x-0 translate-y-0 sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-w-md bg-white rounded-t-[3rem] sm:rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl max-h-[95vh] flex flex-col">
+                <DialogContent className="fixed inset-x-0 bottom-0 top-auto translate-x-0 translate-y-0 sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-w-md bg-white rounded-t-[3rem] sm:rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl max-h-[85vh] flex flex-col">
                     {selectedOrder && (
                         <div className="flex flex-col h-full animate-in slide-in-from-bottom duration-300 text-right">
                             <DialogHeader className="p-6 bg-slate-900 text-white flex justify-between items-center shrink-0 flex-row-reverse">
@@ -258,45 +258,30 @@ export default function RestaurantDashboardPage({ onNavigate }: { onNavigate: (t
                                         <ShoppingBasket className="h-5 w-5" />
                                         وجبات القائمة:
                                     </div>
-                                    <div className="space-y-3">
+                                    <div className="space-y-2">
                                         {selectedOrder.items && selectedOrder.items.length > 0 ? (
                                             selectedOrder.items.map((item, idx) => (
-                                                <div key={idx} className="flex gap-4 p-3 bg-slate-50 rounded-[1.8rem] border border-slate-100 items-center">
-                                                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border-2 border-white shadow-sm bg-white">
-                                                        <Image 
-                                                            src={item.product?.image || 'https://placehold.co/200x200.png'} 
-                                                            alt={item.product?.name || ''} 
-                                                            fill 
-                                                            className="object-cover" 
-                                                            unoptimized={true} 
-                                                        />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <h4 className="font-black text-slate-800 text-sm leading-tight line-clamp-1">{item.product?.name}</h4>
+                                                <div key={idx} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                                    <div className="text-right flex-1">
+                                                        <h4 className="font-black text-slate-800 text-sm">{item.product?.name}</h4>
                                                         {item.selectedSize && (
-                                                            <div className="mt-1">
-                                                                <Badge variant="outline" className="text-[9px] font-black border-primary/20 text-primary py-0.5 bg-primary/5">
-                                                                    النوع: {item.selectedSize.name}
-                                                                </Badge>
-                                                            </div>
+                                                            <p className="text-[10px] font-black text-primary mt-0.5">
+                                                                النوع: {item.selectedSize.name}
+                                                            </p>
                                                         )}
-                                                        <div className="mt-2 flex items-center gap-2">
-                                                            <span className="font-black text-primary bg-primary/10 px-3 py-1 rounded-xl text-xs">x {item.quantity}</span>
-                                                            <span className="text-[10px] font-bold text-muted-foreground">تجهيز فوري</span>
-                                                        </div>
                                                     </div>
+                                                    <span className="font-black text-primary bg-primary/10 px-4 py-2 rounded-xl text-base mr-4">x{item.quantity}</span>
                                                 </div>
                                             ))
                                         ) : (
-                                            <div className="p-10 text-center opacity-40 font-bold">جاري جلب تفاصيل الوجبات...</div>
+                                            <div className="p-10 text-center opacity-40 font-bold text-xs">جاري جلب الوجبات...</div>
                                         )}
                                     </div>
                                 </div>
 
                                 <div className="p-5 bg-primary/5 rounded-[2rem] border-2 border-dashed border-primary/20 flex justify-between items-center">
                                     <div className="flex flex-col">
-                                        <span className="font-black text-slate-600 text-xs">أرباح المتجر الصافية:</span>
-                                        <span className="text-[8px] font-bold text-muted-foreground">(بعد خصم عمولة المنصة)</span>
+                                        <span className="font-black text-slate-600 text-xs">أرباح المتجر:</span>
                                     </div>
                                     <span className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(calculateStoreNetProfit(selectedOrder))}</span>
                                 </div>
