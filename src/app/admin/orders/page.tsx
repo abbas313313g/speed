@@ -61,7 +61,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const [displayLimit, setDisplayLimit] = useState(20);
   const [isDeepSearching, setIsDeepSearching] = useState(false);
   
-  const { allOrders, isLoading: ordersLoading, deleteOrder, updateOrderStatus } = useOrders(branchId, displayLimit);
+  const { allOrders, isLoading: ordersLoading, deleteOrder, updateOrderStatus } = useOrders(branchId, displayLimit, refreshKey);
   const { deliveryWorkers } = useDeliveryWorkers();
   
   const [viewOrder, setViewOrder] = useState<Order | null>(null);
@@ -117,7 +117,6 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const handleManualRefresh = () => {
       setIsDeepSearching(true);
       setRefreshKey(Date.now());
-      // محاكاة تأخير البحث العميق والتحميل من السيرفر
       setTimeout(() => {
           setIsDeepSearching(false);
           toast({ title: "تم تحديث القائمة بنجاح ✅" });
@@ -318,7 +317,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                                                     {hasItemDiscount && (
                                                         <span className="text-[9px] text-muted-foreground line-through font-bold">
                                                             {formatCurrency(originalPrice * item.quantity)}
-                                                        </span >
+                                                        </span>
                                                     )}
                                                 </div>
                                                 <div className="text-right">

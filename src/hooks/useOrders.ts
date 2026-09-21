@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { collection, onSnapshot, doc, updateDoc, query, where, getDocs, limit, deleteDoc, increment, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, query, where, getDocs, limit, deleteDoc, increment, orderBy, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker, Restaurant } from '@/lib/types';
 import { useToast } from './use-toast';
@@ -11,7 +11,7 @@ import { calculateDistance, formatCurrency } from '@/lib/utils';
 import { useTelegramConfigs } from './useTelegramConfigs';
 import { sendTelegramMessage } from '@/lib/telegram';
 
-export const useOrders = (branchId?: string, fetchLimit: number = 20) => {
+export const useOrders = (branchId?: string, fetchLimit: number = 20, refreshKey?: number) => {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
@@ -101,39 +101,42 @@ export const useOrders = (branchId?: string, fetchLimit: number = 20) => {
     }, []);
 
     useEffect(() => {
+        setIsLoading(true);
         const ordersRef = collection(db, 'orders');
-        const q = query(ordersRef, orderBy("date", "desc"), limit(fetchLimit));
+        
+        let q;
+        if (branchId && branchId !== 'all') {
+            q = query(ordersRef, where("branchId", "==", branchId), orderBy("date", "desc"), limit(fetchLimit));
+        } else {
+            q = query(ordersRef, orderBy("date", "desc"), limit(fetchLimit));
+        }
 
         const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
             
-            let finalData = data;
-            if (branchId && branchId !== 'all' && branchId !== 'main') {
-                finalData = data.filter(o => o.branchId === branchId);
-            }
-            
-            setAllOrders(finalData);
+            setAllOrders(data);
             
             if (!snapshot.metadata.fromCache || data.length > 0) {
                 setIsLoading(false);
             }
             
             if (!snapshot.metadata.fromCache) {
-                cleanupTimedOutAssignments(finalData);
-                autoAssignOrders(finalData);
+                cleanupTimedOutAssignments(data);
+                autoAssignOrders(data);
             }
         }, (error) => {
+            console.error("Orders Snapshot Error:", error);
             setIsLoading(false);
         });
         return () => unsub();
-    }, [branchId, fetchLimit, autoAssignOrders, cleanupTimedOutAssignments]);
+    }, [branchId, fetchLimit, refreshKey, autoAssignOrders, cleanupTimedOutAssignments]);
     
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
             const orderRef = doc(db, "orders", orderId);
-            const orderSnap = await getDocs(query(collection(db, "orders"), where("__name__", "==", orderId), limit(1)));
-            if (orderSnap.empty) return false;
-            const currentOrder = { id: orderSnap.docs[0].id, ...orderSnap.docs[0].data() } as Order;
+            const orderSnap = await getDoc(orderRef);
+            if (!orderSnap.exists()) return false;
+            const currentOrder = { id: orderSnap.id, ...orderSnap.data() } as Order;
             
             const updateData: any = { status };
             
@@ -150,9 +153,7 @@ export const useOrders = (branchId?: string, fetchLimit: number = 20) => {
                 if (workerId) updateData.lastSkippedWorkerId = workerId; 
             }
 
-            // محرك الحماية والارتباط المالي الدائم
             if (status === 'delivered' && currentOrder.status !== 'delivered') {
-                // 1. حساب صافي أرباح المتجر
                 const itemsPrice = currentOrder.items.reduce((sum, item) => {
                     const price = item.selectedSize?.price || item.product.price || 0;
                     return sum + (price * item.quantity);
@@ -160,12 +161,10 @@ export const useOrders = (branchId?: string, fetchLimit: number = 20) => {
                 const rate = currentOrder.restaurant?.commissionRate || 10;
                 const storeIncome = itemsPrice * (1 - rate / 100);
 
-                // 2. تحديث محفظة المتجر بشكل دائم
                 await updateDoc(doc(db, "restaurants", currentOrder.restaurant!.id), {
                     balanceAdjustment: increment(storeIncome)
                 });
 
-                // 3. تحديث محفظة المندوب (أرباح + ذمة)
                 if (currentOrder.deliveryWorkerId) {
                     await updateDoc(doc(db, "deliveryWorkers", currentOrder.deliveryWorkerId), {
                         balanceAdjustment: increment(currentOrder.deliveryFee || 0),
