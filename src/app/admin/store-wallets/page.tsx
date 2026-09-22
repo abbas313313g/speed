@@ -18,16 +18,29 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
   const { allOrders, isLoading: oLoading } = useOrders(branchId, 500);
 
   const storeWallets = useMemo(() => {
-    if (rLoading) return [];
+    if (rLoading || oLoading) return [];
     
     const branchStores = restaurants.filter(r => r.branchId === branchId);
     
     return branchStores.map(store => {
-        // الرصيد الحقيقي والمحفوظ سحابياً بشكل دائم هو المصدر الوحيد للمال
-        const currentBalance = Math.max(0, store.balanceAdjustment || 0);
+        // حساب أرباح الطلبات الموصلة التي لم تدفع بعد في النظام الحالي
+        const currentOrdersEarnings = allOrders.filter(o => 
+            o.restaurant?.id === store.id && 
+            o.status === 'delivered' && 
+            !o.isPaid
+        ).reduce((acc, o) => {
+            const itemsPrice = o.items.reduce((sum, i) => {
+                const price = i.selectedSize?.price || i.product.price || 0;
+                return sum + (price * i.quantity);
+            }, 0);
+            const rate = o.restaurant?.commissionRate || 10;
+            return acc + (itemsPrice * (1 - rate / 100));
+        }, 0);
 
-        // حساب عدد الطلبات الموصلة التي لم تدخل في كشف سحب بعد
-        const unsettledOrdersCount = allOrders.filter(o => 
+        // الرصيد النهائي = (أرباح الطلبات الحالية) + (التسويات والرصيد المحفوظ سحابياً)
+        const finalBalance = Math.max(0, currentOrdersEarnings + (store.balanceAdjustment || 0));
+
+        const unsettledCount = allOrders.filter(o => 
             o.restaurant?.id === store.id && 
             o.status === 'delivered' && 
             !o.isPaid
@@ -35,11 +48,11 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
 
         return {
             store,
-            balance: currentBalance,
-            unsettledOrdersCount: unsettledOrdersCount,
+            balance: finalBalance,
+            unsettledOrdersCount: unsettledCount,
         };
     }).sort((a, b) => b.balance - a.balance);
-  }, [restaurants, allOrders, branchId, rLoading]);
+  }, [restaurants, allOrders, branchId, rLoading, oLoading]);
 
   const handlePrintStoreReport = (storeData: any) => {
     const { store, balance } = storeData;
@@ -83,7 +96,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                     <p style="color: #666;">رقم المتجر: ${store.restaurantNumber}</p>
                 </div>
                 <div class="balance-box">
-                    <p style="margin: 0; font-size: 14px; font-weight: bold;">الرصيد الكلي المحفوظ في المحفظة</p>
+                    <p style="margin: 0; font-size: 14px; font-weight: bold;">الرصيد الكلي المستحق</p>
                     <h1 style="margin: 5px 0; color: #00b358;">${formatCurrency(balance)}</h1>
                 </div>
             </div>
@@ -105,7 +118,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
 
             <div class="footer">
                 <p>تم استخراج هذا الكشف آلياً بتاريخ ${new Date().toLocaleString('ar-IQ')}</p>
-                <p>ملاحظة: الرصيد محفوظ سحابياً بشكل دائم ومحمي من عمليات المسح.</p>
+                <p>ملاحظة: الرصيد يشمل أرباح الطلبات الحالية والتسويات السابقة.</p>
             </div>
             <script>window.print();</script>
         </body>
@@ -116,13 +129,13 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
     printWindow.document.close();
   };
 
-  if (rLoading || oLoading) return <div className="p-20 text-center animate-pulse"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto"/><p className="mt-4 font-black text-primary">جاري جرد المحافظ المالية الدائمة...</p></div>;
+  if (rLoading || oLoading) return <div className="p-20 text-center animate-pulse"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto"/><p className="mt-4 font-black text-primary">جاري جرد المحافظ المالية...</p></div>;
 
   return (
     <div className="space-y-8 text-right animate-in fade-in duration-500 h-full overflow-y-auto p-4">
       <header>
         <h1 className="text-3xl font-black text-primary italic">محافظ المتاجر والتدقيق</h1>
-        <p className="text-muted-foreground font-bold italic text-xs">الأرصدة حقيقية ومحفوظة سحابياً (Persistent Wallets).</p>
+        <p className="text-muted-foreground font-bold italic text-xs">الأرصدة حقيقية ومحسوبة بدقة (طلبات + رصيد محفوظ).</p>
       </header>
 
       <div className="grid gap-6">
@@ -138,7 +151,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                           <TableRow>
                               <TableHead className="font-black text-right">المتجر</TableHead>
                               <TableHead className="font-black text-center">طلبات نشطة</TableHead>
-                              <TableHead className="font-black text-left">الرصيد النهائي</TableHead>
+                              <TableHead className="font-black text-left">الرصيد الكلي</TableHead>
                               <TableHead className="font-black text-center">إجراء</TableHead>
                           </TableRow>
                       </TableHeader>
@@ -166,7 +179,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                                           <span className={cn("text-xl font-black tracking-tighter", data.balance > 0 ? "text-primary" : "text-slate-300")}>
                                               {formatCurrency(data.balance)}
                                           </span>
-                                          <span className="text-[8px] font-bold text-muted-foreground italic">رصيد محفوظ</span>
+                                          <span className="text-[8px] font-bold text-muted-foreground italic">رصيد مدقق</span>
                                       </div>
                                   </TableCell>
                                   <TableCell className="text-center">
@@ -188,7 +201,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
               <Landmark className="h-4 w-4"/>
           </div>
           <p className="text-[10px] font-bold text-slate-600 text-right leading-relaxed">
-              الرصيد المحفوظ سحابياً هو الرقم الحقيقي المستحق للمتجر. يتم تحديثه لحظياً عند كل عملية توصيل ناجحة، وهو محمي بالكامل من حذف سجلات الطلبات القديمة.
+              المحفظة تجمع أرباح الطلبات الحالية مع الرصيد المحفوظ سحابياً. عند حذف الطلبات القديمة، سيبقى الربح محفوظاً في خانة الرصيد الدائم لضمان حق المتجر.
           </p>
       </div>
     </div>

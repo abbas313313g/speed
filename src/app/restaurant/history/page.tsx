@@ -24,24 +24,30 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const { totalIncome, pendingSettleCount, pendingRequest } = useMemo(() => {
-        if (!restaurant) return { totalIncome: 0, pendingSettleCount: 0, pendingRequest: null };
+    const { totalIncome, pendingRequest } = useMemo(() => {
+        if (!restaurant || !allOrders) return { totalIncome: 0, pendingRequest: null };
         
-        // الرصيد الحقيقي والمحفوظ سحابياً للمتجر
-        const currentBalance = Math.max(0, restaurant.balanceAdjustment || 0);
+        // حساب أرباح الطلبات الموجودة حالياً في النظام ولم تُدفع
+        const currentOrdersEarnings = allOrders.filter(o => 
+            o.restaurant?.id === restaurant.id && 
+            o.status === 'delivered' && 
+            !o.isPaid
+        ).reduce((acc, o) => {
+            const itemsPrice = o.items.reduce((sum, i) => {
+                const price = i.selectedSize?.price || i.product.price || 0;
+                return sum + (price * i.quantity);
+            }, 0);
+            const rate = o.restaurant?.commissionRate || 10;
+            return acc + (itemsPrice * (1 - rate / 100));
+        }, 0);
 
-        // عدد الطلبات غير المصفاة حالياً للعرض فقط
-        const myDeliveredOrdersCount = allOrders.filter(order => 
-            order.restaurant?.id === restaurant.id && 
-            order.status === 'delivered' &&
-            !order.isPaid
-        ).length;
+        // الرصيد النهائي = (الطلبات الحالية) + (الرصيد المحفوظ سحابياً)
+        const finalBalance = Math.max(0, currentOrdersEarnings + (restaurant.balanceAdjustment || 0));
 
         const pRequest = requests.find(r => r.targetId === restaurant.id && r.status === 'pending');
 
         return { 
-            totalIncome: currentBalance, 
-            pendingSettleCount: myDeliveredOrdersCount, 
+            totalIncome: finalBalance, 
             pendingRequest: pRequest 
         };
     }, [restaurant, allOrders, requests]);

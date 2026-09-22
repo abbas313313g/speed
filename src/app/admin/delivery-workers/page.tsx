@@ -42,10 +42,12 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
         const unpaidFees = orders.filter(o => !o.isFeePaid);
         const unpaidCash = orders.filter(o => !o.isOrderPaidToOffice);
         
+        // حساب أرباح أجور التوصيل من الطلبات الموجودة
         const baseEarnings = unpaidFees.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
+        // الرصيد الكلي = (أرباح الطلبات الحالية) + (الرصيد المحفوظ سحابياً)
         const deliveryEarnings = Math.max(0, baseEarnings + (w.balanceAdjustment || 0));
 
-        // الذمة = المجموع الكلي للطلبات كاش + مبالغ شحن محفظة الزبائن التي تمت عبر المندوب
+        // ذمة الكاش = (كاش الطلبات الحالية) + (إيداعات المحفظة) + (ذمة سحابية ثابتة)
         const baseCash = unpaidCash.reduce((acc, o) => acc + (o.total || 0) + (o.walletAmountAdded || 0), 0);
         const cashToOffice = Math.max(0, baseCash + (w.debtAdjustment || 0));
 
@@ -63,8 +65,11 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
       try {
           const batch = writeBatch(db);
           ids.forEach(id => batch.update(doc(db, "orders", id), { [field]: true }));
+          
+          // تصفير الرصيد المحفوظ لضمان بداية دورة نظيفة بعد الدفع
           const adjField = field === 'isFeePaid' ? 'balanceAdjustment' : 'debtAdjustment';
           batch.update(doc(db, "deliveryWorkers", workerId), { [adjField]: 0 });
+          
           await batch.commit();
           toast({ title: "تمت التصفية المالية بنجاح ✅" });
       } catch (e) {
@@ -78,7 +83,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
     <div className="space-y-8 text-right">
       <header>
         <h1 className="text-4xl font-black text-primary">تصفية حسابات المناديب</h1>
-        <p className="text-muted-foreground font-bold italic">الذمة = الكاش المستلم من الزبون + إيداعات محفظة الزبون.</p>
+        <p className="text-muted-foreground font-bold italic">الأرصدة مدققة (طلبات + رصيد محفوظ سحابياً).</p>
       </header>
 
       {wallets.length === 0 ? (

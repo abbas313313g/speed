@@ -41,20 +41,24 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
     const w = deliveryWorkers.find(d => d.id === workerId);
     if (!w) return { stats: { totalEarnings: 0, deliveredOrders: 0, unpaidEarnings: 0, moneyOwedToOffice: 0 }, worker: null, level: null, isFrozen: false, pendingRequest: null };
     
-    const myD = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered');
+    const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered');
     
-    // الرصيد الحقيقي والمحفوظ سحابياً للمندوب
-    const unpaidEarnings = Math.max(0, w.balanceAdjustment || 0);
+    // حساب أرباح الطلبات الموجودة حالياً ولم تُدفع
+    const currentUnpaidFees = myDeliveredOrders.filter(o => !o.isFeePaid).reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
+    // الرصيد الكلي = (أرباح الطلبات الحالية) + (الرصيد المحفوظ سحابياً)
+    const unpaidEarnings = Math.max(0, currentUnpaidFees + (w.balanceAdjustment || 0));
 
-    // الذمة المالية الحقيقية والمحفوظة سحابياً
-    const moneyOwedToOffice = Math.max(0, w.debtAdjustment || 0);
+    // حساب ذمة الكاش للطلبات الحالية
+    const currentUnpaidCash = myDeliveredOrders.filter(o => !o.isOrderPaidToOffice).reduce((acc, o) => acc + (o.total || 0) + (o.walletAmountAdded || 0), 0);
+    // الذمة الكلية = (كاش الطلبات الحالية) + (الذمة السحابية الثابتة)
+    const moneyOwedToOffice = Math.max(0, currentUnpaidCash + (w.debtAdjustment || 0));
     
     const isActuallyFrozen = moneyOwedToOffice >= 100000;
     const pRequest = requests.find(r => r.targetId === workerId && r.status === 'pending');
     
-    const levelD = getWorkerLevel(w, myD.length, new Date());
+    const levelD = getWorkerLevel(w, myDeliveredOrders.length, new Date());
     return { 
-        stats: { totalEarnings: unpaidEarnings, deliveredOrders: myD.length, unpaidEarnings, moneyOwedToOffice }, 
+        stats: { totalEarnings: unpaidEarnings, deliveredOrders: myDeliveredOrders.length, unpaidEarnings, moneyOwedToOffice }, 
         worker: w, 
         level: levelD.level, 
         isFrozen: isActuallyFrozen,
@@ -109,7 +113,7 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
 
       <div className="grid gap-3 grid-cols-1">
         <Card className="rounded-[2.5rem] border-none shadow-xl bg-white border-r-8 border-r-primary overflow-hidden">
-          <CardHeader className="p-6 pb-2"><CardTitle className="text-sm font-black text-muted-foreground flex items-center gap-2 justify-end"><Wallet className="h-4 w-4 text-primary"/> رصيد الأرباح (أجور التوصيل)</CardTitle></CardHeader>
+          <CardHeader className="p-6 pb-2"><CardTitle className="text-sm font-black text-muted-foreground flex items-center gap-2 justify-end"><Wallet className="h-4 w-4 text-primary"/> رصيد الأرباح المتاح</CardTitle></CardHeader>
           <CardContent className="p-6 pt-0 space-y-4">
               <div className="text-4xl font-black text-primary tracking-tighter">
                   {formatCurrency(displayBalance)}
