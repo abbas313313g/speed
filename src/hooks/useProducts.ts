@@ -28,7 +28,7 @@ function isStoreActuallyOpen(r: Restaurant): boolean {
 export const useProducts = (
     branchId?: string, 
     restaurantId?: string, 
-    loadLimit: number = 20, 
+    loadLimit: number = 8, 
     productId?: string, 
     searchTerm: string = '',
     isAdmin: boolean = false
@@ -43,12 +43,11 @@ export const useProducts = (
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearch(searchTerm);
-        }, 1000); // زيادة وقت التأخير لـ 1 ثانية لحماية الكوتا
+        }, 800); 
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
     useEffect(() => {
-        // جلب المطاعم كمستمع واحد مستقر للمنصة بالكامل
         const unsub = onSnapshot(collection(db, 'restaurants'), (snap) => {
             setRestaurants(snap.docs.map(d => ({...d.data(), id: d.id}) as Restaurant));
         });
@@ -92,12 +91,12 @@ export const useProducts = (
             let q;
 
             if (debouncedSearch.trim() !== '') {
-                // استخدام البحث السحابي المباشر عند وجود نص
+                // البحث السحابي المباشر (Haqiqi Server Search)
                 q = query(
                     ref, 
                     where("name", ">=", debouncedSearch), 
                     where("name", "<=", debouncedSearch + '\uf8ff'),
-                    limit(loadLimit)
+                    limit(50)
                 );
             } else if (restaurantId && restaurantId !== 'none' && restaurantId !== '') {
                 q = query(ref, where("restaurantId", "==", restaurantId), limit(loadLimit));
@@ -117,7 +116,7 @@ export const useProducts = (
                 setHasMore(data.length >= loadLimit);
                 setIsLoading(false);
             }, (error) => {
-                console.error("Firestore Quota/Error:", error);
+                console.error("Firestore Error:", error);
                 setIsLoading(false);
             });
 
@@ -128,7 +127,7 @@ export const useProducts = (
         return () => unsub();
     }, [branchId, restaurantId, isAdmin, productId, loadLimit, debouncedSearch]);
 
-    const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }, isFromStore = false) => {
+    const addProduct = useCallback(async (productData: Omit<Product, 'id'> & { image: string }) => {
         try {
             const finalData = { 
                 ...productData, 

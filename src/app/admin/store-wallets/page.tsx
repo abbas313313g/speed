@@ -20,16 +20,14 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
   const storeWallets = useMemo(() => {
     if (rLoading) return [];
     
-    // فلترة المتاجر التابعة لهذا الفرع
     const branchStores = restaurants.filter(r => r.branchId === branchId);
     
     return branchStores.map(store => {
-        // الرصيد النهائي هو الرصيد المحفوظ سحابياً بشكل دائم في ملف المتجر
-        // هذا الرصيد يزيد تلقائياً عند التوصيل وينقص عند الخصم أو السحب
+        // الرصيد الحقيقي والمحفوظ سحابياً بشكل دائم هو المصدر الوحيد للمال
         const currentBalance = Math.max(0, store.balanceAdjustment || 0);
 
-        // حساب عدد الطلبات غير المدفوعة حالياً في النظام للعرض فقط
-        const unpaidOrdersCount = allOrders.filter(o => 
+        // حساب عدد الطلبات الموصلة التي لم تدخل في كشف سحب بعد
+        const unsettledOrdersCount = allOrders.filter(o => 
             o.restaurant?.id === store.id && 
             o.status === 'delivered' && 
             !o.isPaid
@@ -38,7 +36,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
         return {
             store,
             balance: currentBalance,
-            unpaidOrdersCount: unpaidOrdersCount,
+            unsettledOrdersCount: unsettledOrdersCount,
         };
     }).sort((a, b) => b.balance - a.balance);
   }, [restaurants, allOrders, branchId, rLoading]);
@@ -85,13 +83,12 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                     <p style="color: #666;">رقم المتجر: ${store.restaurantNumber}</p>
                 </div>
                 <div class="balance-box">
-                    <p style="margin: 0; font-size: 14px; font-weight: bold;">الرصيد الكلي المتاح في المحفظة</p>
+                    <p style="margin: 0; font-size: 14px; font-weight: bold;">الرصيد الكلي المحفوظ في المحفظة</p>
                     <h1 style="margin: 5px 0; color: #00b358;">${formatCurrency(balance)}</h1>
                 </div>
             </div>
 
-            <h3>تفاصيل الطلبات الحالية في النظام (${unpaidOrders.length} طلب)</h3>
-            <p style="font-size: 11px; color: #888;">ملاحظة: هذا الكشف يعرض فقط الطلبات المتاحة حالياً في السيرفر.</p>
+            <h3>تفاصيل الطلبات غير المصفاة (${unpaidOrders.length} طلب)</h3>
             <table>
                 <thead>
                     <tr>
@@ -108,7 +105,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
 
             <div class="footer">
                 <p>تم استخراج هذا الكشف آلياً بتاريخ ${new Date().toLocaleString('ar-IQ')}</p>
-                <p>ملاحظة: رصيد المحفظة محفوظ سحابياً بشكل دائم ومستقل عن سجل الطلبات.</p>
+                <p>ملاحظة: الرصيد محفوظ سحابياً بشكل دائم ومحمي من عمليات المسح.</p>
             </div>
             <script>window.print();</script>
         </body>
@@ -122,17 +119,17 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
   if (rLoading || oLoading) return <div className="p-20 text-center animate-pulse"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto"/><p className="mt-4 font-black text-primary">جاري جرد المحافظ المالية الدائمة...</p></div>;
 
   return (
-    <div className="space-y-8 text-right animate-in fade-in duration-500">
+    <div className="space-y-8 text-right animate-in fade-in duration-500 h-full overflow-y-auto p-4">
       <header>
         <h1 className="text-3xl font-black text-primary italic">محافظ المتاجر والتدقيق</h1>
-        <p className="text-muted-foreground font-bold">الأرصدة دقيقة ومحفوظة سحابياً بشكل دائم (Persistent Wallets).</p>
+        <p className="text-muted-foreground font-bold italic text-xs">الأرصدة حقيقية ومحفوظة سحابياً (Persistent Wallets).</p>
       </header>
 
       <div className="grid gap-6">
           {storeWallets.length === 0 ? (
               <div className="p-20 text-center bg-white rounded-[3rem] border-2 border-dashed">
                   <Store className="h-16 w-16 mx-auto text-muted-foreground/20 mb-4" />
-                  <p className="text-xl font-black text-muted-foreground">لا توجد متاجر نشطة في هذا الفرع.</p>
+                  <p className="text-xl font-black text-muted-foreground">لا توجد متاجر نشطة حالياً.</p>
               </div>
           ) : (
               <Card className="rounded-[2rem] border-none shadow-xl overflow-hidden bg-white">
@@ -140,9 +137,9 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                       <TableHeader className="bg-muted/50 h-14">
                           <TableRow>
                               <TableHead className="font-black text-right">المتجر</TableHead>
-                              <TableHead className="font-black text-center">طلبات غير مصفاة</TableHead>
-                              <TableHead className="font-black text-left">رصيد المحفظة الحقيقي</TableHead>
-                              <TableHead className="font-black text-center">الإجراء</TableHead>
+                              <TableHead className="font-black text-center">طلبات نشطة</TableHead>
+                              <TableHead className="font-black text-left">الرصيد النهائي</TableHead>
+                              <TableHead className="font-black text-center">إجراء</TableHead>
                           </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -151,30 +148,30 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                                   <TableCell className="font-bold">
                                       <div className="flex items-center gap-3 justify-end">
                                           <div className="text-right">
-                                              <p className="font-black text-slate-800">{data.store.name}</p>
-                                              <p className="text-[9px] text-muted-foreground font-bold">{data.store.restaurantNumber}</p>
+                                              <p className="font-black text-slate-800 text-xs">{data.store.name}</p>
+                                              <p className="text-[8px] text-muted-foreground font-bold">{data.store.restaurantNumber}</p>
                                           </div>
-                                          <div className="relative h-10 w-10 shrink-0">
+                                          <div className="relative h-9 w-9 shrink-0">
                                               <Image src={data.store.image} fill className="rounded-full object-cover border-2 border-primary/10" alt="" unoptimized={true}/>
                                           </div>
                                       </div>
                                   </TableCell>
                                   <TableCell className="text-center font-bold">
-                                      {data.unpaidOrdersCount > 0 ? (
-                                          <Badge className="bg-orange-500 text-white border-none font-black">{data.unpaidOrdersCount} طلب</Badge>
-                                      ) : <span className="text-muted-foreground/40">-</span>}
+                                      {data.unsettledOrdersCount > 0 ? (
+                                          <Badge className="bg-orange-500 text-white border-none font-black text-[9px]">{data.unsettledOrdersCount} طلب</Badge>
+                                      ) : <span className="text-muted-foreground/30">-</span>}
                                   </TableCell>
                                   <TableCell className="text-left">
                                       <div className="flex flex-col items-start">
-                                          <span className={cn("text-2xl font-black tracking-tighter", data.balance > 0 ? "text-primary" : "text-slate-300")}>
+                                          <span className={cn("text-xl font-black tracking-tighter", data.balance > 0 ? "text-primary" : "text-slate-300")}>
                                               {formatCurrency(data.balance)}
                                           </span>
-                                          <span className="text-[8px] font-bold text-muted-foreground italic">رصيد نهائي محفوظ</span>
+                                          <span className="text-[8px] font-bold text-muted-foreground italic">رصيد محفوظ</span>
                                       </div>
                                   </TableCell>
                                   <TableCell className="text-center">
-                                      <Button variant="outline" size="sm" className="rounded-xl font-bold gap-2 h-10 border-2" onClick={() => handlePrintStoreReport(data)}>
-                                          <Printer className="h-4 w-4" /> طباعة كشف
+                                      <Button variant="outline" size="sm" className="rounded-xl font-bold gap-2 h-9 border-2" onClick={() => handlePrintStoreReport(data)}>
+                                          <Printer className="h-4 w-4" /> كشف
                                       </Button>
                                   </TableCell>
                               </TableRow>
@@ -185,13 +182,13 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
           )}
       </div>
 
-      <div className="p-6 bg-primary/5 rounded-[2.5rem] border-2 border-dashed border-primary/20">
-          <div className="flex items-center gap-3 justify-end text-primary mb-2">
-              <span className="font-black">نظام التدقيق المالي الدائم (Real-time Audit)</span>
-              <Landmark className="h-5 w-5"/>
+      <div className="p-5 bg-primary/5 rounded-[2rem] border-2 border-dashed border-primary/20">
+          <div className="flex items-center gap-2 justify-end text-primary mb-1">
+              <span className="font-black text-sm">نظام التدقيق المالي الدائم</span>
+              <Landmark className="h-4 w-4"/>
           </div>
-          <p className="text-xs font-bold text-slate-600 text-right leading-relaxed">
-              يتم تحديث رصيد "المحفظة" في هذه الصفحة لحظياً عند كل عملية توصيل أو خصم إداري. هذا الرقم هو المصدر الوحيد للحقيقة المالية ومحمي بالكامل من عمليات حذف السجلات لتوفير المساحة.
+          <p className="text-[10px] font-bold text-slate-600 text-right leading-relaxed">
+              الرصيد المحفوظ سحابياً هو الرقم الحقيقي المستحق للمتجر. يتم تحديثه لحظياً عند كل عملية توصيل ناجحة، وهو محمي بالكامل من حذف سجلات الطلبات القديمة.
           </p>
       </div>
     </div>

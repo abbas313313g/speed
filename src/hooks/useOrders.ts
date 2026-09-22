@@ -105,15 +105,21 @@ export const useOrders = (branchId?: string, fetchLimit: number = 20, refreshKey
         const ordersRef = collection(db, 'orders');
         
         let q;
+        // تبسيط الاستعلام لتجنب الحاجة لفهارس مركبة معقدة تسبب توقف الصفحة
         if (branchId && branchId !== 'all') {
-            q = query(ordersRef, where("branchId", "==", branchId), orderBy("date", "desc"), limit(fetchLimit));
+            q = query(ordersRef, where("branchId", "==", branchId), limit(fetchLimit * 2));
         } else {
             q = query(ordersRef, orderBy("date", "desc"), limit(fetchLimit));
         }
 
         const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
+            let data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
             
+            // فرز يدوي في حال كان الاستعلام بسيطاً لضمان أحدث الطلبات دائماً
+            if (branchId && branchId !== 'all') {
+                data = data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, fetchLimit);
+            }
+
             setAllOrders(data);
             
             if (!snapshot.metadata.fromCache || data.length > 0) {
@@ -138,6 +144,11 @@ export const useOrders = (branchId?: string, fetchLimit: number = 20, refreshKey
             if (!orderSnap.exists()) return false;
             const currentOrder = { id: orderSnap.id, ...orderSnap.data() } as Order;
             
+            // حماية مالية: التأكد من عدم إضافة الرصيد للمحفظة أكثر من مرة واحدة
+            if (status === 'delivered' && currentOrder.status === 'delivered') {
+                return true; 
+            }
+
             const updateData: any = { status };
             
             if (status === 'preparing' && workerId) {
@@ -161,6 +172,7 @@ export const useOrders = (branchId?: string, fetchLimit: number = 20, refreshKey
                 const rate = currentOrder.restaurant?.commissionRate || 10;
                 const storeIncome = itemsPrice * (1 - rate / 100);
 
+                // تحديث المحافظ السحابية الدائمة فوراً عند التوصيل
                 await updateDoc(doc(db, "restaurants", currentOrder.restaurant!.id), {
                     balanceAdjustment: increment(storeIncome)
                 });
