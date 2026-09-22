@@ -11,7 +11,7 @@ import { calculateDistance, formatCurrency } from '@/lib/utils';
 import { useTelegramConfigs } from './useTelegramConfigs';
 import { sendTelegramMessage } from '@/lib/telegram';
 
-export const useOrders = (branchId?: string, fetchLimit: number = 20, refreshKey?: number) => {
+export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKey?: number) => {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
@@ -105,9 +105,8 @@ export const useOrders = (branchId?: string, fetchLimit: number = 20, refreshKey
         const ordersRef = collection(db, 'orders');
         
         let q;
-        // تبسيط الاستعلام لتجنب الحاجة لفهارس مركبة معقدة تسبب توقف الصفحة
         if (branchId && branchId !== 'all') {
-            q = query(ordersRef, where("branchId", "==", branchId), limit(fetchLimit * 2));
+            q = query(ordersRef, where("branchId", "==", branchId), limit(fetchLimit));
         } else {
             q = query(ordersRef, orderBy("date", "desc"), limit(fetchLimit));
         }
@@ -115,7 +114,6 @@ export const useOrders = (branchId?: string, fetchLimit: number = 20, refreshKey
         const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
             let data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
             
-            // فرز يدوي في حال كان الاستعلام بسيطاً لضمان أحدث الطلبات دائماً
             if (branchId && branchId !== 'all') {
                 data = data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, fetchLimit);
             }
@@ -144,7 +142,6 @@ export const useOrders = (branchId?: string, fetchLimit: number = 20, refreshKey
             if (!orderSnap.exists()) return false;
             const currentOrder = { id: orderSnap.id, ...orderSnap.data() } as Order;
             
-            // حماية مالية: التأكد من عدم إضافة الرصيد للمحفظة أكثر من مرة واحدة
             if (status === 'delivered' && currentOrder.status === 'delivered') {
                 return true; 
             }
@@ -172,7 +169,6 @@ export const useOrders = (branchId?: string, fetchLimit: number = 20, refreshKey
                 const rate = currentOrder.restaurant?.commissionRate || 10;
                 const storeIncome = itemsPrice * (1 - rate / 100);
 
-                // تحديث المحافظ السحابية الدائمة فوراً عند التوصيل
                 await updateDoc(doc(db, "restaurants", currentOrder.restaurant!.id), {
                     balanceAdjustment: increment(storeIncome)
                 });

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminNav } from '@/components/AdminNav';
 import { Shield, KeyRound, PanelLeft, Loader2, Building2, Fingerprint, Lock } from 'lucide-react';
@@ -56,6 +56,7 @@ function AdminLayoutContent() {
   const { accessList, isLoading: accessLoading, requestAccess, autoApproveFirst, getDeviceId } = useAdminAccess(branchParam);
   const { branches } = useBranches();
   const { toast } = useToast();
+  const initialCheckRef = useRef(true);
 
   useEffect(() => {
     setMounted(true);
@@ -71,7 +72,7 @@ function AdminLayoutContent() {
   }, [branchParam, branches]);
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || accessLoading) return;
     const deviceId = getDeviceId();
     const myAccess = accessList.find(a => a.deviceId === deviceId && a.branchId === branchParam);
     
@@ -79,7 +80,10 @@ function AdminLayoutContent() {
         if (isAuthenticated) {
             setIsAuthenticated(false);
             localStorage.removeItem(`admin_auth_${branchParam}`);
-            toast({ title: "تم سحب ترخيص هذا الجهاز", variant: "destructive" });
+            // إظهار الإشعار فقط إذا لم يكن الدخول الأول (أي تم السحب فعلياً أثناء العمل)
+            if (!initialCheckRef.current) {
+                toast({ title: "تم سحب ترخيص هذا الجهاز", variant: "destructive" });
+            }
         }
         setRequestStatus(myAccess?.status === 'pending' ? 'sent' : 'none');
     } else {
@@ -88,7 +92,8 @@ function AdminLayoutContent() {
             localStorage.setItem(`admin_auth_${branchParam}`, 'true');
         }
     }
-  }, [accessList, branchParam, getDeviceId, isAuthenticated, toast, mounted]);
+    initialCheckRef.current = false;
+  }, [accessList, branchParam, getDeviceId, isAuthenticated, toast, mounted, accessLoading]);
 
   const handleLogin = async () => {
     if (pin === ADMIN_PIN) {
@@ -132,7 +137,6 @@ function AdminLayoutContent() {
       }
   }
 
-  // مصفوفة الصفحات المتاحة
   const pagesMap: { [key: number]: React.ReactNode } = {
     0: <AdminDashboard branchId={branchParam} />,
     1: <AdminOrdersPage branchId={branchParam} />,
@@ -222,7 +226,6 @@ function AdminLayoutContent() {
           </div>
         </header>
         <main className="flex-1 relative overflow-hidden bg-muted/5">
-            {/* نظام التحميل المنعزل: يتم تحميل الكومبوننت فقط إذا كان نشطاً لضمان تحميل جديد */}
             {pagesMap[activeTab]}
         </main>
       </div>

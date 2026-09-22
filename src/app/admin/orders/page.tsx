@@ -58,7 +58,7 @@ import { useToast } from '@/hooks/use-toast';
 export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const { toast } = useToast();
   const [refreshKey, setRefreshKey] = useState(Date.now());
-  const [displayLimit, setDisplayLimit] = useState(20);
+  const [displayLimit, setDisplayLimit] = useState(500); // الافتراضي هو الكل (500 طلب)
   const [isDeepSearching, setIsDeepSearching] = useState(false);
   
   const { allOrders, isLoading: ordersLoading, deleteOrder, updateOrderStatus } = useOrders(branchId, displayLimit, refreshKey);
@@ -117,7 +117,6 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const handleManualRefresh = () => {
       setIsDeepSearching(true);
       setRefreshKey(Date.now());
-      // محاكة تأخير بسيط لإظهار التفاعل للمستخدم مع جلب فوري للبيانات
       setTimeout(() => {
           setIsDeepSearching(false);
       }, 600);

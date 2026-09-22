@@ -17,13 +17,14 @@ export const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const db = getFirestore(app);
-// تحسين استجابة قاعدة البيانات للعمل بدون إنترنت وبثبات عالي
+// تحسين استجابة قاعدة البيانات للعمل بسرعة فائقة على الآيفون والشبكات الضعيفة
 db.type = 'firestore'; 
 
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 
 if (typeof window !== "undefined") {
+    // تفعيل الذاكرة الدائمة بطريقة متوافقة مع متصفحات الموبايل والآيفون
     enableMultiTabIndexedDbPersistence(db).catch((err) => {
         if (err.code === 'failed-precondition') {
             console.warn("Persistence failed: multiple tabs open");
