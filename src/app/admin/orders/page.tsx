@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { MoreHorizontal, Trash2, Loader2, RefreshCw, Bike, ChevronRight, Store, X, UserCog, CheckCircle, Navigation, Wallet, User, Tag, Ticket, ReceiptText } from 'lucide-react';
+import { MoreHorizontal, Trash2, Loader2, RefreshCw, Bike, ChevronRight, Store, X, UserCog, CheckCircle, Navigation, User, Tag, Ticket, ReceiptText } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -117,10 +117,10 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const handleManualRefresh = () => {
       setIsDeepSearching(true);
       setRefreshKey(Date.now());
+      // محاكة تأخير بسيط لإظهار التفاعل للمستخدم مع جلب فوري للبيانات
       setTimeout(() => {
           setIsDeepSearching(false);
-          toast({ title: "تم تحديث القائمة بنجاح ✅" });
-      }, 1500);
+      }, 600);
   };
 
   const getStatusText = (status: OrderStatus) => {
@@ -138,17 +138,17 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
     }
 
   return (
-    <div className="space-y-6 text-right relative">
-      {(isDeepSearching || (ordersLoading && filteredOrders.length === 0)) && (
-          <div className="fixed inset-0 z-[100] bg-white/60 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-300">
-              <div className="flex flex-col items-center gap-4 p-8 bg-white rounded-[2.5rem] shadow-2xl border-4 border-primary/20">
-                <Loader2 className="h-16 w-16 animate-spin text-primary" />
-                <p className="font-black text-primary text-xl">جاري التحميل...</p>
+    <div className="space-y-6 text-right relative h-full flex flex-col">
+      {isDeepSearching && (
+          <div className="absolute inset-0 z-50 bg-white/40 backdrop-blur-[2px] flex items-center justify-center animate-in fade-in duration-200 rounded-2xl">
+              <div className="flex flex-col items-center gap-3 p-6 bg-white rounded-3xl shadow-xl border-2 border-primary/10">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <p className="font-black text-primary text-sm">مزامنة فورية...</p>
               </div>
           </div>
       )}
 
-      <header className="flex justify-between items-center">
+      <header className="flex justify-between items-center shrink-0">
           <h1 className="text-2xl font-black text-primary italic">إدارة الطلبات</h1>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 ml-4">
@@ -173,14 +173,14 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
             >
                 {showOnlyDelivered ? "عرض الكل" : "المكتملة فقط"}
             </Button>
-            <Button onClick={handleManualRefresh} variant="outline" className="h-10 rounded-xl font-black gap-2 border-2 border-primary text-primary shadow-sm active:scale-90">
+            <Button onClick={handleManualRefresh} variant="outline" className="h-10 rounded-xl font-black gap-2 border-2 border-primary text-primary shadow-sm active:scale-90 transition-all">
                 <RefreshCw className={cn("h-4 w-4", isDeepSearching && "animate-spin")} />
                 تحديث
             </Button>
           </div>
       </header>
 
-        <div className="bg-white rounded-2xl border shadow-lg overflow-hidden">
+        <div className="bg-white rounded-2xl border shadow-lg overflow-hidden flex-1">
             <Table>
                 <TableHeader className="bg-muted/30 h-12">
                 <TableRow>
@@ -307,7 +307,9 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                                 <div className="space-y-2">
                                     {viewOrder.items.map((item, idx) => {
                                         const originalPrice = item.selectedSize?.price || item.product.price;
-                                        const discountPrice = item.selectedSize ? originalPrice : (item.product.discountPrice || originalPrice);
+                                        const rest = { discountPercentage: viewOrder.restaurant?.discountPercentage || 0 };
+                                        const getAdjusted = (p: number) => rest.discountPercentage > 0 ? p * (1 - rest.discountPercentage/100) : p;
+                                        const discountPrice = item.selectedSize ? getAdjusted(originalPrice) : (item.product.discountPrice || getAdjusted(originalPrice));
                                         const hasItemDiscount = discountPrice < originalPrice;
 
                                         return (

@@ -25,35 +25,23 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const { totalIncome, pendingSettleCount, pendingRequest } = useMemo(() => {
-        if (!restaurant || !allOrders.length) return { totalIncome: 0, pendingSettleCount: 0, pendingRequest: null };
+        if (!restaurant) return { totalIncome: 0, pendingSettleCount: 0, pendingRequest: null };
         
-        // جلب الطلبات المكتملة التي لم تتم تسويتها مالياً بعد لهذا المتجر حصراً
-        const myDeliveredOrders = allOrders.filter(order => 
+        // الرصيد الحقيقي والمحفوظ سحابياً للمتجر
+        const currentBalance = Math.max(0, restaurant.balanceAdjustment || 0);
+
+        // عدد الطلبات غير المصفاة حالياً للعرض فقط
+        const myDeliveredOrdersCount = allOrders.filter(order => 
             order.restaurant?.id === restaurant.id && 
             order.status === 'delivered' &&
             !order.isPaid
-        );
-
-        const income = myDeliveredOrders.reduce((acc, order) => {
-            // احتساب ثمن الوجبات بناءً على السعر الأصلي لضمان عدم تأثر المتجر بكود خصم الشركة
-            const itemsPrice = order.items.reduce((sum, i) => {
-                const basePrice = i.selectedSize?.price ?? i.product.price ?? 0;
-                return sum + (basePrice * i.quantity);
-            }, 0);
-            
-            // خصم عمولة المنصة
-            const commission = (itemsPrice * (restaurant.commissionRate / 100));
-            return acc + (itemsPrice - commission);
-        }, 0);
-
-        // إضافة التعديلات اليدوية (الخصومات الإدارية)
-        const finalIncome = Math.max(0, income + (restaurant.balanceAdjustment || 0));
+        ).length;
 
         const pRequest = requests.find(r => r.targetId === restaurant.id && r.status === 'pending');
 
         return { 
-            totalIncome: finalIncome, 
-            pendingSettleCount: myDeliveredOrders.length, 
+            totalIncome: currentBalance, 
+            pendingSettleCount: myDeliveredOrdersCount, 
             pendingRequest: pRequest 
         };
     }, [restaurant, allOrders, requests]);
@@ -69,7 +57,7 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
             type: 'restaurant',
             targetId: restaurant.id,
             targetName: restaurant.name,
-            amount: totalIncome, // المبلغ الصافي لسهولة المحاسب
+            amount: totalIncome,
             netAmount: totalIncome,
             branchId: restaurant.branchId
         });

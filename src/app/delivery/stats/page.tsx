@@ -7,7 +7,6 @@ import { Wallet, Landmark, User, Settings2, ShoppingCart, ShieldAlert, ArrowRigh
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { getWorkerLevel } from '@/lib/workerLevels';
-import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 import { useOrders } from '@/hooks/useOrders';
@@ -44,20 +43,18 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
     
     const myD = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered');
     
-    // الأرباح = أجور التوصيل فقط
-    const baseEarnings = myD.filter(o => !o.isFeePaid).reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
-    const unpaidEarnings = Math.max(0, baseEarnings + (w.balanceAdjustment || 0));
+    // الرصيد الحقيقي والمحفوظ سحابياً للمندوب
+    const unpaidEarnings = Math.max(0, w.balanceAdjustment || 0);
 
-    // الذمة = المجموع الكلي للطلبات التي استلمها المندوب كاش (الوجبات + التوصيل)
-    const baseDebt = myD.filter(o => !o.isOrderPaidToOffice).reduce((acc, o) => acc + (o.total || 0), 0);
-    const moneyOwedToOffice = Math.max(0, baseDebt + (w.debtAdjustment || 0));
+    // الذمة المالية الحقيقية والمحفوظة سحابياً
+    const moneyOwedToOffice = Math.max(0, w.debtAdjustment || 0);
     
     const isActuallyFrozen = moneyOwedToOffice >= 100000;
     const pRequest = requests.find(r => r.targetId === workerId && r.status === 'pending');
     
     const levelD = getWorkerLevel(w, myD.length, new Date());
     return { 
-        stats: { totalEarnings: baseEarnings, deliveredOrders: myD.length, unpaidEarnings, moneyOwedToOffice }, 
+        stats: { totalEarnings: unpaidEarnings, deliveredOrders: myD.length, unpaidEarnings, moneyOwedToOffice }, 
         worker: w, 
         level: levelD.level, 
         isFrozen: isActuallyFrozen,
@@ -88,7 +85,6 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
       return <div className="p-6 space-y-6"><Skeleton className="h-48 w-full rounded-3xl" /><Skeleton className="h-24 w-full rounded-2xl" /></div>;
   }
 
-  const LevelIcon = level?.icon;
   const displayBalance = pendingRequest ? 0 : stats.unpaidEarnings;
 
   return (
