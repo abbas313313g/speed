@@ -23,25 +23,26 @@ import { db } from '@/lib/firebase';
 import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 
 export default function AdminDeliveryWorkersPage({ branchId }: { branchId: string }) {
-  const { deliveryWorkers, isLoading: workersLoading, updateWorkerDetails } = useDeliveryWorkers(branchId);
+  const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers(branchId);
   const { allOrders } = useOrders(branchId);
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
 
+  // تم تعديل المحرك ليقرأ من الخزنة السحابية فقط لمنع التكرار والتذبذب
   const workerBalances = useMemo(() => {
     return deliveryWorkers.map(w => {
         const delivered = allOrders.filter(o => o.deliveryWorkerId === w.id && o.status === 'delivered');
         
+        // العدادات فقط للتوضيح، أما المبالغ فهي تقرأ من الحقول السحابية مباشرة
         const unpaidEarningsOrders = delivered.filter(o => !o.isFeePaid);
         const unpaidDebtOrders = delivered.filter(o => !o.isOrderPaidToOffice);
-
-        const unpaidEarnings = unpaidEarningsOrders.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
-        const unpaidDebt = unpaidDebtOrders.reduce((acc, o) => acc + (o.total || 0), 0);
         
         return {
             ...w,
-            totalWallet: (w.walletBalance || 0) + (w.balanceAdjustment || 0) + unpaidEarnings,
-            totalDebt: (w.officeDebt || 0) + (w.debtAdjustment || 0) + unpaidDebt,
+            // القراءة من الحقل السحابي الصافي (walletBalance) الذي يتم تحديثه تلقائياً عند كل توصيلة
+            // تم إلغاء عملية الجمع اليدوي هنا لمنع تضاعف المبالغ
+            totalWallet: (w.walletBalance || 0) + (w.balanceAdjustment || 0),
+            totalDebt: (w.officeDebt || 0) + (w.debtAdjustment || 0),
             earningsCount: unpaidEarningsOrders.length,
             debtCount: unpaidDebtOrders.length
         };

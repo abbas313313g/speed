@@ -33,10 +33,11 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
   }, []);
 
   const { worker, pendingRequest, isFrozen } = useMemo(() => {
-    if (!workerId || !deliveryWorkers) return { worker: null, pendingRequest: null, isFrozen: false };
+    if (!workerId || !deliveryWorkers || deliveryWorkers.length === 0) return { worker: null, pendingRequest: null, isFrozen: false };
     const w = deliveryWorkers.find(d => d.id === workerId);
+    if (!w) return { worker: null, pendingRequest: null, isFrozen: false };
     const pReq = requests.find(r => r.targetId === workerId && r.status === 'pending');
-    const actuallyFrozen = (w?.officeDebt || 0) >= 150000; // حد تجميد الحساب إذا زاد الكاش عن 150 ألف
+    const actuallyFrozen = (w?.officeDebt || 0) >= 150000; 
     return { worker: w, pendingRequest: pReq, isFrozen: actuallyFrozen };
   }, [workerId, deliveryWorkers, requests]);
 
@@ -59,7 +60,8 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
       setIsRequesting(false);
   };
 
-  if (workersLoading || !workerId) {
+  // التأكد من عدم عرض أرقام صفرية وهمية أثناء التحميل
+  if (workersLoading || !workerId || !worker) {
       return <div className="p-6 space-y-6"><Skeleton className="h-48 w-full rounded-3xl" /><Skeleton className="h-24 w-full rounded-2xl" /></div>;
   }
 
