@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { MoreHorizontal, Trash2, Loader2, RefreshCw, Bike, ChevronRight, Store, X, UserCog, CheckCircle, Navigation, User, Tag, Ticket, ReceiptText } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import {
@@ -52,7 +53,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminOrdersPage({ branchId }: { branchId: string }) {
@@ -67,16 +68,8 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const [viewOrder, setViewOrder] = useState<Order | null>(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [orderToAssign, setOrderToAssign] = useState<string | null>(null);
-  const [showOnlyDelivered, setShowOnlyDelivered] = useState(false);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
 
-  const filteredOrders = useMemo(() => {
-    let list = allOrders;
-    if (showOnlyDelivered) {
-        list = list.filter(o => o.status === 'delivered');
-    }
-    return list;
-  }, [allOrders, showOnlyDelivered]);
-  
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
     try {
       await updateOrderStatus(orderId, status);
@@ -114,6 +107,34 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
       await deleteOrder(orderId);
   }
 
+  const handleBulkDelete = async () => {
+      if (selectedOrderIds.length === 0) return;
+      setIsDeepSearching(true);
+      try {
+          for (const id of selectedOrderIds) {
+              await deleteDoc(doc(db, "orders", id));
+          }
+          toast({ title: `تم حذف ${selectedOrderIds.length} طلب بنجاح ✅` });
+          setSelectedOrderIds([]);
+      } catch (e) {
+          toast({ title: "فشل الحذف الجماعي", variant: "destructive" });
+      } finally {
+          setIsDeepSearching(false);
+      }
+  };
+
+  const toggleSelectOrder = (id: string) => {
+      setSelectedOrderIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+      if (selectedOrderIds.length === allOrders.length) {
+          setSelectedOrderIds([]);
+      } else {
+          setSelectedOrderIds(allOrders.map(o => o.id));
+      }
+  };
+
   const handleManualRefresh = () => {
       setIsDeepSearching(true);
       setRefreshKey(Date.now());
@@ -137,18 +158,39 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
     }
 
   return (
-    <div className="p-4 space-y-6 text-right relative h-full flex flex-col overflow-y-auto">
+    <div className="p-4 space-y-6 text-right relative h-full flex flex-col overflow-hidden">
       {isDeepSearching && (
           <div className="absolute inset-0 z-50 bg-white/40 backdrop-blur-[2px] flex items-center justify-center animate-in fade-in duration-200 rounded-2xl">
               <div className="flex flex-col items-center gap-3 p-6 bg-white rounded-3xl shadow-xl border-2 border-primary/10">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                <p className="font-black text-primary text-sm">مزامنة فورية...</p>
+                <p className="font-black text-primary text-sm">جاري التنفيذ...</p>
               </div>
           </div>
       )}
 
       <header className="flex justify-between items-center shrink-0">
-          <h1 className="text-2xl font-black text-primary italic">إدارة الطلبات</h1>
+          <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-black text-primary italic">إدارة الطلبات</h1>
+              {selectedOrderIds.length > 0 && (
+                  <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                          <Button variant="destructive" className="rounded-xl h-10 px-4 font-black gap-2 shadow-lg animate-in zoom-in">
+                              <Trash2 className="h-4 w-4" /> حذف المحددة ({selectedOrderIds.length})
+                          </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="rounded-[2.5rem]">
+                          <AlertDialogHeader>
+                              <AlertDialogTitle className="text-right font-black">حذف جماعي؟</AlertDialogTitle>
+                              <AlertDialogDescription className="text-right font-bold">هل أنت متأكد من حذف {selectedOrderIds.length} طلب؟</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter className="flex-row gap-3">
+                              <AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel>
+                              <AlertDialogAction onClick={handleBulkDelete} className="flex-1 bg-destructive rounded-xl">نعم، حذف الكل</AlertDialogAction>
+                          </AlertDialogFooter>
+                      </AlertDialogContent>
+                  </AlertDialog>
+              )}
+          </div>
           <div className="flex items-center gap-2">
             <Button onClick={handleManualRefresh} variant="outline" className="h-10 rounded-xl font-black gap-2 border-2 border-primary text-primary shadow-sm active:scale-90 transition-all">
                 <RefreshCw className={cn("h-4 w-4", isDeepSearching && "animate-spin")} />
@@ -162,6 +204,12 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                 <Table>
                     <TableHeader className="bg-muted/30 h-12 sticky top-0 z-10">
                     <TableRow>
+                        <TableHead className="w-[50px] text-center">
+                            <Checkbox 
+                                checked={selectedOrderIds.length === allOrders.length && allOrders.length > 0}
+                                onCheckedChange={toggleSelectAll}
+                            />
+                        </TableHead>
                         <TableHead className="font-black text-right w-[80px]">القائمة</TableHead>
                         <TableHead className="font-black text-right">المتجر</TableHead>
                         <TableHead className="font-black text-center w-[100px]">الحالة</TableHead>
@@ -169,8 +217,14 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                     </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {filteredOrders.map((order) => (
-                        <TableRow key={order.id} className="hover:bg-primary/5 transition-colors cursor-pointer h-12" onClick={() => setViewOrder(order)}>
+                    {allOrders.map((order) => (
+                        <TableRow key={order.id} className={cn("hover:bg-primary/5 transition-colors cursor-pointer h-12", selectedOrderIds.includes(order.id) && "bg-primary/5")} onClick={() => setViewOrder(order)}>
+                            <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                                <Checkbox 
+                                    checked={selectedOrderIds.includes(order.id)}
+                                    onCheckedChange={() => toggleSelectOrder(order.id)}
+                                />
+                            </TableCell>
                             <TableCell className="font-black text-xs">#{order.orderNumber}</TableCell>
                             <TableCell className="font-black text-slate-700 text-xs truncate max-w-[120px]">
                                 {order.restaurant?.name}
@@ -211,7 +265,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                     </TableBody>
                 </Table>
             </ScrollArea>
-            {filteredOrders.length === 0 && !ordersLoading && <div className="p-10 text-center text-muted-foreground font-bold italic text-xs">لا يوجد طلبات حالياً.</div>}
+            {allOrders.length === 0 && !ordersLoading && <div className="p-10 text-center text-muted-foreground font-bold italic text-xs">لا يوجد طلبات حالياً.</div>}
         </div>
 
         <Dialog open={!!viewOrder} onOpenChange={(v) => !v && setViewOrder(null)}>
