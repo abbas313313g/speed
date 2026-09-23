@@ -1,7 +1,12 @@
 
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore, enableMultiTabIndexedDbPersistence, CACHE_SIZE_UNLIMITED } from "firebase/firestore";
+import { 
+  getFirestore, 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager 
+} from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging, isSupported } from "firebase/messaging";
 
@@ -16,23 +21,16 @@ export const firebaseConfig = {
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-export const db = getFirestore(app);
-// تحسين استجابة قاعدة البيانات للعمل بسرعة فائقة على الآيفون والشبكات الضعيفة
-db.type = 'firestore'; 
+// تهيئة الفايرستور بنظام المزامنة الفورية والـ Long Polling للعمل بسرعة البرق في الشبكات الضعيفة
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  }),
+  experimentalAutoDetectLongPolling: true, // تفعيل الكشف التلقائي والمزامنة المستمرة للشبكات الضعيفة
+});
 
 export const auth = getAuth(app);
 export const storage = getStorage(app);
-
-if (typeof window !== "undefined") {
-    // تفعيل الذاكرة الدائمة بطريقة متوافقة مع متصفحات الموبايل والآيفون
-    enableMultiTabIndexedDbPersistence(db).catch((err) => {
-        if (err.code === 'failed-precondition') {
-            console.warn("Persistence failed: multiple tabs open");
-        } else if (err.code === 'unimplemented') {
-            console.warn("Persistence is not available in this browser");
-        }
-    });
-}
 
 export const messaging = typeof window !== "undefined" ? 
     isSupported().then(yes => yes ? getMessaging(app) : null).catch(() => null) 

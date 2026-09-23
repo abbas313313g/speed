@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { collection, onSnapshot, doc, updateDoc, query, where, getDocs, limit, deleteDoc, increment, orderBy, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Order, OrderStatus, DeliveryWorker, Restaurant } from '@/lib/types';
+import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
 import { sendFcmNotification } from '@/services/fcm-service';
 import { calculateDistance, formatCurrency } from '@/lib/utils';
@@ -100,38 +100,33 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
         }
     }, []);
 
+    // المستمع الرئيسي للطلبات مع نظام التحديث المستمر والفوري
     useEffect(() => {
         setIsLoading(true);
         const ordersRef = collection(db, 'orders');
         
         let q;
         if (branchId && branchId !== 'all') {
-            q = query(ordersRef, where("branchId", "==", branchId), limit(fetchLimit));
+            q = query(ordersRef, where("branchId", "==", branchId), orderBy("date", "desc"), limit(fetchLimit));
         } else {
             q = query(ordersRef, orderBy("date", "desc"), limit(fetchLimit));
         }
 
-        const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
-            let data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
-            
-            if (branchId && branchId !== 'all') {
-                data = data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, fetchLimit);
-            }
-
+        // استخدام نظام Snapshot المستمر لضمان التحديث اللحظي بدون استهلاك انترنت كبير
+        const unsub = onSnapshot(q, { includeMetadataChanges: false }, (snapshot) => {
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
             setAllOrders(data);
-            
-            if (!snapshot.metadata.fromCache || data.length > 0) {
-                setIsLoading(false);
-            }
+            setIsLoading(false);
             
             if (!snapshot.metadata.fromCache) {
                 cleanupTimedOutAssignments(data);
                 autoAssignOrders(data);
             }
         }, (error) => {
-            console.error("Orders Snapshot Error:", error);
+            console.error("Orders Sync Error:", error);
             setIsLoading(false);
         });
+
         return () => unsub();
     }, [branchId, fetchLimit, refreshKey, autoAssignOrders, cleanupTimedOutAssignments]);
     
@@ -142,9 +137,7 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
             if (!orderSnap.exists()) return false;
             const currentOrder = { id: orderSnap.id, ...orderSnap.data() } as Order;
             
-            if (status === 'delivered' && currentOrder.status === 'delivered') {
-                return true; 
-            }
+            if (status === 'delivered' && currentOrder.status === 'delivered') return true; 
 
             const updateData: any = { status };
             
@@ -169,7 +162,6 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
                 const rate = currentOrder.restaurant?.commissionRate || 10;
                 const storeIncome = itemsPrice * (1 - rate / 100);
 
-                // ترحيل الربح للخزنة السحابية فوراً وبشكل آمن
                 await updateDoc(doc(db, "restaurants", currentOrder.restaurant!.id), {
                     balanceAdjustment: increment(storeIncome)
                 });
@@ -202,7 +194,6 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
 
             return true;
         } catch (error: any) {
-            console.error("Order Status Update Error:", error);
             return false;
         }
     }, [telegramConfigs]);
