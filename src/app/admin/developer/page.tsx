@@ -36,13 +36,14 @@ export default function AdminDeveloperPage() {
         try {
             const finalVal = action === 'add' ? val : -val;
             const collection = type === 'delivery' ? "deliveryWorkers" : "restaurants";
-            const field = type === 'delivery' ? "balanceAdjustment" : "balanceAdjustment";
+            // الإيداع والخصم يتم الآن مباشرة في المحفظة الدائمة
+            const field = "walletBalance";
             
             await updateDoc(doc(db, collection, targetId), {
                 [field]: increment(finalVal)
             });
 
-            toast({ title: "تم التحديث السحابي بنجاح ✅" });
+            toast({ title: "تم تحديث الخزنة السحابية بنجاح ✅" });
             setAmount('');
         } catch (e) {
             toast({ title: "فشل التحديث", variant: "destructive" });
@@ -59,7 +60,7 @@ export default function AdminDeveloperPage() {
                 <div className="absolute left-[-20px] top-[-20px] opacity-10"><Sparkles className="h-40 w-40"/></div>
                 <div className="relative z-10">
                     <h1 className="text-4xl font-black italic">صفحة المطور</h1>
-                    <p className="text-primary font-black mt-2">الصفحة خاصة بالمطور - تحكم مطلق بالأرصدة</p>
+                    <p className="text-primary font-black mt-2">الصفحة خاصة بالمطور - تحكم مطلق بالمحفظة الدائمة</p>
                 </div>
                 <ShieldCheck className="h-16 w-16 text-primary animate-pulse" />
             </header>
@@ -148,10 +149,10 @@ export default function AdminDeveloperPage() {
                         <div className="p-4 bg-white/10 rounded-2xl w-fit"><Construction className="h-10 w-10 text-primary" /></div>
                         <h2 className="text-2xl font-black">تعليمات المطور</h2>
                         <ul className="space-y-4 font-bold text-slate-400 list-disc list-inside pr-2 text-sm leading-relaxed">
-                            <li>هذا الإجراء يعدل مباشرة على الوثيقة السحابية للمتجر أو المندوب.</li>
-                            <li>المبلغ المضاف أو المخصوم سيبقى ثابتاً حتى لو تم مسح كافة الطلبات من النظام.</li>
-                            <li>استخدم هذا النظام فقط لتسوية الحسابات القديمة أو معالجة الأخطاء المالية الكبرى.</li>
-                            <li>الرصيد المتاح للسحب سيتأثر فوراً بهذا التعديل.</li>
+                            <li>هذا الإجراء يعدل مباشرة على "المحفظة السحابية الدائمة" (walletBalance).</li>
+                            <li>المبلغ سيظهر فوراً في حساب المتجر أو المندوب.</li>
+                            <li>هذه العملية نهائية ولا تعتمد على وجود طلبات في النظام.</li>
+                            <li>استخدم الخصم فقط في حالات تسوية الحسابات المكتملة يدوياً.</li>
                         </ul>
                     </div>
                 </div>

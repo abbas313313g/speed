@@ -15,7 +15,6 @@ function isStoreOpen(r: Restaurant): boolean {
     if (!openTimeStr || !closeTimeStr) return true; 
 
     const now = new Date();
-    // الحصول على الوقت بالدقائق منذ بداية اليوم
     const currentTime = now.getHours() * 60 + now.getMinutes();
     
     const [openHours, openMinutes] = openTimeStr.split(':').map(Number);
@@ -24,9 +23,7 @@ function isStoreOpen(r: Restaurant): boolean {
     const [closeHours, closeMinutes] = closeTimeStr.split(':').map(Number);
     let closeTime = closeHours * 60 + closeMinutes;
     
-    // التعامل مع المتاجر التي تعمل بعد منتصف الليل
     if (closeTime <= openTime) {
-        // إذا كان وقت الإغلاق أصغر من وقت الفتح، فهذا يعني أنه يغلق في اليوم التالي
         return currentTime >= openTime || currentTime < closeTime;
     }
     
@@ -81,7 +78,7 @@ export const useRestaurants = (branchId?: string) => {
                 latitude: Number(restaurantData.latitude) || 0,
                 longitude: Number(restaurantData.longitude) || 0,
                 isManualClosed: false,
-                balanceAdjustment: 0
+                walletBalance: 0 // تهيئة الخزنة السحابية
             };
             const docRef = await addDoc(collection(db, "restaurants"), finalData);
             toast({ title: "تمت إضافة المتجر بنجاح" });
@@ -114,8 +111,9 @@ export const useRestaurants = (branchId?: string) => {
 
     const adjustRestaurantBalance = useCallback(async (restaurantId: string, amount: number) => {
         try {
+            // التعديل المالي يتم الآن مباشرة على المحفظة الدائمة
             await updateDoc(doc(db, "restaurants", restaurantId), {
-                balanceAdjustment: increment(-amount)
+                walletBalance: increment(-amount)
             });
             toast({ title: "تم خصم المبلغ من رصيد المتجر بنجاح" });
             return true;

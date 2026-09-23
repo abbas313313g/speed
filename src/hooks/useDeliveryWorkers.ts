@@ -43,8 +43,8 @@ export const useDeliveryWorkers = (branchId?: string) => {
                 isOnline: false,
                 isActive: true,
                 branchId: branchId || 'main',
-                balanceAdjustment: 0,
-                debtAdjustment: 0
+                walletBalance: 0,
+                officeDebt: 0
             };
             await setDoc(workerDocRef, completeWorkerData);
             toast({ title: "تم تسجيل الكابتن بنجاح ✅" });
@@ -94,8 +94,10 @@ export const useDeliveryWorkers = (branchId?: string) => {
 
     const adjustWorkerBalance = useCallback(async (workerId: string, amount: number, field: 'balanceAdjustment' | 'debtAdjustment') => {
         try {
+            // توجيه الخصم للحقل الحقيقي (walletBalance أو officeDebt)
+            const targetField = field === 'balanceAdjustment' ? 'walletBalance' : 'officeDebt';
             await updateDoc(doc(db, "deliveryWorkers", workerId.trim()), {
-                [field]: increment(-amount) 
+                [targetField]: increment(-amount) 
             });
             toast({ title: "تم إجراء الخصم المالي بنجاح" });
             return true;
