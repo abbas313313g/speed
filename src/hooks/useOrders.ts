@@ -169,6 +169,7 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
                 const rate = currentOrder.restaurant?.commissionRate || 10;
                 const storeIncome = itemsPrice * (1 - rate / 100);
 
+                // ترحيل الربح للخزنة السحابية فوراً وبشكل آمن
                 await updateDoc(doc(db, "restaurants", currentOrder.restaurant!.id), {
                     balanceAdjustment: increment(storeIncome)
                 });

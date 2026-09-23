@@ -42,14 +42,9 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
         const unpaidFees = orders.filter(o => !o.isFeePaid);
         const unpaidCash = orders.filter(o => !o.isOrderPaidToOffice);
         
-        // حساب أرباح أجور التوصيل من الطلبات الموجودة
-        const baseEarnings = unpaidFees.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
-        // الرصيد الكلي = (أرباح الطلبات الحالية) + (الرصيد المحفوظ سحابياً)
-        const deliveryEarnings = Math.max(0, baseEarnings + (w.balanceAdjustment || 0));
-
-        // ذمة الكاش = (كاش الطلبات الحالية) + (إيداعات المحفظة) + (ذمة سحابية ثابتة)
-        const baseCash = unpaidCash.reduce((acc, o) => acc + (o.total || 0) + (o.walletAmountAdded || 0), 0);
-        const cashToOffice = Math.max(0, baseCash + (w.debtAdjustment || 0));
+        // المحفظة الآن تقرأ الرصيد الحقيقي من الخزنة السحابية حصراً لمنع الزيادة الوهمية
+        const deliveryEarnings = w.balanceAdjustment || 0;
+        const cashToOffice = w.debtAdjustment || 0;
 
         return {
             worker: w,
@@ -66,7 +61,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
           const batch = writeBatch(db);
           ids.forEach(id => batch.update(doc(db, "orders", id), { [field]: true }));
           
-          // تصفير الرصيد المحفوظ لضمان بداية دورة نظيفة بعد الدفع
+          // تصفير الخزنة السحابية المعنية لضمان دقة الحساب المالي
           const adjField = field === 'isFeePaid' ? 'balanceAdjustment' : 'debtAdjustment';
           batch.update(doc(db, "deliveryWorkers", workerId), { [adjField]: 0 });
           
@@ -83,7 +78,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
     <div className="space-y-8 text-right">
       <header>
         <h1 className="text-4xl font-black text-primary">تصفية حسابات المناديب</h1>
-        <p className="text-muted-foreground font-bold italic">الأرصدة مدققة (طلبات + رصيد محفوظ سحابياً).</p>
+        <p className="text-muted-foreground font-bold italic">أرصدة الخزن السحابية (دقيقة وغير قابلة للتكرار).</p>
       </header>
 
       {wallets.length === 0 ? (
@@ -105,7 +100,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
                       <div className="grid md:grid-cols-2">
                           <div className="p-6 border-l border-dashed space-y-4">
                                 <div className="flex items-center gap-2 text-primary justify-end">
-                                    <span className="text-xs font-black">أرباح المندوب (أجور التوصيل)</span>
+                                    <span className="text-xs font-black">أرباح المندوب (الخزنة)</span>
                                     <Wallet className="h-5 w-5" />
                                 </div>
                                 <div className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(w.deliveryEarnings)}</div>
@@ -113,7 +108,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
                           </div>
                           <div className="p-6 space-y-4">
                                 <div className="flex items-center gap-2 text-destructive justify-end">
-                                    <span className="text-xs font-black">ذمة للمكتب (كاش + إيداعات)</span>
+                                    <span className="text-xs font-black">ذمة للمكتب (الخزنة)</span>
                                     <Banknote className="h-5 w-5" />
                                 </div>
                                 <div className="text-3xl font-black text-destructive tracking-tighter">{formatCurrency(w.cashToOffice)}</div>

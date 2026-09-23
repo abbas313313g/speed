@@ -23,22 +23,8 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
     const branchStores = restaurants.filter(r => r.branchId === branchId);
     
     return branchStores.map(store => {
-        // حساب أرباح الطلبات الموصلة التي لم تدفع بعد في النظام الحالي
-        const currentOrdersEarnings = allOrders.filter(o => 
-            o.restaurant?.id === store.id && 
-            o.status === 'delivered' && 
-            !o.isPaid
-        ).reduce((acc, o) => {
-            const itemsPrice = o.items.reduce((sum, i) => {
-                const price = i.selectedSize?.price || i.product.price || 0;
-                return sum + (price * i.quantity);
-            }, 0);
-            const rate = o.restaurant?.commissionRate || 10;
-            return acc + (itemsPrice * (1 - rate / 100));
-        }, 0);
-
-        // الرصيد النهائي = (أرباح الطلبات الحالية) + (التسويات والرصيد المحفوظ سحابياً)
-        const finalBalance = Math.max(0, currentOrdersEarnings + (store.balanceAdjustment || 0));
+        // المحفظة الآن تقرأ القيمة المخزنة سحابياً فقط لمنع تكرار الأرقام أو الأخطاء
+        const finalBalance = store.balanceAdjustment || 0;
 
         const unsettledCount = allOrders.filter(o => 
             o.restaurant?.id === store.id && 
@@ -118,7 +104,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
 
             <div class="footer">
                 <p>تم استخراج هذا الكشف آلياً بتاريخ ${new Date().toLocaleString('ar-IQ')}</p>
-                <p>ملاحظة: الرصيد يشمل أرباح الطلبات الحالية والتسويات السابقة.</p>
+                <p>ملاحظة: الرصيد يشمل كافة الأرباح المحفوظة في الخزنة السحابية.</p>
             </div>
             <script>window.print();</script>
         </body>
@@ -135,7 +121,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
     <div className="space-y-8 text-right animate-in fade-in duration-500 h-full overflow-y-auto p-4">
       <header>
         <h1 className="text-3xl font-black text-primary italic">محافظ المتاجر والتدقيق</h1>
-        <p className="text-muted-foreground font-bold italic text-xs">الأرصدة حقيقية ومحسوبة بدقة (طلبات + رصيد محفوظ).</p>
+        <p className="text-muted-foreground font-bold italic text-xs">الأرصدة حقيقية ومسحوبة مباشرة من الخزنة السحابية (دقة 100%).</p>
       </header>
 
       <div className="grid gap-6">
@@ -179,7 +165,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                                           <span className={cn("text-xl font-black tracking-tighter", data.balance > 0 ? "text-primary" : "text-slate-300")}>
                                               {formatCurrency(data.balance)}
                                           </span>
-                                          <span className="text-[8px] font-bold text-muted-foreground italic">رصيد مدقق</span>
+                                          <span className="text-[8px] font-bold text-muted-foreground italic">رصيد الخزنة</span>
                                       </div>
                                   </TableCell>
                                   <TableCell className="text-center">
@@ -197,11 +183,11 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
 
       <div className="p-5 bg-primary/5 rounded-[2rem] border-2 border-dashed border-primary/20">
           <div className="flex items-center gap-2 justify-end text-primary mb-1">
-              <span className="font-black text-sm">نظام التدقيق المالي الدائم</span>
+              <span className="font-black text-sm">نظام الخزنة السحابية الدائم</span>
               <Landmark className="h-4 w-4"/>
           </div>
           <p className="text-[10px] font-bold text-slate-600 text-right leading-relaxed">
-              المحفظة تجمع أرباح الطلبات الحالية مع الرصيد المحفوظ سحابياً. عند حذف الطلبات القديمة، سيبقى الربح محفوظاً في خانة الرصيد الدائم لضمان حق المتجر.
+              المبالغ تُحفظ في "خزنة" المتجر السحابية بمجرد التوصيل. حذف الطلبات لتوفير المساحة لن يؤثر على هذا الرصيد نهائياً. يتم تصفير الخزنة فقط عند الضغط على "تأكيد التسليم" في صفحة السحوبات.
           </p>
       </div>
     </div>

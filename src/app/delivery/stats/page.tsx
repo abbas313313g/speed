@@ -43,15 +43,9 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
     
     const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered');
     
-    // حساب أرباح الطلبات الموجودة حالياً ولم تُدفع
-    const currentUnpaidFees = myDeliveredOrders.filter(o => !o.isFeePaid).reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
-    // الرصيد الكلي = (أرباح الطلبات الحالية) + (الرصيد المحفوظ سحابياً)
-    const unpaidEarnings = Math.max(0, currentUnpaidFees + (w.balanceAdjustment || 0));
-
-    // حساب ذمة الكاش للطلبات الحالية
-    const currentUnpaidCash = myDeliveredOrders.filter(o => !o.isOrderPaidToOffice).reduce((acc, o) => acc + (o.total || 0) + (o.walletAmountAdded || 0), 0);
-    // الذمة الكلية = (كاش الطلبات الحالية) + (الذمة السحابية الثابتة)
-    const moneyOwedToOffice = Math.max(0, currentUnpaidCash + (w.debtAdjustment || 0));
+    // قراءة البيانات من الخزنة السحابية حصراً لضمان دقة الحساب المالي المباشر
+    const unpaidEarnings = w.balanceAdjustment || 0;
+    const moneyOwedToOffice = w.debtAdjustment || 0;
     
     const isActuallyFrozen = moneyOwedToOffice >= 100000;
     const pRequest = requests.find(r => r.targetId === workerId && r.status === 'pending');
