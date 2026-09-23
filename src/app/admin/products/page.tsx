@@ -166,7 +166,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
         if (isEditing && currentProduct.id) {
             await updateProduct(currentProduct as any);
         } else {
-            await addProduct(currentP as any);
+            await addProduct(currentProduct as any);
         }
         setOpen(false);
     } catch (error) {} finally {
