@@ -15,7 +15,7 @@ import type { Restaurant, Order } from '@/lib/types';
 
 export default function AdminStoreWalletsPage({ branchId }: { branchId: string }) {
   const { restaurants, isLoading: rLoading } = useRestaurants(branchId);
-  const { allOrders, isLoading: oLoading } = useOrders(branchId, 1000); // جلب كمية أكبر لضمان دقة الجرد
+  const { allOrders, isLoading: oLoading } = useOrders(branchId, 1000); 
 
   const storeWallets = useMemo(() => {
     if (rLoading || oLoading) return [];

@@ -101,7 +101,7 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                     <TableHead className="font-black text-lg text-right">الجهة</TableHead>
                     <TableHead className="font-black text-lg text-right">التفاصيل المالية</TableHead>
                     <TableHead className="font-black text-lg text-left">الصافي للدفع</TableHead>
-                    <TableHead className="font-black text-lg text-center">الإجراء</TableHead>
+                    <TableHead className="font-black text-lg text-center">إجراء</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
