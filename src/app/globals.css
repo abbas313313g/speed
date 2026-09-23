@@ -101,16 +101,20 @@ button, a, [role="button"] {
   max-width: 100%;
   height: 100%;
   overflow-y: auto !important; 
-  overflow-x: auto; /* تم التعديل للسماح بالتحريك يميناً ويساراً للجداول */
+  overflow-x: hidden;
   display: block; 
   position: relative;
   -webkit-overflow-scrolling: touch;
   background: hsl(var(--background));
-  scrollbar-width: none;
 }
 
 .spa-page-view::-webkit-scrollbar {
-  display: none;
+  width: 5px;
+}
+
+.spa-page-view::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.1);
+  border-radius: 10px;
 }
 
 main {

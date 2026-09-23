@@ -157,7 +157,7 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
             if (status === 'delivered' && !currentOrder.isBalanceProcessed) {
                 const batch = writeBatch(db);
                 
-                // 1. حساب أرباح المتجر الصافية بناءً على الفاتورة الحية
+                // 1. حساب أرباح المتجر الصافية بناءً على السعر الأصلي للوجبات
                 const itemsTotal = currentOrder.items.reduce((sum, item) => {
                     const price = item.selectedSize?.price || item.product?.price || 0;
                     return sum + (price * item.quantity);

@@ -10,6 +10,7 @@ import Image from 'next/image';
 import { Landmark, Loader2, Store, Printer } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function AdminStoreWalletsPage({ branchId }: { branchId: string }) {
   const { restaurants, isLoading: rLoading } = useRestaurants(branchId);
@@ -70,13 +71,13 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
   if (rLoading) return <div className="p-20 text-center animate-pulse"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto"/><p className="mt-4 font-black text-primary">جاري جرد المحافظ السحابية...</p></div>;
 
   return (
-    <div className="space-y-8 text-right animate-in fade-in duration-500 h-full overflow-y-auto p-4">
+    <div className="p-4 space-y-8 text-right h-full overflow-y-auto">
       <header>
         <h1 className="text-3xl font-black text-primary italic">محافظ المتاجر الدائمة</h1>
         <p className="text-muted-foreground font-bold italic text-xs">الأرصدة محفوظة سحابياً بشكل مستقل ولا تختفي بحذف الطلبات.</p>
       </header>
 
-      <div className="grid gap-6">
+      <div className="grid gap-6 pb-20">
           {sortedStores.length === 0 ? (
               <div className="p-20 text-center bg-white rounded-[3rem] border-2 border-dashed">
                   <Store className="h-16 w-16 mx-auto text-muted-foreground/20 mb-4" />
@@ -126,13 +127,13 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
           )}
       </div>
 
-      <div className="p-5 bg-primary/5 rounded-[2rem] border-2 border-dashed border-primary/20">
+      <div className="p-5 bg-primary/5 rounded-[2rem] border-2 border-dashed border-primary/20 sticky bottom-4">
           <div className="flex items-center gap-2 justify-end text-primary mb-1">
               <span className="font-black text-sm">نظام الأمان المالي السحابي</span>
               <Landmark className="h-4 w-4"/>
           </div>
           <p className="text-[10px] font-bold text-slate-600 text-right leading-relaxed">
-              يتم ترحيل الأرباح للمحفظة فور توصيل الطلب. حذف الفواتير القديمة لن يؤثر على رصيد المتجر نهائياً، مما يضمن دقة الحسابات المالية لشهور قادمة.
+              يتم ترحيل الأرباح للمحفظة فور توصيل الطلب. حذف الفواتير القديمة لن يؤثر على رصيد المتجر نهائياً.
           </p>
       </div>
     </div>

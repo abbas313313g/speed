@@ -15,6 +15,7 @@ import { Card } from '@/components/ui/card';
 import { useDeliveryWorkers } from '@/hooks/useDeliveryWorkers';
 import { Badge } from '@/components/ui/badge';
 import { Wallet, Banknote, UserCheck, Loader2 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function AdminDeliveryWorkersPage({ branchId }: { branchId: string }) {
   const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers(branchId);
@@ -26,10 +27,10 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
   if (workersLoading) return <div className="p-20 text-center animate-pulse font-black text-primary">جارِ جرد الخزائن السحابية...</div>;
 
   return (
-    <div className="space-y-8 text-right p-4">
+    <div className="p-4 space-y-8 text-right h-full overflow-y-auto">
       <header>
         <h1 className="text-4xl font-black text-primary">محافظ المناديب السحابية</h1>
-        <p className="text-muted-foreground font-bold italic">نظام جرد الأموال المحفوظة سحابياً بشكل دائم.</p>
+        <p className="text-muted-foreground font-bold italic text-xs">نظام جرد الأموال المحفوظة سحابياً بشكل دائم لكل مندوب.</p>
       </header>
 
       {sortedWorkers.length === 0 ? (
@@ -38,7 +39,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
               <p className="text-xl font-black text-muted-foreground">لا توجد سجلات مناديب لهذا الفرع.</p>
           </div>
       ) : (
-          <div className="grid gap-6">
+          <div className="grid gap-6 pb-20">
               {sortedWorkers.map((w) => (
                   <Card key={w.id} className="rounded-[2.5rem] border-none shadow-xl overflow-hidden bg-white">
                       <div className="bg-primary/5 p-6 border-b border-dashed flex justify-between items-center flex-row-reverse">

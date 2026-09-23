@@ -58,7 +58,7 @@ import { useToast } from '@/hooks/use-toast';
 export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const { toast } = useToast();
   const [refreshKey, setRefreshKey] = useState(Date.now());
-  const [displayLimit, setDisplayLimit] = useState(500); // الافتراضي هو الكل (500 طلب)
+  const [displayLimit, setDisplayLimit] = useState(500); 
   const [isDeepSearching, setIsDeepSearching] = useState(false);
   
   const { allOrders, isLoading: ordersLoading, deleteOrder, updateOrderStatus } = useOrders(branchId, displayLimit, refreshKey);
@@ -137,7 +137,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
     }
 
   return (
-    <div className="space-y-6 text-right relative h-full flex flex-col">
+    <div className="p-4 space-y-6 text-right relative h-full flex flex-col overflow-y-auto">
       {isDeepSearching && (
           <div className="absolute inset-0 z-50 bg-white/40 backdrop-blur-[2px] flex items-center justify-center animate-in fade-in duration-200 rounded-2xl">
               <div className="flex flex-col items-center gap-3 p-6 bg-white rounded-3xl shadow-xl border-2 border-primary/10">
@@ -150,28 +150,6 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
       <header className="flex justify-between items-center shrink-0">
           <h1 className="text-2xl font-black text-primary italic">إدارة الطلبات</h1>
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 ml-4">
-                <Label className="text-[10px] font-black whitespace-nowrap">العرض:</Label>
-                <Select value={displayLimit.toString()} onValueChange={(val) => setDisplayLimit(parseInt(val))}>
-                    <SelectTrigger className="h-10 w-24 rounded-xl font-black bg-white border-2">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                        <SelectItem value="10" className="font-bold">10</SelectItem>
-                        <SelectItem value="20" className="font-bold">20</SelectItem>
-                        <SelectItem value="50" className="font-bold">50</SelectItem>
-                        <SelectItem value="100" className="font-bold">100</SelectItem>
-                        <SelectItem value="500" className="font-bold">الكل</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-            <Button 
-                onClick={() => setShowOnlyDelivered(!showOnlyDelivered)} 
-                variant={showOnlyDelivered ? "default" : "outline"} 
-                className="h-10 rounded-xl font-black gap-2 border-2"
-            >
-                {showOnlyDelivered ? "عرض الكل" : "المكتملة فقط"}
-            </Button>
             <Button onClick={handleManualRefresh} variant="outline" className="h-10 rounded-xl font-black gap-2 border-2 border-primary text-primary shadow-sm active:scale-90 transition-all">
                 <RefreshCw className={cn("h-4 w-4", isDeepSearching && "animate-spin")} />
                 تحديث
@@ -179,58 +157,60 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
           </div>
       </header>
 
-        <div className="bg-white rounded-2xl border shadow-lg overflow-hidden flex-1">
-            <Table>
-                <TableHeader className="bg-muted/30 h-12">
-                <TableRow>
-                    <TableHead className="font-black text-right w-[80px]">القائمة</TableHead>
-                    <TableHead className="font-black text-right">المتجر</TableHead>
-                    <TableHead className="font-black text-center w-[100px]">الحالة</TableHead>
-                    <TableHead className="font-black text-center w-[60px]">أدوات</TableHead>
-                </TableRow>
-                </TableHeader>
-                <TableBody>
-                {filteredOrders.map((order) => (
-                    <TableRow key={order.id} className="hover:bg-primary/5 transition-colors cursor-pointer h-12" onClick={() => setViewOrder(order)}>
-                        <TableCell className="font-black text-xs">#{order.orderNumber}</TableCell>
-                        <TableCell className="font-black text-slate-700 text-xs truncate max-w-[120px]">
-                            {order.restaurant?.name}
-                        </TableCell>
-                        <TableCell className="text-center">
-                            <Badge className={cn("text-white font-black rounded-md text-[8px] px-2 h-5", 
-                                order.status === 'delivered' ? "bg-green-600" : 
-                                order.status === 'cancelled' ? "bg-red-600" : "bg-blue-500")}>
-                                {getStatusText(order.status)}
-                            </Badge>
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                            <div className="flex justify-center">
-                                <AlertDialog>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild><Button variant="ghost" className="h-7 w-7 p-0 rounded-lg hover:bg-slate-100"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="rounded-xl font-bold min-w-[180px]">
-                                    <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'pending_assignment')} className="gap-2 h-10"><RefreshCw className="h-4 w-4 text-blue-600"/> إعادة تدوير (بحث)</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'delivered')} className="gap-2 h-10"><CheckCircle className="h-4 w-4 text-green-600"/> تم التوصيل</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'cancelled')} className="gap-2 h-10"><X className="h-4 w-4 text-red-600"/> إلغاء الطلب</DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => { setOrderToAssign(order.id); setAssignDialogOpen(true); }} className="text-orange-600 gap-2 h-10"><UserCog className="h-4 w-4"/> تعيين مندوب فوراً</DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <AlertDialogTrigger asChild>
-                                        <DropdownMenuItem className="text-destructive gap-2 h-10"><Trash2 className="h-4 w-4" /> حذف الفاتورة</DropdownMenuItem>
-                                    </AlertDialogTrigger>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                                <AlertDialogContent className="rounded-[2.5rem]">
-                                    <AlertDialogHeader><AlertDialogTitle className="text-right">حذف الطلب؟</AlertDialogTitle><AlertDialogDescription className="text-right">هل أنت متأكد من حذف الفاتورة #{order.orderNumber}؟ لا يمكن التراجع.</AlertDialogDescription></AlertDialogHeader>
-                                    <AlertDialogFooter className="flex-row gap-2"><AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(order.id)} className="bg-destructive flex-1 rounded-xl">نعم، حذف</AlertDialogAction></AlertDialogFooter>
-                                </AlertDialogContent>
-                                </AlertDialog>
-                            </div>
-                        </TableCell>
+        <div className="bg-white rounded-2xl border shadow-lg overflow-hidden flex-1 min-h-0">
+            <ScrollArea className="h-full">
+                <Table>
+                    <TableHeader className="bg-muted/30 h-12 sticky top-0 z-10">
+                    <TableRow>
+                        <TableHead className="font-black text-right w-[80px]">القائمة</TableHead>
+                        <TableHead className="font-black text-right">المتجر</TableHead>
+                        <TableHead className="font-black text-center w-[100px]">الحالة</TableHead>
+                        <TableHead className="font-black text-center w-[60px]">أدوات</TableHead>
                     </TableRow>
-                ))}
-                </TableBody>
-            </Table>
+                    </TableHeader>
+                    <TableBody>
+                    {filteredOrders.map((order) => (
+                        <TableRow key={order.id} className="hover:bg-primary/5 transition-colors cursor-pointer h-12" onClick={() => setViewOrder(order)}>
+                            <TableCell className="font-black text-xs">#{order.orderNumber}</TableCell>
+                            <TableCell className="font-black text-slate-700 text-xs truncate max-w-[120px]">
+                                {order.restaurant?.name}
+                            </TableCell>
+                            <TableCell className="text-center">
+                                <Badge className={cn("text-white font-black rounded-md text-[8px] px-2 h-5", 
+                                    order.status === 'delivered' ? "bg-green-600" : 
+                                    order.status === 'cancelled' ? "bg-red-600" : "bg-blue-500")}>
+                                    {getStatusText(order.status)}
+                                </Badge>
+                            </TableCell>
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                                <div className="flex justify-center">
+                                    <AlertDialog>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild><Button variant="ghost" className="h-7 w-7 p-0 rounded-lg hover:bg-slate-100"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="rounded-xl font-bold min-w-[180px]">
+                                        <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'pending_assignment')} className="gap-2 h-10"><RefreshCw className="h-4 w-4 text-blue-600"/> إعادة تدوير (بحث)</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'delivered')} className="gap-2 h-10"><CheckCircle className="h-4 w-4 text-green-600"/> تم التوصيل</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'cancelled')} className="gap-2 h-10"><X className="h-4 w-4 text-red-600"/> إلغاء الطلب</DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => { setOrderToAssign(order.id); setAssignDialogOpen(true); }} className="text-orange-600 gap-2 h-10"><UserCog className="h-4 w-4"/> تعيين مندوب فوراً</DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <AlertDialogTrigger asChild>
+                                            <DropdownMenuItem className="text-destructive gap-2 h-10"><Trash2 className="h-4 w-4" /> حذف الفاتورة</DropdownMenuItem>
+                                        </AlertDialogTrigger>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                    <AlertDialogContent className="rounded-[2.5rem]">
+                                        <AlertDialogHeader><AlertDialogTitle className="text-right">حذف الطلب؟</AlertDialogTitle><AlertDialogDescription className="text-right">هل أنت متأكد من حذف الفاتورة #{order.orderNumber}؟ لا يمكن التراجع.</AlertDialogDescription></AlertDialogHeader>
+                                        <AlertDialogFooter className="flex-row gap-2"><AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(order.id)} className="bg-destructive flex-1 rounded-xl">نعم، حذف</AlertDialogAction></AlertDialogFooter>
+                                    </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+            </ScrollArea>
             {filteredOrders.length === 0 && !ordersLoading && <div className="p-10 text-center text-muted-foreground font-bold italic text-xs">لا يوجد طلبات حالياً.</div>}
         </div>
 
@@ -373,7 +353,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
                 <DialogHeader><DialogTitle className="text-2xl font-black text-right">إسناد الطلب فوراً</DialogTitle></DialogHeader>
                 <div className="py-4 space-y-3">
                     <p className="text-xs font-bold text-muted-foreground text-right mb-4">عند اختيار المندوب، سيتم تعيين الطلب له مباشرة وبشكل ثابت.</p>
-                    <ScrollArea className="h-[300px] pr-2">
+                    <ScrollArea className="h-[400px] pr-2">
                         <div className="space-y-2">
                             {deliveryWorkers.filter(w => w.isOnline && w.isActive !== false).map(worker => (
                                 <button 
