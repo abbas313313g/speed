@@ -21,12 +21,12 @@ export const firebaseConfig = {
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// تهيئة الفايرستور بنظام المزامنة الفورية والـ Long Polling للعمل بسرعة البرق في الشبكات الضعيفة
+// تهيئة الفايرستور بنظام المزامنة الفورية القسري لتجنب أخطاء المهلة في البيئات المقيدة
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager()
   }),
-  experimentalAutoDetectLongPolling: true, // تفعيل الكشف التلقائي والمزامنة المستمرة للشبكات الضعيفة
+  experimentalForceLongPolling: true, // تفعيل الإرسال الطويل القسري لحل مشكلة الـ 10 ثواني نهائياً
 });
 
 export const auth = getAuth(app);

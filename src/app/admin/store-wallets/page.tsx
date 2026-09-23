@@ -1,14 +1,14 @@
 
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { useOrders } from '@/hooks/useOrders';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCurrency, cn } from '@/lib/utils';
 import Image from 'next/image';
-import { Landmark, Loader2, Store, Printer, Clock } from 'lucide-react';
+import { Landmark, Loader2, Store, Printer, Clock, ChevronDown, ChevronUp, ReceiptText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,6 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 export default function AdminStoreWalletsPage({ branchId }: { branchId: string }) {
   const { restaurants, isLoading: rLoading } = useRestaurants(branchId);
   const { allOrders } = useOrders(branchId);
+  const [expandedStoreId, setExpandedStoreId] = useState<string | null>(null);
 
   const sortedStores = useMemo(() => {
     return restaurants.filter(r => r.branchId === branchId).map(store => {
@@ -26,6 +27,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
         );
         return {
             ...store,
+            unpaidOrders,
             unpaidOrderCount: unpaidOrders.length
         };
     }).sort((a, b) => (b.walletBalance || 0) - (a.walletBalance || 0));
@@ -43,6 +45,9 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                 body { font-family: 'Arial', sans-serif; padding: 40px; color: #333; }
                 .header { text-align: center; border-bottom: 4px solid #00b358; padding-bottom: 20px; margin-bottom: 30px; }
                 .balance-box { background: #f0fff4; border: 2px solid #00b358; padding: 30px; border-radius: 25px; text-align: center; margin: 40px 0; }
+                .order-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                .order-table th, .order-table td { border: 1px solid #eee; padding: 10px; text-align: right; }
+                .order-table th { background: #f9f9f9; }
                 .footer { margin-top: 100px; text-align: center; font-size: 14px; color: #888; border-top: 1px solid #eee; padding-top: 20px; }
             </style>
         </head>
@@ -65,7 +70,27 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                 <h1 style="margin: 15px 0; font-size: 48px; color: #00b358;">${formatCurrency(store.walletBalance || 0)}</h1>
             </div>
 
-            <p style="text-align: right; line-height: 1.6; color: #555;">
+            <h3>تفاصيل الطلبات المتضمنة في الكشف:</h3>
+            <table class="order-table">
+                <thead>
+                    <tr>
+                        <th>رقم الطلب</th>
+                        <th>التاريخ</th>
+                        <th>المجموع</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${store.unpaidOrders.map((o: any) => `
+                        <tr>
+                            <td>#${o.orderNumber}</td>
+                            <td>${new Date(o.date).toLocaleDateString('ar-IQ')}</td>
+                            <td>${formatCurrency(o.total)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+
+            <p style="text-align: right; line-height: 1.6; color: #555; margin-top: 30px;">
                 ملاحظة: هذا الرصيد نهائي ومحفوظ سحابياً، يمثل صافي أرباح المتجر بعد خصم العمولات.
             </p>
 
@@ -98,53 +123,59 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                   <p className="text-xl font-black text-muted-foreground">لا توجد متاجر في هذا الفرع.</p>
               </div>
           ) : (
-              <Card className="rounded-[2rem] border-none shadow-xl overflow-hidden bg-white">
-                  <Table>
-                      <TableHeader className="bg-muted/50 h-14">
-                          <TableRow>
-                              <TableHead className="font-black text-right">المتجر والتصفية</TableHead>
-                              <TableHead className="font-black text-left">الرصيد والطلبات</TableHead>
-                              <TableHead className="font-black text-center">إجراء</TableHead>
-                          </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                          {sortedStores.map((store) => (
-                              <TableRow key={store.id} className="h-20 hover:bg-primary/5 transition-colors">
-                                  <TableCell className="font-bold">
-                                      <div className="flex items-center gap-3 justify-end">
-                                          <div className="text-right">
-                                              <p className="font-black text-slate-800 text-xs">{store.name}</p>
-                                              <p className="text-[8px] text-muted-foreground font-bold">{store.restaurantNumber}</p>
-                                              {store.lastSettleAt && (
-                                                  <div className="flex items-center gap-1 justify-end text-[7px] font-bold text-green-600 mt-1">
-                                                      <span>آخر تصفية: {new Date(store.lastSettleAt).toLocaleString('ar-IQ')}</span>
-                                                      <Clock className="h-2 w-2"/>
-                                                  </div>
-                                              )}
+              <div className="space-y-4">
+                  {sortedStores.map((store) => (
+                      <Card key={store.id} className="rounded-[2rem] border-none shadow-xl overflow-hidden bg-white">
+                          <div className="h-20 flex items-center justify-between px-6 hover:bg-primary/5 transition-colors cursor-pointer" onClick={() => setExpandedStoreId(expandedStoreId === store.id ? null : store.id)}>
+                               <div className="flex items-center gap-3">
+                                   <div className="flex flex-col items-start gap-1">
+                                       <span className={cn("text-xl font-black tracking-tighter", (store.walletBalance || 0) > 0 ? "text-primary" : "text-slate-300")}>
+                                           {formatCurrency(store.walletBalance || 0)}
+                                       </span>
+                                       <Badge variant="secondary" className="text-[8px] font-black h-4 px-2">{store.unpaidOrderCount} طلب</Badge>
+                                   </div>
+                                   {expandedStoreId === store.id ? <ChevronUp className="h-4 w-4 text-muted-foreground"/> : <ChevronDown className="h-4 w-4 text-muted-foreground"/>}
+                               </div>
+
+                               <div className="flex items-center gap-4">
+                                   <div className="flex justify-center gap-2">
+                                       <Button variant="outline" size="sm" className="rounded-xl font-bold gap-2 h-9 border-2" onClick={(e) => { e.stopPropagation(); handlePrintStoreReport(store); }}>
+                                           <Printer className="h-4 w-4" /> كشف
+                                       </Button>
+                                   </div>
+                                   <div className="text-right">
+                                       <p className="font-black text-slate-800 text-xs">{store.name}</p>
+                                       <p className="text-[8px] text-muted-foreground font-bold">{store.restaurantNumber}</p>
+                                   </div>
+                                   <div className="relative h-9 w-9 shrink-0">
+                                       <Image src={store.image} fill className="rounded-full object-cover border-2 border-primary/10" alt="" unoptimized={true}/>
+                                   </div>
+                               </div>
+                          </div>
+
+                          {expandedStoreId === store.id && (
+                              <div className="p-6 bg-slate-50 border-t border-dashed animate-in slide-in-from-top-2">
+                                  <div className="flex items-center gap-2 mb-4 justify-end text-primary">
+                                      <span className="font-black text-sm">الطلبات المحسوبة في الكشف</span>
+                                      <ReceiptText className="h-4 w-4"/>
+                                  </div>
+                                  <div className="space-y-2">
+                                      {store.unpaidOrders.map((order) => (
+                                          <div key={order.id} className="flex justify-between items-center bg-white p-3 rounded-xl border text-xs font-bold">
+                                              <span>{formatCurrency(order.total)}</span>
+                                              <div className="flex items-center gap-4">
+                                                  <span className="text-muted-foreground">{new Date(order.date).toLocaleDateString('ar-IQ')}</span>
+                                                  <span className="font-black text-slate-700">#{order.orderNumber}</span>
+                                              </div>
                                           </div>
-                                          <div className="relative h-9 w-9 shrink-0">
-                                              <Image src={store.image} fill className="rounded-full object-cover border-2 border-primary/10" alt="" unoptimized={true}/>
-                                          </div>
-                                      </div>
-                                  </TableCell>
-                                  <TableCell className="text-left">
-                                      <div className="flex flex-col items-start gap-1">
-                                          <span className={cn("text-xl font-black tracking-tighter", (store.walletBalance || 0) > 0 ? "text-primary" : "text-slate-300")}>
-                                              {formatCurrency(store.walletBalance || 0)}
-                                          </span>
-                                          <Badge variant="secondary" className="text-[8px] font-black h-4 px-2">{store.unpaidOrderCount} طلب</Badge>
-                                      </div>
-                                  </TableCell>
-                                  <TableCell className="text-center">
-                                      <Button variant="outline" size="sm" className="rounded-xl font-bold gap-2 h-9 border-2" onClick={() => handlePrintStoreReport(store)}>
-                                          <Printer className="h-4 w-4" /> كشف
-                                      </Button>
-                                  </TableCell>
-                              </TableRow>
-                          ))}
-                      </TableBody>
-                  </Table>
-              </Card>
+                                      ))}
+                                      {store.unpaidOrderCount === 0 && <p className="text-center py-4 text-muted-foreground italic">لا توجد طلبات جديدة معلقة.</p>}
+                                  </div>
+                              </div>
+                          )}
+                      </Card>
+                  ))}
+              </div>
           )}
       </div>
 
