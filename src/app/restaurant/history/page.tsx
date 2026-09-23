@@ -3,7 +3,6 @@
 
 import { useContext, useMemo, useState } from 'react';
 import { RestaurantContext } from '@/contexts/RestaurantContext';
-import { useOrders } from '@/hooks/useOrders';
 import { useWithdrawals } from '@/hooks/useWithdrawals';
 import { Button } from '@/components/ui/button';
 import { LogOut, Loader2, ArrowRight, Wallet, History, SendHorizontal, Hourglass } from 'lucide-react';
@@ -19,43 +18,16 @@ interface RestaurantHistoryPageProps {
 export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageProps) {
     const context = useContext(RestaurantContext);
     const { restaurant, logout } = context || {};
-    const { allOrders, isLoading: ordersLoading } = useOrders();
     const { requests, requestWithdraw } = useWithdrawals(undefined, restaurant?.id);
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const { totalIncome, pendingRequest } = useMemo(() => {
-        if (!restaurant || !allOrders) return { totalIncome: 0, pendingRequest: null };
-        
-        // جرد الطلبات الموصلة والغير مصفاة الخاصة بهذا المتجر بدقة جراحية
-        const unsettledOrders = allOrders.filter(o => 
-            o.restaurant?.id === restaurant.id && 
-            o.status === 'delivered' && 
-            o.isPaid === false
-        );
-
-        const ordersEarnings = unsettledOrders.reduce((acc, order) => {
-            const itemsTotal = order.items.reduce((sum, item) => {
-                const price = item.selectedSize?.price || item.product?.price || 0;
-                return sum + (price * (item.quantity || 1));
-            }, 0);
-            
-            const rate = restaurant.commissionRate || 10;
-            const storeProfit = itemsTotal * (1 - rate / 100);
-            return acc + storeProfit;
-        }, 0);
-
-        const finalBalance = Math.round(ordersEarnings + (restaurant.balanceAdjustment || 0));
-        const pRequest = requests.find(r => r.targetId === restaurant.id && r.status === 'pending');
-
-        return { 
-            totalIncome: finalBalance, 
-            pendingRequest: pRequest 
-        };
-    }, [restaurant, allOrders, requests]);
+    const pendingRequest = useMemo(() => {
+        return requests.find(r => r.targetId === restaurant?.id && r.status === 'pending');
+    }, [requests, restaurant]);
 
     const handleWithdraw = async () => {
-        if (!restaurant || totalIncome < 5000) {
+        if (!restaurant || (restaurant.walletBalance || 0) < 5000) {
             toast({ title: "الرصيد غير كافٍ", description: "الحد الأدنى للسحب 5,000 د.ع", variant: "destructive" });
             return;
         }
@@ -65,8 +37,8 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
             type: 'restaurant',
             targetId: restaurant.id,
             targetName: restaurant.name,
-            amount: totalIncome,
-            netAmount: totalIncome,
+            amount: restaurant.walletBalance || 0,
+            netAmount: restaurant.walletBalance || 0,
             branchId: restaurant.branchId
         });
         
@@ -74,11 +46,11 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
         setIsSubmitting(false);
     };
 
-    if (!context || !restaurant || ordersLoading) {
+    if (!context || !restaurant) {
         return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
     }
 
-    const displayBalance = pendingRequest ? 0 : totalIncome;
+    const currentBalance = restaurant.walletBalance || 0;
 
     return (
         <div className="p-4 space-y-6 bg-slate-50 h-full overflow-y-auto pb-32 text-right">
@@ -86,8 +58,8 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="icon" onClick={onBack} className="rounded-xl border-2 shadow-sm"><ArrowRight className="h-5 w-5 text-primary"/></Button>
                     <div>
-                        <h1 className="text-xl font-black text-slate-800">حساباتي المالية</h1>
-                        <p className="text-[10px] font-bold text-muted-foreground">أرباح الوجبات الصافية بناءً على الطلبات</p>
+                        <h1 className="text-xl font-black text-slate-800">خزنتي السحابية</h1>
+                        <p className="text-[10px] font-bold text-muted-foreground">رصيد أرباح الوجبات المحفوظ بدقة</p>
                     </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={logout} className="text-destructive"><LogOut className="h-5 w-5"/></Button>
@@ -99,7 +71,7 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
                     <CardTitle className="text-white/80 text-[10px] font-black uppercase tracking-widest">صافي الأرباح المتاحة</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="text-4xl font-black tracking-tighter drop-shadow-lg">{formatCurrency(displayBalance)}</div>
+                    <div className="text-4xl font-black tracking-tighter drop-shadow-lg">{formatCurrency(currentBalance)}</div>
                     
                     {pendingRequest ? (
                         <div className="p-4 bg-white/10 rounded-2xl border border-white/20 flex flex-col items-center gap-2 animate-pulse">
@@ -109,7 +81,7 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
                     ) : (
                         <Button 
                             onClick={handleWithdraw} 
-                            disabled={isSubmitting || totalIncome < 5000}
+                            disabled={isSubmitting || currentBalance < 5000}
                             className="w-full h-16 rounded-[1.8rem] bg-white text-primary hover:bg-white/95 font-black text-xl gap-3 shadow-xl active:scale-95 transition-all"
                         >
                             {isSubmitting ? <Loader2 className="animate-spin h-6 w-6"/> : <SendHorizontal className="h-6 w-6"/>}
@@ -119,6 +91,12 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
                 </CardContent>
             </Card>
 
+            <div className="p-4 bg-blue-50 rounded-2xl border-2 border-dashed border-blue-200">
+                <p className="text-[10px] font-bold text-blue-800 leading-relaxed text-right">
+                    ملاحظة: هذا الرصيد نهائي ومحفوظ سحابياً، لا يتأثر بحذف الطلبات القديمة أو أرشفة السجلات.
+                </p>
+            </div>
+
             <div className="space-y-4">
                 <h2 className="text-lg font-black flex items-center gap-2 px-1 justify-end text-slate-800">سجل السحوبات <History className="h-5 w-5 text-primary"/></h2>
                 <div className="space-y-3">
@@ -126,14 +104,14 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
                     {requests.map(req => (
                         <Card key={req.id} className="rounded-[1.5rem] border-none shadow-md p-4 flex items-center justify-between bg-white">
                             <div className="text-right">
-                                <p className="font-black text-sm">{formatCurrency(req.netAmount || req.amount)}</p>
+                                <p className="font-black text-sm">{formatCurrency(req.amount)}</p>
                                 <p className="text-[9px] font-bold text-muted-foreground">{new Date(req.requestedAt).toLocaleDateString('ar-IQ')}</p>
                             </div>
                             <Badge className={cn("rounded-lg font-black text-[9px] h-7 px-3", 
                                 req.status === 'completed' ? "bg-green-100 text-green-700" : 
                                 req.status === 'rejected' ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"
                             )}>
-                                {req.status === 'completed' ? 'تمت ✅' : req.status === 'rejected' ? 'مرفوض' : 'قيد التدقيق'}
+                                {req.status === 'completed' ? 'تم الدفع ✅' : req.status === 'rejected' ? 'مرفوض' : 'قيد التدقيق'}
                             </Badge>
                         </Card>
                     ))}

@@ -74,6 +74,7 @@ export interface Restaurant {
   categoryId: string; 
   menuSections?: string[]; 
   isFeatured?: boolean;
+  walletBalance?: number; // الخزنة السحابية الدائمة
   balanceAdjustment?: number;
   oneSignalId?: string; 
   oneSignalWebId?: string; 
@@ -118,6 +119,8 @@ export interface DeliveryWorker {
     idleCount?: number; 
     latitude?: number;
     longitude?: number;
+    walletBalance?: number; // الخزنة السحابية للأرباح
+    officeDebt?: number; // الخزنة السحابية لذمة المكتب (كاش)
     balanceAdjustment?: number;
     debtAdjustment?: number;
 }
@@ -139,6 +142,7 @@ export interface Order {
     isPaid: boolean;
     isFeePaid: boolean;
     isOrderPaidToOffice: boolean;
+    isBalanceProcessed?: boolean; // حماية ضد تكرار الترحيل المالي
     branchId: string;
     confirmedAt?: string; 
     isArchived?: boolean; 

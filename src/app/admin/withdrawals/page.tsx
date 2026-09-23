@@ -5,7 +5,7 @@ import { useWithdrawals } from '@/hooks/useWithdrawals';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Store, Banknote, Bike, UserCog, Landmark, Trash2, Loader2, XCircle } from 'lucide-react';
+import { CheckCircle2, Store, Banknote, Bike, Trash2, Loader2, XCircle } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,7 +21,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, writeBatch, doc, limit } from 'firebase/firestore';
+import { writeBatch, doc, increment } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import type { WithdrawRequest } from '@/lib/types';
@@ -31,48 +31,30 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
     const { toast } = useToast();
     const [isProcessing, setIsProcessing] = useState<string | null>(null);
 
-    if (isLoading) return <div className="p-8 text-center animate-pulse font-black text-primary text-xl">جاري جلب طلبات تسوية الحسابات...</div>;
+    if (isLoading) return <div className="p-8 text-center animate-pulse font-black text-primary text-xl">جاري جلب طلبات السحب السحابية...</div>;
 
     const handleCompleteSettlement = async (req: WithdrawRequest) => {
         setIsProcessing(req.id);
         try {
             const batch = writeBatch(db);
             
-            // 1. تحديث حالة طلب السحب إلى مكتمل
+            // 1. تحديث حالة الطلب السحابي
             batch.update(doc(db, "withdrawals", req.id), { status: 'completed' });
 
+            // 2. الخصم الحقيقي من الخزنة السحابية (Persistent Vault Deduction)
             if (req.type === 'restaurant') {
-                // 2. تصفير التعديلات اليدوية للمتجر نهائياً لضمان عدم تكرار الحساب
-                batch.update(doc(db, "restaurants", req.targetId), { balanceAdjustment: 0 });
-                
-                // 3. وسم كافة الطلبات الموصلة الحالية كـ "مدفوعة" لكي تسقط من الجرد القادم فوراً
-                const q = query(
-                    collection(db, "orders"), 
-                    where("restaurant.id", "==", req.targetId),
-                    where("status", "==", "delivered"),
-                    where("isPaid", "==", false),
-                    limit(500)
-                );
-                const snap = await getDocs(q);
-                snap.docs.forEach(d => batch.update(d.ref, { isPaid: true }));
+                batch.update(doc(db, "restaurants", req.targetId), { 
+                    walletBalance: increment(-(req.amount || 0)) 
+                });
             } else {
-                // 4. تصفير التعديلات اليدوية للمندوب
-                batch.update(doc(db, "deliveryWorkers", req.targetId), { balanceAdjustment: 0 });
-                
-                // 5. وسم طلباته كمدفوعة لكي تسقط من محفظته
-                const q = query(
-                    collection(db, "orders"), 
-                    where("deliveryWorkerId", "==", req.targetId),
-                    where("status", "==", "delivered"),
-                    where("isFeePaid", "==", false),
-                    limit(500)
-                );
-                const snap = await getDocs(q);
-                snap.docs.forEach(d => batch.update(d.ref, { isFeePaid: true }));
+                // للمندوب، السحب يخصم من أرباحه فقط (الذمة تُسوى يدوياً أو بنظام منفصل)
+                batch.update(doc(db, "deliveryWorkers", req.targetId), { 
+                    walletBalance: increment(-(req.amount || 0)) 
+                });
             }
 
             await batch.commit();
-            toast({ title: "تمت التسوية وتصفير المحفظة بنجاح ✅" });
+            toast({ title: "تم تسليم المبلغ وخصمه من المحفظة السحابية ✅" });
         } catch (e) {
             console.error("Settlement Error:", e);
             toast({ title: "فشل إكمال التسوية", variant: "destructive" });
@@ -99,9 +81,8 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
             <TableHeader className="bg-muted/50 h-16">
                 <TableRow>
                     <TableHead className="font-black text-lg text-right">الجهة</TableHead>
-                    <TableHead className="font-black text-lg text-right">التفاصيل المالية</TableHead>
-                    <TableHead className="font-black text-lg text-left">الصافي للدفع</TableHead>
-                    <TableHead className="font-black text-lg text-center">إجراء</TableHead>
+                    <TableHead className="font-black text-lg text-left">المبلغ المطلوب</TableHead>
+                    <TableHead className="font-black text-center">إجراء</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
@@ -118,17 +99,8 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                                 </div>
                             </div>
                         </TableCell>
-                        <TableCell>
-                            <div className="space-y-1.5 text-xs font-bold text-slate-600">
-                                {req.type === 'restaurant' ? (
-                                    <div className="flex justify-between gap-4"><span>{formatCurrency(req.amount)}</span><span>أرباح وجبات:</span></div>
-                                ) : (
-                                    <div className="flex justify-between gap-4"><span>{formatCurrency(req.amount)}</span><span>أجور توصيل:</span></div>
-                                )}
-                            </div>
-                        </TableCell>
                         <TableCell className="font-black text-2xl text-primary text-left">
-                            {formatCurrency(req.netAmount || req.amount)}
+                            {formatCurrency(req.amount)}
                         </TableCell>
                         <TableCell>
                             <div className="flex justify-center gap-3">
@@ -143,14 +115,14 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                                             {isProcessing === req.id ? <Loader2 className="animate-spin h-5 w-5 ml-2"/> : <CheckCircle2 className="ml-2 h-5 w-5"/>}
                                             تأكيد التسليم
                                         </Button>
-                                        <Button size="lg" variant="ghost" className="text-destructive h-12 rounded-2xl font-bold px-4 border border-destructive/10" onClick={() => handleRejectSettlement(req.id)} disabled={isProcessing === req.id}>
+                                        <Button size="lg" variant="ghost" className="text-destructive h-12 rounded-2xl font-bold px-4" onClick={() => handleRejectSettlement(req.id)} disabled={isProcessing === req.id}>
                                             <XCircle className="ml-1 h-4 w-4"/> رفض
                                         </Button>
                                     </>
                                 ) : (
                                     <div className="flex items-center gap-3">
                                         <Badge className={cn("rounded-xl font-black text-sm h-10 px-6", req.status === 'completed' ? "bg-green-100 text-green-700 border-none" : "bg-red-100 text-red-700 border-none")}>
-                                            {req.status === 'completed' ? 'تمت التسوية ✅' : 'مرفوض ❌'}
+                                            {req.status === 'completed' ? 'تم الدفع ✅' : 'مرفوض ❌'}
                                         </Badge>
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
@@ -162,7 +134,7 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                                                 <AlertDialogHeader>
                                                     <AlertDialogTitle className="text-right font-black">حذف سجل السحب؟</AlertDialogTitle>
                                                     <AlertDialogDescription className="text-right font-bold text-muted-foreground">
-                                                        سيتم مسح هذا السجل نهائياً من قاعدة البيانات.
+                                                        سيتم مسح هذا السجل نهائياً.
                                                     </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter className="flex-row gap-3">
@@ -185,7 +157,7 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
         <div className="space-y-8 animate-in fade-in duration-500 text-right h-full overflow-y-auto p-4">
             <header>
                 <h1 className="text-4xl font-black text-primary italic">طلبات تسوية الحسابات</h1>
-                <p className="text-muted-foreground font-bold">إدارة عمليات دفع المستحقات النقدية للمتاجر والمناديب.</p>
+                <p className="text-muted-foreground font-bold">الخصم يتم من المحفظة السحابية الدائمة فور التأكيد.</p>
             </header>
 
             <Tabs defaultValue="stores" className="w-full">
@@ -202,9 +174,8 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                     {storeRequests.length > 0 ? (
                         <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white">{renderTable(storeRequests)}</Card>
                     ) : (
-                        <div className="p-24 text-center space-y-4 bg-white rounded-[3rem] border-4 border-dashed border-muted">
-                            <Landmark className="h-20 w-20 mx-auto text-muted-foreground/30" />
-                            <h2 className="text-2xl font-black text-slate-400">لا توجد طلبات متاجر</h2>
+                        <div className="p-24 text-center space-y-4 bg-white rounded-[3rem] border-4 border-dashed">
+                            <h2 className="text-2xl font-black text-slate-400">لا توجد طلبات سحب معلقة</h2>
                         </div>
                     )}
                 </TabsContent>
@@ -213,9 +184,8 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                     {workerRequests.length > 0 ? (
                         <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white">{renderTable(workerRequests)}</Card>
                     ) : (
-                        <div className="p-24 text-center space-y-4 bg-white rounded-[3rem] border-4 border-dashed border-muted">
-                            <UserCog className="h-20 w-20 mx-auto text-muted-foreground/30" />
-                            <h2 className="text-2xl font-black text-slate-400">لا توجد طلبات مناديب</h2>
+                        <div className="p-24 text-center space-y-4 bg-white rounded-[3rem] border-4 border-dashed">
+                            <h2 className="text-2xl font-black text-slate-400">لا توجد طلبات سحب معلقة</h2>
                         </div>
                     )}
                 </TabsContent>

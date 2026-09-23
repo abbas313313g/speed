@@ -3,75 +3,24 @@
 
 import { useMemo } from 'react';
 import { useRestaurants } from '@/hooks/useRestaurants';
-import { useOrders } from '@/hooks/useOrders';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCurrency, cn } from '@/lib/utils';
 import Image from 'next/image';
-import { Landmark, Loader2, Store, Wallet, Printer } from 'lucide-react';
+import { Landmark, Loader2, Store, Printer } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type { Restaurant, Order } from '@/lib/types';
 
 export default function AdminStoreWalletsPage({ branchId }: { branchId: string }) {
   const { restaurants, isLoading: rLoading } = useRestaurants(branchId);
-  const { allOrders, isLoading: oLoading } = useOrders(branchId, 1000); 
 
-  const storeWallets = useMemo(() => {
-    if (rLoading || oLoading) return [];
-    
-    return restaurants.filter(r => r.branchId === branchId).map(store => {
-        // جرد الطلبات الموصلة التي لم تُدفع للمتجر بعد
-        const unsettledOrders = allOrders.filter(o => 
-            o.restaurant?.id === store.id && 
-            o.status === 'delivered' && 
-            o.isPaid === false
-        );
+  const sortedStores = useMemo(() => {
+    return [...restaurants].filter(r => r.branchId === branchId).sort((a, b) => (b.walletBalance || 0) - (a.walletBalance || 0));
+  }, [restaurants, branchId]);
 
-        // حساب أرباح المتجر الصافية بدقة (سعر الوجبات الأصلي - عمولة الشركة)
-        const ordersEarnings = unsettledOrders.reduce((acc, order) => {
-            const itemsTotal = order.items.reduce((sum, item) => {
-                const price = item.selectedSize?.price || item.product?.price || 0;
-                return sum + (price * (item.quantity || 1));
-            }, 0);
-            
-            const rate = store.commissionRate || 10;
-            const storeProfit = itemsTotal * (1 - rate / 100);
-            return acc + storeProfit;
-        }, 0);
-
-        // الرصيد النهائي = أرباح الطلبات الحقيقية + أي تسوية يدوية مخزنة
-        const finalBalance = Math.round(ordersEarnings + (store.balanceAdjustment || 0));
-
-        return {
-            store,
-            balance: finalBalance,
-            unsettledOrdersCount: unsettledOrders.length,
-        };
-    }).sort((a, b) => b.balance - a.balance);
-  }, [restaurants, allOrders, branchId, rLoading, oLoading]);
-
-  const handlePrintStoreReport = (storeData: any) => {
-    const { store, balance } = storeData;
-    const unpaidOrders = allOrders.filter(o => o.restaurant?.id === store.id && o.status === 'delivered' && o.isPaid === false);
-    
+  const handlePrintStoreReport = (store: any) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-
-    const ordersHtml = unpaidOrders.map((o: Order) => {
-        const itemsTotal = o.items.reduce((sum, i) => sum + ((i.selectedSize?.price || i.product?.price || 0) * i.quantity), 0);
-        const rate = store.commissionRate || 10;
-        const profit = itemsTotal * (1 - rate / 100);
-
-        return `
-            <tr style="border-bottom: 1px solid #eee;">
-                <td style="padding: 10px;">#${o.orderNumber}</td>
-                <td style="padding: 10px;">${new Date(o.date).toLocaleDateString('ar-IQ')}</td>
-                <td style="padding: 10px;">${formatCurrency(itemsTotal)}</td>
-                <td style="padding: 10px; font-weight: bold; color: #00b358;">${formatCurrency(profit)}</td>
-            </tr>
-        `;
-    }).join('');
 
     const htmlContent = `
         <html dir="rtl">
@@ -80,47 +29,34 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
             <style>
                 body { font-family: 'Arial', sans-serif; padding: 40px; color: #333; }
                 .header { text-align: center; border-bottom: 4px solid #00b358; padding-bottom: 20px; margin-bottom: 30px; }
-                .store-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-                .balance-box { background: #f0fff4; border: 2px solid #00b358; padding: 20px; border-radius: 15px; text-align: center; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th { background: #f8f9fa; padding: 12px; text-align: right; border-bottom: 2px solid #eee; }
-                .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 20px; }
+                .balance-box { background: #f0fff4; border: 2px solid #00b358; padding: 30px; border-radius: 25px; text-align: center; margin: 40px 0; }
+                .footer { margin-top: 100px; text-align: center; font-size: 14px; color: #888; border-top: 1px solid #eee; padding-top: 20px; }
             </style>
         </head>
         <body>
             <div class="header">
                 <h1 style="color: #00b358; margin: 0;">SPEED SHOP</h1>
-                <p>نظام إدارة المتاجر والطلبات</p>
+                <p>كشف المحفظة السحابية المعتمدة</p>
             </div>
             
-            <div class="store-info">
-                <div>
-                    <h2 style="margin: 0;">${store.name}</h2>
-                    <p style="color: #666;">رقم المتجر: ${store.restaurantNumber}</p>
-                </div>
-                <div class="balance-box">
-                    <p style="margin: 0; font-size: 14px; font-weight: bold;">صافي المستحقات الحالية</p>
-                    <h1 style="margin: 5px 0; color: #00b358;">${formatCurrency(balance)}</h1>
-                </div>
+            <div style="text-align: right;">
+                <h2 style="margin: 0;">المتجر: ${store.name}</h2>
+                <p>رقم المتجر: ${store.restaurantNumber}</p>
+                <p>الفرع: ${store.branchId === 'main' ? 'المركز الرئيسي' : store.branchId}</p>
             </div>
 
-            <h3>تفاصيل أرباح الوجبات (${unpaidOrders.length} طلب غير مصفى)</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>رقم القائمة</th>
-                        <th>التاريخ</th>
-                        <th>مجموع الوجبات</th>
-                        <th>صافي ربح المتجر</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${ordersHtml}
-                </tbody>
-            </table>
+            <div class="balance-box">
+                <p style="margin: 0; font-size: 18px; font-weight: bold; color: #666;">إجمالي الرصيد الصافي المتاح للسحب</p>
+                <h1 style="margin: 15px 0; font-size: 48px; color: #00b358;">${formatCurrency(store.walletBalance || 0)}</h1>
+            </div>
+
+            <p style="text-align: right; line-height: 1.6; color: #555;">
+                ملاحظة: هذا الرصيد نهائي ومحفوظ سحابياً، يمثل صافي أرباح المتجر بعد خصم العمولات.
+            </p>
 
             <div class="footer">
-                <p>تم استخراج هذا الكشف آلياً بتاريخ ${new Date().toLocaleString('ar-IQ')}</p>
+                <p>تاريخ الاستخراج: ${new Date().toLocaleString('ar-IQ')}</p>
+                <p>حقوق النظام محفوظة © سبيد شوب</p>
             </div>
             <script>window.print();</script>
         </body>
@@ -131,20 +67,20 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
     printWindow.document.close();
   };
 
-  if (rLoading || oLoading) return <div className="p-20 text-center animate-pulse"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto"/><p className="mt-4 font-black text-primary">جاري جرد المحافظ المالية...</p></div>;
+  if (rLoading) return <div className="p-20 text-center animate-pulse"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto"/><p className="mt-4 font-black text-primary">جاري جرد المحافظ السحابية...</p></div>;
 
   return (
     <div className="space-y-8 text-right animate-in fade-in duration-500 h-full overflow-y-auto p-4">
       <header>
-        <h1 className="text-3xl font-black text-primary italic">محافظ المتاجر والتدقيق</h1>
-        <p className="text-muted-foreground font-bold italic text-xs">الأرصدة تُحسب مباشرة من أرباح الوجبات في الطلبات غير المصفاة.</p>
+        <h1 className="text-3xl font-black text-primary italic">محافظ المتاجر الدائمة</h1>
+        <p className="text-muted-foreground font-bold italic text-xs">الأرصدة محفوظة سحابياً بشكل مستقل ولا تختفي بحذف الطلبات.</p>
       </header>
 
       <div className="grid gap-6">
-          {storeWallets.length === 0 ? (
+          {sortedStores.length === 0 ? (
               <div className="p-20 text-center bg-white rounded-[3rem] border-2 border-dashed">
                   <Store className="h-16 w-16 mx-auto text-muted-foreground/20 mb-4" />
-                  <p className="text-xl font-black text-muted-foreground">لا توجد متاجر نشطة حالياً.</p>
+                  <p className="text-xl font-black text-muted-foreground">لا توجد متاجر في هذا الفرع.</p>
               </div>
           ) : (
               <Card className="rounded-[2rem] border-none shadow-xl overflow-hidden bg-white">
@@ -152,39 +88,33 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                       <TableHeader className="bg-muted/50 h-14">
                           <TableRow>
                               <TableHead className="font-black text-right">المتجر</TableHead>
-                              <TableHead className="font-black text-center">طلبات غير مصفاة</TableHead>
-                              <TableHead className="font-black text-left">الرصيد الصافي</TableHead>
+                              <TableHead className="font-black text-left">الرصيد السحابي</TableHead>
                               <TableHead className="font-black text-center">إجراء</TableHead>
                           </TableRow>
                       </TableHeader>
                       <TableBody>
-                          {storeWallets.map((data) => (
-                              <TableRow key={data.store.id} className="h-20 hover:bg-primary/5 transition-colors">
+                          {sortedStores.map((store) => (
+                              <TableRow key={store.id} className="h-20 hover:bg-primary/5 transition-colors">
                                   <TableCell className="font-bold">
                                       <div className="flex items-center gap-3 justify-end">
                                           <div className="text-right">
-                                              <p className="font-black text-slate-800 text-xs">{data.store.name}</p>
-                                              <p className="text-[8px] text-muted-foreground font-bold">{data.store.restaurantNumber}</p>
+                                              <p className="font-black text-slate-800 text-xs">{store.name}</p>
+                                              <p className="text-[8px] text-muted-foreground font-bold">{store.restaurantNumber}</p>
                                           </div>
                                           <div className="relative h-9 w-9 shrink-0">
-                                              <Image src={data.store.image} fill className="rounded-full object-cover border-2 border-primary/10" alt="" unoptimized={true}/>
+                                              <Image src={store.image} fill className="rounded-full object-cover border-2 border-primary/10" alt="" unoptimized={true}/>
                                           </div>
                                       </div>
                                   </TableCell>
-                                  <TableCell className="text-center font-bold">
-                                      {data.unsettledOrdersCount > 0 ? (
-                                          <Badge className="bg-orange-500 text-white border-none font-black text-[9px]">{data.unsettledOrdersCount} طلب</Badge>
-                                      ) : <span className="text-muted-foreground/30">-</span>}
-                                  </TableCell>
                                   <TableCell className="text-left">
                                       <div className="flex flex-col items-start">
-                                          <span className={cn("text-xl font-black tracking-tighter", data.balance > 0 ? "text-primary" : "text-slate-300")}>
-                                              {formatCurrency(data.balance)}
+                                          <span className={cn("text-xl font-black tracking-tighter", (store.walletBalance || 0) > 0 ? "text-primary" : "text-slate-300")}>
+                                              {formatCurrency(store.walletBalance || 0)}
                                           </span>
                                       </div>
                                   </TableCell>
                                   <TableCell className="text-center">
-                                      <Button variant="outline" size="sm" className="rounded-xl font-bold gap-2 h-9 border-2" onClick={() => handlePrintStoreReport(data)}>
+                                      <Button variant="outline" size="sm" className="rounded-xl font-bold gap-2 h-9 border-2" onClick={() => handlePrintStoreReport(store)}>
                                           <Printer className="h-4 w-4" /> كشف
                                       </Button>
                                   </TableCell>
@@ -198,11 +128,11 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
 
       <div className="p-5 bg-primary/5 rounded-[2rem] border-2 border-dashed border-primary/20">
           <div className="flex items-center gap-2 justify-end text-primary mb-1">
-              <span className="font-black text-sm">نظام التدقيق المالي</span>
+              <span className="font-black text-sm">نظام الأمان المالي السحابي</span>
               <Landmark className="h-4 w-4"/>
           </div>
           <p className="text-[10px] font-bold text-slate-600 text-right leading-relaxed">
-              يتم احتساب الرصيد بجمع أرباح الوجبات الأصلية للطلبات الموصلة التي لم يتم تصفيتها بعد. عمولة الشركة والخصومات يتم معالجتها بدقة لضمان حق المتجر كاملاً.
+              يتم ترحيل الأرباح للمحفظة فور توصيل الطلب. حذف الفواتير القديمة لن يؤثر على رصيد المتجر نهائياً، مما يضمن دقة الحسابات المالية لشهور قادمة.
           </p>
       </div>
     </div>

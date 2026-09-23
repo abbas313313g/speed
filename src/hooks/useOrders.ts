@@ -153,6 +153,42 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
                 if (workerId) updateData.lastSkippedWorkerId = workerId; 
             }
 
+            // محرك الترحيل المالي السحابي المستقل (Persistent Money Migration)
+            if (status === 'delivered' && !currentOrder.isBalanceProcessed) {
+                const batch = writeBatch(db);
+                
+                // 1. حساب أرباح المتجر الصافية بناءً على الفاتورة الحية
+                const itemsTotal = currentOrder.items.reduce((sum, item) => {
+                    const price = item.selectedSize?.price || item.product?.price || 0;
+                    return sum + (price * item.quantity);
+                }, 0);
+                const storeRate = currentOrder.restaurant?.commissionRate || 10;
+                const storeEarnings = Math.round(itemsTotal * (1 - storeRate / 100));
+
+                // 2. حساب مستحقات المندوب وذمة الكاش
+                const workerEarnings = currentOrder.deliveryFee || 0;
+                const cashToOffice = currentOrder.total || 0;
+
+                // 3. التحديث في الخزنة السحابية للمتجر (Persistent Store Vault)
+                if (currentOrder.restaurant?.id) {
+                    batch.update(doc(db, "restaurants", currentOrder.restaurant.id), {
+                        walletBalance: increment(storeEarnings)
+                    });
+                }
+
+                // 4. التحديث في الخزنة السحابية للمندوب (Persistent Worker Vault)
+                if (currentOrder.deliveryWorkerId) {
+                    batch.update(doc(db, "deliveryWorkers", currentOrder.deliveryWorkerId), {
+                        walletBalance: increment(workerEarnings),
+                        officeDebt: increment(cashToOffice)
+                    });
+                }
+
+                // 5. قفل الفاتورة مالياً لمنع التكرار
+                updateData.isBalanceProcessed = true;
+                await batch.commit();
+            }
+
             await updateDoc(orderRef, updateData);
 
             if (status === 'cancelled' && currentOrder) {
@@ -173,6 +209,7 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
 
             return true;
         } catch (error: any) {
+            console.error("Order Update Error:", error);
             return false;
         }
     }, [telegramConfigs]);
