@@ -42,7 +42,10 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
             batch.update(doc(db, "withdrawals", req.id), { status: 'completed' });
 
             if (req.type === 'restaurant') {
-                // 2. جلب الطلبات غير المدفوعة للمتجر ووسمها كمدفوعة
+                // 2. تصفية الرصيد السحابي للمتجر فوراً (تصفير الخزنة)
+                batch.update(doc(db, "restaurants", req.targetId), { balanceAdjustment: 0 });
+                
+                // 3. وسم الطلبات السابقة كمدفوعة (اختياري للإحصاء)
                 const q = query(
                     collection(db, "orders"), 
                     where("restaurant.id", "==", req.targetId),
@@ -51,11 +54,11 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                 );
                 const snap = await getDocs(q);
                 snap.docs.forEach(d => batch.update(d.ref, { isPaid: true }));
-                
-                // 3. تصفير التسويات اليدوية للمتجر
-                batch.update(doc(db, "restaurants", req.targetId), { balanceAdjustment: 0 });
             } else {
-                // 4. جلب الطلبات غير المدفوعة للمندوب (أرباح التوصيل) ووسمها كمدفوعة
+                // 4. تصفية الرصيد السحابي للمندوب (تصفير الخزنة)
+                batch.update(doc(db, "deliveryWorkers", req.targetId), { balanceAdjustment: 0 });
+                
+                // 5. وسم طلباته كمدفوعة
                 const q = query(
                     collection(db, "orders"), 
                     where("deliveryWorkerId", "==", req.targetId),
@@ -64,9 +67,6 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                 );
                 const snap = await getDocs(q);
                 snap.docs.forEach(d => batch.update(d.ref, { isFeePaid: true }));
-                
-                // 5. تصفير التسويات اليدوية للمندوب
-                batch.update(doc(db, "deliveryWorkers", req.targetId), { balanceAdjustment: 0 });
             }
 
             await batch.commit();
@@ -109,11 +109,10 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                             <div className="space-y-1.5 text-xs font-bold text-slate-600">
                                 {req.type === 'restaurant' ? (
                                     <>
-                                        <div className="flex justify-between gap-4"><span>{formatCurrency(req.amount)}</span><span>إجمالي المبيعات:</span></div>
-                                        <div className="flex justify-between gap-4 text-destructive/70"><span>{formatCurrency(req.commissionAmount || 0)}</span><span>عمولة المنصة:</span></div>
+                                        <div className="flex justify-between gap-4"><span>{formatCurrency(req.amount)}</span><span>إجمالي السحب:</span></div>
                                     </>
                                 ) : (
-                                    <div className="flex justify-between gap-4"><span>{formatCurrency(req.amount)}</span><span>أجور التوصيل الصافية:</span></div>
+                                    <div className="flex justify-between gap-4"><span>{formatCurrency(req.amount)}</span><span>أجور التوصيل:</span></div>
                                 )}
                             </div>
                         </TableCell>
@@ -152,7 +151,7 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                                                 <AlertDialogHeader>
                                                     <AlertDialogTitle className="text-right font-black">حذف سجل السحب؟</AlertDialogTitle>
                                                     <AlertDialogDescription className="text-right font-bold text-muted-foreground">
-                                                        سيتم مسح هذا السجل نهائياً من قاعدة البيانات. تأكد من أنك قمت بإنهاء الإجراء المالي.
+                                                        سيتم مسح هذا السجل نهائياً من قاعدة البيانات.
                                                     </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter className="flex-row gap-3">
@@ -175,7 +174,7 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
         <div className="space-y-8 animate-in fade-in duration-500 text-right">
             <header>
                 <h1 className="text-4xl font-black text-primary italic">طلبات تسوية الحسابات</h1>
-                <p className="text-muted-foreground font-bold">إدارة عمليات دفع المستحقات النقدية للمتاجر والمناديب في فرعك.</p>
+                <p className="text-muted-foreground font-bold">إدارة عمليات دفع المستحقات النقدية للمتاجر والمناديب.</p>
             </header>
 
             <Tabs defaultValue="stores" className="w-full">

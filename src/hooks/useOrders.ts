@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { collection, onSnapshot, doc, updateDoc, query, where, getDocs, limit, deleteDoc, increment, orderBy, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, query, where, getDocs, limit, deleteDoc, increment, orderBy, getDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
@@ -27,6 +27,40 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
             onlineWorkersRef.current = snap.docs.map(d => ({ id: d.id, ...d.data() })) as DeliveryWorker[];
         });
         return () => unsub();
+    }, []);
+
+    // محرك المزامنة الخلفي لضمان ترحيل كافة الطلبات المكتملة للخزنة ومنع ضياعها أو تكرارها
+    const vaultDeliveredOrders = useCallback(async (orders: Order[]) => {
+        const unvaulted = orders.filter(o => o.status === 'delivered' && !(o as any).isVaulted);
+        if (unvaulted.length === 0) return;
+
+        for (const order of unvaulted) {
+            try {
+                const batch = writeBatch(db);
+                const itemsPrice = order.items.reduce((sum, item) => {
+                    const price = item.selectedSize?.price || item.product.price || 0;
+                    return sum + (price * item.quantity);
+                }, 0);
+                const rate = order.restaurant?.commissionRate || 10;
+                const storeIncome = itemsPrice * (1 - rate / 100);
+
+                batch.update(doc(db, "restaurants", order.restaurant!.id), {
+                    balanceAdjustment: increment(storeIncome)
+                });
+
+                if (order.deliveryWorkerId) {
+                    batch.update(doc(db, "deliveryWorkers", order.deliveryWorkerId), {
+                        balanceAdjustment: increment(order.deliveryFee || 0),
+                        debtAdjustment: increment(order.total || 0)
+                    });
+                }
+
+                batch.update(doc(db, "orders", order.id), { isVaulted: true });
+                await batch.commit();
+            } catch (e) {
+                console.error("Vaulting Error:", e);
+            }
+        }
     }, []);
 
     const cleanupTimedOutAssignments = useCallback(async (orders: Order[]) => {
@@ -103,7 +137,6 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
         const ordersRef = collection(db, 'orders');
         
         let q;
-        // حل مشكلة الفهرس (Index Error) عبر تبسيط الاستعلام وفلترة الترتيب برمجياً عند الحاجة
         if (branchId && branchId !== 'all') {
             q = query(ordersRef, where("branchId", "==", branchId), limit(fetchLimit));
         } else {
@@ -113,7 +146,6 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
         const unsub = onSnapshot(q, { includeMetadataChanges: false }, (snapshot) => {
             let data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
             
-            // ترتيب البيانات يدوياً في حال كان الاستعلام مفلتراً لتجنب طلب فهرس مركب
             if (branchId && branchId !== 'all') {
                 data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             }
@@ -124,6 +156,7 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
             if (!snapshot.metadata.fromCache) {
                 cleanupTimedOutAssignments(data);
                 autoAssignOrders(data);
+                vaultDeliveredOrders(data); // تشغيل محرك الترحيل الآمن
             }
         }, (error) => {
             console.error("Orders Sync Error:", error);
@@ -131,7 +164,7 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
         });
 
         return () => unsub();
-    }, [branchId, fetchLimit, refreshKey, autoAssignOrders, cleanupTimedOutAssignments]);
+    }, [branchId, fetchLimit, refreshKey, autoAssignOrders, cleanupTimedOutAssignments, vaultDeliveredOrders]);
     
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
@@ -155,30 +188,6 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
                 updateData.confirmedAt = null;
                 updateData.status = 'pending_assignment'; 
                 if (workerId) updateData.lastSkippedWorkerId = workerId; 
-            }
-
-            // نظام ترحيل الأرباح الذكي للرصيد الدائم عند التوصيل
-            if (status === 'delivered' && currentOrder.status !== 'delivered') {
-                const itemsPrice = currentOrder.items.reduce((sum, item) => {
-                    const price = item.selectedSize?.price || item.product.price || 0;
-                    return sum + (price * item.quantity);
-                }, 0);
-                const rate = currentOrder.restaurant?.commissionRate || 10;
-                const storeIncome = itemsPrice * (1 - rate / 100);
-
-                // تحديث الخزنة السحابية بشكل أتوميك
-                await updateDoc(doc(db, "restaurants", currentOrder.restaurant!.id), {
-                    balanceAdjustment: increment(storeIncome)
-                });
-
-                if (currentOrder.deliveryWorkerId) {
-                    await updateDoc(doc(db, "deliveryWorkers", currentOrder.deliveryWorkerId), {
-                        balanceAdjustment: increment(currentOrder.deliveryFee || 0),
-                        debtAdjustment: increment(currentOrder.total || 0)
-                    });
-                }
-                // وسم الطلب بأنه تم ترحيله للخزنة لضمان عدم تكرار الحساب في المحفظة الهجينة
-                updateData.isVaulted = true;
             }
 
             await updateDoc(orderRef, updateData);

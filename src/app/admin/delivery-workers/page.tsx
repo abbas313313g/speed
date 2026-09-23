@@ -37,17 +37,13 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
 
   const wallets: WorkerWallet[] = useMemo(() => {
     if (!deliveryWorkers || !allOrders) return [];
+    
     return deliveryWorkers.filter(w => w.branchId === branchId).map(w => {
         const orders = allOrders.filter(o => o.deliveryWorkerId === w.id && o.status === 'delivered');
-        const unpaidFees = orders.filter(o => !o.isFeePaid && !(o as any).isVaulted);
-        const unpaidCash = orders.filter(o => !o.isOrderPaidToOffice && !(o as any).isVaulted);
         
-        // حساب الرصيد الهجين: (أرباح الطلبات غير المرحلة) + (الرصيد المحفوظ سحابياً)
-        const currentFeesProfit = unpaidFees.reduce((sum, o) => sum + (o.deliveryFee || 0), 0);
-        const currentCashDebt = unpaidCash.reduce((sum, o) => sum + (o.total || 0), 0);
-
-        const deliveryEarnings = currentFeesProfit + (w.balanceAdjustment || 0);
-        const cashToOffice = currentCashDebt + (w.debtAdjustment || 0);
+        // الرصيد الحقيقي من الخزنة السحابية حصراً لمنع الزيادة
+        const deliveryEarnings = w.balanceAdjustment || 0;
+        const cashToOffice = w.debtAdjustment || 0;
 
         return {
             worker: w,
@@ -80,7 +76,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
     <div className="space-y-8 text-right">
       <header>
         <h1 className="text-4xl font-black text-primary">تصفية حسابات المناديب</h1>
-        <p className="text-muted-foreground font-bold italic">نظام جرد المحافظ الهجين (دقة 100%).</p>
+        <p className="text-muted-foreground font-bold italic">نظام جرد المحافظ الصافي والنهائي.</p>
       </header>
 
       {wallets.length === 0 ? (
