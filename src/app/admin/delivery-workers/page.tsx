@@ -39,19 +39,22 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
     if (!deliveryWorkers || !allOrders) return [];
     return deliveryWorkers.filter(w => w.branchId === branchId).map(w => {
         const orders = allOrders.filter(o => o.deliveryWorkerId === w.id && o.status === 'delivered');
-        const unpaidFees = orders.filter(o => !o.isFeePaid);
-        const unpaidCash = orders.filter(o => !o.isOrderPaidToOffice);
+        const unpaidFees = orders.filter(o => !o.isFeePaid && !(o as any).isVaulted);
+        const unpaidCash = orders.filter(o => !o.isOrderPaidToOffice && !(o as any).isVaulted);
         
-        // المحفظة الآن تقرأ الرصيد الحقيقي من الخزنة السحابية حصراً لمنع الزيادة الوهمية
-        const deliveryEarnings = w.balanceAdjustment || 0;
-        const cashToOffice = w.debtAdjustment || 0;
+        // حساب الرصيد الهجين: (أرباح الطلبات غير المرحلة) + (الرصيد المحفوظ سحابياً)
+        const currentFeesProfit = unpaidFees.reduce((sum, o) => sum + (o.deliveryFee || 0), 0);
+        const currentCashDebt = unpaidCash.reduce((sum, o) => sum + (o.total || 0), 0);
+
+        const deliveryEarnings = currentFeesProfit + (w.balanceAdjustment || 0);
+        const cashToOffice = currentCashDebt + (w.debtAdjustment || 0);
 
         return {
             worker: w,
             deliveryEarnings,
             cashToOffice,
-            unpaidFeeIds: unpaidFees.map(o => o.id),
-            unpaidCashIds: unpaidCash.map(o => o.id),
+            unpaidFeeIds: orders.filter(o => !o.isFeePaid).map(o => o.id),
+            unpaidCashIds: orders.filter(o => !o.isOrderPaidToOffice).map(o => o.id),
         };
     }).filter(w => w.deliveryEarnings > 0 || w.cashToOffice > 0);
   }, [deliveryWorkers, allOrders, branchId]);
@@ -61,7 +64,6 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
           const batch = writeBatch(db);
           ids.forEach(id => batch.update(doc(db, "orders", id), { [field]: true }));
           
-          // تصفير الخزنة السحابية المعنية لضمان دقة الحساب المالي
           const adjField = field === 'isFeePaid' ? 'balanceAdjustment' : 'debtAdjustment';
           batch.update(doc(db, "deliveryWorkers", workerId), { [adjField]: 0 });
           
@@ -78,7 +80,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
     <div className="space-y-8 text-right">
       <header>
         <h1 className="text-4xl font-black text-primary">تصفية حسابات المناديب</h1>
-        <p className="text-muted-foreground font-bold italic">أرصدة الخزن السحابية (دقيقة وغير قابلة للتكرار).</p>
+        <p className="text-muted-foreground font-bold italic">نظام جرد المحافظ الهجين (دقة 100%).</p>
       </header>
 
       {wallets.length === 0 ? (
@@ -100,7 +102,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
                       <div className="grid md:grid-cols-2">
                           <div className="p-6 border-l border-dashed space-y-4">
                                 <div className="flex items-center gap-2 text-primary justify-end">
-                                    <span className="text-xs font-black">أرباح المندوب (الخزنة)</span>
+                                    <span className="text-xs font-black">أرباح المندوب (المحفظة)</span>
                                     <Wallet className="h-5 w-5" />
                                 </div>
                                 <div className="text-3xl font-black text-primary tracking-tighter">{formatCurrency(w.deliveryEarnings)}</div>
@@ -108,7 +110,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
                           </div>
                           <div className="p-6 space-y-4">
                                 <div className="flex items-center gap-2 text-destructive justify-end">
-                                    <span className="text-xs font-black">ذمة للمكتب (الخزنة)</span>
+                                    <span className="text-xs font-black">ذمة للمكتب (كاش)</span>
                                     <Banknote className="h-5 w-5" />
                                 </div>
                                 <div className="text-3xl font-black text-destructive tracking-tighter">{formatCurrency(w.cashToOffice)}</div>

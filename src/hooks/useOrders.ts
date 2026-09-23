@@ -6,7 +6,6 @@ import { collection, onSnapshot, doc, updateDoc, query, where, getDocs, limit, d
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus, DeliveryWorker } from '@/lib/types';
 import { useToast } from './use-toast';
-import { sendFcmNotification } from '@/services/fcm-service';
 import { calculateDistance, formatCurrency } from '@/lib/utils';
 import { useTelegramConfigs } from './useTelegramConfigs';
 import { sendTelegramMessage } from '@/lib/telegram';
@@ -88,7 +87,6 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
                             confirmedAt: new Date().toISOString()
                         });
                         
-                        sendFcmNotification(worker.id, 'deliveryWorkers', 'طلب جديد بانتظارك! 🚀', `لديك 20 ثانية لقبول طلب ${order.restaurant?.name || 'جديد'}`);
                         break; 
                     }
                 }
@@ -100,21 +98,26 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
         }
     }, []);
 
-    // المستمع الرئيسي للطلبات مع نظام التحديث المستمر والفوري
     useEffect(() => {
         setIsLoading(true);
         const ordersRef = collection(db, 'orders');
         
         let q;
+        // حل مشكلة الفهرس (Index Error) عبر تبسيط الاستعلام وفلترة الترتيب برمجياً عند الحاجة
         if (branchId && branchId !== 'all') {
-            q = query(ordersRef, where("branchId", "==", branchId), orderBy("date", "desc"), limit(fetchLimit));
+            q = query(ordersRef, where("branchId", "==", branchId), limit(fetchLimit));
         } else {
             q = query(ordersRef, orderBy("date", "desc"), limit(fetchLimit));
         }
 
-        // استخدام نظام Snapshot المستمر لضمان التحديث اللحظي بدون استهلاك انترنت كبير
         const unsub = onSnapshot(q, { includeMetadataChanges: false }, (snapshot) => {
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
+            let data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
+            
+            // ترتيب البيانات يدوياً في حال كان الاستعلام مفلتراً لتجنب طلب فهرس مركب
+            if (branchId && branchId !== 'all') {
+                data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            }
+
             setAllOrders(data);
             setIsLoading(false);
             
@@ -154,6 +157,7 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
                 if (workerId) updateData.lastSkippedWorkerId = workerId; 
             }
 
+            // نظام ترحيل الأرباح الذكي للرصيد الدائم عند التوصيل
             if (status === 'delivered' && currentOrder.status !== 'delivered') {
                 const itemsPrice = currentOrder.items.reduce((sum, item) => {
                     const price = item.selectedSize?.price || item.product.price || 0;
@@ -162,6 +166,7 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
                 const rate = currentOrder.restaurant?.commissionRate || 10;
                 const storeIncome = itemsPrice * (1 - rate / 100);
 
+                // تحديث الخزنة السحابية بشكل أتوميك
                 await updateDoc(doc(db, "restaurants", currentOrder.restaurant!.id), {
                     balanceAdjustment: increment(storeIncome)
                 });
@@ -172,6 +177,8 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
                         debtAdjustment: increment(currentOrder.total || 0)
                     });
                 }
+                // وسم الطلب بأنه تم ترحيله للخزنة لضمان عدم تكرار الحساب في المحفظة الهجينة
+                updateData.isVaulted = true;
             }
 
             await updateDoc(orderRef, updateData);
