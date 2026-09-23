@@ -27,23 +27,25 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
     const { totalIncome, pendingRequest } = useMemo(() => {
         if (!restaurant || !allOrders) return { totalIncome: 0, pendingRequest: null };
         
-        // حساب أرباح الوجبات الصافية من الطلبات غير المصفاة حالياً
+        // جرد الطلبات الموصلة والغير مصفاة الخاصة بهذا المتجر
         const unsettledOrders = allOrders.filter(o => 
             o.restaurant?.id === restaurant.id && 
             o.status === 'delivered' && 
-            !o.isPaid
+            o.isPaid === false
         );
 
         const ordersEarnings = unsettledOrders.reduce((acc, order) => {
-            const itemsPrice = order.items.reduce((sum, item) => {
-                const price = item.selectedSize?.price || item.product.price || 0;
-                return sum + (price * item.quantity);
+            const itemsTotal = order.items.reduce((sum, item) => {
+                const price = item.selectedSize?.price || item.product?.price || 0;
+                return sum + (price * (item.quantity || 1));
             }, 0);
+            
             const rate = restaurant.commissionRate || 10;
-            return acc + (itemsPrice * (1 - rate / 100));
+            const storeProfit = itemsTotal * (1 - rate / 100);
+            return acc + storeProfit;
         }, 0);
 
-        const finalBalance = ordersEarnings + (restaurant.balanceAdjustment || 0);
+        const finalBalance = Math.round(ordersEarnings + (restaurant.balanceAdjustment || 0));
         const pRequest = requests.find(r => r.targetId === restaurant.id && r.status === 'pending');
 
         return { 

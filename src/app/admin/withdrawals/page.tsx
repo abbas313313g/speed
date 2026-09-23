@@ -21,7 +21,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, writeBatch, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, writeBatch, doc, limit } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import type { WithdrawRequest } from '@/lib/types';
@@ -45,12 +45,13 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                 // 2. تصفير الرصيد السحابي للمتجر (التعديلات اليدوية)
                 batch.update(doc(db, "restaurants", req.targetId), { balanceAdjustment: 0 });
                 
-                // 3. وسم كافة الطلبات غير المصفاة حالياً كـ "مدفوعة" لكي تسقط من الحسبة
+                // 3. وسم كافة الطلبات الموصلة الحالية كـ "مدفوعة" لكي تسقط من الجرد القادم
                 const q = query(
                     collection(db, "orders"), 
                     where("restaurant.id", "==", req.targetId),
                     where("status", "==", "delivered"),
-                    where("isPaid", "==", false)
+                    where("isPaid", "==", false),
+                    limit(500)
                 );
                 const snap = await getDocs(q);
                 snap.docs.forEach(d => batch.update(d.ref, { isPaid: true }));
@@ -58,12 +59,13 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                 // 4. تصفير الرصيد السحابي للمندوب (التعديلات اليدوية)
                 batch.update(doc(db, "deliveryWorkers", req.targetId), { balanceAdjustment: 0 });
                 
-                // 5. وسم طلباته كمدفوعة
+                // 5. وسم طلباته كمدفوعة لكي تسقط من محفظته
                 const q = query(
                     collection(db, "orders"), 
                     where("deliveryWorkerId", "==", req.targetId),
                     where("status", "==", "delivered"),
-                    where("isFeePaid", "==", false)
+                    where("isFeePaid", "==", false),
+                    limit(500)
                 );
                 const snap = await getDocs(q);
                 snap.docs.forEach(d => batch.update(d.ref, { isFeePaid: true }));
@@ -72,6 +74,7 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
             await batch.commit();
             toast({ title: "تمت التسوية وتصفير المحفظة بنجاح ✅" });
         } catch (e) {
+            console.error("Settlement Error:", e);
             toast({ title: "فشل إكمال التسوية", variant: "destructive" });
         } finally {
             setIsProcessing(null);
@@ -108,11 +111,9 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                         <TableCell>
                             <div className="space-y-1.5 text-xs font-bold text-slate-600">
                                 {req.type === 'restaurant' ? (
-                                    <>
-                                        <div className="flex justify-between gap-4"><span>{formatCurrency(req.amount)}</span><span>إجمالي السحب:</span></div>
-                                    </>
+                                    <div className="flex justify-between gap-4"><span>{formatCurrency(req.amount)}</span><span>أرباح وجبات:</span></div>
                                 ) : (
-                                    <div className="flex justify-between gap-4"><span>{formatCurrency(req.amount)}</span><span>أجور التوصيل:</span></div>
+                                    <div className="flex justify-between gap-4"><span>{formatCurrency(req.amount)}</span><span>أجور توصيل:</span></div>
                                 )}
                             </div>
                         </TableCell>
@@ -171,7 +172,7 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
     );
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500 text-right">
+        <div className="space-y-8 animate-in fade-in duration-500 text-right h-full overflow-y-auto p-4">
             <header>
                 <h1 className="text-4xl font-black text-primary italic">طلبات تسوية الحسابات</h1>
                 <p className="text-muted-foreground font-bold">إدارة عمليات دفع المستحقات النقدية للمتاجر والمناديب.</p>

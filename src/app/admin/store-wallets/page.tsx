@@ -21,24 +21,28 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
     if (rLoading || oLoading) return [];
     
     return restaurants.filter(r => r.branchId === branchId).map(store => {
-        // حساب الأرباح من الطلبات غير المصفاة حالياً في النظام
+        // جرد الطلبات الموصلة التي لم تُدفع للمتجر بعد
         const unsettledOrders = allOrders.filter(o => 
             o.restaurant?.id === store.id && 
             o.status === 'delivered' && 
-            !o.isPaid
+            o.isPaid === false
         );
 
+        // حساب أرباح المتجر الصافية بدقة (سعر الوجبات الأصلي - عمولة الشركة)
         const ordersEarnings = unsettledOrders.reduce((acc, order) => {
-            const itemsPrice = order.items.reduce((sum, item) => {
-                const price = item.selectedSize?.price || item.product.price || 0;
-                return sum + (price * item.quantity);
+            const itemsTotal = order.items.reduce((sum, item) => {
+                // نستخدم السعر الأصلي للوجبة (أو الحجم) المحفوظ في الطلب
+                const price = item.selectedSize?.price || item.product?.price || 0;
+                return sum + (price * (item.quantity || 1));
             }, 0);
+            
             const rate = store.commissionRate || 10;
-            return acc + (itemsPrice * (1 - rate / 100));
+            const storeProfit = itemsTotal * (1 - rate / 100);
+            return acc + storeProfit;
         }, 0);
 
-        // الرصيد النهائي = أرباح الطلبات الحالية + التعديلات اليدوية المحفوظة
-        const finalBalance = ordersEarnings + (store.balanceAdjustment || 0);
+        // الرصيد النهائي = أرباح الطلبات الحقيقية + أي تسوية يدوية مخزنة
+        const finalBalance = Math.round(ordersEarnings + (store.balanceAdjustment || 0));
 
         return {
             store,
@@ -50,19 +54,25 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
 
   const handlePrintStoreReport = (storeData: any) => {
     const { store, balance } = storeData;
-    const unpaidOrders = allOrders.filter(o => o.restaurant?.id === store.id && o.status === 'delivered' && !o.isPaid);
+    const unpaidOrders = allOrders.filter(o => o.restaurant?.id === store.id && o.status === 'delivered' && o.isPaid === false);
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const ordersHtml = unpaidOrders.map((o: Order) => `
-        <tr style="border-bottom: 1px solid #eee;">
-            <td style="padding: 10px;">#${o.orderNumber}</td>
-            <td style="padding: 10px;">${new Date(o.date).toLocaleDateString('ar-IQ')}</td>
-            <td style="padding: 10px;">${formatCurrency(o.total)}</td>
-            <td style="padding: 10px; font-weight: bold;">${o.address.name}</td>
-        </tr>
-    `).join('');
+    const ordersHtml = unpaidOrders.map((o: Order) => {
+        const itemsTotal = o.items.reduce((sum, i) => sum + ((i.selectedSize?.price || i.product?.price || 0) * i.quantity), 0);
+        const rate = store.commissionRate || 10;
+        const profit = itemsTotal * (1 - rate / 100);
+
+        return `
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px;">#${o.orderNumber}</td>
+                <td style="padding: 10px;">${new Date(o.date).toLocaleDateString('ar-IQ')}</td>
+                <td style="padding: 10px;">${formatCurrency(itemsTotal)}</td>
+                <td style="padding: 10px; font-weight: bold; color: #00b358;">${formatCurrency(profit)}</td>
+            </tr>
+        `;
+    }).join('');
 
     const htmlContent = `
         <html dir="rtl">
@@ -75,7 +85,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                 .balance-box { background: #f0fff4; border: 2px solid #00b358; padding: 20px; border-radius: 15px; text-align: center; }
                 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
                 th { background: #f8f9fa; padding: 12px; text-align: right; border-bottom: 2px solid #eee; }
-                .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #eee; pt: 20px; }
+                .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 20px; }
             </style>
         </head>
         <body>
@@ -90,19 +100,19 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                     <p style="color: #666;">رقم المتجر: ${store.restaurantNumber}</p>
                 </div>
                 <div class="balance-box">
-                    <p style="margin: 0; font-size: 14px; font-weight: bold;">الرصيد الكلي المستحق</p>
+                    <p style="margin: 0; font-size: 14px; font-weight: bold;">صافي المستحقات الحالية</p>
                     <h1 style="margin: 5px 0; color: #00b358;">${formatCurrency(balance)}</h1>
                 </div>
             </div>
 
-            <h3>تفاصيل الطلبات غير المصفاة (${unpaidOrders.length} طلب)</h3>
+            <h3>تفاصيل أرباح الوجبات (${unpaidOrders.length} طلب غير مصفى)</h3>
             <table>
                 <thead>
                     <tr>
-                        <th>رقم الطلب</th>
+                        <th>رقم القائمة</th>
                         <th>التاريخ</th>
-                        <th>إجمالي الفاتورة</th>
-                        <th>اسم الزبون</th>
+                        <th>مجموع الوجبات</th>
+                        <th>صافي ربح المتجر</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -128,7 +138,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
     <div className="space-y-8 text-right animate-in fade-in duration-500 h-full overflow-y-auto p-4">
       <header>
         <h1 className="text-3xl font-black text-primary italic">محافظ المتاجر والتدقيق</h1>
-        <p className="text-muted-foreground font-bold italic text-xs">الأرصدة حقيقية وتُحسب من الطلبات الموصلة غير المصفاة.</p>
+        <p className="text-muted-foreground font-bold italic text-xs">الأرصدة تُحسب مباشرة من أرباح الوجبات في الطلبات غير المصفاة.</p>
       </header>
 
       <div className="grid gap-6">
@@ -193,7 +203,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
               <Landmark className="h-4 w-4"/>
           </div>
           <p className="text-[10px] font-bold text-slate-600 text-right leading-relaxed">
-              يتم احتساب الرصيد بجمع أرباح الطلبات الموصلة التي لم يتم دفع مستحقاتها للمتجر بعد. عند إجراء السحب، يتم تصفير العداد لتبدأ دورة جديدة.
+              يتم احتساب الرصيد بجمع أرباح الوجبات الأصلية للطلبات الموصلة التي لم يتم تصفيتها بعد. عمولة الشركة والخصومات يتم معالجتها بدقة لضمان حق المتجر كاملاً.
           </p>
       </div>
     </div>
