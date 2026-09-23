@@ -29,40 +29,6 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
         return () => unsub();
     }, []);
 
-    // محرك المزامنة الخلفي لضمان ترحيل كافة الطلبات المكتملة للخزنة ومنع ضياعها أو تكرارها
-    const vaultDeliveredOrders = useCallback(async (orders: Order[]) => {
-        const unvaulted = orders.filter(o => o.status === 'delivered' && !(o as any).isVaulted);
-        if (unvaulted.length === 0) return;
-
-        for (const order of unvaulted) {
-            try {
-                const batch = writeBatch(db);
-                const itemsPrice = order.items.reduce((sum, item) => {
-                    const price = item.selectedSize?.price || item.product.price || 0;
-                    return sum + (price * item.quantity);
-                }, 0);
-                const rate = order.restaurant?.commissionRate || 10;
-                const storeIncome = itemsPrice * (1 - rate / 100);
-
-                batch.update(doc(db, "restaurants", order.restaurant!.id), {
-                    balanceAdjustment: increment(storeIncome)
-                });
-
-                if (order.deliveryWorkerId) {
-                    batch.update(doc(db, "deliveryWorkers", order.deliveryWorkerId), {
-                        balanceAdjustment: increment(order.deliveryFee || 0),
-                        debtAdjustment: increment(order.total || 0)
-                    });
-                }
-
-                batch.update(doc(db, "orders", order.id), { isVaulted: true });
-                await batch.commit();
-            } catch (e) {
-                console.error("Vaulting Error:", e);
-            }
-        }
-    }, []);
-
     const cleanupTimedOutAssignments = useCallback(async (orders: Order[]) => {
         const now = Date.now();
         if (now - lastCleanupTimeRef.current < 10000) return;
@@ -156,7 +122,6 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
             if (!snapshot.metadata.fromCache) {
                 cleanupTimedOutAssignments(data);
                 autoAssignOrders(data);
-                vaultDeliveredOrders(data); // تشغيل محرك الترحيل الآمن
             }
         }, (error) => {
             console.error("Orders Sync Error:", error);
@@ -164,7 +129,7 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
         });
 
         return () => unsub();
-    }, [branchId, fetchLimit, refreshKey, autoAssignOrders, cleanupTimedOutAssignments, vaultDeliveredOrders]);
+    }, [branchId, fetchLimit, refreshKey, autoAssignOrders, cleanupTimedOutAssignments]);
     
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
@@ -173,8 +138,6 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
             if (!orderSnap.exists()) return false;
             const currentOrder = { id: orderSnap.id, ...orderSnap.data() } as Order;
             
-            if (status === 'delivered' && currentOrder.status === 'delivered') return true; 
-
             const updateData: any = { status };
             
             if (status === 'preparing' && workerId) {

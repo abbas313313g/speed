@@ -43,9 +43,13 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
     
     const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered');
     
-    // قراءة البيانات من الخزنة السحابية حصراً لضمان دقة الحساب المالي المباشر
-    const unpaidEarnings = w.balanceAdjustment || 0;
-    const moneyOwedToOffice = w.debtAdjustment || 0;
+    // حساب الأرباح الحقيقية من الطلبات غير المصفاة له برمجياً
+    const unpaidFeesOrders = myDeliveredOrders.filter(o => !o.isFeePaid);
+    const unpaidEarnings = unpaidFeesOrders.reduce((acc, o) => acc + (o.deliveryFee || 0), 0) + (w.balanceAdjustment || 0);
+
+    // حساب الكاش المطلوب منه للمكتب
+    const unpaidCashOrders = myDeliveredOrders.filter(o => !o.isOrderPaidToOffice);
+    const moneyOwedToOffice = unpaidCashOrders.reduce((acc, o) => acc + (o.total || 0), 0) + (w.debtAdjustment || 0);
     
     const isActuallyFrozen = moneyOwedToOffice >= 100000;
     const pRequest = requests.find(r => r.targetId === workerId && r.status === 'pending');

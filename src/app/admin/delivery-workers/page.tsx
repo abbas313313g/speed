@@ -41,16 +41,20 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
     return deliveryWorkers.filter(w => w.branchId === branchId).map(w => {
         const orders = allOrders.filter(o => o.deliveryWorkerId === w.id && o.status === 'delivered');
         
-        // الرصيد الحقيقي من الخزنة السحابية حصراً لمنع الزيادة
-        const deliveryEarnings = w.balanceAdjustment || 0;
-        const cashToOffice = w.debtAdjustment || 0;
+        // حساب أرباح المندوب (أجور التوصيل غير المدفوعة له)
+        const unpaidFeesOrders = orders.filter(o => !o.isFeePaid);
+        const deliveryEarnings = unpaidFeesOrders.reduce((acc, o) => acc + (o.deliveryFee || 0), 0) + (w.balanceAdjustment || 0);
+
+        // حساب ذمة المندوب للمكتب (الكاش الذي استلمه ولم يسلمه)
+        const unpaidCashOrders = orders.filter(o => !o.isOrderPaidToOffice);
+        const cashToOffice = unpaidCashOrders.reduce((acc, o) => acc + (o.total || 0), 0) + (w.debtAdjustment || 0);
 
         return {
             worker: w,
             deliveryEarnings,
             cashToOffice,
-            unpaidFeeIds: orders.filter(o => !o.isFeePaid).map(o => o.id),
-            unpaidCashIds: orders.filter(o => !o.isOrderPaidToOffice).map(o => o.id),
+            unpaidFeeIds: unpaidFeesOrders.map(o => o.id),
+            unpaidCashIds: unpaidCashOrders.map(o => o.id),
         };
     }).filter(w => w.deliveryEarnings > 0 || w.cashToOffice > 0);
   }, [deliveryWorkers, allOrders, branchId]);
@@ -58,8 +62,10 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
   const clearSettlement = async (workerId: string, ids: string[], field: 'isFeePaid' | 'isOrderPaidToOffice') => {
       try {
           const batch = writeBatch(db);
+          // وسم الطلبات كمدفوعة لكي تسقط من الحسبة فوراً
           ids.forEach(id => batch.update(doc(db, "orders", id), { [field]: true }));
           
+          // تصفير أي تعديلات يدوية قديمة عند تصفية الحساب بالكامل
           const adjField = field === 'isFeePaid' ? 'balanceAdjustment' : 'debtAdjustment';
           batch.update(doc(db, "deliveryWorkers", workerId), { [adjField]: 0 });
           
@@ -76,7 +82,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
     <div className="space-y-8 text-right">
       <header>
         <h1 className="text-4xl font-black text-primary">تصفية حسابات المناديب</h1>
-        <p className="text-muted-foreground font-bold italic">نظام جرد المحافظ الصافي والنهائي.</p>
+        <p className="text-muted-foreground font-bold italic">نظام جرد المحافظ الصافي والنهائي بناءً على الطلبات.</p>
       </header>
 
       {wallets.length === 0 ? (

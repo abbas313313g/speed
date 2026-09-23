@@ -42,10 +42,10 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
             batch.update(doc(db, "withdrawals", req.id), { status: 'completed' });
 
             if (req.type === 'restaurant') {
-                // 2. تصفية الرصيد السحابي للمتجر فوراً (تصفير الخزنة)
+                // 2. تصفير الرصيد السحابي للمتجر (التعديلات اليدوية)
                 batch.update(doc(db, "restaurants", req.targetId), { balanceAdjustment: 0 });
                 
-                // 3. وسم الطلبات السابقة كمدفوعة (اختياري للإحصاء)
+                // 3. وسم كافة الطلبات غير المصفاة حالياً كـ "مدفوعة" لكي تسقط من الحسبة
                 const q = query(
                     collection(db, "orders"), 
                     where("restaurant.id", "==", req.targetId),
@@ -55,7 +55,7 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                 const snap = await getDocs(q);
                 snap.docs.forEach(d => batch.update(d.ref, { isPaid: true }));
             } else {
-                // 4. تصفية الرصيد السحابي للمندوب (تصفير الخزنة)
+                // 4. تصفير الرصيد السحابي للمندوب (التعديلات اليدوية)
                 batch.update(doc(db, "deliveryWorkers", req.targetId), { balanceAdjustment: 0 });
                 
                 // 5. وسم طلباته كمدفوعة

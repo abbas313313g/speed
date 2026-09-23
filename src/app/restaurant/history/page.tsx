@@ -25,17 +25,32 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const { totalIncome, pendingRequest } = useMemo(() => {
-        if (!restaurant) return { totalIncome: 0, pendingRequest: null };
+        if (!restaurant || !allOrders) return { totalIncome: 0, pendingRequest: null };
         
-        // قراءة الرصيد من الخزنة السحابية المباشرة لضمان عدم وجود أرقام وهمية
-        const finalBalance = restaurant.balanceAdjustment || 0;
+        // حساب أرباح الوجبات الصافية من الطلبات غير المصفاة حالياً
+        const unsettledOrders = allOrders.filter(o => 
+            o.restaurant?.id === restaurant.id && 
+            o.status === 'delivered' && 
+            !o.isPaid
+        );
+
+        const ordersEarnings = unsettledOrders.reduce((acc, order) => {
+            const itemsPrice = order.items.reduce((sum, item) => {
+                const price = item.selectedSize?.price || item.product.price || 0;
+                return sum + (price * item.quantity);
+            }, 0);
+            const rate = restaurant.commissionRate || 10;
+            return acc + (itemsPrice * (1 - rate / 100));
+        }, 0);
+
+        const finalBalance = ordersEarnings + (restaurant.balanceAdjustment || 0);
         const pRequest = requests.find(r => r.targetId === restaurant.id && r.status === 'pending');
 
         return { 
             totalIncome: finalBalance, 
             pendingRequest: pRequest 
         };
-    }, [restaurant, requests]);
+    }, [restaurant, allOrders, requests]);
 
     const handleWithdraw = async () => {
         if (!restaurant || totalIncome < 5000) {
@@ -70,7 +85,7 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
                     <Button variant="outline" size="icon" onClick={onBack} className="rounded-xl border-2 shadow-sm"><ArrowRight className="h-5 w-5 text-primary"/></Button>
                     <div>
                         <h1 className="text-xl font-black text-slate-800">حساباتي المالية</h1>
-                        <p className="text-[10px] font-bold text-muted-foreground">أرباح الوجبات الصافية في الخزنة</p>
+                        <p className="text-[10px] font-bold text-muted-foreground">أرباح الوجبات الصافية بناءً على الطلبات</p>
                     </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={logout} className="text-destructive"><LogOut className="h-5 w-5"/></Button>

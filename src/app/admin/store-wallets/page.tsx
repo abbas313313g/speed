@@ -21,19 +21,29 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
     if (rLoading || oLoading) return [];
     
     return restaurants.filter(r => r.branchId === branchId).map(store => {
-        // المحفظة الصافية الحقيقية: تقرأ فقط من الرصيد السحابي لضمان عدم وجود زيادة وهمية
-        const finalBalance = store.balanceAdjustment || 0;
-
-        const unsettledCount = allOrders.filter(o => 
+        // حساب الأرباح من الطلبات غير المصفاة حالياً في النظام
+        const unsettledOrders = allOrders.filter(o => 
             o.restaurant?.id === store.id && 
             o.status === 'delivered' && 
             !o.isPaid
-        ).length;
+        );
+
+        const ordersEarnings = unsettledOrders.reduce((acc, order) => {
+            const itemsPrice = order.items.reduce((sum, item) => {
+                const price = item.selectedSize?.price || item.product.price || 0;
+                return sum + (price * item.quantity);
+            }, 0);
+            const rate = store.commissionRate || 10;
+            return acc + (itemsPrice * (1 - rate / 100));
+        }, 0);
+
+        // الرصيد النهائي = أرباح الطلبات الحالية + التعديلات اليدوية المحفوظة
+        const finalBalance = ordersEarnings + (store.balanceAdjustment || 0);
 
         return {
             store,
             balance: finalBalance,
-            unsettledOrdersCount: unsettledCount,
+            unsettledOrdersCount: unsettledOrders.length,
         };
     }).sort((a, b) => b.balance - a.balance);
   }, [restaurants, allOrders, branchId, rLoading, oLoading]);
@@ -118,7 +128,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
     <div className="space-y-8 text-right animate-in fade-in duration-500 h-full overflow-y-auto p-4">
       <header>
         <h1 className="text-3xl font-black text-primary italic">محافظ المتاجر والتدقيق</h1>
-        <p className="text-muted-foreground font-bold italic text-xs">الأرصدة حقيقية ومسحوبة من السيرفر مباشرة لضمان عدم الخطأ.</p>
+        <p className="text-muted-foreground font-bold italic text-xs">الأرصدة حقيقية وتُحسب من الطلبات الموصلة غير المصفاة.</p>
       </header>
 
       <div className="grid gap-6">
@@ -183,7 +193,7 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
               <Landmark className="h-4 w-4"/>
           </div>
           <p className="text-[10px] font-bold text-slate-600 text-right leading-relaxed">
-              المبالغ تظهر هنا بناءً على رصيد الخزنة الفعلي. عند إجراء السحب، يتم تصفير هذا الرصيد لبدء دورة مالية جديدة.
+              يتم احتساب الرصيد بجمع أرباح الطلبات الموصلة التي لم يتم دفع مستحقاتها للمتجر بعد. عند إجراء السحب، يتم تصفير العداد لتبدأ دورة جديدة.
           </p>
       </div>
     </div>
