@@ -27,7 +27,7 @@ export default function RestaurantHistoryPage({ onBack }: RestaurantHistoryPageP
     const { totalIncome, pendingRequest } = useMemo(() => {
         if (!restaurant || !allOrders) return { totalIncome: 0, pendingRequest: null };
         
-        // جرد الطلبات الموصلة والغير مصفاة الخاصة بهذا المتجر
+        // جرد الطلبات الموصلة والغير مصفاة الخاصة بهذا المتجر بدقة جراحية
         const unsettledOrders = allOrders.filter(o => 
             o.restaurant?.id === restaurant.id && 
             o.status === 'delivered' && 

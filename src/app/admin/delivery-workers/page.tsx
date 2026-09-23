@@ -32,7 +32,7 @@ interface WorkerWallet {
 
 export default function AdminDeliveryWorkersPage({ branchId }: { branchId: string }) {
   const { deliveryWorkers, isLoading: workersLoading } = useDeliveryWorkers(branchId);
-  const { allOrders, isLoading: ordersLoading } = useOrders(branchId);
+  const { allOrders, isLoading: ordersLoading } = useOrders(branchId, 1000);
   const { toast } = useToast();
 
   const wallets: WorkerWallet[] = useMemo(() => {
@@ -43,11 +43,11 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
         
         // حساب أرباح المندوب (أجور التوصيل غير المدفوعة له)
         const unpaidFeesOrders = orders.filter(o => !o.isFeePaid);
-        const deliveryEarnings = unpaidFeesOrders.reduce((acc, o) => acc + (o.deliveryFee || 0), 0) + (w.balanceAdjustment || 0);
+        const deliveryEarnings = Math.round(unpaidFeesOrders.reduce((acc, o) => acc + (o.deliveryFee || 0), 0) + (w.balanceAdjustment || 0));
 
         // حساب ذمة المندوب للمكتب (الكاش الذي استلمه ولم يسلمه)
         const unpaidCashOrders = orders.filter(o => !o.isOrderPaidToOffice);
-        const cashToOffice = unpaidCashOrders.reduce((acc, o) => acc + (o.total || 0), 0) + (w.debtAdjustment || 0);
+        const cashToOffice = Math.round(unpaidCashOrders.reduce((acc, o) => acc + (o.total || 0), 0) + (w.debtAdjustment || 0));
 
         return {
             worker: w,
@@ -65,7 +65,7 @@ export default function AdminDeliveryWorkersPage({ branchId }: { branchId: strin
           // وسم الطلبات كمدفوعة لكي تسقط من الحسبة فوراً
           ids.forEach(id => batch.update(doc(db, "orders", id), { [field]: true }));
           
-          // تصفير أي تعديلات يدوية قديمة عند تصفية الحساب بالكامل
+          // تصفير أي تعديلات يدوية قديمة عند تصفية الحساب بالكامل لضمان النظافة المالية
           const adjField = field === 'isFeePaid' ? 'balanceAdjustment' : 'debtAdjustment';
           batch.update(doc(db, "deliveryWorkers", workerId), { [adjField]: 0 });
           

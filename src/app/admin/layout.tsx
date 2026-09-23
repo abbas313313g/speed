@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminNav } from '@/components/AdminNav';
-import { Shield, KeyRound, PanelLeft, Loader2, Building2, Fingerprint, Lock } from 'lucide-react';
+import { Shield, KeyRound, PanelLeft, Loader2, Building2, Fingerprint, Lock, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -80,9 +80,6 @@ function AdminLayoutContent() {
         if (isAuthenticated) {
             setIsAuthenticated(false);
             localStorage.removeItem(`admin_auth_${branchParam}`);
-            if (!initialCheckRef.current) {
-                toast({ title: "تم سحب ترخيص هذا الجهاز", variant: "destructive" });
-            }
         }
         setRequestStatus(myAccess?.status === 'pending' ? 'sent' : 'none');
     } else {
@@ -92,7 +89,7 @@ function AdminLayoutContent() {
         }
     }
     initialCheckRef.current = false;
-  }, [accessList, branchParam, getDeviceId, isAuthenticated, toast, mounted, accessLoading]);
+  }, [accessList, branchParam, getDeviceId, isAuthenticated, mounted, accessLoading]);
 
   const handleLogin = async () => {
     if (pin === ADMIN_PIN) {
@@ -136,7 +133,7 @@ function AdminLayoutContent() {
       }
   }
 
-  // نظام التحميل المنعزل: يتم استدعاء المكون فقط عند الطلب لتوفير الكوتا والذاكرة
+  // نظام التحميل المنعزل الحقيقي: يتم استدعاء المكون فقط عند الحاجة لتوفير الكوتا والذاكرة
   const renderActivePage = () => {
       switch (activeTab) {
           case 0: return <AdminDashboard branchId={branchParam} />;
@@ -219,7 +216,12 @@ function AdminLayoutContent() {
           <Sheet>
             <SheetTrigger asChild><Button size="icon" variant="outline" className="sm:hidden"><PanelLeft className="h-5 w-5" /></Button></SheetTrigger>
             <SheetContent side="right" className="sm:max-w-xs p-0 overflow-hidden flex flex-col bg-background">
-               <SheetHeader className="p-4 border-b text-right shrink-0"><SheetTitle className="dark:text-white">لوحة التحكم - {currentBranch.name}</SheetTitle></SheetHeader>
+               <SheetHeader className="p-4 border-b text-right shrink-0">
+                   <div className="flex justify-between items-center flex-row-reverse">
+                       <SheetTitle className="dark:text-white">لوحة التحكم - {currentBranch.name}</SheetTitle>
+                       <SheetTrigger asChild><button className="p-2 text-muted-foreground"><X className="h-6 w-6"/></button></SheetTrigger>
+                   </div>
+               </SheetHeader>
                <div className="flex-1 overflow-hidden"><AdminNav isSheet={true} onTabChange={handleTabSelection} activeTab={activeTab} isBranch={branchParam !== 'main'} /></div>
             </SheetContent>
           </Sheet>
@@ -229,7 +231,9 @@ function AdminLayoutContent() {
           </div>
         </header>
         <main className="flex-1 relative overflow-hidden bg-muted/5">
-            {renderActivePage()}
+            <Suspense fallback={<div className="p-10 text-center animate-pulse">جاري تحميل الصفحة...</div>}>
+                {renderActivePage()}
+            </Suspense>
         </main>
       </div>
 

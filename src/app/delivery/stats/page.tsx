@@ -43,13 +43,13 @@ export default function DeliveryStatsPage({ onBack }: DeliveryStatsPageProps) {
     
     const myDeliveredOrders = allOrders.filter(o => o.deliveryWorkerId === workerId && o.status === 'delivered');
     
-    // حساب الأرباح الحقيقية من الطلبات غير المصفاة له برمجياً
+    // حساب الأرباح الحقيقية من الطلبات غير المصفاة له برمجياً (الجرد المباشر)
     const unpaidFeesOrders = myDeliveredOrders.filter(o => !o.isFeePaid);
-    const unpaidEarnings = unpaidFeesOrders.reduce((acc, o) => acc + (o.deliveryFee || 0), 0) + (w.balanceAdjustment || 0);
+    const unpaidEarnings = Math.round(unpaidFeesOrders.reduce((acc, o) => acc + (o.deliveryFee || 0), 0) + (w.balanceAdjustment || 0));
 
-    // حساب الكاش المطلوب منه للمكتب
+    // حساب الكاش المطلوب منه للمكتب (الطلبات التي لم يسلم كاشها بعد)
     const unpaidCashOrders = myDeliveredOrders.filter(o => !o.isOrderPaidToOffice);
-    const moneyOwedToOffice = unpaidCashOrders.reduce((acc, o) => acc + (o.total || 0), 0) + (w.debtAdjustment || 0);
+    const moneyOwedToOffice = Math.round(unpaidCashOrders.reduce((acc, o) => acc + (o.total || 0), 0) + (w.debtAdjustment || 0));
     
     const isActuallyFrozen = moneyOwedToOffice >= 100000;
     const pRequest = requests.find(r => r.targetId === workerId && r.status === 'pending');

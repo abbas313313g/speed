@@ -5,7 +5,7 @@ import { useWithdrawals } from '@/hooks/useWithdrawals';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Store, Banknote, Bike, UserCog, Landmark, Trash2, Loader2 } from 'lucide-react';
+import { CheckCircle2, Store, Banknote, Bike, UserCog, Landmark, Trash2, Loader2, XCircle } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,14 +38,14 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
         try {
             const batch = writeBatch(db);
             
-            // 1. تحديث حالة طلب السحب
+            // 1. تحديث حالة طلب السحب إلى مكتمل
             batch.update(doc(db, "withdrawals", req.id), { status: 'completed' });
 
             if (req.type === 'restaurant') {
-                // 2. تصفير الرصيد السحابي للمتجر (التعديلات اليدوية)
+                // 2. تصفير التعديلات اليدوية للمتجر نهائياً لضمان عدم تكرار الحساب
                 batch.update(doc(db, "restaurants", req.targetId), { balanceAdjustment: 0 });
                 
-                // 3. وسم كافة الطلبات الموصلة الحالية كـ "مدفوعة" لكي تسقط من الجرد القادم
+                // 3. وسم كافة الطلبات الموصلة الحالية كـ "مدفوعة" لكي تسقط من الجرد القادم فوراً
                 const q = query(
                     collection(db, "orders"), 
                     where("restaurant.id", "==", req.targetId),
@@ -56,7 +56,7 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                 const snap = await getDocs(q);
                 snap.docs.forEach(d => batch.update(d.ref, { isPaid: true }));
             } else {
-                // 4. تصفير الرصيد السحابي للمندوب (التعديلات اليدوية)
+                // 4. تصفير التعديلات اليدوية للمندوب
                 batch.update(doc(db, "deliveryWorkers", req.targetId), { balanceAdjustment: 0 });
                 
                 // 5. وسم طلباته كمدفوعة لكي تسقط من محفظته
@@ -80,6 +80,16 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
             setIsProcessing(null);
         }
     };
+
+    const handleRejectSettlement = async (id: string) => {
+        setIsProcessing(id);
+        try {
+            await updateRequestStatus(id, 'rejected');
+            toast({ title: "تم رفض طلب السحب." });
+        } catch (e) {} finally {
+            setIsProcessing(null);
+        }
+    }
 
     const storeRequests = requests.filter(r => r.type === 'restaurant');
     const workerRequests = requests.filter(r => r.type === 'delivery');
@@ -133,8 +143,8 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
                                             {isProcessing === req.id ? <Loader2 className="animate-spin h-5 w-5 ml-2"/> : <CheckCircle2 className="ml-2 h-5 w-5"/>}
                                             تأكيد التسليم
                                         </Button>
-                                        <Button size="lg" variant="ghost" className="text-destructive h-12 rounded-2xl font-bold px-4 border border-destructive/10" onClick={() => updateRequestStatus(req.id, 'rejected')} disabled={isProcessing === req.id}>
-                                            رفض
+                                        <Button size="lg" variant="ghost" className="text-destructive h-12 rounded-2xl font-bold px-4 border border-destructive/10" onClick={() => handleRejectSettlement(req.id)} disabled={isProcessing === req.id}>
+                                            <XCircle className="ml-1 h-4 w-4"/> رفض
                                         </Button>
                                     </>
                                 ) : (
