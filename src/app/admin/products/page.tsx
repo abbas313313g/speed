@@ -166,7 +166,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
         if (isEditing && currentProduct.id) {
             await updateProduct(currentProduct as any);
         } else {
-            await addProduct(currentProduct as any);
+            await addProduct(currentP as any);
         }
         setOpen(false);
     } catch (error) {} finally {
@@ -234,8 +234,8 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
   }
 
   return (
-    <div className="h-full flex flex-col p-4 space-y-8 animate-in slide-in-from-left-4 duration-500 text-right overflow-hidden">
-      <header className="flex justify-between items-start shrink-0">
+    <div className="h-full flex flex-col p-0 animate-in slide-in-from-left-4 duration-500 text-right overflow-hidden">
+      <header className="flex justify-between items-start shrink-0 p-4">
         <div className="flex items-center gap-4">
             <Button variant="outline" size="icon" onClick={() => { setSelectedStoreId(null); setSearchTerm(''); }} className="rounded-xl h-12 w-12 border-2"><ArrowRight className="h-6 w-6"/></Button>
             <div>
@@ -271,19 +271,21 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
         </div>
       </header>
 
-      <div className="bg-white p-4 rounded-2xl border shadow-sm flex items-center gap-4 shrink-0">
-          <div className="relative flex-1">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="ابحث حقيقياً من السيرفر ⚡..." 
-                value={searchTerm} 
-                onChange={(e) => setSearchTerm(e.target.value)} 
-                className="pr-10 h-12 rounded-xl border-none bg-muted/30"
-              />
+      <div className="px-4 pb-4">
+          <div className="bg-white p-4 rounded-2xl border shadow-sm flex items-center gap-4 shrink-0">
+              <div className="relative flex-1">
+                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="ابحث حقيقياً من السيرفر ⚡..." 
+                    value={searchTerm} 
+                    onChange={(e) => setSearchTerm(e.target.value)} 
+                    className="pr-10 h-12 rounded-xl border-none bg-muted/30"
+                  />
+              </div>
+              <Badge className="h-12 px-6 rounded-xl font-black text-lg bg-primary/10 text-primary border-none">
+                  {productsLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : `${products.length} وجبة`}
+              </Badge>
           </div>
-          <Badge className="h-12 px-6 rounded-xl font-black text-lg bg-primary/10 text-primary border-none">
-              {productsLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : `${products.length} وجبة`}
-          </Badge>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -413,12 +415,12 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
             </DialogContent>
       </Dialog>
 
-        <div className="bg-white rounded-[2rem] border-none shadow-xl overflow-hidden flex-1 min-h-0">
+        <div className="bg-white rounded-2xl border-none shadow-xl overflow-hidden flex-1 min-h-0 mx-4 mb-4">
           <ScrollArea className="h-full">
             <Table>
                 <TableHeader className="bg-muted/50 h-14 sticky top-0 z-10">
                 <TableRow>
-                    <TableHead className="w-[50px]">
+                    <TableHead className="w-[50px] text-center">
                         <Checkbox 
                             checked={selectedProductIds.length === products.length && products.length > 0}
                             onCheckedChange={toggleSelectAll}
@@ -435,7 +437,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                     <TableRow><TableCell colSpan={5} className="py-20 text-center"><div className="flex flex-col items-center gap-2"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-40"/><p className="font-bold text-muted-foreground animate-pulse">جاري جلب قائمة الوجبات...</p></div></TableCell></TableRow>
                 ) : products.length > 0 ? products.map((p, index) => (
                     <TableRow key={p.id || `prod-${index}`} className={cn("hover:bg-muted/20 transition-colors h-16", !(p.isActive ?? true) && "opacity-40 grayscale")}>
-                    <TableCell>
+                    <TableCell className="text-center">
                         <Checkbox 
                             checked={selectedProductIds.includes(p.id)}
                             onCheckedChange={() => toggleSelectProduct(p.id)}
@@ -460,7 +462,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                         <Badge variant={p.stock <= 5 ? "destructive" : "outline"} className="font-bold">{p.stock}</Badge>}
                     </TableCell>
                     <TableCell className="text-center">
-                        <div className="flex justify-center gap-2">
+                        <div className="flex justify-center gap-1">
                             <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-2" onClick={() => handleOpenDialog(p)}><Edit className="h-4 w-4 text-primary"/></Button>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-destructive"><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger>

@@ -20,7 +20,7 @@ export default function RestaurantProductsPage() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [activeSection, setActiveSection] = useState('all');
-  const [currentLimit, setCurrentLimit] = useState(12); // رفع الحد المبدئي لضمان امتلاء الشاشة
+  const [currentLimit, setCurrentLimit] = useState(12);
 
   if (!context) return null;
   const { selectedRestaurantId, setActiveTab } = context;
@@ -51,7 +51,7 @@ export default function RestaurantProductsPage() {
           setCurrentLimit(prev => prev + 12);
         }
       },
-      { threshold: 0.1, rootMargin: '200px' } // بدء التحميل قبل الوصول للنهاية بـ 200 بكسل
+      { threshold: 0.1, rootMargin: '200px' }
     );
 
     if (observerTarget.current) {
@@ -84,8 +84,8 @@ export default function RestaurantProductsPage() {
   }
 
   return (
-    <div className="p-4 space-y-6 bg-background h-full overflow-y-auto pb-40 text-right animate-in fade-in duration-500">
-       <header className="flex items-center gap-4 sticky top-0 bg-background/95 backdrop-blur-md z-20 py-2">
+    <div className="p-4 space-y-6 bg-background h-full overflow-y-auto pb-40 text-right animate-in fade-in duration-500 scroll-smooth">
+       <header className="flex items-center gap-4 sticky top-0 bg-background/95 backdrop-blur-md z-30 py-2">
             <button onClick={() => setActiveTab(1)} className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all shadow-sm">
                 <ArrowRight className="h-6 w-6"/>
             </button>
@@ -97,14 +97,14 @@ export default function RestaurantProductsPage() {
             <div className="relative h-20 w-20 flex-shrink-0">
               <Image src={restaurant.image || 'https://placehold.co/100x100.png'} alt={restaurant.name} fill className="object-cover rounded-2xl" unoptimized={true} />
             </div>
-            <div className="space-y-1 flex-grow">
+            <div className="space-y-1 flex-grow text-right">
                 <Badge variant={restaurant.isStoreOpen ? 'secondary' : 'destructive'} className={cn("rounded-xl text-[10px] font-black", restaurant.isStoreOpen && "bg-green-100 text-green-800")}>
                   {restaurant.isStoreOpen ? 'مفتوح الآن' : 'مغلق حاليًا'}
                 </Badge>
                 {restaurant.openTime && (
-                    <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground">
-                        <Clock className="h-3 w-3 text-primary"/>
+                    <div className="flex items-center gap-1 justify-end text-[10px] font-bold text-muted-foreground">
                         <span>{restaurant.openTime} - {restaurant.closeTime}</span>
+                        <Clock className="h-3 w-3 text-primary"/>
                     </div>
                 )}
             </div>
@@ -113,10 +113,10 @@ export default function RestaurantProductsPage() {
 
       <div className="space-y-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input 
                 placeholder={`ابحث في ${restaurant.name} (من السيرفر ⚡)...`}
-                className="pl-10 h-12 rounded-2xl border-2 font-bold shadow-sm bg-white dark:bg-slate-950"
+                className="pr-10 h-12 rounded-2xl border-2 font-bold shadow-sm bg-white dark:bg-slate-950"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -145,13 +145,13 @@ export default function RestaurantProductsPage() {
              <>
                 <div className="grid grid-cols-2 gap-4">
                     {restaurantProducts.map((product) => (
-                        <div key={product.id} className="animate-in fade-in slide-in-from-bottom-2">
+                        <div key={product.id} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <ProductCard product={product} />
                         </div>
                     ))}
                 </div>
                 
-                <div ref={observerTarget} className="h-40 flex items-center justify-center w-full mt-4">
+                <div ref={observerTarget} className="h-40 flex flex-col items-center justify-center w-full mt-4">
                     {productsLoading ? (
                          <div className="flex flex-col items-center gap-2">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />

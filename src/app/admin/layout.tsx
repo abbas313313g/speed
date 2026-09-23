@@ -133,7 +133,6 @@ function AdminLayoutContent() {
       }
   }
 
-  // نظام التحميل المنعزل الحقيقي: يتم استدعاء المكون فقط عند الحاجة لتوفير الكوتا والذاكرة
   const renderActivePage = () => {
       switch (activeTab) {
           case 0: return <AdminDashboard branchId={branchParam} />;
@@ -207,22 +206,22 @@ function AdminLayoutContent() {
   }
   
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden" dir="rtl">
+    <div className="flex h-[100dvh] w-full bg-background overflow-hidden" dir="rtl">
       <aside className="sticky inset-y-0 right-0 z-50 hidden w-16 flex-col border-l bg-card sm:flex shadow-xl shrink-0 overflow-hidden">
          <AdminNav onTabChange={handleTabSelection} activeTab={activeTab} isBranch={branchParam !== 'main'} />
       </aside>
-      <div className="flex flex-1 flex-col relative overflow-hidden">
-         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-4 border-b bg-background dark:bg-slate-900 px-4 sm:h-16 sm:px-6">
+      <div className="flex flex-1 flex-col relative overflow-hidden h-full">
+         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-4 border-b bg-background/95 backdrop-blur-md px-4 sm:h-16 sm:px-6">
           <Sheet>
             <SheetTrigger asChild><Button size="icon" variant="outline" className="sm:hidden"><PanelLeft className="h-5 w-5" /></Button></SheetTrigger>
             <SheetContent side="right" className="sm:max-w-xs p-0 overflow-hidden flex flex-col bg-background">
                <SheetHeader className="p-4 border-b text-right shrink-0">
                    <div className="flex justify-between items-center flex-row-reverse">
-                       <SheetTitle className="dark:text-white">لوحة التحكم - {currentBranch.name}</SheetTitle>
+                       <SheetTitle className="dark:text-white font-black">لوحة التحكم - {currentBranch.name}</SheetTitle>
                        <SheetTrigger asChild><button className="p-2 text-muted-foreground"><X className="h-6 w-6"/></button></SheetTrigger>
                    </div>
                </SheetHeader>
-               <div className="flex-1 overflow-hidden"><AdminNav isSheet={true} onTabChange={handleTabSelection} activeTab={activeTab} isBranch={branchParam !== 'main'} /></div>
+               <div className="flex-1 overflow-y-auto"><AdminNav isSheet={true} onTabChange={handleTabSelection} activeTab={activeTab} isBranch={branchParam !== 'main'} /></div>
             </SheetContent>
           </Sheet>
           <div className="flex items-center gap-2">
@@ -230,8 +229,8 @@ function AdminLayoutContent() {
             <div className="text-xl font-black text-primary truncate max-w-[200px]">{currentBranch.name}</div>
           </div>
         </header>
-        <main className="flex-1 relative overflow-hidden bg-muted/5">
-            <Suspense fallback={<div className="p-10 text-center animate-pulse">جاري تحميل الصفحة...</div>}>
+        <main className="flex-1 relative overflow-y-auto bg-muted/5 p-4 sm:p-6 h-full w-full">
+            <Suspense fallback={<div className="p-10 text-center animate-pulse font-black text-primary">جاري تحميل الصفحة...</div>}>
                 {renderActivePage()}
             </Suspense>
         </main>
