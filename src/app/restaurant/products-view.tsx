@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { ProductSize } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const EMPTY_P = { 
     id: '', name: '', description: '', price: 0, image: '', categoryId: '', 
@@ -110,8 +111,8 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
     );
 
     return (
-        <div className="flex flex-col min-h-full bg-background pb-40 text-right">
-            <header className="p-4 bg-white border-b shadow-sm flex items-center gap-4 sticky top-0 z-50">
+        <div className="flex flex-col h-full bg-background text-right overflow-hidden">
+            <header className="p-4 bg-white border-b shadow-sm flex items-center gap-4 shrink-0">
                 <Button variant="outline" size="icon" onClick={onBack} className="rounded-xl h-10 w-10"><ArrowRight className="h-5 w-5"/></Button>
                 <div className="text-right">
                     <h1 className="text-xl font-black text-primary leading-none">منيو المتجر</h1>
@@ -120,8 +121,8 @@ export default function RestaurantProductsPage({ onBack }: { onBack: () => void 
                 <Button onClick={() => { setIsEditing(false); setCurrentP({...EMPTY_P}); setIsAdding(true); }} className="mr-auto rounded-xl h-10 px-4 font-black">إضافة وجبة</Button>
             </header>
 
-            <main className="p-4 space-y-6">
-                <div className="relative">
+            <main className="flex-1 overflow-y-auto p-4 pb-40 space-y-6">
+                <div className="relative shrink-0">
                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input placeholder="بحث في المنيو..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} className="pr-10 h-11 rounded-xl bg-white border-2" />
                 </div>

@@ -20,12 +20,11 @@ export default function RestaurantProductsPage() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [activeSection, setActiveSection] = useState('all');
-  const [currentLimit, setCurrentLimit] = useState(8); // التحميل المبدئي 8 منتجات
+  const [currentLimit, setCurrentLimit] = useState(12); // رفع الحد المبدئي لضمان امتلاء الشاشة
 
   if (!context) return null;
   const { selectedRestaurantId, setActiveTab } = context;
 
-  // جلب البيانات مع البحث السحابي المباشر والحد المختار
   const { products, isLoading: productsLoading, hasMore } = useProducts(undefined, selectedRestaurantId || undefined, currentLimit, undefined, searchTerm);
 
   const restaurant = useMemo(() => restaurants.find(r => r.id === selectedRestaurantId), [selectedRestaurantId, restaurants]);
@@ -41,16 +40,18 @@ export default function RestaurantProductsPage() {
   
   const isWaitingForData = !selectedRestaurantId || restaurantsLoading || (products.length === 0 && productsLoading && !searchTerm);
 
-  const observerTarget = useRef(null);
+  const observerTarget = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!hasMore || productsLoading) return;
+
     const observer = new IntersectionObserver(
       entries => {
-        if (entries[0].isIntersecting && hasMore && !productsLoading) {
-          setCurrentLimit(prev => prev + 8); // تحميل 8 وجبات إضافية عند الوصول للنهاية
+        if (entries[0].isIntersecting) {
+          setCurrentLimit(prev => prev + 12);
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1, rootMargin: '200px' } // بدء التحميل قبل الوصول للنهاية بـ 200 بكسل
     );
 
     if (observerTarget.current) {
@@ -77,14 +78,14 @@ export default function RestaurantProductsPage() {
       return (
           <div className="flex flex-col items-center justify-center h-full p-10 text-center">
               <p className="font-black text-muted-foreground">عذراً، لم نجد المتجر.</p>
-              <Button onClick={() => setActiveTab(1)} className="mt-4 rounded-xl">العودة للمتاجر</Button>
+              <button onClick={() => setActiveTab(1)} className="mt-4 px-6 py-3 bg-primary text-white rounded-2xl font-black">العودة للمتاجر</button>
           </div>
       );
   }
 
   return (
-    <div className="p-4 space-y-6 bg-background h-full overflow-y-auto pb-32 text-right animate-in fade-in duration-500">
-       <header className="flex items-center gap-4">
+    <div className="p-4 space-y-6 bg-background h-full overflow-y-auto pb-40 text-right animate-in fade-in duration-500">
+       <header className="flex items-center gap-4 sticky top-0 bg-background/95 backdrop-blur-md z-20 py-2">
             <button onClick={() => setActiveTab(1)} className="p-3 bg-secondary rounded-2xl text-primary active:scale-75 transition-all shadow-sm">
                 <ArrowRight className="h-6 w-6"/>
             </button>
@@ -150,7 +151,7 @@ export default function RestaurantProductsPage() {
                     ))}
                 </div>
                 
-                <div ref={observerTarget} className="h-24 flex items-center justify-center w-full mt-4">
+                <div ref={observerTarget} className="h-40 flex items-center justify-center w-full mt-4">
                     {productsLoading ? (
                          <div className="flex flex-col items-center gap-2">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />

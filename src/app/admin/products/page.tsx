@@ -53,6 +53,7 @@ import { useCategories } from '@/hooks/useCategories';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const EMPTY_PRODUCT: Omit<Product, 'id'> & {image: string} = {
   name: '',
@@ -85,7 +86,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
       selectedStoreId || '', 
       500, 
       undefined,
-      searchTerm, // تمرير كلمة البحث للمحرك السحابي الحقيقي
+      searchTerm,
       true 
   );
 
@@ -199,8 +200,8 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
 
   if (!selectedStoreId) {
       return (
-          <div className="space-y-8 animate-in fade-in duration-500">
-              <header>
+          <div className="h-full flex flex-col p-4 space-y-8 animate-in fade-in duration-500 overflow-y-auto">
+              <header className="shrink-0">
                   <h1 className="text-4xl font-black text-primary italic">إدارة المنتجات</h1>
                   <p className="text-muted-foreground font-bold mt-1">اختر متجراً لمشاهدة وتعديل قائمة وجباته.</p>
               </header>
@@ -233,8 +234,8 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
   }
 
   return (
-    <div className="space-y-8 animate-in slide-in-from-left-4 duration-500 text-right">
-      <header className="flex justify-between items-start">
+    <div className="h-full flex flex-col p-4 space-y-8 animate-in slide-in-from-left-4 duration-500 text-right overflow-hidden">
+      <header className="flex justify-between items-start shrink-0">
         <div className="flex items-center gap-4">
             <Button variant="outline" size="icon" onClick={() => { setSelectedStoreId(null); setSearchTerm(''); }} className="rounded-xl h-12 w-12 border-2"><ArrowRight className="h-6 w-6"/></Button>
             <div>
@@ -270,7 +271,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
         </div>
       </header>
 
-      <div className="bg-white p-4 rounded-2xl border shadow-sm flex items-center gap-4">
+      <div className="bg-white p-4 rounded-2xl border shadow-sm flex items-center gap-4 shrink-0">
           <div className="relative flex-1">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
@@ -288,7 +289,7 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
       <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-[2.5rem]">
                 <DialogHeader className="p-4 border-b">
-                    <DialogTitle className="text-2xl font-black">{isEditing ? 'تعديل بيانات الوجبة' : 'إنشاء وجبة جديدة'}</DialogTitle>
+                    <DialogTitle className="text-2xl font-black">{"اسم الوجبة" in currentProduct && isEditing ? 'تعديل بيانات الوجبة' : 'إنشاء وجبة جديدة'}</DialogTitle>
                 </DialogHeader>
                 
                 <div className="space-y-6 p-4">
@@ -405,76 +406,78 @@ export default function AdminProductsPage({ branchId }: { branchId: string }) {
                 </div>
 
                 <DialogFooter className="p-4 bg-slate-50 border-t sticky bottom-0">
-                    <Button onClick={handleSaveProduct} disabled={isSaving || isCompressing} className="w-full h-14 rounded-2xl text-xl font-black shadow-2xl">
+                    <Button onClick={handleSaveProduct} disabled={isSaving || isCompressing} className="w-full h-14 rounded-2xl text-xl font-black shadow-xl">
                         {isSaving ? <Loader2 className="animate-spin h-6 w-6"/> : (isEditing ? "حفظ التعديلات" : "نشر الوجبة الآن")}
                     </Button>
                 </DialogFooter>
             </DialogContent>
       </Dialog>
 
-        <div className="bg-white rounded-[2rem] border-none shadow-xl overflow-hidden">
-          <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow>
-                <TableHead className="w-[50px]">
-                    <Checkbox 
-                        checked={selectedProductIds.length === products.length && products.length > 0}
-                        onCheckedChange={toggleSelectAll}
-                    />
-                </TableHead>
-                <TableHead className="font-black text-right">الوجبة</TableHead>
-                <TableHead className="font-black text-right">السعر</TableHead>
-                <TableHead className="font-black text-right">المخزن</TableHead>
-                <TableHead className="font-black text-center">إجراء</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {productsLoading ? (
-                  <TableRow><TableCell colSpan={5} className="py-20 text-center flex flex-col items-center gap-2"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-40"/><p className="font-bold text-muted-foreground animate-pulse">جاري جلب قائمة الوجبات...</p></TableCell></TableRow>
-              ) : products.length > 0 ? products.map((p, index) => (
-                <TableRow key={p.id || `prod-${index}`} className={cn("hover:bg-muted/20 transition-colors", !(p.isActive ?? true) && "opacity-40 grayscale")}>
-                  <TableCell>
-                      <Checkbox 
-                        checked={selectedProductIds.includes(p.id)}
-                        onCheckedChange={() => toggleSelectProduct(p.id)}
-                      />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                        <div className="relative h-12 w-12 shrink-0"><Image src={p.image} fill className="rounded-xl object-cover border shadow-sm" alt="" unoptimized={true} /></div>
-                        <div className="text-right">
-                            <div className="font-black text-sm">{p.name}</div>
-                            <div className="text-[9px] font-bold text-muted-foreground">{p.storeSectionId || 'بدون قسم'}</div>
-                            {p.status === 'pending' && <Badge className="bg-orange-500 text-[8px] h-4 py-0">قيد المراجعة</Badge>}
-                        </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-black text-primary">
-                    {p.sizes && p.sizes.length > 0 ? "متعدد" : formatCurrency(p.price)}
-                  </TableCell>
-                  <TableCell>
-                      {p.isUnlimitedStock ? <Badge variant="secondary" className="text-[10px]">مفتوح ∞</Badge> : 
-                       (p.sizes && p.sizes.length > 0) ? <Badge variant="outline" className="text-[9px] font-bold border-orange-200 text-orange-600">حسب الأنواع</Badge> :
-                       <Badge variant={p.stock <= 5 ? "destructive" : "outline"} className="font-bold">{p.stock}</Badge>}
-                  </TableCell>
-                  <TableCell className="text-center">
-                      <div className="flex justify-center gap-2">
-                          <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-2" onClick={() => handleOpenDialog(p)}><Edit className="h-4 w-4 text-primary"/></Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-destructive"><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger>
-                            <AlertDialogContent className="rounded-[2.5rem]">
-                                <AlertDialogHeader><AlertDialogTitle className="text-right font-black">حذف الوجبة؟</AlertDialogTitle><AlertDialogDescription className="text-right">هل أنت متأكد من حذف وجبة "{p.name}"؟</AlertDialogDescription></AlertDialogHeader>
-                                <AlertDialogFooter className="flex-row gap-2"><AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel><AlertDialogAction onClick={()=>deleteProduct(p.id)} className="flex-1 bg-destructive rounded-xl">حذف نهائي</AlertDialogAction></AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                      </div>
-                  </TableCell>
+        <div className="bg-white rounded-[2rem] border-none shadow-xl overflow-hidden flex-1 min-h-0">
+          <ScrollArea className="h-full">
+            <Table>
+                <TableHeader className="bg-muted/50 h-14 sticky top-0 z-10">
+                <TableRow>
+                    <TableHead className="w-[50px]">
+                        <Checkbox 
+                            checked={selectedProductIds.length === products.length && products.length > 0}
+                            onCheckedChange={toggleSelectAll}
+                        />
+                    </TableHead>
+                    <TableHead className="font-black text-right">الوجبة</TableHead>
+                    <TableHead className="font-black text-right">السعر</TableHead>
+                    <TableHead className="font-black text-right">المخزن</TableHead>
+                    <TableHead className="font-black text-center">إجراء</TableHead>
                 </TableRow>
-              )) : (
-                  <TableRow><TableCell colSpan={5} className="py-20 text-center text-muted-foreground italic font-bold">لا يوجد وجبات مضافة لهذا المتجر.</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                {productsLoading ? (
+                    <TableRow><TableCell colSpan={5} className="py-20 text-center"><div className="flex flex-col items-center gap-2"><Loader2 className="h-8 w-8 animate-spin text-primary opacity-40"/><p className="font-bold text-muted-foreground animate-pulse">جاري جلب قائمة الوجبات...</p></div></TableCell></TableRow>
+                ) : products.length > 0 ? products.map((p, index) => (
+                    <TableRow key={p.id || `prod-${index}`} className={cn("hover:bg-muted/20 transition-colors h-16", !(p.isActive ?? true) && "opacity-40 grayscale")}>
+                    <TableCell>
+                        <Checkbox 
+                            checked={selectedProductIds.includes(p.id)}
+                            onCheckedChange={() => toggleSelectProduct(p.id)}
+                        />
+                    </TableCell>
+                    <TableCell>
+                        <div className="flex items-center gap-3">
+                            <div className="relative h-12 w-12 shrink-0"><Image src={p.image} fill className="rounded-xl object-cover border shadow-sm" alt="" unoptimized={true} /></div>
+                            <div className="text-right">
+                                <div className="font-black text-sm">{p.name}</div>
+                                <div className="text-[9px] font-bold text-muted-foreground">{p.storeSectionId || 'بدون قسم'}</div>
+                                {p.status === 'pending' && <Badge className="bg-orange-500 text-[8px] h-4 py-0">قيد المراجعة</Badge>}
+                            </div>
+                        </div>
+                    </TableCell>
+                    <TableCell className="font-black text-primary">
+                        {p.sizes && p.sizes.length > 0 ? "متعدد" : formatCurrency(p.price)}
+                    </TableCell>
+                    <TableCell>
+                        {p.isUnlimitedStock ? <Badge variant="secondary" className="text-[10px]">مفتوح ∞</Badge> : 
+                        (p.sizes && p.sizes.length > 0) ? <Badge variant="outline" className="text-[9px] font-bold border-orange-200 text-orange-600">حسب الأنواع</Badge> :
+                        <Badge variant={p.stock <= 5 ? "destructive" : "outline"} className="font-bold">{p.stock}</Badge>}
+                    </TableCell>
+                    <TableCell className="text-center">
+                        <div className="flex justify-center gap-2">
+                            <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-2" onClick={() => handleOpenDialog(p)}><Edit className="h-4 w-4 text-primary"/></Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-destructive"><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger>
+                                <AlertDialogContent className="rounded-[2.5rem]">
+                                    <AlertDialogHeader><AlertDialogTitle className="text-right font-black">حذف الوجبة؟</AlertDialogTitle><AlertDialogDescription className="text-right">هل أنت متأكد من حذف وجبة "{p.name}"؟</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogFooter className="flex-row gap-2"><AlertDialogCancel className="flex-1 rounded-xl">تراجع</AlertDialogCancel><AlertDialogAction onClick={()=>deleteProduct(p.id)} className="flex-1 bg-destructive rounded-xl">حذف نهائي</AlertDialogAction></AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
+                    </TableCell>
+                    </TableRow>
+                )) : (
+                    <TableRow><TableCell colSpan={5} className="py-20 text-center text-muted-foreground italic font-bold">لا يوجد وجبات مضافة لهذا المتجر.</TableCell></TableRow>
+                )}
+                </TableBody>
+            </Table>
+          </ScrollArea>
         </div>
     </div>
   );
