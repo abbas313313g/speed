@@ -3,21 +3,33 @@
 
 import { useMemo } from 'react';
 import { useRestaurants } from '@/hooks/useRestaurants';
+import { useOrders } from '@/hooks/useOrders';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCurrency, cn } from '@/lib/utils';
 import Image from 'next/image';
-import { Landmark, Loader2, Store, Printer } from 'lucide-react';
+import { Landmark, Loader2, Store, Printer, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function AdminStoreWalletsPage({ branchId }: { branchId: string }) {
   const { restaurants, isLoading: rLoading } = useRestaurants(branchId);
+  const { allOrders } = useOrders(branchId);
 
   const sortedStores = useMemo(() => {
-    return [...restaurants].filter(r => r.branchId === branchId).sort((a, b) => (b.walletBalance || 0) - (a.walletBalance || 0));
-  }, [restaurants, branchId]);
+    return restaurants.filter(r => r.branchId === branchId).map(store => {
+        const unpaidOrders = allOrders.filter(o => 
+            o.restaurant?.id === store.id && 
+            o.status === 'delivered' && 
+            !o.isPaid
+        );
+        return {
+            ...store,
+            unpaidOrderCount: unpaidOrders.length
+        };
+    }).sort((a, b) => (b.walletBalance || 0) - (a.walletBalance || 0));
+  }, [restaurants, allOrders, branchId]);
 
   const handlePrintStoreReport = (store: any) => {
     const printWindow = window.open('', '_blank');
@@ -44,6 +56,8 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                 <h2 style="margin: 0;">المتجر: ${store.name}</h2>
                 <p>رقم المتجر: ${store.restaurantNumber}</p>
                 <p>الفرع: ${store.branchId === 'main' ? 'المركز الرئيسي' : store.branchId}</p>
+                <p>عدد الطلبات في هذا الكشف: ${store.unpaidOrderCount}</p>
+                <p>آخر تصفية حساب: ${store.lastSettleAt ? new Date(store.lastSettleAt).toLocaleString('ar-IQ') : 'لا يوجد تصفية سابقة'}</p>
             </div>
 
             <div class="balance-box">
@@ -88,8 +102,8 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                   <Table>
                       <TableHeader className="bg-muted/50 h-14">
                           <TableRow>
-                              <TableHead className="font-black text-right">المتجر</TableHead>
-                              <TableHead className="font-black text-left">الرصيد السحابي</TableHead>
+                              <TableHead className="font-black text-right">المتجر والتصفية</TableHead>
+                              <TableHead className="font-black text-left">الرصيد والطلبات</TableHead>
                               <TableHead className="font-black text-center">إجراء</TableHead>
                           </TableRow>
                       </TableHeader>
@@ -101,6 +115,12 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                                           <div className="text-right">
                                               <p className="font-black text-slate-800 text-xs">{store.name}</p>
                                               <p className="text-[8px] text-muted-foreground font-bold">{store.restaurantNumber}</p>
+                                              {store.lastSettleAt && (
+                                                  <div className="flex items-center gap-1 justify-end text-[7px] font-bold text-green-600 mt-1">
+                                                      <span>آخر تصفية: {new Date(store.lastSettleAt).toLocaleString('ar-IQ')}</span>
+                                                      <Clock className="h-2 w-2"/>
+                                                  </div>
+                                              )}
                                           </div>
                                           <div className="relative h-9 w-9 shrink-0">
                                               <Image src={store.image} fill className="rounded-full object-cover border-2 border-primary/10" alt="" unoptimized={true}/>
@@ -108,10 +128,11 @@ export default function AdminStoreWalletsPage({ branchId }: { branchId: string }
                                       </div>
                                   </TableCell>
                                   <TableCell className="text-left">
-                                      <div className="flex flex-col items-start">
+                                      <div className="flex flex-col items-start gap-1">
                                           <span className={cn("text-xl font-black tracking-tighter", (store.walletBalance || 0) > 0 ? "text-primary" : "text-slate-300")}>
                                               {formatCurrency(store.walletBalance || 0)}
                                           </span>
+                                          <Badge variant="secondary" className="text-[8px] font-black h-4 px-2">{store.unpaidOrderCount} طلب</Badge>
                                       </div>
                                   </TableCell>
                                   <TableCell className="text-center">

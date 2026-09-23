@@ -76,6 +76,7 @@ export interface Restaurant {
   isFeatured?: boolean;
   walletBalance?: number; // الخزنة السحابية الدائمة
   balanceAdjustment?: number;
+  lastSettleAt?: string; // تاريخ آخر تصفية حساب
   oneSignalId?: string; 
   oneSignalWebId?: string; 
   notificationPreference?: 'app' | 'web' | 'both'; 
@@ -123,6 +124,8 @@ export interface DeliveryWorker {
     officeDebt?: number; // الخزنة السحابية لذمة المكتب (كاش)
     balanceAdjustment?: number;
     debtAdjustment?: number;
+    lastProfitSettleAt?: string; // تاريخ آخر تصفية أرباح
+    lastDebtSettleAt?: string; // تاريخ آخر تصفية ذمة
 }
 
 export type OrderStatus = 'unassigned' | 'pending_assignment' | 'preparing' | 'confirmed' | 'ready_for_pickup' | 'on_the_way' | 'delivered' | 'cancelled';

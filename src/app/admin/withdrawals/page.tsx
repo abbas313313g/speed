@@ -21,7 +21,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { db } from '@/lib/firebase';
-import { writeBatch, doc, increment } from 'firebase/firestore';
+import { writeBatch, doc, increment, collection, query, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import type { WithdrawRequest } from '@/lib/types';
@@ -37,20 +37,33 @@ export default function AdminWithdrawalsPage({ branchId }: { branchId: string })
         setIsProcessing(req.id);
         try {
             const batch = writeBatch(db);
+            const now = new Date().toISOString();
             
             // 1. تحديث حالة الطلب السحابي
             batch.update(doc(db, "withdrawals", req.id), { status: 'completed' });
 
-            // 2. الخصم الحقيقي من الخزنة السحابية (Persistent Vault Deduction)
+            // 2. الخصم الحقيقي من الخزنة السحابية وتحديث وسم الطلبات
             if (req.type === 'restaurant') {
                 batch.update(doc(db, "restaurants", req.targetId), { 
-                    walletBalance: increment(-(req.amount || 0)) 
+                    walletBalance: increment(-(req.amount || 0)),
+                    lastSettleAt: now
                 });
+                
+                // وسم الطلبات كمدفوعة
+                const q = query(collection(db, "orders"), where("restaurant.id", "==", req.targetId), where("status", "==", "delivered"), where("isPaid", "==", false));
+                const snap = await getDocs(q);
+                snap.forEach(d => batch.update(doc(db, "orders", d.id), { isPaid: true }));
+                
             } else {
-                // للمندوب، السحب يخصم من أرباحه فقط (الذمة تُسوى يدوياً أو بنظام منفصل)
                 batch.update(doc(db, "deliveryWorkers", req.targetId), { 
-                    walletBalance: increment(-(req.amount || 0)) 
+                    walletBalance: increment(-(req.amount || 0)),
+                    lastProfitSettleAt: now
                 });
+
+                // وسم الطلبات كمدفوعة أرباح
+                const q = query(collection(db, "orders"), where("deliveryWorkerId", "==", req.targetId), where("status", "==", "delivered"), where("isFeePaid", "==", false));
+                const snap = await getDocs(q);
+                snap.forEach(d => batch.update(doc(db, "orders", d.id), { isFeePaid: true }));
             }
 
             await batch.commit();

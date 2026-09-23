@@ -7,7 +7,7 @@ import { formatCurrency } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { ArrowRight, XCircle, Store, ChevronDown, ChevronUp, Navigation, MapPin, User, Wallet, Loader2, Landmark, Compass } from 'lucide-react';
+import { ArrowRight, XCircle, Store, ChevronDown, ChevronUp, Navigation, MapPin, User, Wallet, Loader2, Landmark, Compass, Bike } from 'lucide-react';
 import type { OrderStatus } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -142,12 +142,21 @@ export default function DeliveryOrderDetailPage({ orderId, onBack }: DeliveryOrd
                     <span className="text-xl font-black">خرائط جوجل</span>
                 </Button>
                 
-                {/* زر الويز المطلوب */}
                 <Button size="lg" variant="outline" className="w-full h-16 rounded-[2rem] shadow-lg bg-white text-[#33ccff] border-2 border-[#33ccff]/20 gap-3" onClick={() => window.open(`https://waze.com/ul?ll=${order.address.latitude},${order.address.longitude}&navigate=yes`, '_blank')}>
                     <Compass className="h-7 w-7 text-[#33ccff]" />
                     <span className="text-xl font-black">الانتقال عبر Waze 🧭</span>
                 </Button>
             </div>
+
+            <Card className="rounded-[2.5rem] border-none shadow-xl bg-primary text-white overflow-hidden p-6 flex justify-between items-center">
+                <div className="text-right">
+                    <p className="text-[10px] font-black text-white/70 uppercase tracking-widest mb-1">أجرتك من التوصيل</p>
+                    <div className="text-3xl font-black tracking-tighter">{formatCurrency(order.deliveryFee)}</div>
+                </div>
+                <div className="p-4 bg-white/20 rounded-2xl">
+                    <Bike className="h-8 w-8 text-white" />
+                </div>
+            </Card>
 
             <Card className="rounded-[2rem] border-none shadow-md overflow-hidden bg-white">
                 <div className="p-5 space-y-4 text-right">
