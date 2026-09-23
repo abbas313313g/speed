@@ -80,7 +80,6 @@ function AdminLayoutContent() {
         if (isAuthenticated) {
             setIsAuthenticated(false);
             localStorage.removeItem(`admin_auth_${branchParam}`);
-            // إظهار الإشعار فقط إذا لم يكن الدخول الأول (أي تم السحب فعلياً أثناء العمل)
             if (!initialCheckRef.current) {
                 toast({ title: "تم سحب ترخيص هذا الجهاز", variant: "destructive" });
             }
@@ -137,29 +136,33 @@ function AdminLayoutContent() {
       }
   }
 
-  const pagesMap: { [key: number]: React.ReactNode } = {
-    0: <AdminDashboard branchId={branchParam} />,
-    1: <AdminOrdersPage branchId={branchParam} />,
-    2: <AdminProductsPage branchId={branchParam} />,
-    3: <AdminCategoriesPage />,
-    4: <AdminStoresPage branchId={branchParam} />,
-    5: <AdminBannersPage />,
-    6: <AdminDeliveryZonesPage />,
-    7: <AdminCouponsPage />,
-    8: <AdminUsersPage branchId={branchParam} />,
-    9: <AdminDeliveryWorkersPage branchId={branchParam} />,
-    10: <AdminReportsPage branchId={branchParam} />,
-    11: <AdminSupportTicketsPage branchId={branchParam} />,
-    12: <AdminTelegramPage />,
-    13: <AdminSettingsPage />,
-    14: <AdminApprovalsPage branchId={branchParam} />,
-    15: <AdminAccessPage branchId={branchParam} />,
-    16: <AdminBranchesPage />,
-    17: <HomeSettingsPage />,
-    18: <AdminWithdrawalsPage branchId={branchParam} />,
-    19: <AdminAdjustmentsPage branchId={branchParam} />,
-    20: <AdminStoreWalletsPage branchId={branchParam} />,
-    21: <AdminDeveloperPage />,
+  // نظام التحميل المنعزل: يتم استدعاء المكون فقط عند الطلب لتوفير الكوتا والذاكرة
+  const renderActivePage = () => {
+      switch (activeTab) {
+          case 0: return <AdminDashboard branchId={branchParam} />;
+          case 1: return <AdminOrdersPage branchId={branchParam} />;
+          case 2: return <AdminProductsPage branchId={branchParam} />;
+          case 3: return <AdminCategoriesPage />;
+          case 4: return <AdminStoresPage branchId={branchParam} />;
+          case 5: return <AdminBannersPage />;
+          case 6: return <AdminDeliveryZonesPage />;
+          case 7: return <AdminCouponsPage />;
+          case 8: return <AdminUsersPage branchId={branchParam} />;
+          case 9: return <AdminDeliveryWorkersPage branchId={branchParam} />;
+          case 10: return <AdminReportsPage branchId={branchParam} />;
+          case 11: return <AdminSupportTicketsPage branchId={branchParam} />;
+          case 12: return <AdminTelegramPage />;
+          case 13: return <AdminSettingsPage />;
+          case 14: return <AdminApprovalsPage branchId={branchParam} />;
+          case 15: return <AdminAccessPage branchId={branchParam} />;
+          case 16: return <AdminBranchesPage />;
+          case 17: return <HomeSettingsPage />;
+          case 18: return <AdminWithdrawalsPage branchId={branchParam} />;
+          case 19: return <AdminAdjustmentsPage branchId={branchParam} />;
+          case 20: return <AdminStoreWalletsPage branchId={branchParam} />;
+          case 21: return <AdminDeveloperPage />;
+          default: return <AdminDashboard branchId={branchParam} />;
+      }
   };
 
   if (!mounted || (accessLoading && !isAuthenticated)) {
@@ -226,7 +229,7 @@ function AdminLayoutContent() {
           </div>
         </header>
         <main className="flex-1 relative overflow-hidden bg-muted/5">
-            {pagesMap[activeTab]}
+            {renderActivePage()}
         </main>
       </div>
 

@@ -10,7 +10,7 @@ import { useProducts } from '@/hooks/useProducts';
 import { Badge } from '@/components/ui/badge';
 import { AppContext } from '@/contexts/AppContext';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/tabs";
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
