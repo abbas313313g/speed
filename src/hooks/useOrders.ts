@@ -20,6 +20,7 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
     const lastCleanupTimeRef = useRef(0);
     const onlineWorkersRef = useRef<DeliveryWorker[]>([]);
 
+    // جلب المناديب المتصلين للإسناد التلقائي
     useEffect(() => {
         const workersRef = collection(db, "deliveryWorkers");
         const wQuery = query(workersRef, where("isOnline", "==", true), where("isActive", "==", true));
@@ -29,6 +30,7 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
         return () => unsub();
     }, []);
 
+    // تنظيف المهام العالقة التي لم يقبلها المندوب خلال 20 ثانية
     const cleanupTimedOutAssignments = useCallback(async (orders: Order[]) => {
         const now = Date.now();
         if (now - lastCleanupTimeRef.current < 10000) return;
@@ -53,6 +55,7 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
         }
     }, []);
 
+    // محرك الإسناد التلقائي الذكي حسب الفرع والمسافة
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         if (isAssigningRef.current) return;
         
@@ -98,24 +101,25 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
         }
     }, []);
 
+    // جلب الطلبات بنظام "السيرفر المنعزل" لكل فرع لتقليل الضغط
     useEffect(() => {
         setIsLoading(true);
         const ordersRef = collection(db, 'orders');
         
         let q;
         if (branchId && branchId !== 'all') {
-            q = query(ordersRef, where("branchId", "==", branchId), limit(fetchLimit));
+            q = query(
+                ordersRef, 
+                where("branchId", "==", branchId), 
+                orderBy("date", "desc"),
+                limit(fetchLimit)
+            );
         } else {
             q = query(ordersRef, orderBy("date", "desc"), limit(fetchLimit));
         }
 
         const unsub = onSnapshot(q, { includeMetadataChanges: false }, (snapshot) => {
-            let data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
-            
-            if (branchId && branchId !== 'all') {
-                data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            }
-
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
             setAllOrders(data);
             setIsLoading(false);
             
@@ -131,6 +135,7 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
         return () => unsub();
     }, [branchId, fetchLimit, refreshKey, autoAssignOrders, cleanupTimedOutAssignments]);
     
+    // نظام التحديث الفوري والترحيل المالي السحابي الدائم
     const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, workerId?: string) => {
         try {
             const orderRef = doc(db, "orders", orderId);
@@ -153,11 +158,11 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
                 if (workerId) updateData.lastSkippedWorkerId = workerId; 
             }
 
-            // محرك الترحيل المالي السحابي المستقل (Persistent Money Migration)
+            // منظومة الخزنة الرقمية الثابتة (تخزين الأموال كأرقام دائمة)
             if (status === 'delivered' && !currentOrder.isBalanceProcessed) {
                 const batch = writeBatch(db);
                 
-                // 1. حساب أرباح المتجر الصافية بناءً على السعر الأصلي للوجبات
+                // 1. حساب أرباح المتجر بناءً على السعر الأصلي لضمان حقه الكامل
                 const itemsTotal = currentOrder.items.reduce((sum, item) => {
                     const price = item.selectedSize?.price || item.product?.price || 0;
                     return sum + (price * item.quantity);
@@ -165,18 +170,18 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
                 const storeRate = currentOrder.restaurant?.commissionRate || 10;
                 const storeEarnings = Math.round(itemsTotal * (1 - storeRate / 100));
 
-                // 2. حساب مستحقات المندوب وذمة الكاش
+                // 2. حساب مستحقات الكابتن وذمة المكتب النقدية
                 const workerEarnings = currentOrder.deliveryFee || 0;
                 const cashToOffice = currentOrder.total || 0;
 
-                // 3. التحديث في الخزنة السحابية للمتجر (Persistent Store Vault)
+                // 3. الترحيل لـ "الخزنة السحابية الدائمة" للمتجر
                 if (currentOrder.restaurant?.id) {
                     batch.update(doc(db, "restaurants", currentOrder.restaurant.id), {
                         walletBalance: increment(storeEarnings)
                     });
                 }
 
-                // 4. التحديث في الخزنة السحابية للمندوب (Persistent Worker Vault)
+                // 4. الترحيل لـ "الخزنة السحابية الدائمة" للمندوب (أرباح + ذمة)
                 if (currentOrder.deliveryWorkerId) {
                     batch.update(doc(db, "deliveryWorkers", currentOrder.deliveryWorkerId), {
                         walletBalance: increment(workerEarnings),
@@ -184,13 +189,14 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
                     });
                 }
 
-                // 5. قفل الفاتورة مالياً لمنع التكرار
+                // 5. قفل العملية مالياً لمنع أي زيادة وهمية أو تكرار
                 updateData.isBalanceProcessed = true;
                 await batch.commit();
             }
 
             await updateDoc(orderRef, updateData);
 
+            // إرسال تنبيه تليجرام في حالة الإلغاء
             if (status === 'cancelled' && currentOrder) {
                 const cancelMsg = `❌ *تم إلغاء الطلب!*
 📌 *رقم القائمة:* #${currentOrder.orderNumber}

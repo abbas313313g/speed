@@ -78,7 +78,7 @@ export const useRestaurants = (branchId?: string) => {
                 latitude: Number(restaurantData.latitude) || 0,
                 longitude: Number(restaurantData.longitude) || 0,
                 isManualClosed: false,
-                walletBalance: 0 // تهيئة الخزنة السحابية
+                walletBalance: 0 
             };
             const docRef = await addDoc(collection(db, "restaurants"), finalData);
             toast({ title: "تمت إضافة المتجر بنجاح" });
@@ -111,7 +111,7 @@ export const useRestaurants = (branchId?: string) => {
 
     const adjustRestaurantBalance = useCallback(async (restaurantId: string, amount: number) => {
         try {
-            // التعديل المالي يتم الآن مباشرة على المحفظة الدائمة
+            // التعديل المالي يتم الآن مباشرة وبشكل ثابت على الخزنة السحابية
             await updateDoc(doc(db, "restaurants", restaurantId), {
                 walletBalance: increment(-amount)
             });

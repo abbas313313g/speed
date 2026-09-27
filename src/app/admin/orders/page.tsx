@@ -62,6 +62,7 @@ export default function AdminOrdersPage({ branchId }: { branchId: string }) {
   const [displayLimit, setDisplayLimit] = useState(500); 
   const [isDeepSearching, setIsDeepSearching] = useState(false);
   
+  // الاستدعاء يتم الآن من سيرفر الفرع المخصص فقط
   const { allOrders, isLoading: ordersLoading, deleteOrder, updateOrderStatus } = useOrders(branchId, displayLimit, refreshKey);
   const { deliveryWorkers } = useDeliveryWorkers();
   

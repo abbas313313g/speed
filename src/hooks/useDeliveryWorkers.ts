@@ -94,7 +94,7 @@ export const useDeliveryWorkers = (branchId?: string) => {
 
     const adjustWorkerBalance = useCallback(async (workerId: string, amount: number, field: 'balanceAdjustment' | 'debtAdjustment') => {
         try {
-            // توجيه الخصم للحقل الحقيقي (walletBalance أو officeDebt)
+            // التوجيه المباشر للخزنة السحابية الدائمة (walletBalance أو officeDebt)
             const targetField = field === 'balanceAdjustment' ? 'walletBalance' : 'officeDebt';
             await updateDoc(doc(db, "deliveryWorkers", workerId.trim()), {
                 [targetField]: increment(-amount) 
