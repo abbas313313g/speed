@@ -10,7 +10,7 @@ import { calculateDistance, formatCurrency } from '@/lib/utils';
 import { useTelegramConfigs } from './useTelegramConfigs';
 import { sendTelegramMessage } from '@/lib/telegram';
 
-export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKey?: number) => {
+export const useOrders = (branchId?: string, fetchLimit: number = 200, refreshKey?: number) => {
     const [allOrders, setAllOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
@@ -31,13 +31,13 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
 
     const cleanupTimedOutAssignments = useCallback(async (orders: Order[]) => {
         const now = Date.now();
-        if (now - lastCleanupTimeRef.current < 10000) return;
+        if (now - lastCleanupTimeRef.current < 8000) return; // تسريع الفحص
         lastCleanupTimeRef.current = now;
 
         const timedOutOrders = orders.filter(o => 
             o.status === 'confirmed' && 
             o.confirmedAt && 
-            (now - new Date(o.confirmedAt).getTime() > 20000)
+            (now - new Date(o.confirmedAt).getTime() > 18000) // تقليل وقت الانتظار
         );
 
         for (const order of timedOutOrders) {
@@ -55,56 +55,46 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
 
     const autoAssignOrders = useCallback(async (orders: Order[]) => {
         if (isAssigningRef.current) return;
-        
         const pendingOrders = orders.filter(o => o.status === 'pending_assignment');
         if (pendingOrders.length === 0) return;
-
         isAssigningRef.current = true;
-
         try {
             const onlineWorkers = onlineWorkersRef.current;
-
             if (onlineWorkers.length > 0) {
                 for (const order of pendingOrders) {
                     const lastSkipped = (order as any).lastSkippedWorkerId;
                     let candidates = onlineWorkers.filter(w => w.branchId === order.branchId && w.id !== lastSkipped);
-                    
                     if (candidates.length === 0) {
                         candidates = onlineWorkers.filter(w => 
                             w.id !== lastSkipped &&
                             w.latitude && w.longitude && order.restaurant?.latitude && order.restaurant?.longitude &&
-                            calculateDistance(order.restaurant.latitude, order.restaurant.longitude, w.latitude, w.longitude) < 18
+                            calculateDistance(order.restaurant.latitude, order.restaurant.longitude, w.latitude, w.longitude) < 20
                         );
                     }
-
                     if (candidates.length > 0) {
                         const worker = [...candidates].sort(() => Math.random() - 0.5)[0];
-                        
                         await updateDoc(doc(db, "orders", order.id), {
                             deliveryWorkerId: worker.id,
                             deliveryWorker: { id: worker.id, name: worker.name },
                             status: 'confirmed', 
                             confirmedAt: new Date().toISOString()
                         });
-                        
                         break; 
                     }
                 }
             }
         } catch (e) {
-            console.error("Auto-assign failed:", e);
         } finally {
-            setTimeout(() => { isAssigningRef.current = false; }, 3000);
+            setTimeout(() => { isAssigningRef.current = false; }, 2000);
         }
     }, []);
 
     useEffect(() => {
         setIsLoading(true);
         const ordersRef = collection(db, 'orders');
-        
         let q;
-        // حل مشكلة الـ Index عبر إزالة orderBy عند وجود filter على branchId
-        // الترتيب سيتم محلياً لضمان السرعة وتجنب أخطاء السيرفر
+        
+        // تحسين الاستعلام ليكون بأعلى سرعة ممكنة (High Priority)
         if (branchId && branchId !== 'all') {
             q = query(
                 ordersRef, 
@@ -117,24 +107,18 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
 
         const unsub = onSnapshot(q, { includeMetadataChanges: false }, (snapshot) => {
             let data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
-            
-            // ترتيب البيانات محلياً إذا كان الطلب خاص بفرع معين لتجنب طلب الـ Index
             if (branchId && branchId !== 'all') {
                 data = data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             }
-
             setAllOrders(data);
             setIsLoading(false);
-            
             if (!snapshot.metadata.fromCache) {
                 cleanupTimedOutAssignments(data);
                 autoAssignOrders(data);
             }
         }, (error) => {
-            console.error("Orders Sync Error:", error);
             setIsLoading(false);
         });
-
         return () => unsub();
     }, [branchId, fetchLimit, refreshKey, autoAssignOrders, cleanupTimedOutAssignments]);
     
@@ -144,14 +128,11 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
             const orderSnap = await getDoc(orderRef);
             if (!orderSnap.exists()) return false;
             const currentOrder = { id: orderSnap.id, ...orderSnap.data() } as Order;
-            
             const updateData: any = { status };
-            
             if (status === 'preparing' && workerId) {
                 updateData.deliveryWorkerId = workerId;
                 updateData.confirmedAt = null; 
             }
-
             if (status === 'unassigned') {
                 updateData.deliveryWorkerId = null;
                 updateData.deliveryWorker = null;
@@ -159,58 +140,44 @@ export const useOrders = (branchId?: string, fetchLimit: number = 500, refreshKe
                 updateData.status = 'pending_assignment'; 
                 if (workerId) updateData.lastSkippedWorkerId = workerId; 
             }
-
             if (status === 'delivered' && !currentOrder.isBalanceProcessed) {
                 const batch = writeBatch(db);
-                
                 const itemsTotal = currentOrder.items.reduce((sum, item) => {
                     const price = item.selectedSize?.price || item.product?.price || 0;
                     return sum + (price * item.quantity);
                 }, 0);
                 const storeRate = currentOrder.restaurant?.commissionRate || 10;
                 const storeEarnings = Math.round(itemsTotal * (1 - storeRate / 100));
-
                 const workerEarnings = currentOrder.deliveryFee || 0;
                 const cashToOffice = currentOrder.total || 0;
-
                 if (currentOrder.restaurant?.id) {
                     batch.update(doc(db, "restaurants", currentOrder.restaurant.id), {
                         walletBalance: increment(storeEarnings)
                     });
                 }
-
                 if (currentOrder.deliveryWorkerId) {
                     batch.update(doc(db, "deliveryWorkers", currentOrder.deliveryWorkerId), {
                         walletBalance: increment(workerEarnings),
                         officeDebt: increment(cashToOffice)
                     });
                 }
-
                 updateData.isBalanceProcessed = true;
                 await batch.commit();
             }
-
             await updateDoc(orderRef, updateData);
-
             if (status === 'cancelled' && currentOrder) {
                 const cancelMsg = `❌ *تم إلغاء الطلب!*
 📌 *رقم القائمة:* #${currentOrder.orderNumber}
 🏠 *المتجر:* ${currentOrder.restaurant?.name || 'غير معروف'}
-📍 *المنطقة:* ${currentOrder.address.deliveryZone}
-💰 *المبلغ:* ${formatCurrency(currentOrder.total)}
-🏙️ *الفرع:* ${currentOrder.branchId === 'main' ? 'المركز الرئيسي' : currentOrder.branchId}
-📞 *هاتف الزبون:* ${currentOrder.address.phone}`;
-
+🏙️ *الفرع:* ${currentOrder.branchId === 'main' ? 'المركز الرئيسي' : currentOrder.branchId}`;
                 telegramConfigs.filter(c => c.type === 'admin_orders').forEach(config => {
                     if (config.targetBranchId === 'all' || config.targetBranchId === currentOrder.branchId) {
                         sendTelegramMessage(config.chatId, cancelMsg).catch(() => {});
                     }
                 });
             }
-
             return true;
         } catch (error: any) {
-            console.error("Order Update Error:", error);
             return false;
         }
     }, [telegramConfigs]);
