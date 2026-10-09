@@ -13,7 +13,10 @@ import {
   Plus,
   ChevronDown,
   Navigation2,
-  Sparkles
+  Sparkles,
+  Home as HomeIcon,
+  PlusCircle,
+  CheckCircle2
 } from "lucide-react";
 import {
   Carousel,
@@ -21,6 +24,7 @@ import {
   CarouselItem,
 } from "@/components/ui/carousel";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { AppContext } from "@/contexts/AppContext";
 import { useBanners } from "@/hooks/useBanners";
 import { useRestaurants } from "@/hooks/useRestaurants";
@@ -43,6 +47,7 @@ export default function HomePage() {
   const { products: allProducts } = useProducts(undefined, undefined, 50);
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [isAddressSheetOpen, setIsAddressSheetOpen] = useState(false);
 
   if (!context) return null;
   const { addresses, setActiveTab, setSelectedRestaurantId } = context;
@@ -101,29 +106,74 @@ export default function HomePage() {
   return (
     <div className="min-h-full bg-[#f8fafc] dark:bg-slate-950 pb-32 animate-in fade-in duration-700 text-right">
       
-      {/* Header مع اختيار العناوين */}
-      <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-100 dark:border-slate-800 px-4 py-4 rounded-b-[2.5rem] shadow-sm">
+      {/* Header المطور مع نظام اختيار العناوين الجديد */}
+      <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-100 dark:border-slate-800 px-4 py-4 rounded-b-[2.8rem] shadow-sm">
         <div className="flex justify-between items-center flex-row-reverse">
             <div className="flex items-center gap-3">
                 <div className="text-right">
-                    <h1 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">توصيل إلى</h1>
-                    <button 
-                        onClick={() => setActiveTab(5)} 
-                        className="flex items-center gap-1 group"
-                    >
-                        <span className="text-lg font-black text-slate-800 dark:text-white group-active:scale-95 transition-all">
-                            {activeAddress?.name || "أضف عنواناً"}
-                        </span>
-                        <ChevronDown className="h-4 w-4 text-primary animate-bounce" />
-                    </button>
+                    <h1 className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">توصيل إلى</h1>
+                    <Sheet open={isAddressSheetOpen} onOpenChange={setIsAddressSheetOpen}>
+                        <SheetTrigger asChild>
+                            <button className="flex items-center gap-1 group">
+                                <span className="text-xl font-black text-slate-800 dark:text-white group-active:scale-95 transition-all">
+                                    {activeAddress?.name || "أضف عنواناً"}
+                                </span>
+                                <ChevronDown className="h-5 w-5 text-primary animate-bounce" />
+                            </button>
+                        </SheetTrigger>
+                        <SheetContent side="bottom" className="h-[65vh] rounded-t-[3.5rem] p-0 border-none shadow-2xl bg-background overflow-hidden">
+                            <div className="p-8 space-y-6 h-full flex flex-col text-right">
+                                <SheetHeader className="text-right">
+                                    <SheetTitle className="text-3xl font-black">عناويني المسجلة</SheetTitle>
+                                    <p className="text-muted-foreground font-bold text-sm">اختر الموقع الذي تطلب منه الآن</p>
+                                </SheetHeader>
+
+                                <div className="space-y-4">
+                                    <button 
+                                        onClick={() => { setIsAddressSheetOpen(false); setActiveTab(6); }}
+                                        className="w-full p-6 flex items-center justify-center gap-3 bg-primary/10 text-primary border-2 border-dashed border-primary/30 rounded-[2rem] font-black text-lg hover:bg-primary/20 transition-all active:scale-95"
+                                    >
+                                        <PlusCircle className="h-6 w-6" />
+                                        إضافة عنوان جديد
+                                    </button>
+                                </div>
+
+                                <ScrollArea className="flex-1 pr-2">
+                                    <div className="space-y-3 pb-10">
+                                        {addresses.map((address) => (
+                                            <button 
+                                                key={address.id}
+                                                onClick={() => { setSelectedAddressId(address.id); setIsAddressSheetOpen(false); }}
+                                                className={cn(
+                                                    "w-full p-5 rounded-[2rem] border-2 transition-all active:scale-95 flex items-center gap-4 text-right",
+                                                    selectedAddressId === address.id ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 bg-white dark:bg-slate-900"
+                                                )}
+                                            >
+                                                <div className={cn("p-4 rounded-2xl", selectedAddressId === address.id ? "bg-primary text-white" : "bg-slate-50 text-slate-400")}>
+                                                    <HomeIcon className="h-6 w-6" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 justify-end">
+                                                        {selectedAddressId === address.id && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                                                        <p className="font-black text-lg">{address.name}</p>
+                                                    </div>
+                                                    <p className="text-xs font-bold text-muted-foreground truncate">{address.deliveryZone} - {address.phone}</p>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </ScrollArea>
+                            </div>
+                        </SheetContent>
+                    </Sheet>
                 </div>
-                <div className="p-3 bg-primary/10 rounded-2xl">
-                    <MapPin className="h-6 w-6 text-primary" />
+                <div className="p-3.5 bg-primary/10 rounded-2xl border-2 border-primary/5">
+                    <MapPin className="h-7 w-7 text-primary" />
                 </div>
             </div>
             
             <button 
-                onClick={() => setActiveTab(6)}
+                onClick={() => setIsAddressSheetOpen(true)}
                 className="h-12 w-12 rounded-2xl bg-white dark:bg-slate-800 border-2 border-slate-50 dark:border-slate-700 shadow-sm flex items-center justify-center text-primary active:scale-75 transition-all"
             >
                 <Plus className="h-6 w-6" />
@@ -138,7 +188,7 @@ export default function HomePage() {
                 <CarouselContent>
                     {banners.map((banner, index) => (
                         <CarouselItem key={banner.id} className="basis-full cursor-pointer px-1" onClick={() => handleBannerClick(banner)}>
-                            <div className="relative aspect-[21/10] w-full overflow-hidden rounded-[2.5rem] shadow-2xl border-4 border-white dark:border-slate-800 transition-transform active:scale-95">
+                            <div className="relative aspect-[21/10] w-full overflow-hidden rounded-[2.8rem] shadow-2xl border-4 border-white dark:border-slate-800 transition-transform active:scale-95">
                                 <Image src={banner.image} fill alt="" className="object-cover" unoptimized={true} priority={index === 0} />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                             </div>
@@ -159,8 +209,8 @@ export default function HomePage() {
                     const Icon = category.icon || ShoppingBasket;
                     return (
                         <button key={category.id} onClick={() => { setActiveTab(1); }} className="flex flex-col items-center gap-2 group">
-                            <div className="w-full aspect-square rounded-[2.2rem] flex items-center justify-center shadow-lg bg-white dark:bg-slate-900 border-2 border-white dark:border-slate-800 text-primary group-active:scale-90 transition-all">
-                                <Icon className="h-8 w-8" />
+                            <div className="w-full aspect-square rounded-[2.5rem] flex items-center justify-center shadow-lg bg-white dark:bg-slate-900 border-2 border-white dark:border-slate-800 text-primary group-active:scale-90 transition-all">
+                                <Icon className="h-9 w-9" />
                             </div>
                             <span className="text-[10px] font-black text-slate-600 dark:text-slate-400">{category.name}</span>
                         </button>
@@ -169,7 +219,7 @@ export default function HomePage() {
             </div>
         </section>
 
-        {/* المتاجر المتميزة */}
+        {/* المتاجر المتميزة بتصميم Premium */}
         <section>
             <div className="flex items-center justify-between mb-5 px-1 flex-row-reverse">
                 <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
@@ -183,24 +233,24 @@ export default function HomePage() {
                         <div 
                             key={store.id} 
                             onClick={() => handleStoreClick(store.id)}
-                            className="w-[280px] shrink-0 bg-white dark:bg-slate-900 rounded-[2.8rem] p-4 shadow-xl border border-white dark:border-slate-800 relative group active:scale-95 transition-all"
+                            className="w-[300px] shrink-0 bg-white dark:bg-slate-900 rounded-[3rem] p-5 shadow-2xl border border-white dark:border-slate-800 relative group active:scale-95 transition-all"
                         >
-                            <div className="relative aspect-[16/11] w-full overflow-hidden rounded-[2.2rem] mb-4 bg-muted/10">
+                            <div className="relative aspect-[16/11] w-full overflow-hidden rounded-[2.5rem] mb-4 bg-muted/10">
                                 <Image src={store.image} alt={store.name} fill className="object-cover transition-transform group-hover:scale-110 duration-700" unoptimized={true} />
-                                <div className="absolute top-4 right-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-3 py-1.5 rounded-2xl flex items-center gap-1.5 shadow-xl">
-                                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                                    <span className="text-xs font-black">{store.rating}</span>
+                                <div className="absolute top-4 right-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 py-2 rounded-[1.2rem] flex items-center gap-1.5 shadow-xl">
+                                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                                    <span className="text-sm font-black">{store.rating}</span>
                                 </div>
                             </div>
                             <div className="px-1 flex justify-between items-center flex-row-reverse">
                                 <div className="text-right">
-                                    <h3 className="font-black text-lg text-slate-800 dark:text-white truncate max-w-[180px]">{store.name}</h3>
-                                    <p className="text-[10px] text-muted-foreground font-bold flex items-center gap-1 justify-end">
+                                    <h3 className="font-black text-xl text-slate-800 dark:text-white truncate max-w-[180px]">{store.name}</h3>
+                                    <p className="text-xs text-muted-foreground font-bold flex items-center gap-1 justify-end mt-1">
                                         توصيل سريع وخدمة ممتازة <Navigation2 className="h-3 w-3 text-primary" />
                                     </p>
                                 </div>
-                                <div className="p-3 bg-primary/10 rounded-2xl group-hover:bg-primary group-hover:text-white transition-colors">
-                                    <ChevronLeft className="h-5 w-5 text-primary group-hover:text-white" />
+                                <div className="p-4 bg-primary/10 rounded-[1.5rem] group-hover:bg-primary group-hover:text-white transition-colors">
+                                    <ChevronLeft className="h-6 w-6 text-primary group-hover:text-white" />
                                 </div>
                             </div>
                         </div>
@@ -238,23 +288,23 @@ export default function HomePage() {
       {/* واجهة تعليمية لأول دخول */}
       {addresses.length === 0 && (
           <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-500">
-              <Card className="w-full max-w-sm rounded-[3rem] p-8 text-center space-y-6 border-none shadow-2xl bg-white animate-in zoom-in-95 duration-300">
-                  <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                      <MapPin className="h-12 w-12 text-primary animate-bounce" />
+              <div className="w-full max-w-sm rounded-[3.5rem] p-10 text-center space-y-8 border-none shadow-2xl bg-white animate-in zoom-in-95 duration-300">
+                  <div className="w-28 h-28 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                      <MapPin className="h-14 w-14 text-primary animate-bounce" />
                   </div>
-                  <div>
-                      <h2 className="text-3xl font-black text-slate-800">أهلاً بك في سبيد!</h2>
-                      <p className="text-muted-foreground font-bold mt-2 leading-relaxed">
-                          لكي تستمتع بأسرع خدمة توصيل، يرجى إضافة عنوانك الأول أولاً.
+                  <div className="space-y-3">
+                      <h2 className="text-4xl font-black text-slate-800">أهلاً بك في سبيد!</h2>
+                      <p className="text-muted-foreground font-bold leading-relaxed">
+                          لكي تستمتع بأسرع خدمة توصيل في جنوب بابل، يرجى إضافة عنوانك الأول أولاً.
                       </p>
                   </div>
                   <Button 
                     onClick={() => setActiveTab(6)}
-                    className="w-full h-16 rounded-2xl text-xl font-black shadow-xl shadow-primary/20 transition-all active:scale-95"
+                    className="w-full h-20 rounded-[1.8rem] text-2xl font-black shadow-2xl shadow-primary/20 transition-all active:scale-95"
                   >
                       ابدأ بإضافة عنوانك
                   </Button>
-              </Card>
+              </div>
           </div>
       )}
     </div>

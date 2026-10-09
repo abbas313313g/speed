@@ -110,60 +110,60 @@ function ProductCardComponent({ product }: ProductCardProps) {
             (isOutOfStock || !restaurant?.isStoreOpen) && "opacity-60 grayscale"
         )}
     >
-      <Card className="overflow-hidden border-none shadow-xl rounded-[2.2rem] bg-white dark:bg-slate-900 w-full h-full hover:shadow-2xl transition-all hover:-translate-y-2">
+      <Card className="overflow-hidden border-none shadow-2xl rounded-[2.8rem] bg-white dark:bg-slate-900 w-full h-full hover:shadow-3xl transition-all hover:-translate-y-2 border-t-2 border-slate-50 dark:border-slate-800">
         <CardContent className="p-0 flex flex-col h-full relative">
-          <div className="relative w-full aspect-square overflow-hidden bg-slate-50 dark:bg-slate-800">
+          <div className="relative w-full aspect-square overflow-hidden bg-slate-50 dark:bg-slate-800 rounded-t-[2.8rem]">
             {product.image ? (
                 <Image
                   src={product.image}
                   alt={product.name}
                   fill
-                  className="object-cover group-hover:scale-110 transition-transform duration-700"
+                  className="object-cover group-hover:scale-110 transition-transform duration-1000"
                   unoptimized={true}
                 />
             ) : <div className="w-full h-full animate-pulse bg-muted/20" />}
             
             {hasAnyDiscount && !hasSizes && (
-                <div className="absolute top-3 left-3 z-10 bg-red-600 text-white font-black text-[10px] px-3 py-1 rounded-xl shadow-lg flex items-center gap-1">
+                <div className="absolute top-4 left-4 z-10 bg-red-600 text-white font-black text-[10px] px-3 py-1.5 rounded-[1rem] shadow-xl flex items-center gap-1">
                     <Sparkles className="h-3 w-3" />
                     <span>-{discountPercentage}%</span>
                 </div>
             )}
 
             {hasSizes && (
-                <div className="absolute top-3 right-3 z-10 bg-primary/90 backdrop-blur-md text-white text-[9px] font-black px-3 py-1 rounded-xl shadow-lg">
-                    خيارات متعددة
+                <div className="absolute top-4 right-4 z-10 bg-primary/90 backdrop-blur-md text-white text-[9px] font-black px-3 py-1.5 rounded-[1rem] shadow-xl border border-white/20">
+                    أنواع متعددة
                 </div>
             )}
             
-            {isOutOfStock && <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20"><span className="text-white font-black text-lg bg-red-600 px-6 py-2 rounded-full rotate-12">نفد</span></div>}
+            {isOutOfStock && <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20"><span className="text-white font-black text-xl bg-red-600 px-8 py-3 rounded-full rotate-12 shadow-2xl border-2 border-white">نفد</span></div>}
           </div>
           
-          <div className="p-4 text-right flex-1 flex flex-col justify-between">
-            <div className="space-y-1.5">
-                <h3 className="line-clamp-2 h-10 font-black text-sm text-slate-800 dark:text-white leading-tight">{product.name}</h3>
+          <div className="p-5 text-right flex-1 flex flex-col justify-between bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
+            <div className="space-y-2">
+                <h3 className="line-clamp-2 h-10 font-black text-base text-slate-800 dark:text-white leading-tight">{product.name}</h3>
                 {restaurant && (
-                    <div className="flex items-center gap-1 justify-end text-primary opacity-60">
-                        <span className="text-[9px] font-black truncate">{restaurant.name}</span>
-                        <Store className="h-3 w-3" />
+                    <div className="flex items-center gap-1.5 justify-end text-primary opacity-70 group-hover:opacity-100 transition-opacity">
+                        <span className="text-[10px] font-black truncate">{restaurant.name}</span>
+                        <Store className="h-3.5 w-3.5" />
                     </div>
                 )}
             </div>
             
-            <div className="mt-4 flex items-center justify-between flex-row-reverse">
+            <div className="mt-5 flex items-center justify-between flex-row-reverse">
               <div className="flex flex-col text-right">
-                  {hasAnyDiscount && !hasSizes && <p className="text-[9px] text-muted-foreground line-through decoration-red-500/50 font-bold leading-none mb-1">{formatCurrency(product.price)}</p>}
-                  <p className={cn("font-black text-primary tracking-tighter leading-none", hasSizes ? "text-[11px]" : "text-lg")}>{priceDisplay}</p>
+                  {hasAnyDiscount && !hasSizes && <p className="text-[10px] text-muted-foreground line-through decoration-red-500/40 font-bold leading-none mb-1.5">{formatCurrency(product.price)}</p>}
+                  <p className={cn("font-black text-primary tracking-tighter leading-none", hasSizes ? "text-[12px]" : "text-xl")}>{priceDisplay}</p>
               </div>
               <button 
                 onClick={handleAddToCart} 
                 disabled={isOutOfStock || (restaurant && !restaurant.isStoreOpen)}
                 className={cn(
-                    "h-11 w-11 rounded-2xl flex items-center justify-center shadow-lg active:scale-75 transition-all",
-                    hasSizes ? "bg-slate-100 text-primary dark:bg-slate-800" : "bg-primary text-white shadow-primary/20"
+                    "h-12 w-12 rounded-[1.2rem] flex items-center justify-center shadow-xl active:scale-75 transition-all",
+                    hasSizes ? "bg-slate-100 text-primary dark:bg-slate-800 border-2 border-slate-50" : "bg-primary text-white shadow-primary/30"
                 )}
               >
-                {hasSizes ? <ListChecks className="h-6 w-6" /> : <PlusCircle className="h-6 w-6" />}
+                {hasSizes ? <ListChecks className="h-6 w-6" /> : <PlusCircle className="h-7 w-7" />}
               </button>
             </div>
           </div>
