@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { CheckCircle, Clock, Building2, TrendingUp, Calendar, Wallet, XCircle, Store, MousePointer2, Loader2, DatabaseZap, ExternalLink } from 'lucide-react';
+import { CheckCircle, Clock, Building2, TrendingUp, Calendar, Wallet, XCircle, Store, MousePointer2, Loader2, DatabaseZap, ExternalLink, ShoppingBasket } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useOrders } from '@/hooks/useOrders';
 import { useBranches } from '@/hooks/useBranches';
@@ -205,6 +205,14 @@ export default function AdminDashboard({ branchId }: { branchId: string }) {
             </div>
         )}
       </section>
+
+      {/* حماية ضد الجمود في حال عدم وجود بيانات */}
+      {allOrders.length === 0 && !oLoading && (
+        <div className="p-20 text-center flex flex-col items-center gap-4 opacity-30">
+            <ShoppingBasket className="h-16 w-16" />
+            <p className="font-black">لا توجد طلبات في هذا الفرع حالياً.</p>
+        </div>
+      )}
     </div>
   );
 }

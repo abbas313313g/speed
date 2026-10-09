@@ -24,7 +24,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MoreHorizontal, Trash2, Loader2, RefreshCw, Bike, ChevronRight, Store, X, UserCog, CheckCircle, Navigation, User, Tag, Ticket, ReceiptText, Zap } from 'lucide-react';
+import { MoreHorizontal, Trash2, Loader2, RefreshCw, Bike, ChevronRight, Store, X, UserCog, CheckCircle, Navigation, User, Tag, Ticket, ReceiptText, Zap, ShoppingBasket } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import {
   AlertDialog,
