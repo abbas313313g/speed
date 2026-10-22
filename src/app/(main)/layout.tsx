@@ -5,7 +5,7 @@ import { useState, useEffect, useContext } from 'react';
 import { BottomNav } from '@/components/BottomNav';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useAddresses } from '@/hooks/useAddresses';
-import { HardHat, AlertCircle, Navigation, MapPin, Loader2, CheckCircle2, User, KeyRound, Smartphone, LogIn, UserPlus } from 'lucide-react';
+import { HardHat, AlertCircle, Navigation, MapPin, Loader2, CheckCircle2, User, KeyRound, Smartphone, LogIn, UserPlus, Languages } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -43,11 +43,69 @@ export default function MainAppLayout() {
   
   const [authData, setAuthData] = useState({ name: '', phone: '', password: '' });
   const [isAuthProcessing, setIsAuthProcessing] = useState(false);
+  const [lang, setLang] = useState<'ar' | 'en'>('ar');
 
   const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([0]));
 
   if (!context) return null;
   const { activeTab, register, login, guestLogin, isMainDataReady, addAddress, userId, showAddressSheet, setShowAddressSheet, setActiveTab } = context;
+
+  const t = {
+    ar: {
+      welcome: "مرحباً بك في سبيد!",
+      sub: "أسرع خدمة توصيل في بابل بانتظارك",
+      create: "إنشاء حساب جديد",
+      login: "تسجيل الدخول",
+      guest: "تصفح كضيف فقط",
+      fullName: "الاسم الكامل",
+      phone: "رقم الهاتف",
+      password: "كلمة المرور",
+      confirm: "تأكيد وإنشاء الحساب",
+      confirmLogin: "تسجيل الدخول",
+      back: "رجوع",
+      placeholderName: "اكتب اسمك...",
+      placeholderPhone: "07XXXXXXXX",
+      placeholderPass: "••••••••",
+      wait: "جاري المعالجة...",
+      locationTitle: "أين أنت الآن؟",
+      locationSub: "نحتاج لموقعك لضمان سرعة التوصيل",
+      locationLabel: "تسمية الموقع (مثلاً: منزلي)",
+      locationPhone: "رقم الهاتف للتوصيل",
+      locationGPS: "موقع التوصيل (GPS)",
+      locationBtn: "اضغط لتحديد موقعك بدقة",
+      locationConfirm: "تأكيد العنوان والمتابعة",
+      locationSuccess: "تم تحديد الموقع ✅",
+      privacyNotice: "بمجرد حفظ العنوان، فأنت توافق على",
+      privacyLink: "سياسة الخصوصية"
+    },
+    en: {
+      welcome: "Welcome to SPEED!",
+      sub: "Fastest delivery in Babylon awaits you",
+      create: "Create New Account",
+      login: "Log In",
+      guest: "Browse as Guest",
+      fullName: "Full Name",
+      phone: "Phone Number",
+      password: "Password",
+      confirm: "Confirm & Register",
+      confirmLogin: "Log In Now",
+      back: "Back",
+      placeholderName: "Enter your name...",
+      placeholderPhone: "07XXXXXXXX",
+      placeholderPass: "••••••••",
+      wait: "Processing...",
+      locationTitle: "Where are you?",
+      locationSub: "We need your location for fast delivery",
+      locationLabel: "Location Label (e.g. Home)",
+      locationPhone: "Contact Phone Number",
+      locationGPS: "Delivery Location (GPS)",
+      locationBtn: "Click to pinpoint location",
+      locationConfirm: "Confirm Address & Continue",
+      locationSuccess: "Location pinned ✅",
+      privacyNotice: "By saving, you agree to our",
+      privacyLink: "Privacy Policy"
+    }
+  }[lang];
 
   useEffect(() => {
     setVisitedTabs(prev => {
@@ -78,7 +136,6 @@ export default function MainAppLayout() {
     trackVisit();
   }, []);
 
-  // تعديل منطق ظهور صفحة الدخول: تظهر دوماً إذا لم يتوفر userId
   useEffect(() => {
     if (!showSplash && !settings?.isMaintenanceMode) {
       if (!userId) {
@@ -92,12 +149,12 @@ export default function MainAppLayout() {
 
   const handleRegister = async () => {
     if (!authData.name || !authData.phone || !authData.password) {
-        toast({ title: "يرجى ملء جميع الحقول", variant: "destructive" });
+        toast({ title: lang === 'ar' ? "يرجى ملء جميع الحقول" : "Please fill all fields", variant: "destructive" });
         return;
     }
     const phoneRegex = /^07[789]\d{8}$/;
     if (!phoneRegex.test(authData.phone)) {
-        toast({ title: "رقم الهاتف غير صحيح", description: "يجب أن يكون رقم عراقي صحيح.", variant: "destructive" });
+        toast({ title: lang === 'ar' ? "رقم الهاتف غير صحيح" : "Invalid phone number", variant: "destructive" });
         return;
     }
 
@@ -109,7 +166,7 @@ export default function MainAppLayout() {
 
   const handleLogin = async () => {
     if (!authData.phone || !authData.password) {
-        toast({ title: "يرجى ملء جميع الحقول", variant: "destructive" });
+        toast({ title: lang === 'ar' ? "يرجى ملء جميع الحقول" : "Please fill all fields", variant: "destructive" });
         return;
     }
     setIsAuthProcessing(true);
@@ -195,7 +252,7 @@ export default function MainAppLayout() {
   );
 
   return (
-    <div className="h-[100dvh] w-full bg-background flex flex-col relative overflow-hidden">
+    <div className="h-[100dvh] w-full bg-background flex flex-col relative overflow-hidden" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
         {showSplash && (
             <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-[100] animate-out fade-out duration-300">
                 <div className="p-8 rounded-[2.5rem] stamp-effect flex flex-col items-center justify-center">
@@ -226,61 +283,118 @@ export default function MainAppLayout() {
             </div>
         ) : content}
 
-        {/* واجهة تسجيل الدخول والإنشاء - القفل الإلزامي */}
+        {/* واجهة تسجيل الدخول والإنشاء */}
         <Sheet open={showAuthPrompt} onOpenChange={() => {}}>
             <SheetContent side="bottom" className="h-full sm:h-[85vh] p-0 bg-background rounded-t-[3.5rem] overflow-hidden border-none shadow-2xl">
-                <div className="p-8 space-y-8 h-full overflow-y-auto pb-20 text-right">
-                    <div className="flex items-center gap-4 py-4 flex-row-reverse">
-                        <div className="p-4 bg-primary/10 rounded-[1.5rem]"><LogIn className="h-8 w-8 text-primary animate-pulse" /></div>
-                        <div className="text-right">
-                            <SheetTitle className="text-3xl font-black">مرحباً بك في سبيد!</SheetTitle>
-                            <p className="text-muted-foreground font-bold text-sm">أسرع خدمة توصيل في بابل بانتظارك</p>
+                <div className="p-8 space-y-8 h-full overflow-y-auto pb-20">
+                    <div className={lang === 'ar' ? 'text-right' : 'text-left'}>
+                        <div className="flex items-center justify-between mb-2">
+                             <div className={`p-4 bg-primary/10 rounded-[1.5rem] ${lang === 'ar' ? 'order-2' : 'order-1'}`}><LogIn className="h-8 w-8 text-primary animate-pulse" /></div>
+                             <button 
+                                onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
+                                className="h-10 px-4 bg-muted/40 rounded-xl font-black text-xs gap-2 flex items-center border shadow-sm active:scale-90 transition-all"
+                             >
+                                <Languages className="h-4 w-4" />
+                                {lang === 'ar' ? 'EN' : 'العربية'}
+                             </button>
+                        </div>
+                        <div className="mt-4">
+                            <SheetTitle className="text-3xl font-black">{t.welcome}</SheetTitle>
+                            <p className="text-muted-foreground font-bold text-sm">{t.sub}</p>
                         </div>
                     </div>
 
                     {authMode === 'start' && (
                         <div className="space-y-6 pt-10">
-                            <Button onClick={() => setAuthMode('register')} className="w-full h-20 rounded-[2rem] text-2xl font-black gap-3 shadow-xl"><UserPlus className="h-7 w-7"/> إنشاء حساب جديد</Button>
-                            <Button onClick={() => setAuthMode('login')} variant="outline" className="w-full h-20 rounded-[2rem] text-2xl font-black gap-3 border-2"><LogIn className="h-7 w-7"/> تسجيل الدخول</Button>
-                            <Button onClick={handleGuest} variant="ghost" className="w-full h-14 rounded-2xl text-lg font-bold text-muted-foreground">تصفح كضيف فقط</Button>
+                            <Button onClick={() => setAuthMode('register')} className="w-full h-20 rounded-[2rem] text-2xl font-black gap-3 shadow-xl"><UserPlus className="h-7 w-7"/> {t.create}</Button>
+                            <Button onClick={() => setAuthMode('login')} variant="outline" className="w-full h-20 rounded-[2rem] text-2xl font-black gap-3 border-2"><LogIn className="h-7 w-7"/> {t.login}</Button>
+                            <Button onClick={handleGuest} variant="ghost" className="w-full h-14 rounded-2xl text-lg font-bold text-muted-foreground">{t.guest}</Button>
                         </div>
                     )}
 
                     {authMode === 'register' && (
-                        <div className="space-y-5 animate-in slide-in-from-left-4 duration-300">
+                        <div className={`space-y-5 animate-in slide-in-from-left-4 duration-300 ${lang === 'ar' ? 'text-right' : 'text-left'}`}>
                              <div className="space-y-1">
-                                <label className="text-[10px] font-black pr-1 uppercase text-slate-400">الاسم الكامل</label>
-                                <div className="relative"><User className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground"/><Input value={authData.name} onChange={(e)=>setAuthData({...authData, name: e.target.value})} placeholder="اكتب اسمك..." className="h-14 rounded-2xl bg-muted/30 border-none pr-12 text-lg font-bold" /></div>
+                                <label className="text-[10px] font-black uppercase text-slate-400 px-1">{t.fullName}</label>
+                                <div className="relative">
+                                    <User className={`absolute top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground ${lang === 'ar' ? 'right-4' : 'left-4'}`}/>
+                                    <Input 
+                                        value={authData.name} 
+                                        onChange={(e)=>setAuthData({...authData, name: e.target.value})} 
+                                        placeholder={t.placeholderName} 
+                                        className={`h-14 rounded-2xl bg-muted/30 border-none text-lg font-bold ${lang === 'ar' ? 'pr-12' : 'pl-12'}`} 
+                                    />
+                                </div>
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black pr-1 uppercase text-slate-400">رقم الهاتف</label>
-                                <div className="relative"><Smartphone className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground"/><Input value={authData.phone} onChange={(e)=>setAuthData({...authData, phone: e.target.value})} placeholder="07XXXXXXXX" type="tel" className="h-14 rounded-2xl bg-muted/30 border-none pr-12 text-center text-xl font-black tracking-widest" dir="ltr" /></div>
+                                <label className="text-[10px] font-black uppercase text-slate-400 px-1">{t.phone}</label>
+                                <div className="relative">
+                                    <Smartphone className={`absolute top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground ${lang === 'ar' ? 'right-4' : 'left-4'}`}/>
+                                    <Input 
+                                        value={authData.phone} 
+                                        onChange={(e)=>setAuthData({...authData, phone: e.target.value})} 
+                                        placeholder={t.placeholderPhone} 
+                                        type="tel" 
+                                        className={`h-14 rounded-2xl bg-muted/30 border-none text-center text-xl font-black tracking-widest ${lang === 'ar' ? 'pr-12' : 'pl-12'}`} 
+                                        dir="ltr" 
+                                    />
+                                </div>
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black pr-1 uppercase text-slate-400">كلمة المرور</label>
-                                <div className="relative"><KeyRound className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground"/><Input value={authData.password} onChange={(e)=>setAuthData({...authData, password: e.target.value})} placeholder="••••••••" type="password" className="h-14 rounded-2xl bg-muted/30 border-none pr-12 text-center text-xl font-black" dir="ltr" /></div>
+                                <label className="text-[10px] font-black uppercase text-slate-400 px-1">{t.password}</label>
+                                <div className="relative">
+                                    <KeyRound className={`absolute top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground ${lang === 'ar' ? 'right-4' : 'left-4'}`}/>
+                                    <Input 
+                                        value={authData.password} 
+                                        onChange={(e)=>setAuthData({...authData, password: e.target.value})} 
+                                        placeholder={t.placeholderPass} 
+                                        type="password" 
+                                        className={`h-14 rounded-2xl bg-muted/30 border-none text-center text-xl font-black ${lang === 'ar' ? 'pr-12' : 'pl-12'}`} 
+                                        dir="ltr" 
+                                    />
+                                </div>
                             </div>
-                            <Button onClick={handleRegister} className="w-full h-20 rounded-[2.5rem] text-2xl font-black mt-4" disabled={isAuthProcessing}>
-                                {isAuthProcessing ? <Loader2 className="animate-spin h-7 w-7"/> : "تأكيد وإنشاء الحساب"}
+                            <Button onClick={handleRegister} className="w-full h-20 rounded-[2.5rem] text-2xl font-black mt-4 shadow-xl" disabled={isAuthProcessing}>
+                                {isAuthProcessing ? <Loader2 className="animate-spin h-7 w-7"/> : t.confirm}
                             </Button>
-                            <Button onClick={() => setAuthMode('start')} variant="ghost" className="w-full text-muted-foreground">رجوع</Button>
+                            <Button onClick={() => setAuthMode('start')} variant="ghost" className="w-full text-muted-foreground font-bold">{t.back}</Button>
                         </div>
                     )}
 
                     {authMode === 'login' && (
-                        <div className="space-y-5 animate-in slide-in-from-right-4 duration-300">
+                        <div className={`space-y-5 animate-in slide-in-from-right-4 duration-300 ${lang === 'ar' ? 'text-right' : 'text-left'}`}>
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black pr-1 uppercase text-slate-400">رقم الهاتف</label>
-                                <div className="relative"><Smartphone className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground"/><Input value={authData.phone} onChange={(e)=>setAuthData({...authData, phone: e.target.value})} placeholder="07XXXXXXXX" type="tel" className="h-14 rounded-2xl bg-muted/30 border-none pr-12 text-center text-xl font-black tracking-widest" dir="ltr" /></div>
+                                <label className="text-[10px] font-black uppercase text-slate-400 px-1">{t.phone}</label>
+                                <div className="relative">
+                                    <Smartphone className={`absolute top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground ${lang === 'ar' ? 'right-4' : 'left-4'}`}/>
+                                    <Input 
+                                        value={authData.phone} 
+                                        onChange={(e)=>setAuthData({...authData, phone: e.target.value})} 
+                                        placeholder={t.placeholderPhone} 
+                                        type="tel" 
+                                        className={`h-14 rounded-2xl bg-muted/30 border-none text-center text-xl font-black tracking-widest ${lang === 'ar' ? 'pr-12' : 'pl-12'}`} 
+                                        dir="ltr" 
+                                    />
+                                </div>
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black pr-1 uppercase text-slate-400">كلمة المرور</label>
-                                <div className="relative"><KeyRound className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground"/><Input value={authData.password} onChange={(e)=>setAuthData({...authData, password: e.target.value})} placeholder="••••••••" type="password" className="h-14 rounded-2xl bg-muted/30 border-none pr-12 text-center text-xl font-black" dir="ltr" /></div>
+                                <label className="text-[10px] font-black uppercase text-slate-400 px-1">{t.password}</label>
+                                <div className="relative">
+                                    <KeyRound className={`absolute top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground ${lang === 'ar' ? 'right-4' : 'left-4'}`}/>
+                                    <Input 
+                                        value={authData.password} 
+                                        onChange={(e)=>setAuthData({...authData, password: e.target.value})} 
+                                        placeholder={t.placeholderPass} 
+                                        type="password" 
+                                        className={`h-14 rounded-2xl bg-muted/30 border-none text-center text-xl font-black ${lang === 'ar' ? 'pr-12' : 'pl-12'}`} 
+                                        dir="ltr" 
+                                    />
+                                </div>
                             </div>
-                            <Button onClick={handleLogin} className="w-full h-20 rounded-[2.5rem] text-2xl font-black mt-4" disabled={isAuthProcessing}>
-                                {isAuthProcessing ? <Loader2 className="animate-spin h-7 w-7"/> : "تسجيل الدخول"}
+                            <Button onClick={handleLogin} className="w-full h-20 rounded-[2.5rem] text-2xl font-black mt-4 shadow-xl" disabled={isAuthProcessing}>
+                                {isAuthProcessing ? <Loader2 className="animate-spin h-7 w-7"/> : t.confirmLogin}
                             </Button>
-                            <Button onClick={() => setAuthMode('start')} variant="ghost" className="w-full text-muted-foreground">رجوع</Button>
+                            <Button onClick={() => setAuthMode('start')} variant="ghost" className="w-full text-muted-foreground font-bold">{t.back}</Button>
                         </div>
                     )}
                 </div>
@@ -290,39 +404,53 @@ export default function MainAppLayout() {
         {/* واجهة العنوان الإلزامية فقط عند الطلب */}
         <Sheet open={showAddressSheet} onOpenChange={setShowAddressSheet}>
             <SheetContent side="bottom" className="h-full sm:h-[85vh] p-0 bg-background rounded-t-[3.5rem] overflow-hidden border-none shadow-2xl">
-                <div className="p-8 space-y-8 h-full overflow-y-auto pb-20 text-right">
+                <div className={`p-8 space-y-8 h-full overflow-y-auto pb-20 ${lang === 'ar' ? 'text-right' : 'text-left'}`}>
                     <div className="flex items-center gap-4 py-4 flex-row-reverse">
                         <div className="p-4 bg-primary/10 rounded-[1.5rem]"><MapPin className="h-8 w-8 text-primary animate-pulse" /></div>
-                        <div className="text-right">
-                            <SheetTitle className="text-3xl font-black">أين أنت الآن؟</SheetTitle>
-                            <p className="text-muted-foreground font-bold text-sm">نحتاج لموقعك لضمان سرعة التوصيل</p>
+                        <div className={lang === 'ar' ? 'text-right' : 'text-left'}>
+                            <SheetTitle className="text-3xl font-black">{t.locationTitle}</SheetTitle>
+                            <p className="text-muted-foreground font-bold text-sm">{t.locationSub}</p>
                         </div>
                     </div>
 
                     <div className="space-y-6">
                         <div className="grid grid-cols-1 gap-4">
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black pr-1 uppercase text-slate-400">تسمية الموقع (مثلاً: منزلي)</label>
-                                <Input value={newAddr.name} onChange={(e)=>setNewAddr({...newAddr, name: e.target.value})} placeholder="المنزل، العمل..." className="h-14 rounded-2xl bg-muted/30 border-none text-lg font-bold text-right" />
+                                <label className="text-[10px] font-black uppercase text-slate-400 px-1">{t.locationLabel}</label>
+                                <Input 
+                                    value={newAddr.name} 
+                                    onChange={(e)=>setNewAddr({...newAddr, name: e.target.value})} 
+                                    placeholder={lang === 'ar' ? "المنزل، العمل..." : "Home, Work..."} 
+                                    className={`h-14 rounded-2xl bg-muted/30 border-none text-lg font-bold ${lang === 'ar' ? 'text-right' : 'text-left'}`} 
+                                />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black pr-1 uppercase text-slate-400">رقم الهاتف للتوصيل</label>
-                                <Input value={newAddr.phone} onChange={(e)=>setNewAddr({...newAddr, phone: e.target.value})} placeholder="07XXXXXXXX" type="tel" className="h-14 rounded-2xl bg-muted/30 border-none text-center text-xl font-black tracking-widest" dir="ltr" />
+                                <label className="text-[10px] font-black uppercase text-slate-400 px-1">{t.locationPhone}</label>
+                                <Input 
+                                    value={newAddr.phone} 
+                                    onChange={(e)=>setNewAddr({...newAddr, phone: e.target.value})} 
+                                    placeholder={t.placeholderPhone} 
+                                    type="tel" 
+                                    className="h-14 rounded-2xl bg-muted/30 border-none text-center text-xl font-black tracking-widest" 
+                                    dir="ltr" 
+                                />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                             <label className="text-[10px] font-black pr-1 uppercase text-slate-400">موقع التوصيل (GPS)</label>
+                             <label className="text-[10px] font-black uppercase text-slate-400 px-1">{t.locationGPS}</label>
                              <button onClick={handleGetLocation} className={`w-full py-10 flex flex-col items-center gap-3 border-4 border-dashed rounded-[3rem] transition-all active:scale-95 ${newAddr.lat !== 0 ? 'border-green-500 bg-green-50' : 'border-primary/20 bg-card hover:bg-primary/5'}`}>
                                 {islocLoading ? <Loader2 className="animate-spin h-10 w-10 text-primary" /> : newAddr.lat !== 0 ? <CheckCircle2 className="h-10 w-10 text-green-500" /> : <MapPin className="h-10 w-10 text-primary" />}
-                                <span className="font-black">{newAddr.lat !== 0 ? "تم تحديد الموقع ✅" : "اضغط لتحديد موقعك بدقة"}</span>
+                                <span className="font-black">{newAddr.lat !== 0 ? t.locationSuccess : t.locationBtn}</span>
                              </button>
                         </div>
 
                         <Button onClick={handleSaveAddress} className="w-full h-20 rounded-[2.5rem] text-2xl font-black shadow-2xl" disabled={isSaving || newAddr.lat === 0 || !newAddr.name || !newAddr.phone}>
-                            {isSaving ? "جاري الحفظ..." : "تأكيد العنوان والمتابعة"}
+                            {isSaving ? t.wait : t.locationConfirm}
                         </Button>
-                        <p className="text-center text-[10px] text-muted-foreground font-bold px-10">مجرد حفظ العنوان، فأنت توافق على <button type="button" onClick={()=>setActiveTab(8)} className="text-primary border-b border-primary/20">سياسة الخصوصية</button>.</p>
+                        <p className="text-center text-[10px] text-muted-foreground font-bold px-10">
+                            {t.privacyNotice} <button type="button" onClick={()=>setActiveTab(8)} className="text-primary border-b border-primary/20">{t.privacyLink}</button>.
+                        </p>
                     </div>
                 </div>
             </SheetContent>
