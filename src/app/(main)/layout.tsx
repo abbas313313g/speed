@@ -78,6 +78,7 @@ export default function MainAppLayout() {
     trackVisit();
   }, []);
 
+  // تعديل منطق ظهور صفحة الدخول: تظهر دوماً إذا لم يتوفر userId
   useEffect(() => {
     if (!showSplash && !settings?.isMaintenanceMode) {
       if (!userId) {
@@ -225,7 +226,7 @@ export default function MainAppLayout() {
             </div>
         ) : content}
 
-        {/* واجهة تسجيل الدخول والإنشاء - الخطوة الأولى الإلزامية */}
+        {/* واجهة تسجيل الدخول والإنشاء - القفل الإلزامي */}
         <Sheet open={showAuthPrompt} onOpenChange={() => {}}>
             <SheetContent side="bottom" className="h-full sm:h-[85vh] p-0 bg-background rounded-t-[3.5rem] overflow-hidden border-none shadow-2xl">
                 <div className="p-8 space-y-8 h-full overflow-y-auto pb-20 text-right">
@@ -329,4 +330,3 @@ export default function MainAppLayout() {
     </div>
   );
 }
-    

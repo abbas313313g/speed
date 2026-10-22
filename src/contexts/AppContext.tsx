@@ -59,6 +59,9 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
+// استخدام مفتاح جديد تماماً لإجبار الكل على تسجيل الدخول ومسح القديم
+const STORAGE_KEY = 'ss_user_v3';
+
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const { toast } = useToast();
     const { restaurants, isLoading: restaurantsLoading } = useRestaurants();
@@ -81,7 +84,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     useEffect(() => {
         try {
-            let id = safeStorage.get('speedShopUserId');
+            // مسح أي بيانات قديمة من المفاتيح السابقة
+            localStorage.removeItem('speedShopUserId');
+            
+            let id = safeStorage.get(STORAGE_KEY);
             if (id) {
                 setUserId(id);
                 if (id !== 'guest_user') {
@@ -94,6 +100,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     setUser({ id: 'guest_user', name: 'ضيف سبيد', phone: '', isAdmin: false, isGuest: true });
                 }
             }
+            
             const savedCart = safeStorage.get('speedShopCart');
             if(savedCart) setCart(JSON.parse(savedCart));
             
@@ -178,7 +185,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             
             setUserId(newId);
             setUser({ id: newId, ...userData } as User);
-            safeStorage.set('speedShopUserId', newId);
+            safeStorage.set(STORAGE_KEY, newId);
             toast({ title: "تم إنشاء الحساب بنجاح! 🎉" });
             return true;
         } catch (e) { 
@@ -200,7 +207,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             const id = snap.docs[0].id;
             setUserId(id);
             setUser({ id, ...data } as User);
-            safeStorage.set('speedShopUserId', id);
+            safeStorage.set(STORAGE_KEY, id);
             toast({ title: "تم تسجيل الدخول بنجاح ✅" });
             return true;
         } catch (e) { 
@@ -213,7 +220,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         const id = 'guest_user';
         setUserId(id);
         setUser({ id, name: 'ضيف سبيد', phone: '', isAdmin: false, isGuest: true });
-        safeStorage.set('speedShopUserId', id);
+        safeStorage.set(STORAGE_KEY, id);
         toast({ title: "أهلاً بك كضيف في سبيد شوب!" });
     };
 
@@ -222,7 +229,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
         setAddresses([]);
         setCart([]);
-        safeStorage.remove('speedShopUserId');
+        safeStorage.remove(STORAGE_KEY);
         safeStorage.remove('speedShopCart');
         window.location.reload();
     };
@@ -422,4 +429,3 @@ ${walletDiscount > 0 ? `👛 *مخصوم من المحفظة:* ${formatCurrency(
 
     return <AppContext.Provider value={value as any}>{children}</AppContext.Provider>;
 };
-    
