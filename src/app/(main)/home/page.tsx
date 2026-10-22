@@ -284,29 +284,6 @@ export default function HomePage() {
             </section>
         )}
       </div>
-
-      {/* واجهة تعليمية لأول دخول */}
-      {addresses.length === 0 && (
-          <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-500">
-              <div className="w-full max-w-sm rounded-[3.5rem] p-10 text-center space-y-8 border-none shadow-2xl bg-white animate-in zoom-in-95 duration-300">
-                  <div className="w-28 h-28 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                      <MapPin className="h-14 w-14 text-primary animate-bounce" />
-                  </div>
-                  <div className="space-y-3">
-                      <h2 className="text-4xl font-black text-slate-800">أهلاً بك في سبيد!</h2>
-                      <p className="text-muted-foreground font-bold leading-relaxed">
-                          لكي تستمتع بأسرع خدمة توصيل في جنوب بابل، يرجى إضافة عنوانك الأول أولاً.
-                      </p>
-                  </div>
-                  <Button 
-                    onClick={() => setActiveTab(6)}
-                    className="w-full h-20 rounded-[1.8rem] text-2xl font-black shadow-2xl shadow-primary/20 transition-all active:scale-95"
-                  >
-                      ابدأ بإضافة عنوانك
-                  </Button>
-              </div>
-          </div>
-      )}
     </div>
   );
 }

@@ -85,7 +85,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             let id = safeStorage.get('speedShopUserId');
             if (id) {
                 setUserId(id);
-                // جلب بيانات المستخدم من فيربيس
                 getDoc(doc(db, "users", id)).then(docSnap => {
                     if (docSnap.exists()) {
                         setUser({ id, ...docSnap.data() } as User);
@@ -243,9 +242,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [userId, toast]);
 
     const addToCart = useCallback((product: Product, quantity: number, selectedSize?: ProductSize): boolean => {
-        // التحقق من وجود عنوان قبل الإضافة
         if (addresses.length === 0) {
-            toast({ title: "يرجى إضافة عنوان أولاً", description: "نحتاج لموقعك لتحديد التكاليف وتوفر الخدمة." });
             setShowAddressSheet(true);
             return false;
         }
