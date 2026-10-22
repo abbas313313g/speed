@@ -47,7 +47,7 @@ export default function MainAppLayout() {
   const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([0]));
 
   if (!context) return null;
-  const { activeTab, register, login, guestLogin, isMainDataReady, addAddress, userId, showAddressSheet, setShowAddressSheet } = context;
+  const { activeTab, register, login, guestLogin, isMainDataReady, addAddress, userId, showAddressSheet, setShowAddressSheet, setActiveTab } = context;
 
   useEffect(() => {
     setVisitedTabs(prev => {
@@ -83,6 +83,8 @@ export default function MainAppLayout() {
       if (!userId) {
           setShowAuthPrompt(true);
           setAuthMode('start');
+      } else {
+          setShowAuthPrompt(false);
       }
     }
   }, [showSplash, settings?.isMaintenanceMode, userId]);
@@ -92,6 +94,12 @@ export default function MainAppLayout() {
         toast({ title: "يرجى ملء جميع الحقول", variant: "destructive" });
         return;
     }
+    const phoneRegex = /^07[789]\d{8}$/;
+    if (!phoneRegex.test(authData.phone)) {
+        toast({ title: "رقم الهاتف غير صحيح", description: "يجب أن يكون رقم عراقي صحيح.", variant: "destructive" });
+        return;
+    }
+
     setIsAuthProcessing(true);
     const success = await register(authData.name, authData.phone, authData.password);
     if (success) setShowAuthPrompt(false);
@@ -217,13 +225,13 @@ export default function MainAppLayout() {
             </div>
         ) : content}
 
-        {/* واجهة تسجيل الدخول والإنشاء */}
+        {/* واجهة تسجيل الدخول والإنشاء - الخطوة الأولى الإلزامية */}
         <Sheet open={showAuthPrompt} onOpenChange={() => {}}>
-            <SheetContent side="bottom" className="h-[85vh] p-0 bg-background rounded-t-[3.5rem] overflow-hidden border-none shadow-2xl">
+            <SheetContent side="bottom" className="h-full sm:h-[85vh] p-0 bg-background rounded-t-[3.5rem] overflow-hidden border-none shadow-2xl">
                 <div className="p-8 space-y-8 h-full overflow-y-auto pb-20 text-right">
                     <div className="flex items-center gap-4 py-4 flex-row-reverse">
                         <div className="p-4 bg-primary/10 rounded-[1.5rem]"><LogIn className="h-8 w-8 text-primary animate-pulse" /></div>
-                        <div>
+                        <div className="text-right">
                             <SheetTitle className="text-3xl font-black">مرحباً بك في سبيد!</SheetTitle>
                             <p className="text-muted-foreground font-bold text-sm">أسرع خدمة توصيل في بابل بانتظارك</p>
                         </div>
@@ -280,11 +288,11 @@ export default function MainAppLayout() {
 
         {/* واجهة العنوان الإلزامية فقط عند الطلب */}
         <Sheet open={showAddressSheet} onOpenChange={setShowAddressSheet}>
-            <SheetContent side="bottom" className="h-[85vh] p-0 bg-background rounded-t-[3.5rem] overflow-hidden border-none shadow-2xl">
+            <SheetContent side="bottom" className="h-full sm:h-[85vh] p-0 bg-background rounded-t-[3.5rem] overflow-hidden border-none shadow-2xl">
                 <div className="p-8 space-y-8 h-full overflow-y-auto pb-20 text-right">
                     <div className="flex items-center gap-4 py-4 flex-row-reverse">
                         <div className="p-4 bg-primary/10 rounded-[1.5rem]"><MapPin className="h-8 w-8 text-primary animate-pulse" /></div>
-                        <div>
+                        <div className="text-right">
                             <SheetTitle className="text-3xl font-black">أين أنت الآن؟</SheetTitle>
                             <p className="text-muted-foreground font-bold text-sm">نحتاج لموقعك لضمان سرعة التوصيل</p>
                         </div>
@@ -294,7 +302,7 @@ export default function MainAppLayout() {
                         <div className="grid grid-cols-1 gap-4">
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black pr-1 uppercase text-slate-400">تسمية الموقع (مثلاً: منزلي)</label>
-                                <Input value={newAddr.name} onChange={(e)=>setNewAddr({...newAddr, name: e.target.value})} placeholder="المنزل، العمل..." className="h-14 rounded-2xl bg-muted/30 border-none text-lg font-bold" />
+                                <Input value={newAddr.name} onChange={(e)=>setNewAddr({...newAddr, name: e.target.value})} placeholder="المنزل، العمل..." className="h-14 rounded-2xl bg-muted/30 border-none text-lg font-bold text-right" />
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black pr-1 uppercase text-slate-400">رقم الهاتف للتوصيل</label>
@@ -321,3 +329,4 @@ export default function MainAppLayout() {
     </div>
   );
 }
+    

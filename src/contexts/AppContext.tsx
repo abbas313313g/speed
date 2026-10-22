@@ -46,7 +46,6 @@ interface AppContextType {
     setSelectedProductId: (id: string | null) => void;
     selectedRestaurantId: string | null;
     setSelectedRestaurantId: (id: string | null) => void;
-    syncUserByPhone: (phone: string) => Promise<string | null>;
     register: (name: string, phone: string, password: string) => Promise<boolean>;
     login: (phone: string, password: string) => Promise<boolean>;
     guestLogin: () => void;
@@ -85,13 +84,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             let id = safeStorage.get('speedShopUserId');
             if (id) {
                 setUserId(id);
-                getDoc(doc(db, "users", id)).then(docSnap => {
-                    if (docSnap.exists()) {
-                        setUser({ id, ...docSnap.data() } as User);
-                    } else if (id === 'guest_user') {
-                        setUser({ id: 'guest_user', name: 'ضيف سبيد', phone: '', isAdmin: false, isGuest: true });
-                    }
-                });
+                if (id !== 'guest_user') {
+                    getDoc(doc(db, "users", id)).then(docSnap => {
+                        if (docSnap.exists()) {
+                            setUser({ id, ...docSnap.data() } as User);
+                        }
+                    });
+                } else {
+                    setUser({ id: 'guest_user', name: 'ضيف سبيد', phone: '', isAdmin: false, isGuest: true });
+                }
             }
             const savedCart = safeStorage.get('speedShopCart');
             if(savedCart) setCart(JSON.parse(savedCart));
@@ -145,7 +146,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     useEffect(() => {
-        if (!userId || userId === 'guest_user') return;
+        if (!userId) {
+            setAddresses([]);
+            return;
+        }
         const q = query(collection(db, "addresses"), where("userId", "==", userId));
         return onSnapshot(q, (snapshot) => {
             const addrData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Address[];
@@ -161,26 +165,32 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const register = async (name: string, phone: string, password: string) => {
         try {
-            const q = query(collection(db, "users"), where("phone", "==", phone), limit(1));
+            const cleanPhone = phone.trim();
+            const q = query(collection(db, "users"), where("phone", "==", cleanPhone), limit(1));
             const snap = await getDocs(q);
             if (!snap.empty) {
                 toast({ title: "هذا الرقم مسجل مسبقاً", variant: "destructive" });
                 return false;
             }
             const newId = uuidv4();
-            const userData = { name, phone, password, isAdmin: false, createdAt: new Date().toISOString() };
+            const userData = { name, phone: cleanPhone, password, isAdmin: false, createdAt: new Date().toISOString() };
             await setDoc(doc(db, "users", newId), userData);
+            
             setUserId(newId);
             setUser({ id: newId, ...userData } as User);
             safeStorage.set('speedShopUserId', newId);
             toast({ title: "تم إنشاء الحساب بنجاح! 🎉" });
             return true;
-        } catch (e) { return false; }
+        } catch (e) { 
+            toast({ title: "فشل إنشاء الحساب السحابي", variant: "destructive" });
+            return false; 
+        }
     };
 
     const login = async (phone: string, password: string) => {
         try {
-            const q = query(collection(db, "users"), where("phone", "==", phone), where("password", "==", password), limit(1));
+            const cleanPhone = phone.trim();
+            const q = query(collection(db, "users"), where("phone", "==", cleanPhone), where("password", "==", password), limit(1));
             const snap = await getDocs(q);
             if (snap.empty) {
                 toast({ title: "الرقم أو كلمة المرور غير صحيحة", variant: "destructive" });
@@ -193,7 +203,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             safeStorage.set('speedShopUserId', id);
             toast({ title: "تم تسجيل الدخول بنجاح ✅" });
             return true;
-        } catch (e) { return false; }
+        } catch (e) { 
+            toast({ title: "فشل تسجيل الدخول", variant: "destructive" });
+            return false; 
+        }
     };
 
     const guestLogin = () => {
@@ -214,23 +227,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         window.location.reload();
     };
 
-    const syncUserByPhone = useCallback(async (phone: string): Promise<string | null> => {
-        try {
-            const q = query(collection(db, "users"), where("phone", "==", phone), limit(1));
-            const snap = await getDocs(q);
-            if (!snap.empty) {
-                const id = snap.docs[0].id;
-                setUserId(id);
-                safeStorage.set('speedShopUserId', id);
-                return id;
-            }
-            return null;
-        } catch (e) { return null; }
-    }, []);
-
     const addAddress = useCallback(async (a: Omit<Address, 'id' | 'userId'>) => {
         try {
-            if (!userId || userId === 'guest_user') {
+            if (!userId) {
                 toast({ title: "يرجى تسجيل الدخول أولاً", variant: "destructive" });
                 return;
             }
@@ -265,7 +264,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const removeFromCart = (pid: string, sname?: string) => setCart(prev => prev.filter(i => !(i.product.id === pid && i.selectedSize?.name === sname)));
     const updateCartQuantity = (pid: string, q: number, sname?: string) => setCart(prev => prev.map(i => (i.product.id === pid && i.selectedSize?.name === sname) ? { ...i, quantity: q } : i));
-    const createSupportTicket = (m: Message) => createTicketHook(m, userId!, addresses[0]?.name || 'زبون سبيد', addresses[0]?.deliveryZone);
+    const createSupportTicket = (m: Message) => createTicketHook(m, userId!, user?.name || 'زبون سبيد', addresses[0]?.deliveryZone);
     const clearCart = () => setCart([]);
     
     const cartTotal = useMemo(() => {
@@ -417,9 +416,10 @@ ${walletDiscount > 0 ? `👛 *مخصوم من المحفظة:* ${formatCurrency(
         addAddress, register, login, guestLogin, logout,
         deleteAddress: (id: string) => updateDoc(doc(db, "addresses", id), { userId: 'deleted' }),
         mySupportTickets: useMemo(() => supportTickets.filter(t => t.userId === userId).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [userId, supportTickets]),
-        activeTab, previousTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId, syncUserByPhone,
+        activeTab, previousTab, setActiveTab, selectedProductId, setSelectedProductId, selectedRestaurantId, setSelectedRestaurantId,
         isDarkMode, toggleDarkMode, walletBalance, showAddressSheet, setShowAddressSheet
     };
 
     return <AppContext.Provider value={value as any}>{children}</AppContext.Provider>;
 };
+    
