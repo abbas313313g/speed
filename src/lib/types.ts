@@ -4,9 +4,11 @@ import { z } from 'zod';
 export interface User {
   id: string; 
   name: string;
-  email: string;
+  email?: string;
   phone: string;
+  password?: string; // أضفنا كلمة المرور
   isAdmin: boolean;
+  isGuest?: boolean;
 }
 
 export interface Address {

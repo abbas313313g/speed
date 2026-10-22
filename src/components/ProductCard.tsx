@@ -66,6 +66,14 @@ function ProductCardComponent({ product }: ProductCardProps) {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    // التحقق من العنوان أولاً من خلال سياق التطبيق
+    if (context?.addresses.length === 0) {
+        toast({ title: "يرجى إضافة عنوان أولاً", description: "نحتاج لموقعك لتحديد التكاليف وتوفر الخدمة." });
+        context.setShowAddressSheet(true);
+        return;
+    }
+
     if (restaurant && !restaurant.isStoreOpen) {
         toast({ title: "المتجر مغلق حاليًا", variant: "destructive" });
         return;

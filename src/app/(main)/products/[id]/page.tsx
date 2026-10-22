@@ -19,7 +19,7 @@ import { AppContext } from '@/contexts/AppContext';
 export default function ProductDetailPage() {
   const context = useContext(AppContext);
   if (!context) return null;
-  const { selectedProductId, setActiveTab, activeTab, previousTab, setSelectedRestaurantId } = context;
+  const { selectedProductId, setActiveTab, activeTab, previousTab, setSelectedRestaurantId, addresses, setShowAddressSheet } = context;
 
   const { products, isLoading } = useProducts(undefined, undefined, 1, selectedProductId || undefined);
   const { restaurants } = useRestaurants();
@@ -111,6 +111,11 @@ export default function ProductDetailPage() {
   }
 
   const handleAddToCart = () => {
+      if (addresses.length === 0) {
+          toast({ title: "يرجى إضافة عنوان أولاً", description: "نحتاج لموقعك لتحديد التكاليف وتوفر الخدمة." });
+          setShowAddressSheet(true);
+          return;
+      }
       if (restaurant && !restaurant.isStoreOpen) {
         toast({ title: "المتجر مغلق حاليًا", variant: "destructive" });
         return;
