@@ -50,25 +50,25 @@ export const isLocationInAllowedZones = (lat: number, lng: number) => {
 }
 
 /**
- * محرك حساب أجور التوصيل المطور بدقة الـ 700 متر:
- * 1000 دينار كحد أدنى.
- * زيادة 250 دينار لكل وحدة مسافة (700 متر).
+ * محرك حساب أجور التوصيل المطور:
+ * 1000 دينار لكل 2.8 كم.
+ * التقسيم: كل 700 متر (0.7 كم) تساوي 250 دينار.
+ * الحد الأدنى: 1000 دينار.
  */
 export const calculateDeliveryFee = (distanceInKm: number) => {
     const minFee = 1000;
-    const unitDistance = 0.7; // 700 متر لكل وحدة
+    const unitDistance = 0.7; // 700 متر لكل وحدة (2.8 كم / 4 وحدات)
     const unitPrice = 250; // سعر الوحدة الواحدة
 
     if (!distanceInKm || distanceInKm <= 0) {
         return minFee;
     }
     
-    const units = distanceInKm / unitDistance;
+    // حساب عدد الوحدات (كل وحدة 700 متر)
+    const units = Math.ceil(distanceInKm / unitDistance);
     let totalFee = units * unitPrice;
     
-    // تقريب المبلغ لأقرب 250 دينار لضمان دقة الحساب المالي
-    totalFee = Math.round(totalFee / 250) * 250;
-    
+    // التأكد من أن الحد الأدنى هو 1000 دينار (والذي يغطي حتى 2.8 كم)
     return Math.min(Math.max(totalFee, minFee), 15000);
 }
 
@@ -97,12 +97,14 @@ export const safeStorage = {
     }
 };
 
-export const compressImage = async (base64: string, maxWidth = 500, quality = 0.4): Promise<string> => {
+export const compressImage = async (base64: string, maxWidth = 800, quality = 0.6): Promise<string> => {
     if (!base64 || !base64.startsWith('data:image')) return base64;
-    if (base64.length < 30000) return base64;
+    // لا تضغط إذا كانت الصورة صغيرة أصلاً (أقل من 50 كيلو بايت)
+    if (base64.length < 50000) return base64;
 
     return new Promise((resolve) => {
         const img = new Image();
+        img.crossOrigin = "anonymous";
         img.src = base64;
         img.onload = () => {
             const canvas = document.createElement('canvas');
@@ -119,8 +121,10 @@ export const compressImage = async (base64: string, maxWidth = 500, quality = 0.
                 ctx.imageSmoothingEnabled = true;
                 ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            } else {
+                resolve(base64);
             }
-            resolve(canvas.toDataURL('image/jpeg', quality));
         };
         img.onerror = () => resolve(base64);
     });

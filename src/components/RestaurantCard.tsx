@@ -20,8 +20,6 @@ interface RestaurantCardProps {
 function RestaurantCardComponent({ restaurant, large = false, compact = false, priority = false }: RestaurantCardProps) {
   const context = useContext(AppContext);
 
-  // تم إلغاء استخدام useProducts هنا لحماية الكوتا من الاستنزاف.
-  // نعتمد الآن على نسبة الخصم العامة للمتجر لتمييزه.
   const hasDiscounts = useMemo(() => {
       return (restaurant.discountPercentage && restaurant.discountPercentage > 0);
   }, [restaurant.discountPercentage]);
@@ -32,6 +30,8 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false, p
         context.setActiveTab(10); 
     }
   };
+
+  const imageSrc = restaurant.image && restaurant.image.length > 20 ? restaurant.image : 'https://placehold.co/400x300/00b358/white?text=SPEED+SHOP';
 
   return (
     <div 
@@ -49,17 +49,15 @@ function RestaurantCardComponent({ restaurant, large = false, compact = false, p
               "relative flex-shrink-0 overflow-hidden rounded-2xl bg-muted/10",
               compact ? "w-full aspect-[4/3] mb-3" : (large ? "w-full aspect-[16/9] mb-4" : "h-20 w-20")
           )}>
-              {restaurant.image && (
-                  <Image
-                      src={restaurant.image}
-                      alt={restaurant.name}
-                      fill
-                      className="object-cover"
-                      unoptimized={true}
-                      priority={priority}
-                      loading={priority ? "eager" : "lazy"}
-                  />
-              )}
+              <Image
+                  src={imageSrc}
+                  alt={restaurant.name}
+                  fill
+                  className="object-cover"
+                  unoptimized={true}
+                  priority={priority}
+                  loading={priority ? "eager" : "lazy"}
+              />
               
               {hasDiscounts && (
                   <div className="absolute top-2 left-2 z-10 bg-red-600 text-white p-1.5 rounded-xl shadow-lg flex items-center gap-1 animate-bounce">

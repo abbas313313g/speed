@@ -67,7 +67,6 @@ function ProductCardComponent({ product }: ProductCardProps) {
     e.preventDefault();
     e.stopPropagation();
     
-    // التحقق من العنوان أولاً من خلال سياق التطبيق
     if (context?.addresses.length === 0) {
         toast({ title: "يرجى إضافة عنوان أولاً", description: "نحتاج لموقعك لتحديد التكاليف وتوفر الخدمة." });
         context.setShowAddressSheet(true);
@@ -109,6 +108,8 @@ function ProductCardComponent({ product }: ProductCardProps) {
       return data.display < data.original;
   }, [finalPrices, hasSizes]);
 
+  const imageSrc = product.image && product.image.length > 20 ? product.image : 'https://placehold.co/600x600/00b358/white?text=SPEED+SHOP';
+
   return (
     <div 
         onClick={handleOpenProduct}
@@ -121,15 +122,13 @@ function ProductCardComponent({ product }: ProductCardProps) {
       <Card className="overflow-hidden border-none shadow-2xl rounded-[2.8rem] bg-white dark:bg-slate-900 w-full h-full hover:shadow-3xl transition-all hover:-translate-y-2 border-t-2 border-slate-50 dark:border-slate-800">
         <CardContent className="p-0 flex flex-col h-full relative">
           <div className="relative w-full aspect-square overflow-hidden bg-slate-50 dark:bg-slate-800 rounded-t-[2.8rem]">
-            {product.image ? (
-                <Image
-                  src={product.image}
-                  alt={product.name}
-                  fill
-                  className="object-cover group-hover:scale-110 transition-transform duration-1000"
-                  unoptimized={true}
-                />
-            ) : <div className="w-full h-full animate-pulse bg-muted/20" />}
+            <Image
+              src={imageSrc}
+              alt={product.name}
+              fill
+              className="object-cover group-hover:scale-110 transition-transform duration-1000"
+              unoptimized={true}
+            />
             
             {hasAnyDiscount && !hasSizes && (
                 <div className="absolute top-4 left-4 z-10 bg-red-600 text-white font-black text-[10px] px-3 py-1.5 rounded-[1rem] shadow-xl flex items-center gap-1">
