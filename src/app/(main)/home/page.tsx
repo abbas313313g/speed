@@ -23,7 +23,8 @@ import {
   Moon,
   Sun,
   Bike,
-  Info
+  Info,
+  LayoutGrid
 } from "lucide-react";
 import {
   Carousel,
@@ -69,18 +70,10 @@ export default function HomePage() {
     addresses.find(a => a.id === selectedAddressId) || addresses[0], 
   [addresses, selectedAddressId]);
 
-  // ريلز المتاجر مع حساب المسافة والفيز
-  const restaurantReels = useMemo(() => {
-    return restaurants.map(r => {
-      let distance = 0;
-      let fee = 1000;
-      if (activeAddress && activeAddress.latitude && r.latitude) {
-        distance = calculateDistance(activeAddress.latitude, activeAddress.longitude!, r.latitude, r.longitude!);
-        fee = calculateDeliveryFee(distance);
-      }
-      return { ...r, distance, fee };
-    }).sort((a, b) => (a.isStoreOpen ? -1 : 1));
-  }, [restaurants, activeAddress]);
+  // المتاجر للرئيسية (أول 3 فقط)
+  const homeStores = useMemo(() => {
+    return restaurants.slice(0, 3);
+  }, [restaurants]);
 
   const mostSoldProducts = useMemo(() => {
       if (!allOrders.length || !allProducts.length) return [];
@@ -239,67 +232,45 @@ export default function HomePage() {
             </div>
         </section>
 
-        {/* ريلز المتاجر - الابتكار الجديد */}
+        {/* المتاجر - 3 فقط وزر عرض الكل */}
         <section className="space-y-6">
             <div className="flex items-center justify-between px-1 flex-row-reverse">
-                <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
-                    المتاجر القريبة <Sparkles className="h-5 w-5 text-amber-500 fill-amber-500" />
-                </h2>
-                <Badge className="bg-primary/10 text-primary border-none font-black text-[10px]">تحديث لحظي 🛰️</Badge>
+                <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">المتاجر المختارة</h2>
             </div>
             
-            <div className="space-y-6">
-                {restaurantReels.map((store) => (
+            <div className="grid grid-cols-2 gap-4">
+                {homeStores.map((store) => (
                     <div 
                         key={store.id} 
                         onClick={() => handleStoreClick(store.id)}
-                        className="w-full bg-white dark:bg-slate-900 rounded-[3.5rem] p-6 shadow-2xl border-2 border-white dark:border-slate-800 relative group active:scale-[0.98] transition-all overflow-hidden"
+                        className="w-full bg-white dark:bg-slate-900 rounded-[2.5rem] p-4 shadow-xl border-2 border-white dark:border-slate-800 relative group active:scale-[0.98] transition-all overflow-hidden"
                     >
-                        <div className="relative aspect-[16/10] w-full overflow-hidden rounded-[3rem] mb-6 shadow-inner">
-                            <Image src={store.image} alt={store.name} fill className="object-cover transition-transform group-hover:scale-105 duration-1000" unoptimized={true} />
-                            
-                            {/* بطاقة السعر والمسافة العائمة */}
-                            <div className="absolute bottom-4 right-4 left-4 flex justify-between items-center gap-3 flex-row-reverse">
-                                <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-6 py-3 rounded-3xl flex items-center gap-2 shadow-2xl border border-primary/10">
-                                    <Bike className="h-5 w-5 text-primary animate-bounce" />
-                                    <div className="flex flex-col text-right">
-                                        <span className="text-[8px] font-black text-slate-400 uppercase leading-none">أجرة التوصيل</span>
-                                        <span className="text-lg font-black text-primary leading-none mt-1">{formatCurrency(store.fee)}</span>
-                                    </div>
-                                </div>
-                                <div className="bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-2xl flex items-center gap-2 shadow-xl border border-white/10">
-                                    <Navigation2 className="h-4 w-4 text-white fill-white" />
-                                    <span className="text-xs font-black text-white">{store.distance.toFixed(1)} كم</span>
-                                </div>
-                            </div>
-
-                            {!store.isStoreOpen && (
-                                <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center">
-                                    <Badge variant="destructive" className="text-2xl font-black px-10 py-3 rounded-full rotate-[-5deg] shadow-2xl border-4 border-white">مغلق الآن</Badge>
-                                </div>
-                            )}
+                        <div className="relative aspect-square w-full overflow-hidden rounded-[2rem] mb-3 shadow-inner">
+                            <Image src={store.image} alt={store.name} fill className="object-cover transition-transform group-hover:scale-110 duration-1000" unoptimized={true} />
+                            {!store.isStoreOpen && <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px] flex items-center justify-center"><Badge variant="destructive" className="font-black text-[10px]">مغلق</Badge></div>}
                         </div>
-
-                        <div className="px-2 flex justify-between items-center flex-row-reverse">
-                            <div className="text-right">
-                                <h3 className="font-black text-2xl text-slate-800 dark:text-white leading-tight">{store.name}</h3>
-                                <div className="flex items-center gap-2 justify-end mt-1">
-                                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                                    <span className="text-sm font-black dark:text-slate-300">{store.rating}</span>
-                                    <span className="text-[10px] text-muted-foreground font-bold mr-2">توصيل فائق السرعة ⚡</span>
-                                </div>
-                            </div>
-                            <div className="h-14 w-14 bg-primary/10 rounded-[1.8rem] flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all shadow-lg">
-                                <ChevronLeft className="h-8 w-8" />
+                        <div className="text-right px-1">
+                            <h3 className="font-black text-sm text-slate-800 dark:text-white truncate leading-tight">{store.name}</h3>
+                            <div className="flex items-center gap-1 justify-end mt-1 opacity-60">
+                                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                                <span className="text-[10px] font-black">{store.rating}</span>
                             </div>
                         </div>
                     </div>
                 ))}
-                {restaurantReels.length === 0 && (
-                    <div className="p-20 text-center border-4 border-dashed rounded-[3.5rem] bg-muted/10 opacity-40">
-                        <p className="font-black">لا توجد متاجر قريبة جداً حالياً.</p>
+                
+                {/* زر عرض الكل بنظام الريلز */}
+                <button 
+                    onClick={() => setActiveTab(11)}
+                    className="w-full aspect-square bg-primary rounded-[2.5rem] p-6 shadow-2xl flex flex-col items-center justify-center gap-3 active:scale-95 transition-all text-white relative overflow-hidden"
+                >
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10" />
+                    <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-md">
+                        <LayoutGrid className="h-10 w-10 text-white" />
                     </div>
-                )}
+                    <span className="font-black text-xl italic tracking-tighter">عرض الكل</span>
+                    <p className="text-[10px] font-bold opacity-70">استكشف المتاجر</p>
+                </button>
             </div>
         </section>
 

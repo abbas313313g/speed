@@ -24,6 +24,7 @@ import PrivacyPolicyPage from './privacy-policy/page';
 import ProductDetailPage from './products/[id]/page';
 import RestaurantProductsPage from './restaurants/[id]/page';
 import AddAddressPage from './account/add-address/page';
+import RestaurantReelsPage from './restaurants-reels/page';
 
 export default function MainAppLayout() {
   const context = useContext(AppContext);
@@ -242,6 +243,7 @@ export default function MainAppLayout() {
           <div className="spa-page-view">{visitedTabs.has(8) ? <PrivacyPolicyPage /> : null}</div>
           <div className="spa-page-view">{visitedTabs.has(9) ? <ProductDetailPage /> : null}</div>
           <div className="spa-page-view">{visitedTabs.has(10) ? <RestaurantProductsPage /> : null}</div>
+          <div className="spa-page-view">{visitedTabs.has(11) ? <RestaurantReelsPage /> : null}</div>
         </div>
       </main>
       <BottomNav />
