@@ -5,44 +5,37 @@ import { useRef, useContext, useMemo, useState, useEffect } from "react";
 import Image from "next/image";
 import Autoplay from "embla-carousel-autoplay";
 import { 
-  ChevronLeft,
+  ChevronDown,
   Star,
   Flame,
   ShoppingBasket,
-  MapPin,
   Plus,
-  ChevronDown,
-  Navigation2,
-  Sparkles,
-  Home as HomeIcon,
-  PlusCircle,
-  CheckCircle2,
   User,
   Wallet,
   LogOut,
   Moon,
   Sun,
-  Bike,
-  Info,
-  LayoutGrid
+  LayoutGrid,
+  CheckCircle2,
+  Home as HomeIcon,
+  Info
 } from "lucide-react";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
 } from "@/components/ui/carousel";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { AppContext } from "@/contexts/AppContext";
 import { useBanners } from "@/hooks/useBanners";
 import { useRestaurants } from "@/hooks/useRestaurants";
 import { useCategories } from "@/hooks/useCategories";
 import { useProducts } from "@/hooks/useProducts";
-import { useAppSettings } from "@/hooks/useAppSettings";
 import { useOrders } from "@/hooks/useOrders";
 import { ProductCard } from "@/components/ProductCard";
 import { Badge } from "@/components/ui/badge";
-import { calculateDistance, calculateDeliveryFee, formatCurrency, cn } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
@@ -70,7 +63,7 @@ export default function HomePage() {
     addresses.find(a => a.id === selectedAddressId) || addresses[0], 
   [addresses, selectedAddressId]);
 
-  // المتاجر للرئيسية (أول 3 فقط)
+  // عرض أول 3 متاجر فقط كما طلب المستخدم
   const homeStores = useMemo(() => {
     return restaurants.slice(0, 3);
   }, [restaurants]);
@@ -105,7 +98,6 @@ export default function HomePage() {
       {/* Header الاحترافي الموحد */}
       <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-100 dark:border-slate-800 px-4 py-4 rounded-b-[2.8rem] shadow-sm">
         <div className="flex justify-between items-center flex-row-reverse">
-            {/* زر الحساب والعناوين الموحد */}
             <Sheet open={isAccountSheetOpen} onOpenChange={setIsAccountSheetOpen}>
                 <SheetTrigger asChild>
                     <button className="flex items-center gap-3 group active:scale-95 transition-all">
@@ -135,7 +127,6 @@ export default function HomePage() {
                             </Button>
                         </SheetHeader>
 
-                        {/* المحفظة */}
                         <div className="bg-primary p-6 rounded-[2.5rem] text-white flex justify-between items-center flex-row-reverse relative overflow-hidden shadow-2xl">
                             <div className="absolute left-[-20px] top-[-20px] opacity-10"><Wallet className="h-32 w-32" /></div>
                             <div className="relative z-10">
@@ -145,7 +136,6 @@ export default function HomePage() {
                             <div className="p-4 bg-white/20 rounded-[1.5rem] backdrop-blur-md relative z-10"><Wallet className="h-8 w-8" /></div>
                         </div>
 
-                        {/* إدارة العناوين */}
                         <div className="space-y-4">
                             <div className="flex items-center justify-between flex-row-reverse">
                                 <h3 className="text-xl font-black">عناويني المسجلة</h3>
@@ -174,7 +164,6 @@ export default function HomePage() {
                                             </div>
                                         </button>
                                     ))}
-                                    {addresses.length === 0 && <p className="text-center py-10 text-muted-foreground font-bold italic">لا توجد عناوين مسجلة حالياً.</p>}
                                 </div>
                             </ScrollArea>
                         </div>
@@ -196,7 +185,6 @@ export default function HomePage() {
       </header>
 
       <div className="p-4 space-y-10 mt-2">
-        {/* البنرات العصرية */}
         <section>
             <Carousel className="w-full" opts={{ loop: true, direction: 'rtl' }} plugins={[plugin.current]}>
                 <CarouselContent>
@@ -212,7 +200,6 @@ export default function HomePage() {
             </Carousel>
         </section>
 
-        {/* الأقسام */}
         <section>
             <div className="flex items-center justify-between mb-5 px-1 flex-row-reverse">
                 <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">التصنيفات</h2>
@@ -232,7 +219,6 @@ export default function HomePage() {
             </div>
         </section>
 
-        {/* المتاجر - 3 فقط وزر عرض الكل */}
         <section className="space-y-6">
             <div className="flex items-center justify-between px-1 flex-row-reverse">
                 <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">المتاجر المختارة</h2>
@@ -274,7 +260,6 @@ export default function HomePage() {
             </div>
         </section>
 
-        {/* الأكثر مبيعاً */}
         {mostSoldProducts.length > 0 && (
             <section className="space-y-6">
                 <div className="flex items-center justify-between px-1 flex-row-reverse">

@@ -3,7 +3,7 @@
 
 import { useMemo, useContext, useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { ArrowRight, Star, Bike, Navigation2, ShoppingBag, ArrowUp, ChevronLeft, MapPin, Sparkles } from 'lucide-react';
+import { ArrowRight, Star, Bike, Navigation2, ShoppingBag, ArrowUp, ChevronLeft, MapPin, Sparkles, Loader2 } from 'lucide-react';
 import { useRestaurants } from '@/hooks/useRestaurants';
 import { AppContext } from '@/contexts/AppContext';
 import { calculateDistance, calculateDeliveryFee, formatCurrency, cn } from '@/lib/utils';
@@ -20,8 +20,7 @@ export default function RestaurantReelsPage() {
   // العنوان النشط من السياق
   const activeAddress = addresses[0]; 
 
-  // مضاعفة المصفوفة لعمل تكرار لانهائي وهمي (أو استخدام نظام الموديلو)
-  // هنا نستخدم قائمة المتاجر مع حساب المسافات
+  // مضاعفة المصفوفة لعمل تكرار لانهائي وهمي
   const restaurantData = useMemo(() => {
     return restaurants.map(r => {
       let distance = 0;
@@ -34,10 +33,10 @@ export default function RestaurantReelsPage() {
     });
   }, [restaurants, activeAddress]);
 
-  // إنشاء قائمة لا تنتهي عبر تكرار العناصر
+  // إنشاء قائمة لا تنتهي عبر تكرار العناصر لضمان التمرير المستمر
   const loopedRestaurants = useMemo(() => {
       if (restaurantData.length === 0) return [];
-      // نكرر القائمة 10 مرات لضمان عدم وصول الزبون للنهاية بسهولة، أو عمل حل برمجي للتكرار
+      // نكرر القائمة 10 مرات لضمان تجربة ريلز لا تنتهي بسهولة
       return [...restaurantData, ...restaurantData, ...restaurantData, ...restaurantData, ...restaurantData];
   }, [restaurantData]);
 
@@ -46,12 +45,12 @@ export default function RestaurantReelsPage() {
     setActiveTab(10);
   };
 
-  if (isLoading) return <div className="h-full w-full flex items-center justify-center"><Loader2 className="animate-spin text-primary h-10 w-10"/></div>;
+  if (isLoading) return <div className="h-full w-full flex items-center justify-center bg-black"><Loader2 className="animate-spin text-primary h-12 w-12"/></div>;
 
   return (
     <div className="h-screen w-full bg-black text-right relative overflow-hidden">
       {/* هيدر التحكم */}
-      <header className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-between items-center flex-row-reverse bg-gradient-to-b from-black/60 to-transparent">
+      <header className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-between items-center flex-row-reverse bg-gradient-to-b from-black/80 to-transparent">
           <div className="flex items-center gap-3">
               <div className="text-right">
                 <h1 className="text-xl font-black text-white italic leading-none">متاجر سبيد</h1>
@@ -64,7 +63,7 @@ export default function RestaurantReelsPage() {
           </button>
       </header>
 
-      {/* حاوية الريلز بنظام الـ Snap Scrolling */}
+      {/* حاوية الريلز بنظام الـ Snap Scrolling العمودي */}
       <div className="h-full w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide">
           {loopedRestaurants.map((store, index) => (
               <div 
