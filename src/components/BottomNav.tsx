@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Home, User, ShoppingCart, Store, Search } from "lucide-react";
+import { Home, ShoppingCart, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import React, { useContext, useMemo } from "react";
 import { AppContext } from "@/contexts/AppContext";
@@ -9,10 +9,8 @@ import { Badge } from "@/components/ui/badge";
 
 const navItems = [
   { index: 0, label: "الرئيسية", icon: Home },
-  { index: 1, label: "المتاجر", icon: Store },
   { index: 2, label: "البحث", icon: Search },
   { index: 3, label: "السلة", icon: ShoppingCart },
-  { index: 5, label: "حسابي", icon: User },
 ];
 
 function BottomNavComponent() {
@@ -25,25 +23,17 @@ function BottomNavComponent() {
     return cart.reduce((acc, item) => acc + item.quantity, 0);
   }, [cart]);
 
-  const handleTabClick = (index: number) => {
-    if (activeTab > 5 && index === 5) {
-        setActiveTab(5);
-    } else {
-        setActiveTab(index);
-    }
-  };
-
   return (
-    <nav className="w-full bg-card border-t shadow-t-lg shrink-0">
-      <div className="mx-auto grid h-20 max-w-screen-xl grid-cols-5 items-center justify-around px-2">
+    <nav className="w-full bg-card border-t shadow-t-lg shrink-0 pb-safe">
+      <div className="mx-auto grid h-20 max-w-screen-xl grid-cols-3 items-center justify-around px-2">
         {navItems.map((item) => {
-          const isActive = (item.index === 5 && activeTab >= 5) || (activeTab === item.index);
+          const isActive = activeTab === item.index;
           const isCart = item.index === 3;
           
           return (
             <button
               key={item.index}
-              onClick={() => handleTabClick(item.index)}
+              onClick={() => setActiveTab(item.index)}
               className={cn(
                 "group relative flex flex-col items-center justify-center text-muted-foreground transition-all duration-300 active:scale-75",
                 isActive && "text-primary"
@@ -53,7 +43,7 @@ function BottomNavComponent() {
                 "p-2 rounded-2xl transition-all duration-300",
                 isActive && "bg-primary/10"
               )}>
-                <item.icon className={cn("h-6 w-6 transition-transform", isActive && "scale-110")} />
+                <item.icon className={cn("h-7 w-7 transition-transform", isActive && "scale-110")} />
                 {isCart && cartCount > 0 && (
                    <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-[10px] font-black bg-destructive animate-in zoom-in">
                       {cartCount}

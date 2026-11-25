@@ -16,21 +16,18 @@ import { db } from '@/lib/firebase';
 import { doc, updateDoc, increment } from 'firebase/firestore';
 
 import HomePage from './home/page';
-import RestaurantsPage from './restaurants/page';
 import ProductsPage from './products/page';
 import CartPage from './cart/page';
 import OrdersPage from './orders/page';
-import AccountPage from './account/page';
-import AddAddressPage from './account/add-address/page';
 import SupportPage from './support/page';
 import PrivacyPolicyPage from './privacy-policy/page';
 import ProductDetailPage from './products/[id]/page';
 import RestaurantProductsPage from './restaurants/[id]/page';
+import AddAddressPage from './account/add-address/page';
 
 export default function MainAppLayout() {
   const context = useContext(AppContext);
   const { settings } = useAppSettings();
-  const { addresses } = useAddresses();
   const { toast } = useToast();
   
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
@@ -235,11 +232,11 @@ export default function MainAppLayout() {
       <main className="flex-1 relative z-0 overflow-hidden">
         <div className="spa-stack-container" style={{ transform: `translateX(${activeTab * 100}%)` }}>
           <div className="spa-page-view"><HomePage /></div>
-          <div className="spa-page-view">{visitedTabs.has(1) ? <RestaurantsPage /> : null}</div>
+          <div className="spa-page-view">{visitedTabs.has(1) ? <div className="p-8 text-center opacity-40">تم دمج هذه الصفحة في الرئيسية.</div> : null}</div>
           <div className="spa-page-view">{visitedTabs.has(2) ? <ProductsPage /> : null}</div>
           <div className="spa-page-view">{visitedTabs.has(3) ? <CartPage /> : null}</div>
           <div className="spa-page-view">{visitedTabs.has(4) ? <OrdersPage /> : null}</div>
-          <div className="spa-page-view">{visitedTabs.has(5) ? <AccountPage /> : null}</div>
+          <div className="spa-page-view">{visitedTabs.has(5) ? <div className="p-8 text-center opacity-40">تم دمج هذه الصفحة في الرئيسية.</div> : null}</div>
           <div className="spa-page-view">{visitedTabs.has(6) ? <AddAddressPage /> : null}</div>
           <div className="spa-page-view">{visitedTabs.has(7) ? <SupportPage /> : null}</div>
           <div className="spa-page-view">{visitedTabs.has(8) ? <PrivacyPolicyPage /> : null}</div>
